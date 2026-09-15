@@ -55,6 +55,8 @@ interface AppDataContextValue {
   addMatch: (match: Omit<Match, "id">) => void;
   removeMatch: (id: string) => void;
   getTeam: (id: string) => Team | undefined;
+  tipCounts: Record<string, number>;
+  registerTip: (matchId: string) => void;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -62,6 +64,11 @@ const AppDataContext = createContext<AppDataContextValue | null>(null);
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const [teams, setTeams] = useState<Team[]>(initialTeams);
   const [matches, setMatches] = useState<Match[]>(initialMatches);
+  const [tipCounts, setTipCounts] = useState<Record<string, number>>({
+    "match-1": 128,
+    "match-2": 94,
+    "match-3": 61,
+  });
 
   function addTeam(team: Omit<Team, "id">) {
     const id = `team-${Date.now()}`;
@@ -85,9 +92,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return teams.find((t) => t.id === id);
   }
 
+  function registerTip(matchId: string) {
+    setTipCounts((current) => ({ ...current, [matchId]: (current[matchId] ?? 0) + 1 }));
+  }
+
   return (
     <AppDataContext.Provider
-      value={{ teams, matches, addTeam, removeTeam, addMatch, removeMatch, getTeam }}
+      value={{
+        teams,
+        matches,
+        addTeam,
+        removeTeam,
+        addMatch,
+        removeMatch,
+        getTeam,
+        tipCounts,
+        registerTip,
+      }}
     >
       {children}
     </AppDataContext.Provider>
