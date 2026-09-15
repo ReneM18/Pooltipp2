@@ -7,6 +7,7 @@ const tabs = [
   { href: "/", label: "Tipps" },
   { href: "/rangliste", label: "Rangliste" },
   { href: "/shop", label: "Prämien-Shop" },
+  { href: "/fortschritt", label: "Fortschritt" },
 ];
 
 export default function NavTabs() {

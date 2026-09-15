@@ -50,7 +50,7 @@ export default function MatchCard({
   return (
     <div className="overflow-hidden rounded-card border border-edge bg-surface">
       {/* Sport-Banner */}
-      <div className="flex items-center justify-between bg-surface-hover px-5 py-2.5">
+      <div className="flex items-center justify-between bg-gradient-to-r from-surface-hover to-surface px-5 py-2.5">
         <span className="flex items-center gap-2 text-sm font-semibold text-ink">
           <span className="text-lg">{sportIcon[match.sport] ?? ""}</span>
           <span>{flagEmoji(homeTeam.countryCode)}</span>
@@ -133,7 +133,7 @@ export default function MatchCard({
         <button
           onClick={handleSubmit}
           disabled={submitted}
-          className="w-full rounded-full bg-action py-2.5 font-display font-semibold tracking-wide text-base text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:bg-edge disabled:text-muted"
+          className="w-full rounded-full bg-action py-2.5 font-display font-semibold tracking-wide text-base text-pitch shadow-[0_0_20px_rgba(63,166,107,0.35)] transition-all enabled:hover:bg-action-hover enabled:hover:shadow-[0_0_28px_rgba(63,166,107,0.5)] disabled:cursor-not-allowed disabled:bg-edge disabled:text-muted disabled:shadow-none"
         >
           {submitted ? "Tipp abgegeben" : "Tipp abgeben"}
         </button>

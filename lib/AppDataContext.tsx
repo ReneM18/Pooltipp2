@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode } from "react";
-import { Match, Team } from "./types";
+import { Match, Sport, Team } from "./types";
 
 // Hinweis: Diese Daten leben nur im Browser-Speicher (React-State) und
 // gehen beim Neuladen der Seite verloren. Das ist bewusst so für dieses
@@ -57,6 +57,7 @@ interface AppDataContextValue {
   getTeam: (id: string) => Team | undefined;
   tipCounts: Record<string, number>;
   registerTip: (matchId: string) => void;
+  tipsBySport: Record<Sport, number>;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -68,6 +69,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     "match-1": 128,
     "match-2": 94,
     "match-3": 61,
+  });
+  const [tipsBySport, setTipsBySport] = useState<Record<Sport, number>>({
+    "Fußball": 0,
+    NFL: 0,
+    NBA: 0,
   });
 
   function addTeam(team: Omit<Team, "id">) {
@@ -94,6 +100,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   function registerTip(matchId: string) {
     setTipCounts((current) => ({ ...current, [matchId]: (current[matchId] ?? 0) + 1 }));
+    const match = matches.find((m) => m.id === matchId);
+    if (match) {
+      setTipsBySport((current) => ({ ...current, [match.sport]: current[match.sport] + 1 }));
+    }
   }
 
   return (
@@ -108,6 +118,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         getTeam,
         tipCounts,
         registerTip,
+        tipsBySport,
       }}
     >
       {children}
