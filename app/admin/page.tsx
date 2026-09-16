@@ -2,7 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useAppData } from "@/lib/AppDataContext";
-import { Sport, SPORTS, JerseyStyle, JERSEY_STYLES } from "@/lib/types";
+import { Sport, SPORTS, JerseyStyle, JERSEY_STYLES, Match, MatchStatus } from "@/lib/types";
 import { COUNTRIES, flagEmoji } from "@/lib/flags";
 import TeamBadge from "@/components/TeamBadge";
 
@@ -237,7 +237,7 @@ function TeamManager() {
 }
 
 function MatchManager() {
-  const { teams, matches, addMatch, removeMatch, getTeam } = useAppData();
+  const { teams, matches, addMatch, removeMatch, getTeam, updateMatchScore } = useAppData();
   const [sport, setSport] = useState<Sport>("Fußball");
   const [competition, setCompetition] = useState("");
   const [matchday, setMatchday] = useState("");
@@ -265,6 +265,9 @@ function MatchManager() {
       homeTeamId,
       awayTeamId,
       fixedStake: stakeValue,
+      status: "upcoming",
+      liveHomeScore: null,
+      liveAwayScore: null,
     });
 
     setCompetition("");
@@ -413,7 +416,7 @@ function MatchManager() {
           return (
             <div
               key={match.id}
-              className={`flex items-center justify-between px-4 py-3 ${
+              className={`flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
                 index !== matches.length - 1 ? "border-b border-edge" : ""
               }`}
             >
@@ -423,16 +426,71 @@ function MatchManager() {
                   ({new Date(match.kickoff).toLocaleString("de-DE")}) · ⭐ {match.fixedStake}
                 </span>
               </span>
-              <button
-                onClick={() => removeMatch(match.id)}
-                className="text-xs text-muted hover:text-ink"
-              >
-                Entfernen
-              </button>
+
+              <div className="flex items-center gap-2">
+                <LiveScoreEditor match={match} onUpdate={updateMatchScore} />
+                <button
+                  onClick={() => removeMatch(match.id)}
+                  className="text-xs text-muted hover:text-ink"
+                >
+                  Entfernen
+                </button>
+              </div>
             </div>
           );
         })}
       </div>
     </section>
+  );
+}
+
+function LiveScoreEditor({
+  match,
+  onUpdate,
+}: {
+  match: Match;
+  onUpdate: (matchId: string, homeScore: number | null, awayScore: number | null, status: MatchStatus) => void;
+}) {
+  const [homeScore, setHomeScore] = useState(match.liveHomeScore ?? 0);
+  const [awayScore, setAwayScore] = useState(match.liveAwayScore ?? 0);
+  const [status, setStatus] = useState<MatchStatus>(match.status);
+
+  function handleUpdate() {
+    onUpdate(match.id, homeScore, awayScore, status);
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <select
+        value={status}
+        onChange={(e) => setStatus(e.target.value as MatchStatus)}
+        className="rounded-lg border border-edge bg-pitch px-2 py-1 text-xs text-ink outline-none focus:border-gold"
+      >
+        <option value="upcoming">Bevorstehend</option>
+        <option value="live">Live</option>
+        <option value="finished">Beendet</option>
+      </select>
+      <input
+        type="number"
+        min={0}
+        value={homeScore}
+        onChange={(e) => setHomeScore(Number(e.target.value))}
+        className="w-12 rounded-lg border border-edge bg-pitch px-1.5 py-1 text-center text-xs text-ink outline-none focus:border-gold"
+      />
+      <span className="text-xs text-muted">:</span>
+      <input
+        type="number"
+        min={0}
+        value={awayScore}
+        onChange={(e) => setAwayScore(Number(e.target.value))}
+        className="w-12 rounded-lg border border-edge bg-pitch px-1.5 py-1 text-center text-xs text-ink outline-none focus:border-gold"
+      />
+      <button
+        onClick={handleUpdate}
+        className="rounded-lg bg-action px-2 py-1 text-xs font-semibold text-pitch transition-colors hover:bg-action-hover"
+      >
+        OK
+      </button>
+    </div>
   );
 }

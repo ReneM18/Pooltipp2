@@ -12,11 +12,17 @@ const sportIcon: Record<string, string> = {
   NBA: "🏀",
 };
 
+interface MyTip {
+  predictedHomeScore: number;
+  predictedAwayScore: number;
+}
+
 interface MatchCardProps {
   match: Match;
   homeTeam: Team;
   awayTeam: Team;
   tipCount: number;
+  myTip?: MyTip;
   onSubmitTip: (homeScore: number, awayScore: number) => void;
 }
 
@@ -25,11 +31,11 @@ export default function MatchCard({
   homeTeam,
   awayTeam,
   tipCount,
+  myTip,
   onSubmitTip,
 }: MatchCardProps) {
   const [homeScore, setHomeScore] = useState<number>(0);
   const [awayScore, setAwayScore] = useState<number>(0);
-  const [submitted, setSubmitted] = useState(false);
   const [tippingClosed, setTippingClosed] = useState(
     () => new Date(match.tipDeadline).getTime() <= Date.now()
   );
@@ -50,11 +56,11 @@ export default function MatchCard({
     minute: "2-digit",
   });
 
-  const disabled = submitted || tippingClosed;
+  const hasTipped = !!myTip;
+  const showResultView = hasTipped || tippingClosed;
 
   function handleSubmit() {
     onSubmitTip(homeScore, awayScore);
-    setSubmitted(true);
   }
 
   return (
@@ -101,45 +107,100 @@ export default function MatchCard({
           </div>
         </div>
 
-        <div className="mb-5 flex items-center justify-center gap-3">
-          <ScoreInput
-            value={homeScore}
-            onChange={setHomeScore}
-            disabled={disabled}
-            label={`Tor-Ergebnis ${homeTeam.name}`}
-          />
-          <span className="font-display text-xl text-muted">:</span>
-          <ScoreInput
-            value={awayScore}
-            onChange={setAwayScore}
-            disabled={disabled}
-            label={`Tor-Ergebnis ${awayTeam.name}`}
-          />
-        </div>
+        {!showResultView && (
+          <>
+            <div className="mb-5 flex items-center justify-center gap-3">
+              <ScoreInput
+                value={homeScore}
+                onChange={setHomeScore}
+                disabled={false}
+                label={`Tor-Ergebnis ${homeTeam.name}`}
+              />
+              <span className="font-display text-xl text-muted">:</span>
+              <ScoreInput
+                value={awayScore}
+                onChange={setAwayScore}
+                disabled={false}
+                label={`Tor-Ergebnis ${awayTeam.name}`}
+              />
+            </div>
 
-        <div className="mb-5 flex items-center justify-between rounded-lg border border-edge bg-pitch px-4 py-2.5">
-          <span className="text-sm text-muted">Einsatz für dieses Spiel</span>
-          <span className="font-display font-semibold text-gold">
-            ⭐ {match.fixedStake.toLocaleString("de-DE")}
-          </span>
-        </div>
+            <div className="mb-5 flex items-center justify-between rounded-lg border border-edge bg-pitch px-4 py-2.5">
+              <span className="text-sm text-muted">Einsatz für dieses Spiel</span>
+              <span className="font-display font-semibold text-gold">
+                ⭐ {match.fixedStake.toLocaleString("de-DE")}
+              </span>
+            </div>
 
-        <button
-          onClick={handleSubmit}
-          disabled={disabled}
-          className="w-full rounded-full bg-action py-2.5 font-display font-semibold tracking-wide text-base text-pitch shadow-[0_0_20px_rgba(63,166,107,0.35)] transition-all enabled:hover:bg-action-hover enabled:hover:shadow-[0_0_28px_rgba(63,166,107,0.5)] disabled:cursor-not-allowed disabled:bg-edge disabled:text-muted disabled:shadow-none"
-        >
-          {submitted ? "Tipp abgegeben" : tippingClosed ? "Tippannahme geschlossen" : "Tipp abgeben"}
-        </button>
+            <button
+              onClick={handleSubmit}
+              className="w-full rounded-full bg-action py-2.5 font-display font-semibold tracking-wide text-base text-pitch shadow-[0_0_20px_rgba(63,166,107,0.35)] transition-all hover:bg-action-hover hover:shadow-[0_0_28px_rgba(63,166,107,0.5)]"
+            >
+              Tipp abgeben
+            </button>
+          </>
+        )}
+
+        {showResultView && (
+          <div className="flex flex-col gap-3">
+            {hasTipped && (
+              <div className="flex items-center justify-between rounded-lg border border-edge bg-pitch px-4 py-2.5">
+                <span className="text-sm text-muted">Dein Tipp</span>
+                <span className="font-display font-semibold text-ink">
+                  {myTip!.predictedHomeScore} : {myTip!.predictedAwayScore}
+                </span>
+              </div>
+            )}
+
+            <ResultBox match={match} />
+
+            {!hasTipped && tippingClosed && (
+              <p className="text-center text-xs text-muted">
+                Tippannahme für dieses Spiel ist bereits geschlossen.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="mt-3 flex items-center justify-between text-xs text-muted">
           <span className="flex items-center gap-1">
             <PeopleIcon className="h-3.5 w-3.5" />
             {tipCount.toLocaleString("de-DE")} getippt
           </span>
-          {submitted && <span className="font-semibold text-action">✓ Getippt</span>}
+          {hasTipped && <span className="font-semibold text-action">✓ Getippt</span>}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ResultBox({ match }: { match: Match }) {
+  if (match.status === "live") {
+    return (
+      <div className="flex items-center justify-center gap-3 rounded-lg border border-action bg-action/10 px-4 py-3">
+        <span className="flex h-2 w-2 animate-pulse rounded-full bg-action" />
+        <span className="font-display text-sm font-semibold text-action">LIVE</span>
+        <span className="font-display text-xl font-bold text-ink">
+          {match.liveHomeScore ?? 0} : {match.liveAwayScore ?? 0}
+        </span>
+      </div>
+    );
+  }
+
+  if (match.status === "finished") {
+    return (
+      <div className="flex items-center justify-center gap-3 rounded-lg border border-edge bg-pitch px-4 py-3">
+        <span className="text-sm text-muted">Endstand</span>
+        <span className="font-display text-xl font-bold text-ink">
+          {match.liveHomeScore ?? 0} : {match.liveAwayScore ?? 0}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-center rounded-lg border border-edge bg-pitch px-4 py-3">
+      <span className="text-sm text-muted">Spiel hat noch nicht begonnen</span>
     </div>
   );
 }

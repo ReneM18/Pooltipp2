@@ -20,6 +20,8 @@ export interface Team {
   jerseyStyle?: JerseyStyle; // nur relevant für Fußball/NBA, wird bei NFL ignoriert
 }
 
+export type MatchStatus = "upcoming" | "live" | "finished";
+
 export interface Match {
   id: string;
   sport: Sport;
@@ -30,6 +32,9 @@ export interface Match {
   homeTeamId: string;
   awayTeamId: string;
   fixedStake: number; // vom Admin festgelegter Einsatz in Sternen, für alle User gleich
+  status: MatchStatus;
+  liveHomeScore: number | null;
+  liveAwayScore: number | null;
 }
 
 export interface Tip {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, ChangeEvent } from "react";
 import { useUser } from "@/lib/UserContext";
 import { mockLeaderboard } from "@/lib/mockLeaderboard";
 
@@ -8,6 +8,7 @@ export default function ProfilPage() {
   const { displayName, setDisplayName, freeStars, points, tipsSubmitted } = useUser();
   const [nameInput, setNameInput] = useState(displayName);
   const [saved, setSaved] = useState(false);
+  const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
 
   const currentRank = mockLeaderboard.find((entry) => entry.isCurrentUser)?.rank;
 
@@ -19,11 +20,38 @@ export default function ProfilPage() {
     setTimeout(() => setSaved(false), 2000);
   }
 
+  function handlePhotoChange(index: number, e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPhotos((current) => {
+        const next = [...current];
+        next[index] = reader.result as string;
+        return next;
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removePhoto(index: number) {
+    setPhotos((current) => {
+      const next = [...current];
+      next[index] = null;
+      return next;
+    });
+  }
+
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
       <div className="mb-8 flex items-center gap-4">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface font-display text-2xl font-bold text-gold">
-          {displayName.slice(0, 1).toUpperCase()}
+        <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-2xl font-bold text-gold">
+          {photos[0] ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photos[0]} alt="Profilbild" className="h-full w-full object-cover" />
+          ) : (
+            displayName.slice(0, 1).toUpperCase()
+          )}
         </div>
         <div>
           <h1 className="font-display text-2xl font-bold text-ink">{displayName}</h1>
@@ -32,6 +60,46 @@ export default function ProfilPage() {
           </p>
         </div>
       </div>
+
+      <section className="mb-8">
+        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Fotos</h2>
+        <div className="grid grid-cols-3 gap-3">
+          {photos.map((photo, index) => (
+            <div
+              key={index}
+              className="relative flex aspect-square items-center justify-center overflow-hidden rounded-card border border-dashed border-edge bg-surface"
+            >
+              {photo ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photo} alt={`Foto ${index + 1}`} className="h-full w-full object-cover" />
+                  <button
+                    onClick={() => removePhoto(index)}
+                    className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-pitch/80 text-xs text-ink"
+                  >
+                    ✕
+                  </button>
+                </>
+              ) : (
+                <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-1 text-muted">
+                  <span className="text-2xl">＋</span>
+                  <span className="text-xs">Foto {index + 1}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handlePhotoChange(index, e)}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-muted">
+          Fotos werden aktuell nur lokal in deinem Browser angezeigt (noch keine dauerhafte
+          Speicherung ohne Backend).
+        </p>
+      </section>
 
       <section className="mb-8">
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Statistik</h2>

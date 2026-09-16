@@ -16,8 +16,10 @@ export default function DashboardPage() {
   const { matches, getTeam, tipCounts, submitTip, myTips } = useAppData();
   const [tab, setTab] = useState<"offen" | "historie">("offen");
 
-  const tippedMatchIds = new Set(myTips.map((t) => t.matchId));
-  const offeneMatches = matches.filter((m) => !tippedMatchIds.has(m.id));
+  function findTipForMatch(matchId: string) {
+    // letzten Tipp für dieses Spiel finden (falls mehrfach möglich in Zukunft)
+    return [...myTips].reverse().find((t) => t.matchId === matchId);
+  }
 
   function handleSubmitTip(matchId: string, stake: number, homeScore: number, awayScore: number) {
     spendStars(stake);
@@ -39,7 +41,7 @@ export default function DashboardPage() {
       <div className="mb-5 flex gap-2 border-b border-edge">
         <TabButton
           label="Offene Tipps"
-          count={offeneMatches.length}
+          count={matches.length}
           active={tab === "offen"}
           onClick={() => setTab("offen")}
         />
@@ -53,15 +55,14 @@ export default function DashboardPage() {
 
       {tab === "offen" && (
         <div className="flex flex-col gap-4">
-          {offeneMatches.length === 0 && (
-            <p className="py-8 text-center text-sm text-muted">
-              Aktuell keine offenen Spiele zum Tippen.
-            </p>
+          {matches.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted">Aktuell keine Spiele angelegt.</p>
           )}
-          {offeneMatches.map((match) => {
+          {matches.map((match) => {
             const homeTeam = getTeam(match.homeTeamId);
             const awayTeam = getTeam(match.awayTeamId);
             if (!homeTeam || !awayTeam) return null;
+            const tip = findTipForMatch(match.id);
 
             return (
               <MatchCard
@@ -70,6 +71,11 @@ export default function DashboardPage() {
                 homeTeam={homeTeam}
                 awayTeam={awayTeam}
                 tipCount={tipCounts[match.id] ?? 0}
+                myTip={
+                  tip
+                    ? { predictedHomeScore: tip.predictedHomeScore, predictedAwayScore: tip.predictedAwayScore }
+                    : undefined
+                }
                 onSubmitTip={(homeScore, awayScore) =>
                   handleSubmitTip(match.id, match.fixedStake, homeScore, awayScore)
                 }

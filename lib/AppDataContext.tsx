@@ -37,6 +37,9 @@ const initialMatches: Match[] = [
     homeTeamId: "team-fcb",
     awayTeamId: "team-bvb",
     fixedStake: 20,
+    status: "upcoming",
+    liveHomeScore: null,
+    liveAwayScore: null,
   },
   {
     id: "match-2",
@@ -48,6 +51,9 @@ const initialMatches: Match[] = [
     homeTeamId: "team-rbl",
     awayTeamId: "team-b04",
     fixedStake: 20,
+    status: "upcoming",
+    liveHomeScore: null,
+    liveAwayScore: null,
   },
   {
     id: "match-3",
@@ -59,6 +65,9 @@ const initialMatches: Match[] = [
     homeTeamId: "team-sge",
     awayTeamId: "team-vfb",
     fixedStake: 20,
+    status: "upcoming",
+    liveHomeScore: null,
+    liveAwayScore: null,
   },
 ];
 
@@ -75,6 +84,7 @@ interface AppDataContextValue {
   tipsBySport: Record<Sport, number>;
   myTips: SubmittedTip[];
   submitTip: (matchId: string, predictedHomeScore: number, predictedAwayScore: number, stake: number) => void;
+  updateMatchScore: (matchId: string, homeScore: number | null, awayScore: number | null, status: Match["status"]) => void;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -144,6 +154,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     ]);
   }
 
+  function updateMatchScore(
+    matchId: string,
+    homeScore: number | null,
+    awayScore: number | null,
+    status: Match["status"]
+  ) {
+    setMatches((current) =>
+      current.map((m) =>
+        m.id === matchId ? { ...m, liveHomeScore: homeScore, liveAwayScore: awayScore, status } : m
+      )
+    );
+  }
+
   return (
     <AppDataContext.Provider
       value={{
@@ -159,6 +182,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         tipsBySport,
         myTips,
         submitTip,
+        updateMatchScore,
       }}
     >
       {children}
