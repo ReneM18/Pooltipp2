@@ -139,23 +139,34 @@ function HelmetIcon({
         fill={`url(#${gradId})`}
       />
 
-      {/* Kinnschutz-Pad */}
-      <path d="M31,33 L39,31 C40,34 38,38 34,39 L30,39 Z" fill={secondary} />
+      {/* Genähte Naht oben (gestrichelt) */}
+      <path
+        d="M11,7 C14,5 17,4 20,3.5"
+        stroke={secondary}
+        strokeWidth="1.3"
+        strokeDasharray="2 2"
+        fill="none"
+        strokeLinecap="round"
+        opacity="0.85"
+      />
+
+      {/* Kinn-/Wangenpolster */}
+      <path d="M30,32 L39,29.5 C40.5,33 38.5,38 34,39.5 L29,39 Z" fill={secondary} />
 
       {/* Glanzlichter */}
       <circle cx="30" cy="9" r="2.2" fill="#FFFFFF" opacity="0.55" />
       <circle cx="25" cy="6.5" r="1" fill="#FFFFFF" opacity="0.45" />
 
-      {/* Ohr-Öffnung */}
-      <circle cx="14" cy="26" r="3" fill="#00000030" />
-      <circle cx="14" cy="26" r="3" fill="none" stroke={secondary} strokeWidth="1.4" />
+      {/* Befestigungs-Niete der Maske */}
+      <circle cx="24" cy="19" r="2" fill="none" stroke={secondary} strokeWidth="1.6" />
 
       {/* Gittermaske (Cage) */}
-      <g stroke={secondary} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M28,14 C35,15 39,20 39,26 C39,31 35,35 28,35" />
-        <line x1="34" y1="15.5" x2="34" y2="33.5" />
-        <line x1="30" y1="21" x2="38.5" y2="21" />
-        <line x1="30" y1="28.5" x2="38.5" y2="28.5" />
+      <g stroke={secondary} strokeWidth="2.1" fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20,14 L24,17" />
+        <path d="M24,19 C30,17 37,20 38,26 C38.5,31 34,35 27,35" />
+        <line x1="33" y1="17.5" x2="33" y2="33.5" />
+        <line x1="28" y1="21.5" x2="37.5" y2="21.5" />
+        <line x1="27" y1="28.5" x2="37" y2="29" />
       </g>
     </svg>
   );

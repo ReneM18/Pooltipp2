@@ -421,8 +421,28 @@ function MatchManager() {
                 index !== matches.length - 1 ? "border-b border-edge" : ""
               }`}
             >
-              <span className="text-sm text-ink">
-                {match.competition}: {home?.name ?? "?"} vs {away?.name ?? "?"}{" "}
+              <span className="flex items-center gap-2 text-sm text-ink">
+                {home && (
+                  <TeamBadge
+                    sport={home.sport}
+                    primaryColor={home.primaryColor}
+                    secondaryColor={home.secondaryColor}
+                    jerseyStyle={home.jerseyStyle}
+                    size={22}
+                  />
+                )}
+                <span>
+                  {match.competition}: {home?.name ?? "?"} vs {away?.name ?? "?"}
+                </span>
+                {away && (
+                  <TeamBadge
+                    sport={away.sport}
+                    primaryColor={away.primaryColor}
+                    secondaryColor={away.secondaryColor}
+                    jerseyStyle={away.jerseyStyle}
+                    size={22}
+                  />
+                )}
                 <span className="text-xs text-muted">
                   ({new Date(match.kickoff).toLocaleString("de-DE")}) · ⭐ {match.fixedStake}
                 </span>
