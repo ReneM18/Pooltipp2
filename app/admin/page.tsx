@@ -493,6 +493,8 @@ function VideoLinkEditor({
     </div>
   );
 }
+
+function LiveScoreEditor({
   match,
   onUpdate,
 }: {

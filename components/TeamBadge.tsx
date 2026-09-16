@@ -120,54 +120,31 @@ function HelmetIcon({
 }) {
   const uid = useId();
   const gradId = `hgrad-${uid}`;
-  const light = shadeColor(primary, 35);
-  const dark = shadeColor(primary, -25);
+  const light = shadeColor(primary, 30);
+  const dark = shadeColor(primary, -20);
 
   return (
     <svg width={size} height={size} viewBox={VIEWBOX} aria-hidden="true">
       <defs>
         <linearGradient id={gradId} x1="0.1" y1="0" x2="0.9" y2="1">
           <stop offset="0%" stopColor={light} />
-          <stop offset="55%" stopColor={primary} />
           <stop offset="100%" stopColor={dark} />
         </linearGradient>
       </defs>
 
-      {/* Helmschale, glänzendes Seitenprofil */}
+      {/* Helmschale */}
       <path
-        d="M3,25 C2,11 15,3 26,3 C35,3 41,9 41,18 C41,24 39,29 34,32 L33,37 C33,41 30,43 26,43 L15,43 C10,43 7,39 7,34 L7,29 C7,27 4,27 3,25 Z"
+        d="M4,24 C4,10 16,3 26,3 C36,3 42,10 42,20 C42,27 38,32 32,34 L31,38 C30,41 27,43 24,43 L14,43 C9,43 6,39 6,33 Z"
         fill={`url(#${gradId})`}
       />
 
-      {/* Genähte Naht oben (gestrichelt) */}
-      <path
-        d="M11,7 C14,5 17,4 20,3.5"
-        stroke={secondary}
-        strokeWidth="1.3"
-        strokeDasharray="2 2"
-        fill="none"
-        strokeLinecap="round"
-        opacity="0.85"
-      />
+      {/* Kinnpolster */}
+      <path d="M30,32 L40,29 C41,33 38,38 33,39 L29,38 Z" fill={secondary} />
 
-      {/* Kinn-/Wangenpolster */}
-      <path d="M30,32 L39,29.5 C40.5,33 38.5,38 34,39.5 L29,39 Z" fill={secondary} />
-
-      {/* Glanzlichter */}
-      <circle cx="30" cy="9" r="2.2" fill="#FFFFFF" opacity="0.55" />
-      <circle cx="25" cy="6.5" r="1" fill="#FFFFFF" opacity="0.45" />
-
-      {/* Befestigungs-Niete der Maske */}
-      <circle cx="24" cy="19" r="2" fill="none" stroke={secondary} strokeWidth="1.6" />
-
-      {/* Gittermaske (Cage) */}
-      <g stroke={secondary} strokeWidth="2.1" fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20,14 L24,17" />
-        <path d="M24,19 C30,17 37,20 38,26 C38.5,31 34,35 27,35" />
-        <line x1="33" y1="17.5" x2="33" y2="33.5" />
-        <line x1="28" y1="21.5" x2="37.5" y2="21.5" />
-        <line x1="27" y1="28.5" x2="37" y2="29" />
-      </g>
+      {/* Gittermaske: kräftiger Rahmen mit zwei Querstreben, klar erkennbar auch klein */}
+      <rect x="19" y="14" width="17" height="19" rx="8" fill="none" stroke={secondary} strokeWidth="2.8" />
+      <line x1="19.5" y1="20.5" x2="35.5" y2="20.5" stroke={secondary} strokeWidth="2.6" strokeLinecap="round" />
+      <line x1="19.5" y1="27" x2="35.5" y2="27" stroke={secondary} strokeWidth="2.6" strokeLinecap="round" />
     </svg>
   );
 }
