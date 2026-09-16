@@ -237,7 +237,7 @@ function TeamManager() {
 }
 
 function MatchManager() {
-  const { teams, matches, addMatch, removeMatch, getTeam, updateMatchScore } = useAppData();
+  const { teams, matches, addMatch, removeMatch, getTeam, updateMatchScore, setSummaryVideo } = useAppData();
   const [sport, setSport] = useState<Sport>("Fußball");
   const [competition, setCompetition] = useState("");
   const [matchday, setMatchday] = useState("");
@@ -268,6 +268,7 @@ function MatchManager() {
       status: "upcoming",
       liveHomeScore: null,
       liveAwayScore: null,
+      summaryVideoUrl: null,
     });
 
     setCompetition("");
@@ -427,8 +428,9 @@ function MatchManager() {
                 </span>
               </span>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <LiveScoreEditor match={match} onUpdate={updateMatchScore} />
+                <VideoLinkEditor match={match} onSave={setSummaryVideo} />
                 <button
                   onClick={() => removeMatch(match.id)}
                   className="text-xs text-muted hover:text-ink"
@@ -444,7 +446,33 @@ function MatchManager() {
   );
 }
 
-function LiveScoreEditor({
+function VideoLinkEditor({
+  match,
+  onSave,
+}: {
+  match: Match;
+  onSave: (matchId: string, url: string) => void;
+}) {
+  const [url, setUrl] = useState(match.summaryVideoUrl ?? "");
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <input
+        type="url"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        placeholder="YouTube-Link zur Zusammenfassung"
+        className="w-48 rounded-lg border border-edge bg-pitch px-2 py-1 text-xs text-ink outline-none focus:border-gold"
+      />
+      <button
+        onClick={() => onSave(match.id, url.trim())}
+        className="rounded-lg bg-surface-hover px-2 py-1 text-xs font-semibold text-ink transition-colors hover:text-gold"
+      >
+        Speichern
+      </button>
+    </div>
+  );
+}
   match,
   onUpdate,
 }: {

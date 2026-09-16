@@ -189,11 +189,23 @@ function ResultBox({ match }: { match: Match }) {
 
   if (match.status === "finished") {
     return (
-      <div className="flex items-center justify-center gap-3 rounded-lg border border-edge bg-pitch px-4 py-3">
-        <span className="text-sm text-muted">Endstand</span>
-        <span className="font-display text-xl font-bold text-ink">
-          {match.liveHomeScore ?? 0} : {match.liveAwayScore ?? 0}
-        </span>
+      <div className="flex flex-col items-center gap-2 rounded-lg border border-edge bg-pitch px-4 py-3">
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted">Endstand</span>
+          <span className="font-display text-xl font-bold text-ink">
+            {match.liveHomeScore ?? 0} : {match.liveAwayScore ?? 0}
+          </span>
+        </div>
+        {match.summaryVideoUrl && (
+          <a
+            href={match.summaryVideoUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 rounded-full bg-surface-hover px-3 py-1.5 text-xs font-semibold text-gold transition-colors hover:text-ink"
+          >
+            ▶ Zusammenfassung ansehen
+          </a>
+        )}
       </div>
     );
   }

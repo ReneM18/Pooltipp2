@@ -40,6 +40,7 @@ const initialMatches: Match[] = [
     status: "upcoming",
     liveHomeScore: null,
     liveAwayScore: null,
+    summaryVideoUrl: null,
   },
   {
     id: "match-2",
@@ -54,6 +55,7 @@ const initialMatches: Match[] = [
     status: "upcoming",
     liveHomeScore: null,
     liveAwayScore: null,
+    summaryVideoUrl: null,
   },
   {
     id: "match-3",
@@ -68,6 +70,7 @@ const initialMatches: Match[] = [
     status: "upcoming",
     liveHomeScore: null,
     liveAwayScore: null,
+    summaryVideoUrl: null,
   },
 ];
 
@@ -85,6 +88,7 @@ interface AppDataContextValue {
   myTips: SubmittedTip[];
   submitTip: (matchId: string, predictedHomeScore: number, predictedAwayScore: number, stake: number) => void;
   updateMatchScore: (matchId: string, homeScore: number | null, awayScore: number | null, status: Match["status"]) => void;
+  setSummaryVideo: (matchId: string, url: string) => void;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -167,6 +171,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  function setSummaryVideo(matchId: string, url: string) {
+    setMatches((current) =>
+      current.map((m) => (m.id === matchId ? { ...m, summaryVideoUrl: url } : m))
+    );
+  }
+
   return (
     <AppDataContext.Provider
       value={{
@@ -183,6 +193,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         myTips,
         submitTip,
         updateMatchScore,
+        setSummaryVideo,
       }}
     >
       {children}

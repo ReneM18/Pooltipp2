@@ -10,7 +10,6 @@ const tabs = [
   { href: "/shop", label: "Prämien-Shop" },
   { href: "/fortschritt", label: "Fortschritt" },
   { href: "/freunde", label: "Freunde" },
-  { href: "/teams", label: "Private Tipprunden →" },
 ];
 
 export default function NavTabs() {
@@ -18,7 +17,7 @@ export default function NavTabs() {
 
   return (
     <nav className="border-b border-edge bg-pitch">
-      <div className="mx-auto flex max-w-3xl gap-6 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="mx-auto flex max-w-3xl items-center gap-6 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {tabs.map((tab) => {
           const isActive = pathname === tab.href;
           return (
@@ -36,6 +35,13 @@ export default function NavTabs() {
             </Link>
           );
         })}
+
+        <Link
+          href="/teams"
+          className="my-1.5 ml-auto shrink-0 rounded-full bg-blue-500 px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
+        >
+          Private Tipprunden →
+        </Link>
       </div>
     </nav>
   );

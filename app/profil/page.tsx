@@ -2,10 +2,18 @@
 
 import { useState, FormEvent, ChangeEvent } from "react";
 import { useUser } from "@/lib/UserContext";
+import { useAppData } from "@/lib/AppDataContext";
 import { mockLeaderboard } from "@/lib/mockLeaderboard";
+
+const sportIcon: Record<string, string> = {
+  "Fußball": "⚽",
+  NFL: "🏈",
+  NBA: "🏀",
+};
 
 export default function ProfilPage() {
   const { displayName, setDisplayName, freeStars, points, tipsSubmitted } = useUser();
+  const { matches, getTeam, myTips } = useAppData();
   const [nameInput, setNameInput] = useState(displayName);
   const [saved, setSaved] = useState(false);
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
@@ -139,6 +147,45 @@ export default function ProfilPage() {
           Weitere Einstellungen (Benachrichtigungen, Passwort, Konto löschen) kommen mit dem
           echten Login-System.
         </p>
+      </section>
+      <section className="mt-8">
+        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Meine Tipp-Historie</h2>
+        <div className="flex flex-col gap-3">
+          {myTips.length === 0 && (
+            <p className="py-4 text-center text-sm text-muted">Noch keine Tipps abgegeben.</p>
+          )}
+          {[...myTips].reverse().map((tip) => {
+            const match = matches.find((m) => m.id === tip.matchId);
+            if (!match) return null;
+            const homeTeam = getTeam(match.homeTeamId);
+            const awayTeam = getTeam(match.awayTeamId);
+            if (!homeTeam || !awayTeam) return null;
+
+            return (
+              <div
+                key={tip.id}
+                className="flex items-center justify-between rounded-card border border-edge bg-surface px-5 py-4"
+              >
+                <div>
+                  <p className="text-xs text-muted">
+                    {sportIcon[match.sport]} {match.competition}
+                    {match.matchday ? ` · Spieltag ${match.matchday}` : ""}
+                  </p>
+                  <p className="font-display text-sm font-semibold text-ink">
+                    {homeTeam.name} vs {awayTeam.name}
+                  </p>
+                  <p className="text-xs text-muted">
+                    Getippt: {tip.predictedHomeScore}:{tip.predictedAwayScore}
+                    {match.status === "finished" &&
+                      ` · Endstand: ${match.liveHomeScore}:${match.liveAwayScore}`}{" "}
+                    · {new Date(tip.submittedAt).toLocaleString("de-DE")}
+                  </p>
+                </div>
+                <span className="font-display font-semibold text-gold">⭐ {tip.stake}</span>
+              </div>
+            );
+          })}
+        </div>
       </section>
     </main>
   );

@@ -35,6 +35,7 @@ export interface Match {
   status: MatchStatus;
   liveHomeScore: number | null;
   liveAwayScore: number | null;
+  summaryVideoUrl: string | null; // z. B. YouTube-Link zur Spiel-Zusammenfassung
 }
 
 export interface Tip {
