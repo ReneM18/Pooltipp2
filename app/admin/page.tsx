@@ -440,6 +440,7 @@ function MatchManager() {
                     primaryColor={away.primaryColor}
                     secondaryColor={away.secondaryColor}
                     jerseyStyle={away.jerseyStyle}
+                    flip
                     size={22}
                   />
                 )}

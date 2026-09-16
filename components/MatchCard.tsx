@@ -84,7 +84,7 @@ export default function MatchCard({
         <div className="mb-1 text-center text-xs text-muted">{kickoffLabel}</div>
 
         <div className="mb-5 flex items-center justify-center gap-2 sm:gap-4">
-          <div className="flex min-w-0 flex-row-reverse items-center gap-1.5 sm:gap-2">
+          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
             <TeamBadge
               sport={match.sport}
               primaryColor={homeTeam.primaryColor}
@@ -95,12 +95,13 @@ export default function MatchCard({
             <TeamLabel name={homeTeam.name} align="right" />
           </div>
           <span className="font-display text-xs text-muted sm:text-sm">vs</span>
-          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+          <div className="flex min-w-0 flex-row-reverse items-center gap-1.5 sm:gap-2">
             <TeamBadge
               sport={match.sport}
               primaryColor={awayTeam.primaryColor}
               secondaryColor={awayTeam.secondaryColor}
               jerseyStyle={awayTeam.jerseyStyle}
+              flip
               size={26}
             />
             <TeamLabel name={awayTeam.name} align="left" />
