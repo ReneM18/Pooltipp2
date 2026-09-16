@@ -118,33 +118,23 @@ function HelmetIcon({
   secondary: string;
   size: number;
 }) {
-  const uid = useId();
-  const gradId = `hgrad-${uid}`;
-  const light = shadeColor(primary, 30);
-  const dark = shadeColor(primary, -20);
+  const dark = shadeColor(primary, -35);
 
   return (
-    <svg width={size} height={size} viewBox={VIEWBOX} aria-hidden="true">
-      <defs>
-        <linearGradient id={gradId} x1="0.1" y1="0" x2="0.9" y2="1">
-          <stop offset="0%" stopColor={light} />
-          <stop offset="100%" stopColor={dark} />
-        </linearGradient>
-      </defs>
-
+    <svg width={size} height={size} viewBox="0 0 256 256" aria-hidden="true">
       {/* Helmschale */}
       <path
-        d="M4,24 C4,10 16,3 26,3 C36,3 42,10 42,20 C42,27 38,32 32,34 L31,38 C30,41 27,43 24,43 L14,43 C9,43 6,39 6,33 Z"
-        fill={`url(#${gradId})`}
+        d="m51.26 194.4808h32.8839l43.719 15.8978a19.0768 19.0768 0 0 0 12.4664.2378q.1352-.0444.27-.0892a19.19 19.19 0 0 0 11.29-26.154l-12.7753-28.1753-.8662-28.2195 77.5918-16.7007-6.2081-26.313-10.4544 2.1384a93.5591 93.5591 0 1 0 -147.9171 107.3777z"
+        fill={primary}
       />
-
-      {/* Kinnpolster */}
-      <path d="M30,32 L40,29 C41,33 38,38 33,39 L29,38 Z" fill={secondary} />
-
-      {/* Gittermaske: kräftiger Rahmen mit zwei Querstreben, klar erkennbar auch klein */}
-      <rect x="19" y="14" width="17" height="19" rx="8" fill="none" stroke={secondary} strokeWidth="2.8" />
-      <line x1="19.5" y1="20.5" x2="35.5" y2="20.5" stroke={secondary} strokeWidth="2.6" strokeLinecap="round" />
-      <line x1="19.5" y1="27" x2="35.5" y2="27" stroke={secondary} strokeWidth="2.6" strokeLinecap="round" />
+      {/* Gittermaske */}
+      <path
+        d="m233.1507 147.144-66.1789-4.9058-7.2641-29.1969 55.8042-12.24a5.636 5.636 0 0 0 -2.3619-11.0213l-91.8635 20.2889a5.6356 5.6356 0 0 0 -4.4531 5.3733l-1.1272 46.2135a5.636 5.636 0 0 0 4.1691 5.58l45.361 14.0334a39.5218 39.5218 0 0 0 13.5683 17.0329l34.33 28.81a5.6357 5.6357 0 0 0 8.6315-2.8674l13.7312-42.6912c.2236-.6959-2.3466-34.4094-2.3466-34.4094zm-10.3456 10.9171 1.2312 16.0043-49.9428-2.0976-3.4935-17.5zm-74.1215-42.0939 5.7595 22.3527-26.6381-10.446.1881-7.7146zm-21.1651 23.652 29.9892 11.4939 4.2 17.5328-34.6254-11.1433zm85.8745 73.8451-28.0556-24.3484a28.151 28.151 0 0 1 -5.9055-5.6692l43.0245 1.8394z"
+        fill={secondary}
+      />
+      {/* Ohr-/Logo-Akzent */}
+      <circle cx="79.731" cy="153.583" fill={secondary} r="25.486" />
+      <circle cx="79.731" cy="153.583" fill={dark} r="11.718" />
     </svg>
   );
 }
