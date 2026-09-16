@@ -17,7 +17,7 @@ interface MatchCardProps {
   homeTeam: Team;
   awayTeam: Team;
   tipCount: number;
-  onSubmitTip: () => void;
+  onSubmitTip: (homeScore: number, awayScore: number) => void;
 }
 
 export default function MatchCard({
@@ -53,7 +53,7 @@ export default function MatchCard({
   const disabled = submitted || tippingClosed;
 
   function handleSubmit() {
-    onSubmitTip();
+    onSubmitTip(homeScore, awayScore);
     setSubmitted(true);
   }
 

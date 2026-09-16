@@ -5,20 +5,24 @@ import MatchCard from "@/components/MatchCard";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 
+const sportIcon: Record<string, string> = {
+  "Fußball": "⚽",
+  NFL: "🏈",
+  NBA: "🏀",
+};
+
 export default function DashboardPage() {
-  const { freeStars, spendStars, recordTipSubmitted } = useUser();
-  const { matches, getTeam, tipCounts, registerTip } = useAppData();
-  const [tab, setTab] = useState<"aktuell" | "abgelaufen">("aktuell");
+  const { spendStars, recordTipSubmitted } = useUser();
+  const { matches, getTeam, tipCounts, submitTip, myTips } = useAppData();
+  const [tab, setTab] = useState<"offen" | "historie">("offen");
 
-  const now = Date.now();
-  const aktuelleMatches = matches.filter((m) => new Date(m.kickoff).getTime() >= now);
-  const abgelaufeneMatches = matches.filter((m) => new Date(m.kickoff).getTime() < now);
-  const visibleMatches = tab === "aktuell" ? aktuelleMatches : abgelaufeneMatches;
+  const tippedMatchIds = new Set(myTips.map((t) => t.matchId));
+  const offeneMatches = matches.filter((m) => !tippedMatchIds.has(m.id));
 
-  function handleSubmitTip(matchId: string, stake: number) {
+  function handleSubmitTip(matchId: string, stake: number, homeScore: number, awayScore: number) {
     spendStars(stake);
     recordTipSubmitted();
-    registerTip(matchId);
+    submitTip(matchId, homeScore, awayScore, stake);
   }
 
   return (
@@ -33,33 +37,84 @@ export default function DashboardPage() {
       </div>
 
       <div className="mb-5 flex gap-2 border-b border-edge">
-        <TabButton label="Aktuell" count={aktuelleMatches.length} active={tab === "aktuell"} onClick={() => setTab("aktuell")} />
-        <TabButton label="Abgelaufen" count={abgelaufeneMatches.length} active={tab === "abgelaufen"} onClick={() => setTab("abgelaufen")} />
+        <TabButton
+          label="Offene Tipps"
+          count={offeneMatches.length}
+          active={tab === "offen"}
+          onClick={() => setTab("offen")}
+        />
+        <TabButton
+          label="Meine Tipp-Historie"
+          count={myTips.length}
+          active={tab === "historie"}
+          onClick={() => setTab("historie")}
+        />
       </div>
 
-      <div className="flex flex-col gap-4">
-        {visibleMatches.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted">
-            {tab === "aktuell" ? "Keine aktuellen Spiele." : "Noch keine abgelaufenen Spiele."}
-          </p>
-        )}
-        {visibleMatches.map((match) => {
-          const homeTeam = getTeam(match.homeTeamId);
-          const awayTeam = getTeam(match.awayTeamId);
-          if (!homeTeam || !awayTeam) return null;
+      {tab === "offen" && (
+        <div className="flex flex-col gap-4">
+          {offeneMatches.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted">
+              Aktuell keine offenen Spiele zum Tippen.
+            </p>
+          )}
+          {offeneMatches.map((match) => {
+            const homeTeam = getTeam(match.homeTeamId);
+            const awayTeam = getTeam(match.awayTeamId);
+            if (!homeTeam || !awayTeam) return null;
 
-          return (
-            <MatchCard
-              key={match.id}
-              match={match}
-              homeTeam={homeTeam}
-              awayTeam={awayTeam}
-              tipCount={tipCounts[match.id] ?? 0}
-              onSubmitTip={() => handleSubmitTip(match.id, match.fixedStake)}
-            />
-          );
-        })}
-      </div>
+            return (
+              <MatchCard
+                key={match.id}
+                match={match}
+                homeTeam={homeTeam}
+                awayTeam={awayTeam}
+                tipCount={tipCounts[match.id] ?? 0}
+                onSubmitTip={(homeScore, awayScore) =>
+                  handleSubmitTip(match.id, match.fixedStake, homeScore, awayScore)
+                }
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {tab === "historie" && (
+        <div className="flex flex-col gap-3">
+          {myTips.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted">Noch keine Tipps abgegeben.</p>
+          )}
+          {[...myTips].reverse().map((tip) => {
+            const match = matches.find((m) => m.id === tip.matchId);
+            if (!match) return null;
+            const homeTeam = getTeam(match.homeTeamId);
+            const awayTeam = getTeam(match.awayTeamId);
+            if (!homeTeam || !awayTeam) return null;
+
+            return (
+              <div
+                key={tip.id}
+                className="flex items-center justify-between rounded-card border border-edge bg-surface px-5 py-4"
+              >
+                <div>
+                  <p className="text-xs text-muted">
+                    {sportIcon[match.sport]} {match.competition}
+                    {match.matchday ? ` · Spieltag ${match.matchday}` : ""}
+                  </p>
+                  <p className="font-display text-sm font-semibold text-ink">
+                    {homeTeam.name} vs {awayTeam.name}
+                  </p>
+                  <p className="text-xs text-muted">
+                    Getippt: {tip.predictedHomeScore}:{tip.predictedAwayScore} ·{" "}
+                    {new Date(tip.submittedAt).toLocaleString("de-DE")}
+                  </p>
+                </div>
+                <span className="font-display font-semibold text-gold">⭐ {tip.stake}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
 }

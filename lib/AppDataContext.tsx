@@ -3,6 +3,15 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { Match, Sport, Team } from "./types";
 
+export interface SubmittedTip {
+  id: string;
+  matchId: string;
+  predictedHomeScore: number;
+  predictedAwayScore: number;
+  stake: number;
+  submittedAt: string;
+}
+
 // Hinweis: Diese Daten leben nur im Browser-Speicher (React-State) und
 // gehen beim Neuladen der Seite verloren. Das ist bewusst so für dieses
 // MVP-Stadium — sobald Firestore angebunden ist, ersetzt das hier die
@@ -64,6 +73,8 @@ interface AppDataContextValue {
   tipCounts: Record<string, number>;
   registerTip: (matchId: string) => void;
   tipsBySport: Record<Sport, number>;
+  myTips: SubmittedTip[];
+  submitTip: (matchId: string, predictedHomeScore: number, predictedAwayScore: number, stake: number) => void;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -81,6 +92,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     NFL: 0,
     NBA: 0,
   });
+  const [myTips, setMyTips] = useState<SubmittedTip[]>([]);
 
   function addTeam(team: Omit<Team, "id">) {
     const id = `team-${Date.now()}`;
@@ -112,6 +124,26 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function submitTip(
+    matchId: string,
+    predictedHomeScore: number,
+    predictedAwayScore: number,
+    stake: number
+  ) {
+    registerTip(matchId);
+    setMyTips((current) => [
+      ...current,
+      {
+        id: `tip-${Date.now()}`,
+        matchId,
+        predictedHomeScore,
+        predictedAwayScore,
+        stake,
+        submittedAt: new Date().toISOString(),
+      },
+    ]);
+  }
+
   return (
     <AppDataContext.Provider
       value={{
@@ -125,6 +157,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         tipCounts,
         registerTip,
         tipsBySport,
+        myTips,
+        submitTip,
       }}
     >
       {children}
