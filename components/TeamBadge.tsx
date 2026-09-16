@@ -57,7 +57,7 @@ function BasketballJerseyIcon({
   );
 
   return (
-    <svg width={size} height={size} viewBox="0 0 360 360" aria-hidden="true">
+    <svg width={size} height={size} viewBox="130 103 100 154" aria-hidden="true">
       <g dangerouslySetInnerHTML={{ __html: markup }} />
     </svg>
   );
