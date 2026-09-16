@@ -174,7 +174,7 @@ function TeamManager() {
             <span className="text-xs text-muted">Vorschau</span>
           </div>
 
-          {sport !== "NFL" && (
+          {sport === "Fußball" && (
             <div>
               <label className="mb-1 block text-xs text-muted">Trikot-Stil</label>
               <select

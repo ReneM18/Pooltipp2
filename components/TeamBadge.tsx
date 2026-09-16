@@ -1,4 +1,5 @@
 import { JerseyStyle, Sport } from "@/lib/types";
+import { BASKETBALL_JERSEY_MARKUP } from "@/lib/basketballJerseyMarkup";
 
 interface TeamBadgeProps {
   sport: Sport;
@@ -35,7 +36,31 @@ export default function TeamBadge({
   if (sport === "NFL") {
     return <HelmetIcon primary={primaryColor} secondary={secondaryColor} size={size} flip={flip} />;
   }
+  if (sport === "NBA") {
+    return <BasketballJerseyIcon primary={primaryColor} secondary={secondaryColor} size={size} />;
+  }
   return <JerseyIcon primary={primaryColor} secondary={secondaryColor} size={size} />;
+}
+
+function BasketballJerseyIcon({
+  primary,
+  secondary,
+  size,
+}: {
+  primary: string;
+  secondary: string;
+  size: number;
+}) {
+  const markup = BASKETBALL_JERSEY_MARKUP.replace(/__PRIMARY__/g, primary).replace(
+    /__SECONDARY__/g,
+    secondary
+  );
+
+  return (
+    <svg width={size} height={size} viewBox="0 0 360 360" aria-hidden="true">
+      <g dangerouslySetInnerHTML={{ __html: markup }} />
+    </svg>
+  );
 }
 
 function HelmetIcon({
