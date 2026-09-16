@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Match, Team } from "@/lib/types";
 import { flagEmoji } from "@/lib/flags";
 import TeamBadge from "./TeamBadge";
@@ -16,23 +16,31 @@ interface MatchCardProps {
   match: Match;
   homeTeam: Team;
   awayTeam: Team;
-  maxStake: number;
   tipCount: number;
-  onSubmitTip: (stake: number) => void;
+  onSubmitTip: () => void;
 }
 
 export default function MatchCard({
   match,
   homeTeam,
   awayTeam,
-  maxStake,
   tipCount,
   onSubmitTip,
 }: MatchCardProps) {
   const [homeScore, setHomeScore] = useState<number>(0);
   const [awayScore, setAwayScore] = useState<number>(0);
-  const [stake, setStake] = useState<number>(Math.min(20, maxStake));
   const [submitted, setSubmitted] = useState(false);
+  const [tippingClosed, setTippingClosed] = useState(
+    () => new Date(match.tipDeadline).getTime() <= Date.now()
+  );
+
+  useEffect(() => {
+    const deadline = new Date(match.tipDeadline).getTime();
+    const interval = setInterval(() => {
+      setTippingClosed(deadline <= Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [match.tipDeadline]);
 
   const kickoffLabel = new Date(match.kickoff).toLocaleString("de-DE", {
     weekday: "short",
@@ -42,8 +50,10 @@ export default function MatchCard({
     minute: "2-digit",
   });
 
+  const disabled = submitted || tippingClosed;
+
   function handleSubmit() {
-    onSubmitTip(stake);
+    onSubmitTip();
     setSubmitted(true);
   }
 
@@ -60,7 +70,7 @@ export default function MatchCard({
           </span>
         </span>
         <span className="text-xs font-medium">
-          <Countdown kickoff={match.kickoff} />
+          <Countdown kickoff={match.tipDeadline} />
         </span>
       </div>
 
@@ -95,47 +105,31 @@ export default function MatchCard({
           <ScoreInput
             value={homeScore}
             onChange={setHomeScore}
-            disabled={submitted}
+            disabled={disabled}
             label={`Tor-Ergebnis ${homeTeam.name}`}
           />
           <span className="font-display text-xl text-muted">:</span>
           <ScoreInput
             value={awayScore}
             onChange={setAwayScore}
-            disabled={submitted}
+            disabled={disabled}
             label={`Tor-Ergebnis ${awayTeam.name}`}
           />
         </div>
 
-        <div className="mb-5">
-          <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="text-muted">Einsatz</span>
-            <span className="font-display font-semibold text-gold">
-              ⭐ {stake.toLocaleString("de-DE")}
-            </span>
-          </div>
-          <input
-            type="range"
-            className="stake-slider w-full"
-            min={1}
-            max={maxStake}
-            value={stake}
-            disabled={submitted}
-            onChange={(e) => setStake(Number(e.target.value))}
-            aria-label="Einsatz in Sternen"
-          />
-          <div className="mt-1 flex justify-between text-xs text-muted">
-            <span>1</span>
-            <span>{maxStake.toLocaleString("de-DE")} max.</span>
-          </div>
+        <div className="mb-5 flex items-center justify-between rounded-lg border border-edge bg-pitch px-4 py-2.5">
+          <span className="text-sm text-muted">Einsatz für dieses Spiel</span>
+          <span className="font-display font-semibold text-gold">
+            ⭐ {match.fixedStake.toLocaleString("de-DE")}
+          </span>
         </div>
 
         <button
           onClick={handleSubmit}
-          disabled={submitted}
+          disabled={disabled}
           className="w-full rounded-full bg-action py-2.5 font-display font-semibold tracking-wide text-base text-pitch shadow-[0_0_20px_rgba(63,166,107,0.35)] transition-all enabled:hover:bg-action-hover enabled:hover:shadow-[0_0_28px_rgba(63,166,107,0.5)] disabled:cursor-not-allowed disabled:bg-edge disabled:text-muted disabled:shadow-none"
         >
-          {submitted ? "Tipp abgegeben" : "Tipp abgeben"}
+          {submitted ? "Tipp abgegeben" : tippingClosed ? "Tippannahme geschlossen" : "Tipp abgeben"}
         </button>
 
         <div className="mt-3 flex items-center justify-between text-xs text-muted">

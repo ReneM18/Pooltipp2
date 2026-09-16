@@ -24,8 +24,10 @@ const initialMatches: Match[] = [
     competition: "Bundesliga",
     matchday: 7,
     kickoff: "2026-09-20T15:30:00+02:00",
+    tipDeadline: "2026-09-20T15:00:00+02:00",
     homeTeamId: "team-fcb",
     awayTeamId: "team-bvb",
+    fixedStake: 20,
   },
   {
     id: "match-2",
@@ -33,8 +35,10 @@ const initialMatches: Match[] = [
     competition: "Bundesliga",
     matchday: 7,
     kickoff: "2026-09-20T18:30:00+02:00",
+    tipDeadline: "2026-09-20T18:00:00+02:00",
     homeTeamId: "team-rbl",
     awayTeamId: "team-b04",
+    fixedStake: 20,
   },
   {
     id: "match-3",
@@ -42,8 +46,10 @@ const initialMatches: Match[] = [
     competition: "Bundesliga",
     matchday: 7,
     kickoff: "2026-09-21T17:30:00+02:00",
+    tipDeadline: "2026-09-21T17:00:00+02:00",
     homeTeamId: "team-sge",
     awayTeamId: "team-vfb",
+    fixedStake: 20,
   },
 ];
 

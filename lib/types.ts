@@ -25,9 +25,11 @@ export interface Match {
   sport: Sport;
   competition: string; // z. B. "Bundesliga", "NFL", "NBA"
   matchday?: number;
-  kickoff: string; // ISO 8601 timestamp
+  kickoff: string; // ISO 8601 timestamp – Anpfiff
+  tipDeadline: string; // ISO 8601 timestamp – ab hier ist Tippen nicht mehr möglich
   homeTeamId: string;
   awayTeamId: string;
+  fixedStake: number; // vom Admin festgelegter Einsatz in Sternen, für alle User gleich
 }
 
 export interface Tip {

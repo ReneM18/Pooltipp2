@@ -242,30 +242,38 @@ function MatchManager() {
   const [competition, setCompetition] = useState("");
   const [matchday, setMatchday] = useState("");
   const [kickoff, setKickoff] = useState("");
+  const [tipDeadline, setTipDeadline] = useState("");
   const [homeTeamId, setHomeTeamId] = useState("");
   const [awayTeamId, setAwayTeamId] = useState("");
+  const [fixedStake, setFixedStake] = useState("20");
 
   const teamsForSport = teams.filter((t) => t.sport === sport);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!competition.trim() || !kickoff || !homeTeamId || !awayTeamId) return;
+    if (!competition.trim() || !kickoff || !tipDeadline || !homeTeamId || !awayTeamId) return;
     if (homeTeamId === awayTeamId) return;
+    const stakeValue = Number(fixedStake);
+    if (!stakeValue || stakeValue < 1) return;
 
     addMatch({
       sport,
       competition: competition.trim(),
       matchday: matchday ? Number(matchday) : undefined,
       kickoff: new Date(kickoff).toISOString(),
+      tipDeadline: new Date(tipDeadline).toISOString(),
       homeTeamId,
       awayTeamId,
+      fixedStake: stakeValue,
     });
 
     setCompetition("");
     setMatchday("");
     setKickoff("");
+    setTipDeadline("");
     setHomeTeamId("");
     setAwayTeamId("");
+    setFixedStake("20");
   }
 
   return (
@@ -313,6 +321,16 @@ function MatchManager() {
               className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
             />
           </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Einsatz (Sterne, für alle User fest)</label>
+            <input
+              type="number"
+              min={1}
+              value={fixedStake}
+              onChange={(e) => setFixedStake(e.target.value)}
+              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+            />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -347,11 +365,24 @@ function MatchManager() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs text-muted">Anstoß</label>
+            <label className="mb-1 block text-xs text-muted">Anpfiff</label>
             <input
               type="datetime-local"
               value={kickoff}
-              onChange={(e) => setKickoff(e.target.value)}
+              onChange={(e) => {
+                setKickoff(e.target.value);
+                // Vorschlag: Tippschluss = Anpfiff, falls noch nicht gesetzt
+                if (!tipDeadline) setTipDeadline(e.target.value);
+              }}
+              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Tippschluss (ab dann kein Tipp mehr möglich)</label>
+            <input
+              type="datetime-local"
+              value={tipDeadline}
+              onChange={(e) => setTipDeadline(e.target.value)}
               className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
             />
           </div>
@@ -389,7 +420,7 @@ function MatchManager() {
               <span className="text-sm text-ink">
                 {match.competition}: {home?.name ?? "?"} vs {away?.name ?? "?"}{" "}
                 <span className="text-xs text-muted">
-                  ({new Date(match.kickoff).toLocaleString("de-DE")})
+                  ({new Date(match.kickoff).toLocaleString("de-DE")}) · ⭐ {match.fixedStake}
                 </span>
               </span>
               <button

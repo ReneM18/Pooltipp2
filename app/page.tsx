@@ -54,9 +54,8 @@ export default function DashboardPage() {
               match={match}
               homeTeam={homeTeam}
               awayTeam={awayTeam}
-              maxStake={Math.min(100, freeStars)}
               tipCount={tipCounts[match.id] ?? 0}
-              onSubmitTip={(stake) => handleSubmitTip(match.id, stake)}
+              onSubmitTip={() => handleSubmitTip(match.id, match.fixedStake)}
             />
           );
         })}
