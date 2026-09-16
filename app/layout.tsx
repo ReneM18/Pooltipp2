@@ -3,10 +3,8 @@ import { Rajdhani, Inter } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "@/lib/UserContext";
 import { AppDataProvider } from "@/lib/AppDataContext";
-import Navbar from "@/components/Navbar";
-import NewsTicker from "@/components/NewsTicker";
-import NavTabs from "@/components/NavTabs";
-import ChatWidget from "@/components/ChatWidget";
+import { TeamsProvider } from "@/lib/TeamsContext";
+import AppChrome from "@/components/AppChrome";
 
 const rajdhani = Rajdhani({
   subsets: ["latin"],
@@ -35,11 +33,9 @@ export default function RootLayout({
       <body className="font-body min-h-screen bg-pitch text-ink antialiased">
         <AppDataProvider>
           <UserProvider>
-            <Navbar />
-            <NewsTicker />
-            <NavTabs />
-            {children}
-            <ChatWidget />
+            <TeamsProvider>
+              <AppChrome>{children}</AppChrome>
+            </TeamsProvider>
           </UserProvider>
         </AppDataProvider>
       </body>

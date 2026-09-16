@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import MatchCard from "@/components/MatchCard";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
@@ -37,6 +38,21 @@ export default function DashboardPage() {
           Setze deine Gratis-Sterne auf die kommenden Spiele.
         </p>
       </div>
+
+      <Link
+        href="/teams"
+        className="mb-6 flex items-center justify-between rounded-card border border-blue-400/30 bg-gradient-to-r from-blue-500/10 to-indigo-500/10 px-5 py-4 transition-colors hover:from-blue-500/15 hover:to-indigo-500/15"
+      >
+        <div>
+          <p className="font-display text-base font-semibold text-ink">
+            🔒 Private Tipp-Runden (PoolTipp Teams)
+          </p>
+          <p className="text-sm text-muted">
+            Eigene Liga für Firma, Verein oder Freunde gründen oder beitreten
+          </p>
+        </div>
+        <span className="font-display text-sm font-semibold text-blue-400">Wechseln →</span>
+      </Link>
 
       <div className="mb-5 flex gap-2 border-b border-edge">
         <TabButton

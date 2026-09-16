@@ -32,9 +32,9 @@ export default function ChatWidget() {
   }
 
   return (
-    <div className="fixed bottom-5 right-5 z-20">
+    <div className="fixed inset-x-4 bottom-5 z-20 flex flex-col items-end sm:inset-x-auto sm:right-5">
       {open && (
-        <div className="mb-3 flex h-96 w-80 flex-col overflow-hidden rounded-card border border-edge bg-surface shadow-2xl">
+        <div className="mb-3 flex h-96 w-full max-w-80 flex-col overflow-hidden rounded-card border border-edge bg-surface shadow-2xl">
           <div className="flex items-center justify-between border-b border-edge bg-surface-hover px-4 py-3">
             <span className="font-display text-sm font-semibold text-ink">Community-Chat</span>
             <button onClick={() => setOpen(false)} className="text-muted hover:text-ink">

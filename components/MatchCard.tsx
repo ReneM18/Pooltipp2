@@ -83,25 +83,25 @@ export default function MatchCard({
       <div className="p-5">
         <div className="mb-1 text-center text-xs text-muted">{kickoffLabel}</div>
 
-        <div className="mb-5 flex items-center justify-center gap-4">
-          <div className="flex flex-row-reverse items-center gap-2">
+        <div className="mb-5 flex items-center justify-center gap-2 sm:gap-4">
+          <div className="flex min-w-0 flex-row-reverse items-center gap-1.5 sm:gap-2">
             <TeamBadge
               sport={match.sport}
               primaryColor={homeTeam.primaryColor}
               secondaryColor={homeTeam.secondaryColor}
               jerseyStyle={homeTeam.jerseyStyle}
-              size={30}
+              size={26}
             />
             <TeamLabel name={homeTeam.name} align="right" />
           </div>
-          <span className="font-display text-sm text-muted">vs</span>
-          <div className="flex items-center gap-2">
+          <span className="font-display text-xs text-muted sm:text-sm">vs</span>
+          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
             <TeamBadge
               sport={match.sport}
               primaryColor={awayTeam.primaryColor}
               secondaryColor={awayTeam.secondaryColor}
               jerseyStyle={awayTeam.jerseyStyle}
-              size={30}
+              size={26}
             />
             <TeamLabel name={awayTeam.name} align="left" />
           </div>
@@ -208,7 +208,7 @@ function ResultBox({ match }: { match: Match }) {
 function TeamLabel({ name, align }: { name: string; align: "left" | "right" }) {
   return (
     <span
-      className={`font-display text-lg font-semibold text-ink ${
+      className={`min-w-0 truncate font-display text-sm font-semibold text-ink sm:text-lg ${
         align === "right" ? "text-right" : "text-left"
       }`}
     >
