@@ -11,6 +11,9 @@ interface UserContextValue {
   spendStars: (amount: number) => boolean;
   tipsSubmitted: number;
   recordTipSubmitted: () => void;
+  friends: string[];
+  addFriend: (name: string) => void;
+  removeFriend: (name: string) => void;
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
@@ -20,6 +23,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [freeStars, setFreeStars] = useState(mockUser.freeStars);
   const [points] = useState(mockUser.points);
   const [tipsSubmitted, setTipsSubmitted] = useState(0);
+  const [friends, setFriends] = useState<string[]>(["Sabine K.", "Marco T."]);
 
   function spendStars(amount: number) {
     if (amount > freeStars) return false;
@@ -29,6 +33,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   function recordTipSubmitted() {
     setTipsSubmitted((current) => current + 1);
+  }
+
+  function addFriend(name: string) {
+    setFriends((current) => (current.includes(name) ? current : [...current, name]));
+  }
+
+  function removeFriend(name: string) {
+    setFriends((current) => current.filter((f) => f !== name));
   }
 
   return (
@@ -41,6 +53,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         spendStars,
         tipsSubmitted,
         recordTipSubmitted,
+        friends,
+        addFriend,
+        removeFriend,
       }}
     >
       {children}

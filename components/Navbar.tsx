@@ -35,6 +35,13 @@ export default function Navbar() {
           </div>
 
           <Link
+            href="/registrieren"
+            className="hidden rounded-full border border-gold px-3 py-1.5 font-display text-sm font-semibold text-gold transition-colors hover:bg-gold hover:text-pitch sm:block"
+          >
+            Registrieren
+          </Link>
+
+          <Link
             href="/profil"
             className="hidden h-8 w-8 items-center justify-center rounded-full bg-surface font-display text-sm font-semibold text-muted transition-colors hover:text-ink sm:flex"
           >

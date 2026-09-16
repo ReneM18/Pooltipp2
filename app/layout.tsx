@@ -6,6 +6,7 @@ import { AppDataProvider } from "@/lib/AppDataContext";
 import Navbar from "@/components/Navbar";
 import NewsTicker from "@/components/NewsTicker";
 import NavTabs from "@/components/NavTabs";
+import ChatWidget from "@/components/ChatWidget";
 
 const rajdhani = Rajdhani({
   subsets: ["latin"],
@@ -38,6 +39,7 @@ export default function RootLayout({
             <NewsTicker />
             <NavTabs />
             {children}
+            <ChatWidget />
           </UserProvider>
         </AppDataProvider>
       </body>

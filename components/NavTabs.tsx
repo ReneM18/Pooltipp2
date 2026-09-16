@@ -8,6 +8,7 @@ const tabs = [
   { href: "/rangliste", label: "Rangliste" },
   { href: "/shop", label: "Prämien-Shop" },
   { href: "/fortschritt", label: "Fortschritt" },
+  { href: "/freunde", label: "Freunde" },
 ];
 
 export default function NavTabs() {
@@ -15,14 +16,14 @@ export default function NavTabs() {
 
   return (
     <nav className="border-b border-edge bg-pitch">
-      <div className="mx-auto flex max-w-3xl gap-6 px-5">
+      <div className="mx-auto flex max-w-3xl gap-6 overflow-x-auto px-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {tabs.map((tab) => {
           const isActive = pathname === tab.href;
           return (
             <Link
               key={tab.href}
               href={tab.href}
-              className={`relative py-3 font-display text-sm font-semibold tracking-wide transition-colors ${
+              className={`relative shrink-0 py-3 font-display text-sm font-semibold tracking-wide transition-colors ${
                 isActive ? "text-ink" : "text-muted hover:text-ink"
               }`}
             >
