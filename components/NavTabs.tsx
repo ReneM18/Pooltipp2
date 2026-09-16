@@ -10,6 +10,7 @@ const tabs = [
   { href: "/shop", label: "Prämien-Shop" },
   { href: "/fortschritt", label: "Fortschritt" },
   { href: "/freunde", label: "Freunde" },
+  { href: "/teams", label: "Private Tipprunden →" },
 ];
 
 export default function NavTabs() {
