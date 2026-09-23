@@ -8,10 +8,10 @@ export interface ShopItem {
 
 export const mockShopItems: ShopItem[] = [
   {
-    id: "profile-gold-frame",
+    id: "profile-neon-frame",
     category: "Profil",
-    name: "Gold-Rahmen",
-    description: "Exklusiver animierter Rahmen für dein Profilbild.",
+    name: "Neon-Rahmen",
+    description: "Jederzeit kaufbares Rahmen-Design – unabhängig von deinem Season-Pass-Fortschritt.",
     cost: 150,
   },
   {

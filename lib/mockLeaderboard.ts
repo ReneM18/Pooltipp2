@@ -1,3 +1,5 @@
+import type { Sport } from "@/lib/types";
+
 export interface LeaderboardEntry {
   rank: number;
   name: string;
@@ -15,3 +17,28 @@ export const mockLeaderboard: LeaderboardEntry[] = [
   { rank: 6, name: "Timo B.", points: 970 },
   { rank: 7, name: "Nina S.", points: 890 },
 ];
+
+// Eigene Rangliste je Sportart – nur Tipps auf Spiele der jeweiligen Sportart zählen.
+export const mockLeaderboardBySport: Record<Sport, LeaderboardEntry[]> = {
+  "Fußball": [
+    { rank: 1, name: "Sabine K.", points: 1320 },
+    { rank: 2, name: "Jonas W.", points: 1140 },
+    { rank: 3, name: "Alex", points: 980, isCurrentUser: true },
+    { rank: 4, name: "Marco T.", points: 860 },
+    { rank: 5, name: "Nina S.", points: 640 },
+  ],
+  NFL: [
+    { rank: 1, name: "Marco T.", points: 705 },
+    { rank: 2, name: "Fatima R.", points: 610 },
+    { rank: 3, name: "Alex", points: 420, isCurrentUser: true },
+    { rank: 4, name: "Timo B.", points: 380 },
+    { rank: 5, name: "Sabine K.", points: 310 },
+  ],
+  NBA: [
+    { rank: 1, name: "Fatima R.", points: 540 },
+    { rank: 2, name: "Sabine K.", points: 510 },
+    { rank: 3, name: "Timo B.", points: 470 },
+    { rank: 4, name: "Marco T.", points: 420 },
+    { rank: 5, name: "Alex", points: 180, isCurrentUser: true },
+  ],
+};

@@ -51,16 +51,22 @@ export default function FortschrittPage() {
 
       {/* Pass-Track */}
       <section className="mb-8">
-        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Season-Pass</h2>
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="font-display text-lg font-semibold text-ink">Season-Pass</h2>
+          <span className="text-xs text-muted">Exklusiv – nicht im Shop kaufbar</span>
+        </div>
         <div className="flex flex-col gap-3">
           {PASS_LEVELS.map((lvl) => {
             const unlocked = points >= lvl.xpRequired;
             const isCurrent = lvl.level === currentLevel.level;
+            const isPayout = !!lvl.starsReward;
             return (
               <div
                 key={lvl.level}
                 className={`flex items-center gap-4 rounded-card border p-4 transition-colors ${
-                  isCurrent
+                  isPayout && unlocked
+                    ? "border-gold bg-gold/10"
+                    : isCurrent
                     ? "border-gold bg-surface-hover"
                     : unlocked
                     ? "border-edge bg-surface"
@@ -81,7 +87,14 @@ export default function FortschrittPage() {
                     </span>
                     {unlocked && <span className="text-xs font-semibold text-action">✓ Freigeschaltet</span>}
                   </div>
-                  <p className="text-sm text-muted">{lvl.reward}</p>
+                  <p className="text-sm text-muted">
+                    {lvl.reward}
+                    {isPayout && (
+                      <span className="ml-1 text-gold">
+                        · wandert direkt in dein Sterne-Guthaben für den Shop
+                      </span>
+                    )}
+                  </p>
                 </div>
                 <span className="text-xs text-muted">{lvl.xpRequired.toLocaleString("de-DE")} P</span>
               </div>
