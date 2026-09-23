@@ -81,7 +81,15 @@ export default function MatchCard({
       </div>
 
       <div className="p-5">
-        <div className="mb-1 text-center text-xs text-muted">{kickoffLabel}</div>
+        <div className="mb-1 flex items-center justify-center gap-2 text-center text-xs text-muted">
+          <span>{kickoffLabel}</span>
+          {match.tvChannel && (
+            <span className="flex items-center gap-1 rounded-full border border-edge bg-pitch px-2 py-0.5 text-[11px] font-semibold text-ink">
+              <TvIcon className="h-3 w-3 text-muted" />
+              {match.tvChannel}
+            </span>
+          )}
+        </div>
 
         <div className="mb-5 flex items-center justify-center gap-2 sm:gap-4">
           <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
@@ -202,9 +210,10 @@ function ResultBox({ match }: { match: Match }) {
             href={match.summaryVideoUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1.5 rounded-full bg-surface-hover px-3 py-1.5 text-xs font-semibold text-gold transition-colors hover:text-ink"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF0000]/15 px-4 py-2 font-display text-sm font-semibold text-[#FF4d4d] shadow-[0_0_16px_rgba(255,0,0,0.15)] transition-all hover:bg-[#FF0000]/25 hover:shadow-[0_0_22px_rgba(255,0,0,0.3)]"
           >
-            ▶ Zusammenfassung ansehen
+            <PlayIcon className="h-4 w-4" />
+            Zusammenfassung ansehen
           </a>
         )}
       </div>
@@ -253,6 +262,23 @@ function ScoreInput({
       onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
       className="h-12 w-14 rounded-lg border border-edge bg-pitch text-center font-display text-xl font-semibold text-ink outline-none focus:border-gold disabled:opacity-60"
     />
+  );
+}
+
+function TvIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
+      <rect x="3" y="6" width="18" height="13" rx="2" />
+      <path d="M8 3l4 3 4-3" />
+    </svg>
+  );
+}
+
+function PlayIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M8 5.5v13a1 1 0 0 0 1.5.87l11-6.5a1 1 0 0 0 0-1.74l-11-6.5A1 1 0 0 0 8 5.5z" />
+    </svg>
   );
 }
 

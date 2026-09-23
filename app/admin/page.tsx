@@ -237,7 +237,8 @@ function TeamManager() {
 }
 
 function MatchManager() {
-  const { teams, matches, addMatch, removeMatch, getTeam, updateMatchScore, setSummaryVideo } = useAppData();
+  const { teams, matches, addMatch, removeMatch, getTeam, updateMatchScore, setSummaryVideo, setTvChannel } =
+    useAppData();
   const [sport, setSport] = useState<Sport>("Fußball");
   const [competition, setCompetition] = useState("");
   const [matchday, setMatchday] = useState("");
@@ -246,6 +247,7 @@ function MatchManager() {
   const [homeTeamId, setHomeTeamId] = useState("");
   const [awayTeamId, setAwayTeamId] = useState("");
   const [fixedStake, setFixedStake] = useState("20");
+  const [tvChannel, setTvChannelInput] = useState("");
 
   const teamsForSport = teams.filter((t) => t.sport === sport);
 
@@ -269,6 +271,7 @@ function MatchManager() {
       liveHomeScore: null,
       liveAwayScore: null,
       summaryVideoUrl: null,
+      tvChannel: tvChannel.trim() || null,
     });
 
     setCompetition("");
@@ -278,6 +281,7 @@ function MatchManager() {
     setHomeTeamId("");
     setAwayTeamId("");
     setFixedStake("20");
+    setTvChannelInput("");
   }
 
   return (
@@ -390,6 +394,15 @@ function MatchManager() {
               className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
             />
           </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">TV-Sender (optional)</label>
+            <input
+              value={tvChannel}
+              onChange={(e) => setTvChannelInput(e.target.value)}
+              placeholder="z. B. Sky, DAZN, ORF1"
+              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+            />
+          </div>
         </div>
 
         {teamsForSport.length < 2 && (
@@ -451,6 +464,7 @@ function MatchManager() {
 
               <div className="flex flex-wrap items-center gap-2">
                 <LiveScoreEditor match={match} onUpdate={updateMatchScore} />
+                <TvChannelEditor match={match} onSave={setTvChannel} />
                 <VideoLinkEditor match={match} onSave={setSummaryVideo} />
                 <button
                   onClick={() => removeMatch(match.id)}
@@ -464,6 +478,33 @@ function MatchManager() {
         })}
       </div>
     </section>
+  );
+}
+
+function TvChannelEditor({
+  match,
+  onSave,
+}: {
+  match: Match;
+  onSave: (matchId: string, channel: string) => void;
+}) {
+  const [channel, setChannel] = useState(match.tvChannel ?? "");
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <input
+        value={channel}
+        onChange={(e) => setChannel(e.target.value)}
+        placeholder="TV-Sender"
+        className="w-32 rounded-lg border border-edge bg-pitch px-2 py-1 text-xs text-ink outline-none focus:border-gold"
+      />
+      <button
+        onClick={() => onSave(match.id, channel.trim())}
+        className="rounded-lg bg-surface-hover px-2 py-1 text-xs font-semibold text-ink transition-colors hover:text-gold"
+      >
+        Speichern
+      </button>
+    </div>
   );
 }
 

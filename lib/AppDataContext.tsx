@@ -41,10 +41,11 @@ const initialMatches: Match[] = [
     homeTeamId: "team-fcb",
     awayTeamId: "team-bvb",
     fixedStake: 20,
-    status: "upcoming",
-    liveHomeScore: null,
-    liveAwayScore: null,
-    summaryVideoUrl: null,
+    status: "finished",
+    liveHomeScore: 2,
+    liveAwayScore: 1,
+    summaryVideoUrl: "https://www.youtube.com/results?search_query=bayern+dortmund+highlights",
+    tvChannel: "Sky Sport Bundesliga",
   },
   {
     id: "match-2",
@@ -60,6 +61,7 @@ const initialMatches: Match[] = [
     liveHomeScore: null,
     liveAwayScore: null,
     summaryVideoUrl: null,
+    tvChannel: null,
   },
   {
     id: "match-3",
@@ -75,6 +77,7 @@ const initialMatches: Match[] = [
     liveHomeScore: null,
     liveAwayScore: null,
     summaryVideoUrl: null,
+    tvChannel: null,
   },
   {
     id: "match-4",
@@ -89,6 +92,7 @@ const initialMatches: Match[] = [
     liveHomeScore: null,
     liveAwayScore: null,
     summaryVideoUrl: null,
+    tvChannel: null,
   },
   {
     id: "match-5",
@@ -103,6 +107,7 @@ const initialMatches: Match[] = [
     liveHomeScore: null,
     liveAwayScore: null,
     summaryVideoUrl: null,
+    tvChannel: null,
   },
 ];
 
@@ -121,6 +126,7 @@ interface AppDataContextValue {
   submitTip: (matchId: string, predictedHomeScore: number, predictedAwayScore: number, stake: number) => void;
   updateMatchScore: (matchId: string, homeScore: number | null, awayScore: number | null, status: Match["status"]) => void;
   setSummaryVideo: (matchId: string, url: string) => void;
+  setTvChannel: (matchId: string, channel: string) => void;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -209,6 +215,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  function setTvChannel(matchId: string, channel: string) {
+    setMatches((current) =>
+      current.map((m) => (m.id === matchId ? { ...m, tvChannel: channel } : m))
+    );
+  }
+
   return (
     <AppDataContext.Provider
       value={{
@@ -226,6 +238,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         submitTip,
         updateMatchScore,
         setSummaryVideo,
+        setTvChannel,
       }}
     >
       {children}

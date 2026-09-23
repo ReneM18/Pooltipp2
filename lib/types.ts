@@ -36,6 +36,7 @@ export interface Match {
   liveHomeScore: number | null;
   liveAwayScore: number | null;
   summaryVideoUrl: string | null; // z. B. YouTube-Link zur Spiel-Zusammenfassung
+  tvChannel: string | null; // z. B. "Sky", "DAZN", "ORF1" – wo das Spiel live läuft
 }
 
 export interface Tip {
