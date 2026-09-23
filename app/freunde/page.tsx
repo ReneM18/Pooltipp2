@@ -2,6 +2,8 @@
 
 import { useState, FormEvent } from "react";
 import { useUser } from "@/lib/UserContext";
+import { getMockRankIconForName } from "@/lib/rankTiers";
+import RankBadge from "@/components/RankBadge";
 
 export default function FreundePage() {
   const { friends, addFriend, removeFriend } = useUser();
@@ -53,7 +55,10 @@ export default function FreundePage() {
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-hover font-display text-xs font-semibold text-muted">
                 {friend.slice(0, 1).toUpperCase()}
               </span>
-              {friend}
+              <span className="flex items-center gap-2">
+                {friend}
+                <RankBadge option={getMockRankIconForName(friend)} size="sm" />
+              </span>
             </span>
             <button
               onClick={() => removeFriend(friend)}

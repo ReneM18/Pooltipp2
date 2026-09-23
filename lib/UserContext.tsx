@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useMemo, useEffect } from "react";
 import { mockUser } from "@/lib/mockData";
+import { getAvailableRankIcons, getBestRankIcon, RankIconOption } from "@/lib/rankTiers";
 
 interface UserContextValue {
   displayName: string;
@@ -14,6 +15,10 @@ interface UserContextValue {
   friends: string[];
   addFriend: (name: string) => void;
   removeFriend: (name: string) => void;
+  rankIconOptions: RankIconOption[];
+  selectedRankIconId: string | null;
+  setSelectedRankIconId: (id: string) => void;
+  activeRankIcon: RankIconOption | null;
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
@@ -24,6 +29,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [points] = useState(mockUser.points);
   const [tipsSubmitted, setTipsSubmitted] = useState(0);
   const [friends, setFriends] = useState<string[]>(["Sabine K.", "Marco T."]);
+
+  const rankIconOptions = useMemo(() => getAvailableRankIcons(), []);
+  const [selectedRankIconId, setSelectedRankIconId] = useState<string | null>(null);
+
+  // Standardmäßig das beste verfügbare Icon (Elite, sonst höchster Sport-Rang) anzeigen.
+  useEffect(() => {
+    if (selectedRankIconId === null && rankIconOptions.length > 0) {
+      const best = getBestRankIcon(rankIconOptions);
+      if (best) setSelectedRankIconId(best.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rankIconOptions]);
+
+  const activeRankIcon =
+    rankIconOptions.find((o) => o.id === selectedRankIconId) ?? getBestRankIcon(rankIconOptions);
 
   function spendStars(amount: number) {
     if (amount > freeStars) return false;
@@ -56,6 +76,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
         friends,
         addFriend,
         removeFriend,
+        rankIconOptions,
+        selectedRankIconId,
+        setSelectedRankIconId,
+        activeRankIcon,
       }}
     >
       {children}

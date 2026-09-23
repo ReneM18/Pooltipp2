@@ -2,6 +2,8 @@
 
 import { useState, FormEvent } from "react";
 import { useUser } from "@/lib/UserContext";
+import { getMockRankIconForName } from "@/lib/rankTiers";
+import RankBadge from "@/components/RankBadge";
 
 interface ChatMessage {
   id: string;
@@ -58,7 +60,10 @@ export default function ChatWidget() {
                   }`}
                 >
                   {!msg.isMe && (
-                    <p className="mb-0.5 text-xs font-semibold text-gold">{msg.author}</p>
+                    <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-gold">
+                      <RankBadge option={getMockRankIconForName(msg.author)} size="sm" />
+                      {msg.author}
+                    </p>
                   )}
                   {msg.text}
                 </div>

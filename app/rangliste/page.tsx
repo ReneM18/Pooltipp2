@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { mockLeaderboard, mockLeaderboardBySport, LeaderboardEntry } from "@/lib/mockLeaderboard";
 import { SPORTS, Sport } from "@/lib/types";
+import { getTierForPoints, RANK_COLORS, SPORT_EMOJI } from "@/lib/rankTiers";
+import RankBadge from "@/components/RankBadge";
 
 const sportIcon: Record<Sport, string> = {
   "Fußball": "⚽",
@@ -54,8 +56,24 @@ export default function RanglistePage() {
               index !== entries.length - 1 ? "border-b border-edge" : ""
             } ${entry.isCurrentUser ? "bg-surface-hover" : ""}`}
           >
-            <div className="flex items-center gap-4">
-              <RankBadge rank={entry.rank} />
+            <div className="flex items-center gap-3">
+              <RankNumber rank={entry.rank} />
+              {tab !== "Gesamt" && (
+                <RankBadge
+                  option={{
+                    id: `${tab}-${entry.rank}`,
+                    kind: "sport",
+                    sport: tab as Sport,
+                    label: `${tab} ${getTierForPoints(entry.points).rank} ${getTierForPoints(entry.points).sub}`,
+                    icon: SPORT_EMOJI[tab as Sport],
+                    points: entry.points,
+                    colorFrom: RANK_COLORS[getTierForPoints(entry.points).rank].from,
+                    colorTo: RANK_COLORS[getTierForPoints(entry.points).rank].to,
+                    colorText: RANK_COLORS[getTierForPoints(entry.points).rank].text,
+                  }}
+                  size="sm"
+                />
+              )}
               <span
                 className={`font-display text-base font-semibold ${
                   entry.isCurrentUser ? "text-gold" : "text-ink"
@@ -77,7 +95,7 @@ export default function RanglistePage() {
   );
 }
 
-function RankBadge({ rank }: { rank: number }) {
+function RankNumber({ rank }: { rank: number }) {
   const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
   return (
     <span className="flex h-7 w-7 items-center justify-center font-display text-sm text-muted">

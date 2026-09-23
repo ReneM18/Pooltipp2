@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
+import RankBadge from "@/components/RankBadge";
 
 export default function Navbar() {
-  const { displayName, freeStars, points } = useUser();
+  const { displayName, freeStars, points, activeRankIcon } = useUser();
 
   return (
     <header className="sticky top-0 z-10 border-b border-edge bg-pitch/95 backdrop-blur">
@@ -41,11 +42,15 @@ export default function Navbar() {
             Registrieren
           </Link>
 
-          <Link
-            href="/profil"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface font-display text-xs font-semibold text-muted transition-colors hover:text-ink sm:h-8 sm:w-8 sm:text-sm"
-          >
-            {displayName.slice(0, 1).toUpperCase()}
+          <Link href="/profil" className="relative ml-0.5 flex shrink-0 items-center">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface font-display text-xs font-semibold text-muted transition-colors hover:text-ink sm:h-8 sm:w-8 sm:text-sm">
+              {displayName.slice(0, 1).toUpperCase()}
+            </span>
+            {activeRankIcon && (
+              <span className="absolute -bottom-1 -right-1 rounded-full ring-2 ring-pitch">
+                <RankBadge option={activeRankIcon} size="xs" />
+              </span>
+            )}
           </Link>
         </div>
       </div>

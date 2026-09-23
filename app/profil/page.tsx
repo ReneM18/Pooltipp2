@@ -4,6 +4,8 @@ import { useState, FormEvent, ChangeEvent } from "react";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { mockLeaderboard } from "@/lib/mockLeaderboard";
+import RankBadge from "@/components/RankBadge";
+import RankProgress from "@/components/RankProgress";
 
 const sportIcon: Record<string, string> = {
   "Fußball": "⚽",
@@ -12,7 +14,17 @@ const sportIcon: Record<string, string> = {
 };
 
 export default function ProfilPage() {
-  const { displayName, setDisplayName, freeStars, points, tipsSubmitted } = useUser();
+  const {
+    displayName,
+    setDisplayName,
+    freeStars,
+    points,
+    tipsSubmitted,
+    rankIconOptions,
+    selectedRankIconId,
+    setSelectedRankIconId,
+    activeRankIcon,
+  } = useUser();
   const { matches, getTeam, myTips } = useAppData();
   const [nameInput, setNameInput] = useState(displayName);
   const [saved, setSaved] = useState(false);
@@ -53,21 +65,72 @@ export default function ProfilPage() {
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
       <div className="mb-8 flex items-center gap-4">
-        <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-2xl font-bold text-gold">
+        <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-2xl font-bold text-gold">
           {photos[0] ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={photos[0]} alt="Profilbild" className="h-full w-full object-cover" />
           ) : (
             displayName.slice(0, 1).toUpperCase()
           )}
+          {activeRankIcon && (
+            <span className="absolute -bottom-1.5 -right-1.5">
+              <RankBadge option={activeRankIcon} size="md" />
+            </span>
+          )}
         </div>
         <div>
-          <h1 className="font-display text-2xl font-bold text-ink">{displayName}</h1>
+          <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-ink">
+            {displayName}
+          </h1>
           <p className="text-sm text-muted">
             {currentRank ? `Aktuell Platz ${currentRank} in der Rangliste` : "Noch nicht platziert"}
+            {activeRankIcon && ` · ${activeRankIcon.label}`}
           </p>
         </div>
       </div>
+
+      {rankIconOptions.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-1 font-display text-lg font-semibold text-ink">Dein Rang-Icon</h2>
+          <p className="mb-3 text-xs text-muted">
+            Wähle, welches Icon neben deinem Namen in Rangliste, Profil und Chat angezeigt wird.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {rankIconOptions.map((option) => {
+              const active = option.id === selectedRankIconId;
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => setSelectedRankIconId(option.id)}
+                  className={`flex items-center gap-2 rounded-card border px-3 py-2 text-left transition-colors ${
+                    active ? "border-gold bg-surface-hover" : "border-edge bg-surface hover:border-muted"
+                  }`}
+                >
+                  <RankBadge option={option} size="md" />
+                  <span className="text-xs font-medium text-ink">{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {rankIconOptions.some((o) => o.kind === "sport") && (
+        <section className="mb-8">
+          <h2 className="mb-1 font-display text-lg font-semibold text-ink">Rang-Fortschritt</h2>
+          <p className="mb-3 text-xs text-muted">
+            Pro Sportart steigst du mit deinen gesammelten Punkten automatisch die Ränge hoch –
+            der Balken zeigt, wie viele Punkte dir bis zur nächsten Stufe fehlen.
+          </p>
+          <div className="flex flex-col gap-3">
+            {rankIconOptions
+              .filter((o) => o.kind === "sport" && o.sport && o.points !== undefined)
+              .map((o) => (
+                <RankProgress key={o.id} sport={o.sport!} points={o.points!} />
+              ))}
+          </div>
+        </section>
+      )}
 
       <section className="mb-8">
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Fotos</h2>
