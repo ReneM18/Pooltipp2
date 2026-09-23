@@ -133,6 +133,51 @@ export function getBestRankIcon(options: RankIconOption[]): RankIconOption | nul
   return [...options].sort((a, b) => (b.points ?? 0) - (a.points ?? 0))[0];
 }
 
+/**
+ * Für die GESAMT-Rangliste: schaut nach, in wie vielen der drei Sport-Ranglisten
+ * dieser Name auftaucht. In allen dreien -> Elite-Icon (Allrounder). In ein oder
+ * zwei Sportarten -> das Icon der Sportart, in der die Punktzahl am höchsten ist.
+ * In keiner -> null (kein Icon).
+ */
+export function getIconForName(name: string): RankIconOption | null {
+  const sports = Object.keys(mockLeaderboardBySport) as Sport[];
+  const matches: { sport: Sport; points: number }[] = [];
+
+  for (const sport of sports) {
+    const entry = mockLeaderboardBySport[sport].find((e) => e.name === name);
+    if (entry) matches.push({ sport, points: entry.points });
+  }
+
+  if (matches.length === 0) return null;
+
+  if (matches.length === sports.length) {
+    return {
+      id: `elite-${name}`,
+      kind: "elite",
+      label: "Sport-Allrounder (Elite)",
+      icon: "👑",
+      colorFrom: ELITE_COLORS.from,
+      colorTo: ELITE_COLORS.to,
+      colorText: ELITE_COLORS.text,
+    };
+  }
+
+  const best = matches.reduce((a, b) => (b.points > a.points ? b : a));
+  const tier = getTierForPoints(best.points);
+  const colors = RANK_COLORS[tier.rank];
+  return {
+    id: `sport-${best.sport}-${name}`,
+    kind: "sport",
+    sport: best.sport,
+    label: `${best.sport} ${tierLabel(tier)}`,
+    icon: SPORT_EMOJI[best.sport],
+    points: best.points,
+    colorFrom: colors.from,
+    colorTo: colors.to,
+    colorText: colors.text,
+  };
+}
+
 // Für Freunde/Chat-Teilnehmer, für die wir (noch) keine echten Punktestände
 // tracken: liefert ein deterministisches, aber stabiles Demo-Icon pro Name,
 // damit die Namensliste nicht "nackt" wirkt, bis es echte Accounts gibt.

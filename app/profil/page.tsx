@@ -6,6 +6,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { mockLeaderboard } from "@/lib/mockLeaderboard";
 import RankBadge from "@/components/RankBadge";
 import RankProgress from "@/components/RankProgress";
+import { Sport } from "@/lib/types";
 
 const sportIcon: Record<string, string> = {
   "Fußball": "⚽",
@@ -29,6 +30,15 @@ export default function ProfilPage() {
   const [nameInput, setNameInput] = useState(displayName);
   const [saved, setSaved] = useState(false);
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
+  const [profileTab, setProfileTab] = useState<"Übersicht" | "Rang">("Übersicht");
+
+  const sportProgressOptions = rankIconOptions.filter(
+    (o) => o.kind === "sport" && o.sport && o.points !== undefined
+  );
+  const [rangSportTab, setRangSportTab] = useState<Sport | null>(
+    sportProgressOptions[0]?.sport ?? null
+  );
+  const selectedProgress = sportProgressOptions.find((o) => o.sport === rangSportTab);
 
   const currentRank = mockLeaderboard.find((entry) => entry.isCurrentUser)?.rank;
 
@@ -89,49 +99,88 @@ export default function ProfilPage() {
         </div>
       </div>
 
-      {rankIconOptions.length > 0 && (
-        <section className="mb-8">
-          <h2 className="mb-1 font-display text-lg font-semibold text-ink">Dein Rang-Icon</h2>
-          <p className="mb-3 text-xs text-muted">
-            Wähle, welches Icon neben deinem Namen in Rangliste, Profil und Chat angezeigt wird.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            {rankIconOptions.map((option) => {
-              const active = option.id === selectedRankIconId;
-              return (
-                <button
-                  key={option.id}
-                  onClick={() => setSelectedRankIconId(option.id)}
-                  className={`flex items-center gap-2 rounded-card border px-3 py-2 text-left transition-colors ${
-                    active ? "border-gold bg-surface-hover" : "border-edge bg-surface hover:border-muted"
-                  }`}
-                >
-                  <RankBadge option={option} size="md" />
-                  <span className="text-xs font-medium text-ink">{option.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+      {/* Reiter: Übersicht (Fotos, Statistik, Einstellungen, Historie) vs. Rang (Icons, Fortschritt) */}
+      <div className="mb-6 flex gap-2">
+        {(["Übersicht", "Rang"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setProfileTab(t)}
+            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+              profileTab === t
+                ? "border-gold bg-gold/15 text-gold"
+                : "border-edge bg-surface text-muted hover:text-ink"
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {profileTab === "Rang" && (
+        <>
+          {rankIconOptions.length > 0 && (
+            <section className="mb-8">
+              <h2 className="mb-1 font-display text-lg font-semibold text-ink">Dein Rang-Icon</h2>
+              <p className="mb-3 text-xs text-muted">
+                Wähle, welches Icon neben deinem Namen in Rangliste, Profil und Chat angezeigt wird.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {rankIconOptions.map((option) => {
+                  const active = option.id === selectedRankIconId;
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => setSelectedRankIconId(option.id)}
+                      className={`flex items-center gap-2 rounded-card border px-3 py-2 text-left transition-colors ${
+                        active
+                          ? "border-gold bg-surface-hover"
+                          : "border-edge bg-surface hover:border-muted"
+                      }`}
+                    >
+                      <RankBadge option={option} size="md" />
+                      <span className="text-xs font-medium text-ink">{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {sportProgressOptions.length > 0 && (
+            <section className="mb-8">
+              <h2 className="mb-1 font-display text-lg font-semibold text-ink">Rang-Fortschritt</h2>
+              <p className="mb-3 text-xs text-muted">
+                Pro Sportart steigst du mit deinen gesammelten Punkten automatisch die Ränge hoch –
+                der Balken zeigt, wie viele Punkte dir bis zur nächsten Stufe fehlen.
+              </p>
+
+              <div className="mb-3 flex gap-2">
+                {sportProgressOptions.map((o) => (
+                  <button
+                    key={o.sport}
+                    onClick={() => setRangSportTab(o.sport!)}
+                    className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                      rangSportTab === o.sport
+                        ? "border-gold bg-gold/15 text-gold"
+                        : "border-edge bg-surface text-muted hover:text-ink"
+                    }`}
+                  >
+                    <span>{o.icon}</span>
+                    {o.sport}
+                  </button>
+                ))}
+              </div>
+
+              {selectedProgress && (
+                <RankProgress sport={selectedProgress.sport!} points={selectedProgress.points!} />
+              )}
+            </section>
+          )}
+        </>
       )}
 
-      {rankIconOptions.some((o) => o.kind === "sport") && (
-        <section className="mb-8">
-          <h2 className="mb-1 font-display text-lg font-semibold text-ink">Rang-Fortschritt</h2>
-          <p className="mb-3 text-xs text-muted">
-            Pro Sportart steigst du mit deinen gesammelten Punkten automatisch die Ränge hoch –
-            der Balken zeigt, wie viele Punkte dir bis zur nächsten Stufe fehlen.
-          </p>
-          <div className="flex flex-col gap-3">
-            {rankIconOptions
-              .filter((o) => o.kind === "sport" && o.sport && o.points !== undefined)
-              .map((o) => (
-                <RankProgress key={o.id} sport={o.sport!} points={o.points!} />
-              ))}
-          </div>
-        </section>
-      )}
-
+      {profileTab === "Übersicht" && (
+        <>
       <section className="mb-8">
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Fotos</h2>
         <div className="grid grid-cols-3 gap-3">
@@ -250,6 +299,8 @@ export default function ProfilPage() {
           })}
         </div>
       </section>
+        </>
+      )}
     </main>
   );
 }

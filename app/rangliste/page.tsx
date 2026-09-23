@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { mockLeaderboard, mockLeaderboardBySport, LeaderboardEntry } from "@/lib/mockLeaderboard";
 import { SPORTS, Sport } from "@/lib/types";
-import { getTierForPoints, RANK_COLORS, SPORT_EMOJI } from "@/lib/rankTiers";
+import { getTierForPoints, RANK_COLORS, SPORT_EMOJI, getIconForName } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
 
 const sportIcon: Record<Sport, string> = {
@@ -58,22 +58,24 @@ export default function RanglistePage() {
           >
             <div className="flex items-center gap-3">
               <RankNumber rank={entry.rank} />
-              {tab !== "Gesamt" && (
-                <RankBadge
-                  option={{
-                    id: `${tab}-${entry.rank}`,
-                    kind: "sport",
-                    sport: tab as Sport,
-                    label: `${tab} ${getTierForPoints(entry.points).rank} ${getTierForPoints(entry.points).sub}`,
-                    icon: SPORT_EMOJI[tab as Sport],
-                    points: entry.points,
-                    colorFrom: RANK_COLORS[getTierForPoints(entry.points).rank].from,
-                    colorTo: RANK_COLORS[getTierForPoints(entry.points).rank].to,
-                    colorText: RANK_COLORS[getTierForPoints(entry.points).rank].text,
-                  }}
-                  size="sm"
-                />
-              )}
+              <RankBadge
+                option={
+                  tab === "Gesamt"
+                    ? getIconForName(entry.name)
+                    : {
+                        id: `${tab}-${entry.rank}`,
+                        kind: "sport",
+                        sport: tab as Sport,
+                        label: `${tab} ${getTierForPoints(entry.points).rank} ${getTierForPoints(entry.points).sub}`,
+                        icon: SPORT_EMOJI[tab as Sport],
+                        points: entry.points,
+                        colorFrom: RANK_COLORS[getTierForPoints(entry.points).rank].from,
+                        colorTo: RANK_COLORS[getTierForPoints(entry.points).rank].to,
+                        colorText: RANK_COLORS[getTierForPoints(entry.points).rank].text,
+                      }
+                }
+                size="sm"
+              />
               <span
                 className={`font-display text-base font-semibold ${
                   entry.isCurrentUser ? "text-gold" : "text-ink"
