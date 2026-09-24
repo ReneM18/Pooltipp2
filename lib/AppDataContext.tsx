@@ -20,6 +20,22 @@ export interface NewsItem {
   createdAt: string;
 }
 
+export interface Comment {
+  id: string;
+  matchId: string;
+  author: string;
+  text: string;
+  createdAt: string;
+  likedBy: string[];
+}
+
+export interface ActivityItem {
+  id: string;
+  icon: string;
+  text: string;
+  createdAt: string;
+}
+
 // Hinweis: Diese Daten leben nur im Browser-Speicher (React-State) und
 // gehen beim Neuladen der Seite verloren. Das ist bewusst so für dieses
 // MVP-Stadium — sobald Firestore angebunden ist, ersetzt das hier die
@@ -190,6 +206,22 @@ const initialNews: NewsItem[] = [
   { id: "news-5", text: "Perfekter Tipp bringt den größten Sterne-Gewinn", article: null, sport: null, createdAt: "2026-09-17T09:00:00+02:00" },
 ];
 
+const initialComments: Comment[] = [
+  { id: "comment-1", matchId: "match-1", author: "Marco T.", text: "Bayern zuhause eigentlich immer sicher, 2:1 wie erwartet.", createdAt: "2026-09-20T14:10:00+02:00", likedBy: ["Sabine K."] },
+  { id: "comment-2", matchId: "match-1", author: "Sabine K.", text: "Dortmund hätte da mehr draus machen müssen, verdiente Niederlage.", createdAt: "2026-09-20T16:05:00+02:00", likedBy: [] },
+  { id: "comment-3", matchId: "match-2", author: "Jonas H.", text: "Leverkusen ist gerade richtig stark drauf, ich tippe auf einen Auswärtssieg.", createdAt: "2026-09-19T20:30:00+02:00", likedBy: ["Marco T.", "Sabine K."] },
+];
+
+// Fiktive Community-Aktivität als Startbefüllung, damit der Feed von Anfang an
+// lebendig wirkt. Echte Einträge (eigener Tipp, eigener Kommentar) kommen dazu.
+const initialActivity: ActivityItem[] = [
+  { id: "activity-1", icon: "⚽", text: "Marco T. hat beim Spiel Bayern München vs. Borussia Dortmund getippt.", createdAt: "2026-09-20T14:12:00+02:00" },
+  { id: "activity-2", icon: "💬", text: "Sabine K. hat einen Kommentar zu Bayern München vs. Borussia Dortmund geschrieben.", createdAt: "2026-09-20T16:05:00+02:00" },
+  { id: "activity-3", icon: "🏆", text: "Sabine K. verteidigt Platz 1 in der Gesamt-Rangliste.", createdAt: "2026-09-19T09:00:00+02:00" },
+  { id: "activity-4", icon: "🏈", text: "Jonas H. hat beim Spiel Buffalo Bills vs. Kansas City Chiefs getippt.", createdAt: "2026-09-18T18:20:00+02:00" },
+  { id: "activity-5", icon: "⭐", text: "Über 500.000 Sterne stecken diesen Spieltag im Tipp-Topf.", createdAt: "2026-09-18T09:00:00+02:00" },
+];
+
 interface AppDataContextValue {
   teams: Team[];
   matches: Match[];
@@ -211,6 +243,13 @@ interface AppDataContextValue {
   addNews: (text: string, sport: Sport | null, article: string | null) => void;
   updateNews: (id: string, text: string, sport: Sport | null, article: string | null) => void;
   removeNews: (id: string) => void;
+  comments: Comment[];
+  getCommentsForMatch: (matchId: string) => Comment[];
+  addComment: (matchId: string, author: string, text: string) => void;
+  removeComment: (id: string) => void;
+  toggleCommentLike: (id: string, name: string) => void;
+  activity: ActivityItem[];
+  addActivity: (icon: string, text: string) => void;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -231,6 +270,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   });
   const [myTips, setMyTips] = useState<SubmittedTip[]>([]);
   const [newsItems, setNewsItems] = useState<NewsItem[]>(initialNews);
+  const [comments, setComments] = useState<Comment[]>(initialComments);
+  const [activity, setActivity] = useState<ActivityItem[]>(initialActivity);
 
   function addTeam(team: Omit<Team, "id">) {
     const id = `team-${Date.now()}`;
@@ -280,6 +321,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         submittedAt: new Date().toISOString(),
       },
     ]);
+    const match = matches.find((m) => m.id === matchId);
+    if (match) {
+      const home = getTeam(match.homeTeamId);
+      const away = getTeam(match.awayTeamId);
+      const sportIcon: Record<Sport, string> = { "Fußball": "⚽", NFL: "🏈", NBA: "🏀", NHL: "🏒" };
+      addActivity(
+        sportIcon[match.sport],
+        `Du hast beim Spiel ${home?.name ?? "?"} vs. ${away?.name ?? "?"} getippt.`
+      );
+    }
   }
 
   function updateMatchScore(
@@ -288,11 +339,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     awayScore: number | null,
     status: Match["status"]
   ) {
+    const previous = matches.find((m) => m.id === matchId);
     setMatches((current) =>
       current.map((m) =>
         m.id === matchId ? { ...m, liveHomeScore: homeScore, liveAwayScore: awayScore, status } : m
       )
     );
+    if (status === "finished" && previous && previous.status !== "finished") {
+      const home = getTeam(previous.homeTeamId);
+      const away = getTeam(previous.awayTeamId);
+      addActivity(
+        "🏁",
+        `Endstand: ${home?.name ?? "?"} ${homeScore ?? 0}:${awayScore ?? 0} ${away?.name ?? "?"}.`
+      );
+    }
   }
 
   function setSummaryVideo(matchId: string, url: string) {
@@ -319,6 +379,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       { id, text, sport, article, createdAt: new Date().toISOString() },
       ...current,
     ]);
+    const sportIcon: Record<Sport, string> = { "Fußball": "⚽", NFL: "🏈", NBA: "🏀", NHL: "🏒" };
+    addActivity(sport ? sportIcon[sport] : "📰", `Neue Schlagzeile: „${text}“`);
   }
 
   function updateNews(id: string, text: string, sport: Sport | null, article: string | null) {
@@ -329,6 +391,52 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   function removeNews(id: string) {
     setNewsItems((current) => current.filter((n) => n.id !== id));
+  }
+
+  function getCommentsForMatch(matchId: string) {
+    return comments.filter((c) => c.matchId === matchId);
+  }
+
+  function addComment(matchId: string, author: string, text: string) {
+    if (!text.trim()) return;
+    const id = `comment-${Date.now()}`;
+    setComments((current) => [
+      ...current,
+      { id, matchId, author, text: text.trim(), createdAt: new Date().toISOString(), likedBy: [] },
+    ]);
+    const match = matches.find((m) => m.id === matchId);
+    const home = match ? getTeam(match.homeTeamId) : undefined;
+    const away = match ? getTeam(match.awayTeamId) : undefined;
+    addActivity(
+      "💬",
+      match
+        ? `${author} hat einen Kommentar zu ${home?.name ?? "?"} vs. ${away?.name ?? "?"} geschrieben.`
+        : `${author} hat einen Kommentar geschrieben.`
+    );
+  }
+
+  function removeComment(id: string) {
+    setComments((current) => current.filter((c) => c.id !== id));
+  }
+
+  function toggleCommentLike(id: string, name: string) {
+    setComments((current) =>
+      current.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              likedBy: c.likedBy.includes(name)
+                ? c.likedBy.filter((n) => n !== name)
+                : [...c.likedBy, name],
+            }
+          : c
+      )
+    );
+  }
+
+  function addActivity(icon: string, text: string) {
+    const id = `activity-${Date.now()}-${Math.round(Math.random() * 1000)}`;
+    setActivity((current) => [{ id, icon, text, createdAt: new Date().toISOString() }, ...current]);
   }
 
   return (
@@ -354,6 +462,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         addNews,
         updateNews,
         removeNews,
+        comments,
+        getCommentsForMatch,
+        addComment,
+        removeComment,
+        toggleCommentLike,
+        activity,
+        addActivity,
       }}
     >
       {children}

@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, FormEvent } from "react";
+import Link from "next/link";
 import { Match, Team } from "@/lib/types";
 import { flagEmoji } from "@/lib/flags";
+import { useAppData } from "@/lib/AppDataContext";
+import { useUser } from "@/lib/UserContext";
 import TeamBadge from "./TeamBadge";
 import Countdown from "./Countdown";
 
@@ -66,6 +69,18 @@ export default function MatchCard({
   const [tippingClosed, setTippingClosed] = useState(
     () => new Date(match.tipDeadline).getTime() <= Date.now()
   );
+  const { getCommentsForMatch, addComment, removeComment, toggleCommentLike } = useAppData();
+  const { displayName } = useUser();
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentDraft, setCommentDraft] = useState("");
+  const matchComments = getCommentsForMatch(match.id);
+
+  function handleCommentSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!commentDraft.trim()) return;
+    addComment(match.id, displayName, commentDraft);
+    setCommentDraft("");
+  }
 
   useEffect(() => {
     const deadline = new Date(match.tipDeadline).getTime();
@@ -237,8 +252,86 @@ export default function MatchCard({
             <PeopleIcon className="h-3.5 w-3.5" />
             {tipCount.toLocaleString("de-DE")} getippt
           </span>
-          {hasTipped && <span className="font-semibold text-action">✓ Getippt</span>}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setCommentsOpen((current) => !current)}
+              className="flex items-center gap-1 font-semibold text-muted transition-colors hover:text-ink"
+            >
+              💬 {matchComments.length > 0 ? `${matchComments.length} Kommentare` : "Kommentieren"}
+            </button>
+            {hasTipped && <span className="font-semibold text-action">✓ Getippt</span>}
+          </div>
         </div>
+
+        {commentsOpen && (
+          <div className="mt-3 border-t border-edge pt-3">
+            {matchComments.length === 0 ? (
+              <p className="mb-3 text-xs text-muted">
+                Noch keine Kommentare – schreib den ersten!
+              </p>
+            ) : (
+              <div className="mb-3 flex max-h-64 flex-col gap-2.5 overflow-y-auto pr-1">
+                {matchComments.map((comment) => {
+                  const liked = comment.likedBy.includes(displayName);
+                  const isMine = comment.author === displayName;
+                  return (
+                    <div key={comment.id} className="rounded-lg border border-edge bg-pitch px-3 py-2.5">
+                      <div className="mb-1 flex items-center justify-between">
+                        <Link
+                          href={`/spieler/${encodeURIComponent(comment.author)}`}
+                          className="text-xs font-semibold text-gold hover:opacity-80"
+                        >
+                          {comment.author}
+                        </Link>
+                        <span className="text-[11px] text-muted">
+                          {new Date(comment.createdAt).toLocaleString("de-DE", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                      <p className="mb-1.5 text-sm text-ink">{comment.text}</p>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => toggleCommentLike(comment.id, displayName)}
+                          className={`flex items-center gap-1 text-xs font-semibold transition-colors ${
+                            liked ? "text-gold" : "text-muted hover:text-ink"
+                          }`}
+                        >
+                          {liked ? "👍" : "👍🏻"} {comment.likedBy.length > 0 ? comment.likedBy.length : ""}
+                        </button>
+                        {isMine && (
+                          <button
+                            onClick={() => removeComment(comment.id)}
+                            className="text-xs text-muted transition-colors hover:text-red-400"
+                          >
+                            Löschen
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <form onSubmit={handleCommentSubmit} className="flex gap-2">
+              <input
+                value={commentDraft}
+                onChange={(e) => setCommentDraft(e.target.value)}
+                placeholder="Kommentar schreiben…"
+                className="flex-1 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+              />
+              <button
+                type="submit"
+                className="rounded-lg bg-action px-3 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+              >
+                ➤
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );

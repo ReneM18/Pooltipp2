@@ -4,6 +4,7 @@ import { createContext, useContext, useState, ReactNode, useMemo, useEffect } fr
 import { mockUser } from "@/lib/mockData";
 import { getAvailableRankIcons, getBestRankIcon, RankIconOption } from "@/lib/rankTiers";
 import { PhotoVisibility } from "@/lib/mockUsers";
+import { useAppData } from "@/lib/AppDataContext";
 
 interface UserContextValue {
   displayName: string;
@@ -32,6 +33,7 @@ interface UserContextValue {
 const UserContext = createContext<UserContextValue | null>(null);
 
 export function UserProvider({ children }: { children: ReactNode }) {
+  const { addActivity } = useAppData();
   const [displayName, setDisplayName] = useState(mockUser.displayName);
   const [freeStars, setFreeStars] = useState(mockUser.freeStars);
   const [points, setPoints] = useState(mockUser.points);
@@ -94,6 +96,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setTimeout(() => {
       setFriends((current) => (current.includes(name) ? current : [...current, name]));
       setPendingRequests((current) => current.filter((n) => n !== name));
+      addActivity("🤝", `Du bist jetzt mit ${name} befreundet.`);
     }, 2500);
   }
 
