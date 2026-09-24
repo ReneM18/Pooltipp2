@@ -56,19 +56,23 @@ export default function NewsTicker() {
           onClick={() => setSelected(null)}
         >
           <div
-            className="w-full max-w-md rounded-card border border-edge bg-gradient-to-br from-surface to-surface-hover p-6 shadow-2xl"
+            className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-card border border-edge bg-gradient-to-br from-surface to-surface-hover shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-3 flex items-center gap-2">
-              {selected.sport && <span className="text-2xl">{sportIcon[selected.sport]}</span>}
-              <h2 className="font-display text-lg font-bold text-ink">{selected.text}</h2>
+            <div className="overflow-y-auto p-8">
+              <div className="mb-4 flex items-center gap-3">
+                {selected.sport && <span className="text-3xl">{sportIcon[selected.sport]}</span>}
+                <h2 className="font-display text-2xl font-bold leading-snug text-ink">
+                  {selected.text}
+                </h2>
+              </div>
+              <p className="whitespace-pre-line text-base leading-relaxed text-muted">
+                {selected.article ?? "Zu dieser Meldung gibt es noch keinen ausführlichen Artikel."}
+              </p>
             </div>
-            <p className="whitespace-pre-line text-sm leading-relaxed text-muted">
-              {selected.article ?? "Zu dieser Meldung gibt es noch keinen ausführlichen Artikel."}
-            </p>
             <button
               onClick={() => setSelected(null)}
-              className="mt-5 w-full rounded-full bg-gold py-2.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90"
+              className="w-full shrink-0 bg-gold py-3.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90"
             >
               Schließen
             </button>
