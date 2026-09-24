@@ -59,7 +59,7 @@ export default function Navbar() {
               {displayName.slice(0, 1).toUpperCase()}
             </span>
             {activeRankIcon && (
-              <span className="absolute -bottom-1 -right-1 rounded-full ring-2 ring-pitch">
+              <span className="absolute -bottom-1.5 -right-1.5 rounded-full ring-[3px] ring-pitch">
                 <RankBadge option={activeRankIcon} size="xs" />
               </span>
             )}

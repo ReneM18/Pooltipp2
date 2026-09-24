@@ -86,7 +86,7 @@ export default function ProfilPage() {
             displayName.slice(0, 1).toUpperCase()
           )}
           {activeRankIcon && (
-            <span className="absolute -bottom-1.5 -right-1.5">
+            <span className="absolute -bottom-2 -right-2 rounded-full ring-[3px] ring-pitch">
               <RankBadge option={activeRankIcon} size="md" />
             </span>
           )}
@@ -97,8 +97,22 @@ export default function ProfilPage() {
           </h1>
           <p className="text-sm text-muted">
             {currentRank ? `Aktuell Platz ${currentRank} in der Rangliste` : "Noch nicht platziert"}
-            {activeRankIcon && ` · ${activeRankIcon.label}`}
           </p>
+          {/* Rang-Icon groß & deutlich als Abzeichen zeigen, statt nur als
+              winziges Eck-Icon – damit auf einen Blick klar ist, welchen
+              Rang man erreicht hat. */}
+          {activeRankIcon && (
+            <span
+              className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 font-display text-xs font-bold"
+              style={{
+                background: `linear-gradient(135deg, ${activeRankIcon.colorFrom}, ${activeRankIcon.colorTo})`,
+                color: activeRankIcon.colorText,
+              }}
+            >
+              <span className="text-sm">{activeRankIcon.icon}</span>
+              {activeRankIcon.label}
+            </span>
+          )}
         </div>
       </div>
 

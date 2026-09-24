@@ -26,6 +26,17 @@ const config: Config = {
       borderRadius: {
         card: "14px",
       },
+      keyframes: {
+        eliteGlow: {
+          "0%, 100%": { boxShadow: "0 0 8px 1px rgba(255,95,162,0.45)" },
+          "50%": { boxShadow: "0 0 16px 5px rgba(255,215,0,0.7)" },
+        },
+      },
+      animation: {
+        // Sanftes Leuchten für das Elite-Rang-Icon (Sport-Allrounder), damit
+        // es auf einen Blick als etwas Besonderes erkennbar ist.
+        "elite-glow": "eliteGlow 2.2s ease-in-out infinite",
+      },
     },
   },
   plugins: [],

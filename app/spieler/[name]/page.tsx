@@ -37,7 +37,7 @@ export default function SpielerProfilPage() {
         <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface font-display text-2xl font-bold text-gold">
           {name.slice(0, 1).toUpperCase()}
           {rankIcon && (
-            <span className="absolute -bottom-1.5 -right-1.5">
+            <span className="absolute -bottom-2 -right-2 rounded-full ring-[3px] ring-pitch">
               <RankBadge option={rankIcon} size="md" />
             </span>
           )}
@@ -49,8 +49,22 @@ export default function SpielerProfilPage() {
           </h1>
           <p className="text-sm text-muted">
             {leaderboardEntry ? `Platz ${leaderboardEntry.rank} in der Gesamt-Rangliste` : "Noch nicht platziert"}
-            {rankIcon && ` · ${rankIcon.label}`}
           </p>
+          {/* Rang-Icon groß & deutlich als Abzeichen zeigen, statt nur als
+              winziges Eck-Icon – damit andere auf einen Blick sehen, welchen
+              Rang jemand erreicht hat. */}
+          {rankIcon && (
+            <span
+              className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 font-display text-xs font-bold"
+              style={{
+                background: `linear-gradient(135deg, ${rankIcon.colorFrom}, ${rankIcon.colorTo})`,
+                color: rankIcon.colorText,
+              }}
+            >
+              <span className="text-sm">{rankIcon.icon}</span>
+              {rankIcon.label}
+            </span>
+          )}
         </div>
       </div>
 
