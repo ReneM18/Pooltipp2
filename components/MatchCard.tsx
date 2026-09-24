@@ -8,6 +8,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import TeamBadge from "./TeamBadge";
 import Countdown from "./Countdown";
+import { StarIcon, TvIcon, PlayIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
 
 const sportIcon: Record<string, string> = {
   "Fußball": "⚽",
@@ -207,8 +208,9 @@ export default function MatchCard({
 
             <div className="mb-5 flex items-center justify-between rounded-lg border border-edge bg-pitch px-4 py-2.5">
               <span className="text-sm text-muted">Einsatz für dieses Spiel</span>
-              <span className="font-display font-semibold text-gold">
-                ⭐ {match.fixedStake.toLocaleString("de-DE")}
+              <span className="flex items-center gap-1 font-display font-semibold text-gold">
+                <StarIcon className="h-4 w-4" />
+                {match.fixedStake.toLocaleString("de-DE")}
               </span>
             </div>
 
@@ -255,9 +257,10 @@ export default function MatchCard({
           <div className="flex items-center gap-3">
             <button
               onClick={() => setCommentsOpen((current) => !current)}
-              className="flex items-center gap-1 font-semibold text-muted transition-colors hover:text-ink"
+              className="flex items-center gap-1.5 font-semibold text-muted transition-colors hover:text-ink"
             >
-              💬 {matchComments.length > 0 ? `${matchComments.length} Kommentare` : "Kommentieren"}
+              <ChatIcon className="h-3.5 w-3.5" />
+              {matchComments.length > 0 ? `${matchComments.length} Kommentare` : "Kommentieren"}
             </button>
             {hasTipped && <span className="font-semibold text-action">✓ Getippt</span>}
           </div>
@@ -300,13 +303,15 @@ export default function MatchCard({
                             liked ? "text-gold" : "text-muted hover:text-ink"
                           }`}
                         >
-                          {liked ? "👍" : "👍🏻"} {comment.likedBy.length > 0 ? comment.likedBy.length : ""}
+                          <ThumbUpIcon className="h-3.5 w-3.5" filled={liked} />
+                          {comment.likedBy.length > 0 ? comment.likedBy.length : ""}
                         </button>
                         {isMine && (
                           <button
                             onClick={() => removeComment(comment.id)}
-                            className="text-xs text-muted transition-colors hover:text-red-400"
+                            className="flex items-center gap-1 text-xs text-muted transition-colors hover:text-red-400"
                           >
+                            <TrashIcon className="h-3.5 w-3.5" />
                             Löschen
                           </button>
                         )}
@@ -419,30 +424,3 @@ function ScoreInput({
   );
 }
 
-function TvIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <rect x="3" y="6" width="18" height="13" rx="2" />
-      <path d="M8 3l4 3 4-3" />
-    </svg>
-  );
-}
-
-function PlayIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-      <path d="M8 5.5v13a1 1 0 0 0 1.5.87l11-6.5a1 1 0 0 0 0-1.74l-11-6.5A1 1 0 0 0 8 5.5z" />
-    </svg>
-  );
-}
-
-function PeopleIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <circle cx="9" cy="8" r="3" />
-      <path d="M3,20 C3,16 5.5,14 9,14 C12.5,14 15,16 15,20" />
-      <circle cx="17" cy="9" r="2.4" />
-      <path d="M15,20 C15,17 16.5,15.2 19,15.2 C21,15.2 21.5,16.5 21.5,18" />
-    </svg>
-  );
-}
