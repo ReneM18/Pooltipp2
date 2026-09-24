@@ -8,7 +8,7 @@ const tabs = [
   { href: "/matchcenter", label: "Matchcenter" },
   { href: "/rangliste", label: "Rangliste" },
   { href: "/shop", label: "Prämien-Shop" },
-  { href: "/fortschritt", label: "Fortschritt" },
+  { href: "/fortschritt", label: "Saison-Pass" },
   { href: "/freunde", label: "Freunde" },
 ];
 

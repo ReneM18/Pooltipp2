@@ -11,7 +11,7 @@ export const mockShopItems: ShopItem[] = [
     id: "profile-neon-frame",
     category: "Profil",
     name: "Neon-Rahmen",
-    description: "Jederzeit kaufbares Rahmen-Design – unabhängig von deinem Season-Pass-Fortschritt.",
+    description: "Jederzeit kaufbares Rahmen-Design – unabhängig von deinem Saison-Pass-Fortschritt.",
     cost: 150,
   },
   {

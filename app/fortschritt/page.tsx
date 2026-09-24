@@ -24,7 +24,7 @@ export default function FortschrittPage() {
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
       <div className="mb-6">
-        <h1 className="font-display text-3xl font-bold text-ink">Dein Fortschritt</h1>
+        <h1 className="font-display text-3xl font-bold text-ink">Saison-Pass</h1>
         <p className="mt-1 text-sm text-muted">
           Sammle Punkte durch Tippen und schalte nach und nach neue Belohnungen frei.
         </p>
@@ -52,7 +52,7 @@ export default function FortschrittPage() {
       {/* Pass-Track */}
       <section className="mb-8">
         <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="font-display text-lg font-semibold text-ink">Season-Pass</h2>
+          <h2 className="font-display text-lg font-semibold text-ink">Saison-Pass</h2>
           <span className="text-xs text-muted">Exklusiv – nicht im Shop kaufbar</span>
         </div>
         <div className="flex flex-col gap-3">
