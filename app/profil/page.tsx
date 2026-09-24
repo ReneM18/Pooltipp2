@@ -12,6 +12,7 @@ const sportIcon: Record<string, string> = {
   "Fußball": "⚽",
   NFL: "🏈",
   NBA: "🏀",
+  NHL: "🏒",
 };
 
 export default function ProfilPage() {

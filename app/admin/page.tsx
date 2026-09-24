@@ -9,7 +9,7 @@ import TeamBadge from "@/components/TeamBadge";
 // Einfacher Zugriffsschutz fürs MVP – KEINE echte Sicherheit.
 // Sobald der richtige Login (Firebase Auth) steht, ersetzt der diese PIN
 // durch eine echte Rechteprüfung (z. B. "ist dieser User Admin?").
-const ADMIN_PIN = "2468";
+const ADMIN_PIN = "1805";
 
 export default function AdminPage() {
   const [unlocked, setUnlocked] = useState(false);
@@ -142,7 +142,7 @@ function TeamManager() {
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <label className="mb-1 block text-xs text-muted">
-              {sport === "NFL" ? "Helmfarbe" : "Trikotfarbe"}
+              {sport === "NFL" ? "Helmfarbe" : sport === "NHL" ? "Ringfarbe" : "Trikotfarbe"}
             </label>
             <input
               type="color"
@@ -153,7 +153,11 @@ function TeamManager() {
           </div>
           <div>
             <label className="mb-1 block text-xs text-muted">
-              {sport === "NFL" ? "Streifen-/Gitterfarbe" : "Kragen-/Saumfarbe"}
+              {sport === "NFL"
+                ? "Streifen-/Gitterfarbe"
+                : sport === "NHL"
+                ? "Logo-Farbe"
+                : "Kragen-/Saumfarbe"}
             </label>
             <input
               type="color"

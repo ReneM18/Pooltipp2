@@ -10,6 +10,7 @@ const sportIcon: Record<Sport, string> = {
   "Fußball": "⚽",
   NFL: "🏈",
   NBA: "🏀",
+  NHL: "🏒",
 };
 
 type ViewTab = "Gesamt" | Sport;

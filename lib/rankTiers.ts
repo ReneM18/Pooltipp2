@@ -42,6 +42,7 @@ export const SPORT_EMOJI: Record<Sport, string> = {
   "Fußball": "⚽",
   NFL: "🏈",
   NBA: "🏀",
+  NHL: "🏒",
 };
 
 export function getTierForPoints(points: number): RankTierDef {
@@ -184,7 +185,7 @@ export function getIconForName(name: string): RankIconOption | null {
 export function getMockRankIconForName(name: string): RankIconOption {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  const sports: Sport[] = ["Fußball", "NFL", "NBA"];
+  const sports: Sport[] = ["Fußball", "NFL", "NBA", "NHL"];
   const sport = sports[hash % sports.length];
   const points = 50 + (hash % 3200);
   const tier = getTierForPoints(points);

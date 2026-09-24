@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { JerseyStyle, Sport } from "@/lib/types";
 import { BASKETBALL_JERSEY_MARKUP } from "@/lib/basketballJerseyMarkup";
 
@@ -39,7 +40,87 @@ export default function TeamBadge({
   if (sport === "NBA") {
     return <BasketballJerseyIcon primary={primaryColor} secondary={secondaryColor} size={size} />;
   }
+  if (sport === "NHL") {
+    return <PuckIcon primary={primaryColor} secondary={secondaryColor} size={size} />;
+  }
   return <JerseyIcon primary={primaryColor} secondary={secondaryColor} size={size} />;
+}
+
+function PuckIcon({
+  primary,
+  secondary,
+  size,
+}: {
+  primary: string;
+  secondary: string;
+  size: number;
+}) {
+  const uid = useId().replace(/[:]/g, "");
+
+  return (
+    <svg width={size} height={size} viewBox="0 0 400 300" aria-hidden="true">
+      <defs>
+        <pattern id={`knurling-${uid}`} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="4" height="8" fill="#111111" />
+          <rect x="4" width="4" height="8" fill="#222222" />
+        </pattern>
+
+        <radialGradient id={`dropShadow-${uid}`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#000000" stopOpacity="0.6" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+        </radialGradient>
+
+        <linearGradient id={`sideGradient-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#0a0a0a" />
+          <stop offset="25%" stopColor="#2c2c2c" />
+          <stop offset="50%" stopColor="#141414" />
+          <stop offset="85%" stopColor="#2a2a2a" />
+          <stop offset="100%" stopColor="#050505" />
+        </linearGradient>
+
+        <radialGradient id={`topSurface-${uid}`} cx="40%" cy="35%" r="60%">
+          <stop offset="0%" stopColor="#333333" />
+          <stop offset="50%" stopColor="#1a1a1a" />
+          <stop offset="95%" stopColor="#0d0d0d" />
+          <stop offset="100%" stopColor="#050505" />
+        </radialGradient>
+
+        <linearGradient id={`edgeBevel-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#555555" stopOpacity="0.2" />
+          <stop offset="30%" stopColor="#ffffff" stopOpacity="0.6" />
+          <stop offset="70%" stopColor="#444444" stopOpacity="0.1" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0.3" />
+        </linearGradient>
+      </defs>
+
+      {/* Schlagschatten */}
+      <ellipse cx="200" cy="235" rx="135" ry="40" fill={`url(#dropShadow-${uid})`} />
+
+      {/* Seitenwand (3D-Körper) */}
+      <path
+        d="M 70 160 A 130 45 0 0 0 330 160 L 330 200 A 130 45 0 0 1 70 200 Z"
+        fill={`url(#sideGradient-${uid})`}
+      />
+      <path
+        d="M 70 160 A 130 45 0 0 0 330 160 L 330 200 A 130 45 0 0 1 70 200 Z"
+        fill={`url(#knurling-${uid})`}
+        opacity="0.35"
+        style={{ mixBlendMode: "overlay" }}
+      />
+      <ellipse cx="200" cy="200" rx="130" ry="45" fill="none" stroke="#111111" strokeWidth="2" />
+
+      {/* Oberseite */}
+      <ellipse cx="200" cy="160" rx="130" ry="45" fill={`url(#topSurface-${uid})`} />
+      <ellipse cx="200" cy="160" rx="130" ry="45" fill="none" stroke={`url(#edgeBevel-${uid})`} strokeWidth="2.5" />
+
+      {/* Team-Akzentring statt neutraler Linie */}
+      <ellipse cx="200" cy="160" rx="115" ry="40" fill="none" stroke={primary} strokeWidth="2.5" opacity="0.8" />
+
+      {/* Team-Logo-Kreis (Akzentfarbe) */}
+      <circle cx="200" cy="158" r="22" fill={secondary} opacity="0.9" />
+      <circle cx="200" cy="158" r="22" fill="none" stroke={primary} strokeWidth="2" />
+    </svg>
+  );
 }
 
 function BasketballJerseyIcon({

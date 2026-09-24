@@ -10,6 +10,7 @@ const sportIcon: Record<string, string> = {
   "Fußball": "⚽",
   NFL: "🏈",
   NBA: "🏀",
+  NHL: "🏒",
 };
 
 interface MyTip {

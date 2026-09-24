@@ -1,6 +1,6 @@
-export type Sport = "Fußball" | "NFL" | "NBA";
+export type Sport = "Fußball" | "NFL" | "NBA" | "NHL";
 
-export const SPORTS: Sport[] = ["Fußball", "NFL", "NBA"];
+export const SPORTS: Sport[] = ["Fußball", "NFL", "NBA", "NHL"];
 
 export type JerseyStyle = "solid" | "streifen" | "aermel";
 

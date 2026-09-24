@@ -10,6 +10,7 @@ export const LEAGUE_IDS: Record<string, string> = {
   "Premier League": "4328",
   "NBA": "4387",
   "NFL": "4391",
+  "NHL": "4380",
 };
 
 export interface StandingRow {

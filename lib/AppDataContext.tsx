@@ -28,6 +28,8 @@ const initialTeams: Team[] = [
   { id: "team-chiefs", name: "Kansas City Chiefs", sport: "NFL", countryCode: "US", primaryColor: "#E31837", secondaryColor: "#FFB81C" },
   { id: "team-bulls", name: "Chicago Bulls", sport: "NBA", countryCode: "US", primaryColor: "#CE1141", secondaryColor: "#000000", jerseyStyle: "solid" },
   { id: "team-knicks", name: "New York Knicks", sport: "NBA", countryCode: "US", primaryColor: "#006BB6", secondaryColor: "#F58426", jerseyStyle: "aermel" },
+  { id: "team-bruins", name: "Boston Bruins", sport: "NHL", countryCode: "US", primaryColor: "#FFB81C", secondaryColor: "#000000" },
+  { id: "team-rangers", name: "New York Rangers", sport: "NHL", countryCode: "US", primaryColor: "#0038A8", secondaryColor: "#CE1126" },
 ];
 
 const initialMatches: Match[] = [
@@ -140,6 +142,21 @@ const initialMatches: Match[] = [
     summaryVideoUrl: null,
     tvChannel: null,
   },
+  {
+    id: "match-8",
+    sport: "NHL",
+    competition: "NHL",
+    kickoff: "2026-09-29T19:30:00-04:00",
+    tipDeadline: "2026-09-29T19:15:00-04:00",
+    homeTeamId: "team-bruins",
+    awayTeamId: "team-rangers",
+    fixedStake: 20,
+    status: "upcoming",
+    liveHomeScore: null,
+    liveAwayScore: null,
+    summaryVideoUrl: null,
+    tvChannel: null,
+  },
 ];
 
 interface AppDataContextValue {
@@ -174,6 +191,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     "Fußball": 0,
     NFL: 0,
     NBA: 0,
+    NHL: 0,
   });
   const [myTips, setMyTips] = useState<SubmittedTip[]>([]);
 
