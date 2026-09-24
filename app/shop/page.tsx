@@ -3,17 +3,21 @@
 import { useState } from "react";
 import { mockShopItems, ShopItem } from "@/lib/mockShopItems";
 import { useUser } from "@/lib/UserContext";
+import { useFeedback } from "@/lib/FeedbackContext";
 
 const categories: ShopItem["category"][] = ["Profil", "In-Game", "Badges"];
 
 export default function ShopPage() {
   const { freeStars, spendStars } = useUser();
+  const { showToast, celebrate } = useFeedback();
   const [redeemedIds, setRedeemedIds] = useState<string[]>([]);
 
   function handleRedeem(item: ShopItem) {
     const success = spendStars(item.cost);
     if (success) {
       setRedeemedIds((current) => [...current, item.id]);
+      celebrate();
+      showToast(`✓ „${item.name}" eingelöst!`, "gold");
     }
   }
 

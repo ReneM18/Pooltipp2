@@ -9,6 +9,7 @@ interface UserContextValue {
   setDisplayName: (name: string) => void;
   freeStars: number;
   points: number;
+  addPoints: (amount: number) => void;
   spendStars: (amount: number) => boolean;
   tipsSubmitted: number;
   recordTipSubmitted: () => void;
@@ -28,7 +29,11 @@ const UserContext = createContext<UserContextValue | null>(null);
 export function UserProvider({ children }: { children: ReactNode }) {
   const [displayName, setDisplayName] = useState(mockUser.displayName);
   const [freeStars, setFreeStars] = useState(mockUser.freeStars);
-  const [points] = useState(mockUser.points);
+  const [points, setPoints] = useState(mockUser.points);
+
+  function addPoints(amount: number) {
+    setPoints((current) => current + amount);
+  }
   const [tipsSubmitted, setTipsSubmitted] = useState(0);
   const [friends, setFriends] = useState<string[]>(["Sabine K.", "Marco T."]);
   const [hasPremiumPass, setHasPremiumPass] = useState(false);
@@ -79,6 +84,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setDisplayName,
         freeStars,
         points,
+        addPoints,
         spendStars,
         tipsSubmitted,
         recordTipSubmitted,

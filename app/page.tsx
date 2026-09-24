@@ -4,10 +4,16 @@ import { useState } from "react";
 import MatchCard from "@/components/MatchCard";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
+import { useFeedback } from "@/lib/FeedbackContext";
+
+// Punkte, die es fürs Abgeben eines Tipps sofort gibt (Teilnahme-Bonus).
+// Die "richtige" Punktevergabe nach Ergebnis kommt erst mit dem echten Backend.
+const POINTS_PER_TIP = 10;
 
 export default function DashboardPage() {
-  const { spendStars, recordTipSubmitted } = useUser();
+  const { spendStars, recordTipSubmitted, addPoints } = useUser();
   const { matches, getTeam, tipCounts, submitTip, myTips } = useAppData();
+  const { showToast, celebrate } = useFeedback();
   const [tab, setTab] = useState<"offen" | "geschlossen">("offen");
 
   function findTipForMatch(matchId: string) {
@@ -18,6 +24,9 @@ export default function DashboardPage() {
     spendStars(stake);
     recordTipSubmitted();
     submitTip(matchId, homeScore, awayScore, stake);
+    addPoints(POINTS_PER_TIP);
+    celebrate();
+    showToast("✓ Tipp gespeichert – viel Glück!");
   }
 
   const offeneMatches = matches.filter((m) => m.status !== "finished");

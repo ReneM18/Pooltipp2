@@ -5,6 +5,7 @@ import Navbar from "./Navbar";
 import NewsTicker from "./NewsTicker";
 import NavTabs from "./NavTabs";
 import ChatWidget from "./ChatWidget";
+import OnboardingTour from "./OnboardingTour";
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -22,6 +23,7 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
       <NavTabs />
       {children}
       <ChatWidget />
+      <OnboardingTour />
     </>
   );
 }

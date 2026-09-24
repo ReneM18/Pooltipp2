@@ -4,6 +4,7 @@ import "./globals.css";
 import { UserProvider } from "@/lib/UserContext";
 import { AppDataProvider } from "@/lib/AppDataContext";
 import { TeamsProvider } from "@/lib/TeamsContext";
+import { FeedbackProvider } from "@/lib/FeedbackContext";
 import AppChrome from "@/components/AppChrome";
 
 const rajdhani = Rajdhani({
@@ -34,7 +35,9 @@ export default function RootLayout({
         <AppDataProvider>
           <UserProvider>
             <TeamsProvider>
-              <AppChrome>{children}</AppChrome>
+              <FeedbackProvider>
+                <AppChrome>{children}</AppChrome>
+              </FeedbackProvider>
             </TeamsProvider>
           </UserProvider>
         </AppDataProvider>

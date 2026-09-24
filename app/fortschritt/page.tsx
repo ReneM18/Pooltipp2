@@ -5,6 +5,7 @@ import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { PASS_LEVELS, PREMIUM_PASS_PRICE } from "@/lib/passLevels";
 import { SPORTS } from "@/lib/types";
+import { useFeedback } from "@/lib/FeedbackContext";
 
 const sportIcon: Record<string, string> = {
   "Fußball": "⚽",
@@ -15,6 +16,7 @@ const sportIcon: Record<string, string> = {
 export default function FortschrittPage() {
   const { points, hasPremiumPass, buyPremiumPass } = useUser();
   const { tipsBySport } = useAppData();
+  const { showToast, celebrate } = useFeedback();
   const [purchasing, setPurchasing] = useState(false);
 
   function handleBuyPremium() {
@@ -24,6 +26,8 @@ export default function FortschrittPage() {
     setTimeout(() => {
       buyPremiumPass();
       setPurchasing(false);
+      celebrate();
+      showToast("👑 Premium-Pass freigeschaltet!", "gold");
     }, 600);
   }
 

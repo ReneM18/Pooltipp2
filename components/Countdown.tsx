@@ -26,8 +26,12 @@ export default function Countdown({ kickoff }: { kickoff: string }) {
   }, [target]);
 
   const closed = remaining <= 0;
+  const soon = !closed && remaining <= 30 * 60 * 1000; // letzte 30 Minuten
 
   return (
-    <span className={closed ? "text-muted" : "text-gold"}>{formatRemaining(remaining)}</span>
+    <span className={`inline-flex items-center gap-1 ${closed ? "text-muted" : soon ? "text-[#FF9B5C]" : "text-gold"}`}>
+      {soon && <span aria-hidden>⏰</span>}
+      {formatRemaining(remaining)}
+    </span>
   );
 }
