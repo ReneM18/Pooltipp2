@@ -177,7 +177,7 @@ export default function FortschrittPage() {
       {/* Sportarten-Aufschlüsselung */}
       <section>
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Tipps nach Sportart</h2>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {SPORTS.map((sport) => (
             <div key={sport} className="rounded-card border border-edge bg-surface p-4 text-center">
               <div className="mb-1 text-2xl">{sportIcon[sport]}</div>

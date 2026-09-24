@@ -437,11 +437,11 @@ function TeamManager() {
         {teams.map((team, index) => (
           <div
             key={team.id}
-            className={`flex items-center justify-between px-4 py-3 ${
+            className={`flex flex-wrap items-center justify-between gap-y-1.5 px-4 py-3 ${
               index !== teams.length - 1 ? "border-b border-edge" : ""
             }`}
           >
-            <span className="flex items-center gap-3 text-sm text-ink">
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink">
               <TeamBadge
                 sport={team.sport}
                 primaryColor={team.primaryColor}

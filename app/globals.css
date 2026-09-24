@@ -6,6 +6,13 @@ html {
   color-scheme: dark;
 }
 
+html,
+body {
+  /* Sicherheitsnetz gegen versehentliches horizontales Scrollen auf dem Handy,
+     falls irgendwo mal ein Element etwas zu breit wird. */
+  overflow-x: hidden;
+}
+
 body {
   background-color: #0d1512;
   background-image: radial-gradient(circle at 20% 0%, rgba(232, 179, 76, 0.06), transparent 40%),
