@@ -14,8 +14,8 @@ const config: Config = {
         edge: "#24332C", // hairline borders
         gold: "#E8B34C", // Sterne / currency accent
         "gold-dim": "#4A3D22", // gold used at low opacity (track backgrounds)
-        action: "#3FA66B", // primary buttons / confirmations
-        "action-hover": "#4FC181",
+        action: "#2F6FED", // primary buttons / confirmations — TEMP: geändert auf Blau als Deploy-Test-Marker
+        "action-hover": "#4C89FF",
         ink: "#F3F1EA", // primary text
         muted: "#8B9890", // secondary text
       },
