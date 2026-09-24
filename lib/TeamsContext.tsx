@@ -41,8 +41,14 @@ interface TeamsContextValue {
   createLeague: (name: string, description: string, scoringMode: ScoringMode) => League;
   joinLeague: (code: string) => League | null;
   addMatch: (leagueId: string, title: string, kickoff: string) => void;
+  updateMatch: (matchId: string, title: string, kickoff: string) => void;
+  removeMatch: (matchId: string) => void;
   setFinalScore: (matchId: string, homeScore: number, awayScore: number) => void;
   submitTip: (leagueId: string, matchId: string, homeScore: number, awayScore: number) => void;
+  updateLeague: (leagueId: string, name: string, description: string) => void;
+  removeMember: (leagueId: string, member: string) => void;
+  leaveLeague: (leagueId: string) => void;
+  deleteLeague: (leagueId: string) => void;
 }
 
 const TeamsContext = createContext<TeamsContextValue | null>(null);
@@ -95,6 +101,51 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     ]);
   }
 
+  function updateMatch(matchId: string, title: string, kickoff: string) {
+    setMatches((current) =>
+      current.map((m) => (m.id === matchId ? { ...m, title, kickoff } : m))
+    );
+  }
+
+  function removeMatch(matchId: string) {
+    setMatches((current) => current.filter((m) => m.id !== matchId));
+    setTips((current) => current.filter((t) => t.matchId !== matchId));
+  }
+
+  function updateLeague(leagueId: string, name: string, description: string) {
+    setLeagues((current) =>
+      current.map((l) => (l.id === leagueId ? { ...l, name, description } : l))
+    );
+  }
+
+  function removeMember(leagueId: string, member: string) {
+    setLeagues((current) =>
+      current.map((l) =>
+        l.id === leagueId ? { ...l, members: l.members.filter((m) => m !== member) } : l
+      )
+    );
+  }
+
+  // Nicht-Gründer verlassen die Tipprunde einfach; der Gründer selbst löscht
+  // sie stattdessen komplett (siehe deleteLeague), damit es immer klar ist,
+  // wer eine Tipprunde verwalten darf.
+  function leaveLeague(leagueId: string) {
+    setLeagues((current) =>
+      current.map((l) =>
+        l.id === leagueId ? { ...l, members: l.members.filter((m) => m !== displayName) } : l
+      )
+    );
+  }
+
+  function deleteLeague(leagueId: string) {
+    setLeagues((current) => current.filter((l) => l.id !== leagueId));
+    const matchIdsToDrop = new Set(
+      matches.filter((m) => m.leagueId === leagueId).map((m) => m.id)
+    );
+    setMatches((current) => current.filter((m) => m.leagueId !== leagueId));
+    setTips((current) => current.filter((t) => !matchIdsToDrop.has(t.matchId)));
+  }
+
   function setFinalScore(matchId: string, homeScore: number, awayScore: number) {
     setMatches((current) =>
       current.map((m) =>
@@ -121,7 +172,22 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
 
   return (
     <TeamsContext.Provider
-      value={{ leagues, matches, tips, createLeague, joinLeague, addMatch, setFinalScore, submitTip }}
+      value={{
+        leagues,
+        matches,
+        tips,
+        createLeague,
+        joinLeague,
+        addMatch,
+        updateMatch,
+        removeMatch,
+        setFinalScore,
+        submitTip,
+        updateLeague,
+        removeMember,
+        leaveLeague,
+        deleteLeague,
+      }}
     >
       {children}
     </TeamsContext.Provider>

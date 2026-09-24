@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useTeams } from "@/lib/TeamsContext";
 import { useUser } from "@/lib/UserContext";
 import { LeagueMatch } from "@/lib/teamsTypes";
 import ShareLeagueButton from "@/components/ShareLeagueButton";
 import ShareResultCard from "@/components/ShareResultCard";
+import { TrashIcon } from "@/components/Icons";
 
 function pointsFor(
   scoringMode: "ergebnis" | "dreiweg",
@@ -30,7 +31,21 @@ function pointsFor(
 
 export default function LeagueDetailPage() {
   const params = useParams<{ leagueId: string }>();
-  const { leagues, matches, tips, addMatch, setFinalScore, submitTip } = useTeams();
+  const router = useRouter();
+  const {
+    leagues,
+    matches,
+    tips,
+    addMatch,
+    updateMatch,
+    removeMatch,
+    setFinalScore,
+    submitTip,
+    updateLeague,
+    removeMember,
+    leaveLeague,
+    deleteLeague,
+  } = useTeams();
   const { displayName } = useUser();
 
   const league = leagues.find((l) => l.id === params.leagueId);
@@ -38,6 +53,21 @@ export default function LeagueDetailPage() {
   const isCreator = league?.creator === displayName;
 
   const [tab, setTab] = useState<"spiele" | "rangliste" | "mitglieder">("spiele");
+  const [editingLeague, setEditingLeague] = useState(false);
+
+  function handleLeave() {
+    if (!league) return;
+    if (!confirm(`"${league.name}" wirklich verlassen?`)) return;
+    leaveLeague(league.id);
+    router.push("/teams");
+  }
+
+  function handleDelete() {
+    if (!league) return;
+    if (!confirm(`"${league.name}" für alle Mitglieder unwiderruflich löschen?`)) return;
+    deleteLeague(league.id);
+    router.push("/teams");
+  }
 
   if (!league) {
     return (
@@ -70,8 +100,32 @@ export default function LeagueDetailPage() {
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
       <div className="mb-6">
-        <h1 className="font-display text-3xl font-bold text-ink">{league.name}</h1>
-        {league.description && <p className="mt-1 text-sm text-muted">{league.description}</p>}
+        {editingLeague ? (
+          <EditLeagueForm
+            initialName={league.name}
+            initialDescription={league.description}
+            onSave={(name, description) => {
+              updateLeague(league.id, name, description);
+              setEditingLeague(false);
+            }}
+            onCancel={() => setEditingLeague(false)}
+          />
+        ) : (
+          <>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <h1 className="font-display text-3xl font-bold text-ink">{league.name}</h1>
+              {isCreator && (
+                <button
+                  onClick={() => setEditingLeague(true)}
+                  className="rounded-full border border-edge px-3 py-1 text-xs font-semibold text-muted transition-colors hover:border-blue-400/50 hover:text-ink"
+                >
+                  Bearbeiten
+                </button>
+              )}
+            </div>
+            {league.description && <p className="mt-1 text-sm text-muted">{league.description}</p>}
+          </>
+        )}
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
           <span>
             {league.scoringMode === "ergebnis" ? "Ergebnis-Modus" : "3-Wege-Modus"} ·{" "}
@@ -81,8 +135,24 @@ export default function LeagueDetailPage() {
             Code: {league.code}
           </span>
         </div>
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <ShareLeagueButton leagueName={league.name} code={league.code} />
+          {isCreator ? (
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-1.5 rounded-full border border-edge px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-red-400/50 hover:text-red-400"
+            >
+              <TrashIcon className="h-3.5 w-3.5" />
+              Tipprunde löschen
+            </button>
+          ) : (
+            <button
+              onClick={handleLeave}
+              className="rounded-full border border-edge px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-red-400/50 hover:text-red-400"
+            >
+              Tipprunde verlassen
+            </button>
+          )}
         </div>
       </div>
 
@@ -115,6 +185,8 @@ export default function LeagueDetailPage() {
               myTip={tips.find((t) => t.matchId === match.id && t.author === displayName)}
               onSubmitTip={(h, a) => submitTip(league.id, match.id, h, a)}
               onSetFinal={(h, a) => setFinalScore(match.id, h, a)}
+              onUpdateMatch={(title, kickoff) => updateMatch(match.id, title, kickoff)}
+              onRemoveMatch={() => removeMatch(match.id)}
             />
           ))}
         </div>
@@ -153,14 +225,81 @@ export default function LeagueDetailPage() {
               }`}
             >
               <span className="text-sm text-ink">{member}</span>
-              {member === league.creator && (
+              {member === league.creator ? (
                 <span className="text-xs text-blue-400">Gründer</span>
+              ) : (
+                isCreator && (
+                  <button
+                    onClick={() => {
+                      if (confirm(`${member} aus der Tipprunde entfernen?`)) {
+                        removeMember(league.id, member);
+                      }
+                    }}
+                    className="flex items-center gap-1 text-xs text-muted transition-colors hover:text-red-400"
+                  >
+                    <TrashIcon className="h-3.5 w-3.5" />
+                    Entfernen
+                  </button>
+                )
               )}
             </div>
           ))}
         </div>
       )}
     </main>
+  );
+}
+
+function EditLeagueForm({
+  initialName,
+  initialDescription,
+  onSave,
+  onCancel,
+}: {
+  initialName: string;
+  initialDescription: string;
+  onSave: (name: string, description: string) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const [description, setDescription] = useState(initialDescription);
+
+  return (
+    <div className="flex flex-col gap-2 rounded-card border border-blue-400/30 bg-surface p-4">
+      <div>
+        <label className="mb-1 block text-xs text-muted">Name der Tipprunde</label>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-blue-400"
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs text-muted">Beschreibung</label>
+        <input
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-blue-400"
+        />
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={() => {
+            if (!name.trim()) return;
+            onSave(name.trim(), description.trim());
+          }}
+          className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
+        >
+          Speichern
+        </button>
+        <button
+          onClick={onCancel}
+          className="rounded-full border border-edge px-4 py-2 text-sm font-semibold text-muted transition-colors hover:text-ink"
+        >
+          Abbrechen
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -220,25 +359,96 @@ function LeagueMatchCard({
   myTip,
   onSubmitTip,
   onSetFinal,
+  onUpdateMatch,
+  onRemoveMatch,
 }: {
   match: LeagueMatch;
   isCreator: boolean;
   myTip?: { predictedHomeScore: number; predictedAwayScore: number };
   onSubmitTip: (home: number, away: number) => void;
   onSetFinal: (home: number, away: number) => void;
+  onUpdateMatch: (title: string, kickoff: string) => void;
+  onRemoveMatch: () => void;
 }) {
   const [home, setHome] = useState(0);
   const [away, setAway] = useState(0);
   const [finalHome, setFinalHome] = useState(match.finalHomeScore ?? 0);
   const [finalAway, setFinalAway] = useState(match.finalAwayScore ?? 0);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(match.title);
+  const [editKickoff, setEditKickoff] = useState(
+    new Date(match.kickoff).toISOString().slice(0, 16)
+  );
+
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-2 rounded-card border border-blue-400/30 bg-surface p-4 sm:flex-row sm:items-end">
+        <div className="flex-1">
+          <label className="mb-1 block text-xs text-muted">Spiel</label>
+          <input
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-blue-400"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-muted">Anpfiff</label>
+          <input
+            type="datetime-local"
+            value={editKickoff}
+            onChange={(e) => setEditKickoff(e.target.value)}
+            className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-blue-400"
+          />
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              if (!editTitle.trim() || !editKickoff) return;
+              onUpdateMatch(editTitle.trim(), new Date(editKickoff).toISOString());
+              setEditing(false);
+            }}
+            className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
+          >
+            Speichern
+          </button>
+          <button
+            onClick={() => setEditing(false)}
+            className="rounded-full border border-edge px-4 py-2 text-sm font-semibold text-muted transition-colors hover:text-ink"
+          >
+            Abbrechen
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-card border border-edge bg-surface p-4">
       <div className="mb-2 flex items-center justify-between">
         <span className="font-display text-sm font-semibold text-ink">{match.title}</span>
-        <span className="text-xs text-muted">
-          {new Date(match.kickoff).toLocaleString("de-DE")}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted">
+            {new Date(match.kickoff).toLocaleString("de-DE")}
+          </span>
+          {isCreator && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setEditing(true)}
+                className="text-xs text-muted transition-colors hover:text-ink"
+              >
+                Bearbeiten
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm(`Spiel "${match.title}" wirklich löschen?`)) onRemoveMatch();
+                }}
+                className="text-xs text-muted transition-colors hover:text-red-400"
+              >
+                <TrashIcon className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {match.status === "finished" ? (
