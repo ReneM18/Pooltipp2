@@ -1,0 +1,51 @@
+// Wandelt einen ISO-3166-1-alpha-2-Ländercode in ein Flaggen-Emoji um,
+// z. B. "DE" -> 🇩🇪. Funktioniert automatisch für jeden gültigen Code,
+// ohne dass wir jede Flagge einzeln hinterlegen müssen.
+export function flagEmoji(countryCode: string): string {
+  return countryCode
+    .toUpperCase()
+    .replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt(0)));
+}
+
+export const COUNTRIES: { code: string; name: string }[] = [
+  { code: "DE", name: "Deutschland" },
+  { code: "AT", name: "Österreich" },
+  { code: "CH", name: "Schweiz" },
+  { code: "US", name: "USA" },
+  { code: "GB", name: "England" },
+  { code: "ES", name: "Spanien" },
+  { code: "IT", name: "Italien" },
+  { code: "FR", name: "Frankreich" },
+  { code: "NL", name: "Niederlande" },
+  { code: "PT", name: "Portugal" },
+  { code: "BE", name: "Belgien" },
+  { code: "PL", name: "Polen" },
+  { code: "SE", name: "Schweden" },
+  { code: "DK", name: "Dänemark" },
+  { code: "NO", name: "Norwegen" },
+  { code: "TR", name: "Türkei" },
+  { code: "HR", name: "Kroatien" },
+  { code: "RS", name: "Serbien" },
+  { code: "UA", name: "Ukraine" },
+  { code: "GR", name: "Griechenland" },
+  { code: "BR", name: "Brasilien" },
+  { code: "AR", name: "Argentinien" },
+  { code: "UY", name: "Uruguay" },
+  { code: "CO", name: "Kolumbien" },
+  { code: "CL", name: "Chile" },
+  { code: "EC", name: "Ecuador" },
+  { code: "MX", name: "Mexiko" },
+  { code: "CA", name: "Kanada" },
+  { code: "MA", name: "Marokko" },
+  { code: "SN", name: "Senegal" },
+  { code: "NG", name: "Nigeria" },
+  { code: "GH", name: "Ghana" },
+  { code: "CM", name: "Kamerun" },
+  { code: "TN", name: "Tunesien" },
+  { code: "EG", name: "Ägypten" },
+  { code: "JP", name: "Japan" },
+  { code: "KR", name: "Südkorea" },
+  { code: "SA", name: "Saudi-Arabien" },
+  { code: "QA", name: "Katar" },
+  { code: "AU", name: "Australien" },
+];
