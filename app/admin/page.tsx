@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { useAppData } from "@/lib/AppDataContext";
+import { useAppData, NewsItem } from "@/lib/AppDataContext";
 import { Sport, SPORTS, JerseyStyle, JERSEY_STYLES, Match, MatchStatus, TipMode } from "@/lib/types";
 import { COUNTRIES, flagEmoji } from "@/lib/flags";
 import TeamBadge from "@/components/TeamBadge";
@@ -36,7 +36,7 @@ export default function AdminPage() {
 }
 
 function NewsManager() {
-  const { newsItems, addNews, removeNews } = useAppData();
+  const { newsItems, addNews, updateNews, removeNews } = useAppData();
   const [text, setText] = useState("");
   const [sport, setSport] = useState<Sport | "">("");
   const [article, setArticle] = useState("");
@@ -116,31 +116,119 @@ function NewsManager() {
           <p className="p-4 text-sm text-muted">Noch keine News angelegt.</p>
         )}
         {newsItems.map((item, index) => (
-          <div
+          <NewsItemRow
             key={item.id}
-            className={`flex items-center justify-between gap-3 px-4 py-3 ${
-              index !== newsItems.length - 1 ? "border-b border-edge" : ""
-            }`}
-          >
-            <span className="flex items-center gap-2 text-sm text-ink">
-              {item.sport && <span>{sportIcon[item.sport]}</span>}
-              {item.text}
-              {item.article && (
-                <span className="rounded-full bg-surface-hover px-2 py-0.5 text-[10px] font-semibold text-muted">
-                  Artikel
-                </span>
-              )}
-            </span>
-            <button
-              onClick={() => removeNews(item.id)}
-              className="shrink-0 text-xs text-muted hover:text-ink"
-            >
-              Entfernen
-            </button>
-          </div>
+            item={item}
+            isLast={index === newsItems.length - 1}
+            onSave={updateNews}
+            onRemove={removeNews}
+          />
         ))}
       </div>
     </section>
+  );
+}
+
+function NewsItemRow({
+  item,
+  isLast,
+  onSave,
+  onRemove,
+}: {
+  item: NewsItem;
+  isLast: boolean;
+  onSave: (id: string, text: string, sport: Sport | null, article: string | null) => void;
+  onRemove: (id: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(item.text);
+  const [sport, setSport] = useState<Sport | "">(item.sport ?? "");
+  const [article, setArticle] = useState(item.article ?? "");
+
+  function handleSave() {
+    if (!text.trim()) return;
+    onSave(item.id, text.trim(), sport || null, article.trim() || null);
+    setEditing(false);
+  }
+
+  function handleCancel() {
+    setText(item.text);
+    setSport(item.sport ?? "");
+    setArticle(item.article ?? "");
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <div className={`flex flex-col gap-2 px-4 py-3 ${!isLast ? "border-b border-edge" : ""}`}>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            className="flex-1 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+          />
+          <select
+            value={sport}
+            onChange={(e) => setSport(e.target.value as Sport | "")}
+            className="rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+          >
+            <option value="">Allgemein (kein Icon)</option>
+            {SPORTS.map((s) => (
+              <option key={s} value={s}>
+                {sportIcon[s]} {s}
+              </option>
+            ))}
+          </select>
+        </div>
+        <textarea
+          value={article}
+          onChange={(e) => setArticle(e.target.value)}
+          rows={4}
+          placeholder="Artikeltext (optional)"
+          className="w-full resize-y rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={handleSave}
+            className="rounded-full bg-action px-4 py-1.5 text-xs font-semibold text-pitch transition-colors hover:bg-action-hover"
+          >
+            Speichern
+          </button>
+          <button
+            onClick={handleCancel}
+            className="rounded-full border border-edge px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:text-ink"
+          >
+            Abbrechen
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`flex items-center justify-between gap-3 px-4 py-3 ${
+        !isLast ? "border-b border-edge" : ""
+      }`}
+    >
+      <span className="flex items-center gap-2 text-sm text-ink">
+        {item.sport && <span>{sportIcon[item.sport]}</span>}
+        {item.text}
+        {item.article && (
+          <span className="rounded-full bg-surface-hover px-2 py-0.5 text-[10px] font-semibold text-muted">
+            Artikel
+          </span>
+        )}
+      </span>
+      <span className="flex shrink-0 items-center gap-3">
+        <button onClick={() => setEditing(true)} className="text-xs text-muted hover:text-gold">
+          Bearbeiten
+        </button>
+        <button onClick={() => onRemove(item.id)} className="text-xs text-muted hover:text-ink">
+          Entfernen
+        </button>
+      </span>
+    </div>
   );
 }
 

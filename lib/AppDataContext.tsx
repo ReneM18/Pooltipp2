@@ -209,6 +209,7 @@ interface AppDataContextValue {
   setTipMode: (matchId: string, mode: TipMode) => void;
   newsItems: NewsItem[];
   addNews: (text: string, sport: Sport | null, article: string | null) => void;
+  updateNews: (id: string, text: string, sport: Sport | null, article: string | null) => void;
   removeNews: (id: string) => void;
 }
 
@@ -320,6 +321,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     ]);
   }
 
+  function updateNews(id: string, text: string, sport: Sport | null, article: string | null) {
+    setNewsItems((current) =>
+      current.map((n) => (n.id === id ? { ...n, text, sport, article } : n))
+    );
+  }
+
   function removeNews(id: string) {
     setNewsItems((current) => current.filter((n) => n.id !== id));
   }
@@ -345,6 +352,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setTipMode,
         newsItems,
         addNews,
+        updateNews,
         removeNews,
       }}
     >
