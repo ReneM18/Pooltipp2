@@ -21,8 +21,8 @@ function NationalFlagBadge({ countryCode, size }: { countryCode: string; size: n
     <span
       role="img"
       aria-label={`Flagge ${countryCode}`}
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.62) }}
-      className="flex shrink-0 items-center justify-center rounded-full border border-edge bg-surface leading-none"
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.8) }}
+      className="flex shrink-0 items-center justify-center leading-none"
     >
       {flagEmoji(countryCode)}
     </span>
