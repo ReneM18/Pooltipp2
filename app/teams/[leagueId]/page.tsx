@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { useTeams } from "@/lib/TeamsContext";
 import { useUser } from "@/lib/UserContext";
 import { LeagueMatch } from "@/lib/teamsTypes";
+import ShareLeagueButton from "@/components/ShareLeagueButton";
+import ShareResultCard from "@/components/ShareResultCard";
 
 function pointsFor(
   scoringMode: "ergebnis" | "dreiweg",
@@ -70,7 +72,7 @@ export default function LeagueDetailPage() {
       <div className="mb-6">
         <h1 className="font-display text-3xl font-bold text-ink">{league.name}</h1>
         {league.description && <p className="mt-1 text-sm text-muted">{league.description}</p>}
-        <div className="mt-2 flex items-center gap-2 text-xs text-muted">
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
           <span>
             {league.scoringMode === "ergebnis" ? "Ergebnis-Modus" : "3-Wege-Modus"} ·{" "}
             {league.members.length} Mitglieder
@@ -78,6 +80,9 @@ export default function LeagueDetailPage() {
           <span className="rounded-full border border-edge px-2 py-0.5 font-mono">
             Code: {league.code}
           </span>
+        </div>
+        <div className="mt-3">
+          <ShareLeagueButton leagueName={league.name} code={league.code} />
         </div>
       </div>
 
@@ -116,6 +121,10 @@ export default function LeagueDetailPage() {
       )}
 
       {tab === "rangliste" && (
+        <div className="flex flex-col gap-4">
+          {leaderboard.length > 0 && (
+            <ShareResultCard leagueName={league.name} leaderboard={leaderboard} currentUser={displayName} />
+          )}
         <div className="overflow-hidden rounded-card border border-edge bg-surface">
           {leaderboard.map(([name, pts], i) => (
             <div
@@ -130,6 +139,7 @@ export default function LeagueDetailPage() {
               <span className="font-display font-semibold text-blue-400">{pts} Pkt</span>
             </div>
           ))}
+        </div>
         </div>
       )}
 

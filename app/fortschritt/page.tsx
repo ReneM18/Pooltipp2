@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
-import { PASS_LEVELS } from "@/lib/passLevels";
+import { PASS_LEVELS, PREMIUM_PASS_PRICE } from "@/lib/passLevels";
 import { SPORTS } from "@/lib/types";
 
 const sportIcon: Record<string, string> = {
@@ -12,8 +13,19 @@ const sportIcon: Record<string, string> = {
 };
 
 export default function FortschrittPage() {
-  const { points } = useUser();
+  const { points, hasPremiumPass, buyPremiumPass } = useUser();
   const { tipsBySport } = useAppData();
+  const [purchasing, setPurchasing] = useState(false);
+
+  function handleBuyPremium() {
+    setPurchasing(true);
+    // Platzhalter für den echten Bezahlvorgang (Stripe o. ä.) – simuliert hier
+    // kurz eine Verarbeitung, damit sich der Kauf nicht "sofort magisch" anfühlt.
+    setTimeout(() => {
+      buyPremiumPass();
+      setPurchasing(false);
+    }, 600);
+  }
 
   const currentLevel = [...PASS_LEVELS].reverse().find((l) => points >= l.xpRequired) ?? PASS_LEVELS[0];
   const nextLevel = PASS_LEVELS.find((l) => l.xpRequired > points);
@@ -47,6 +59,41 @@ export default function FortschrittPage() {
             style={{ width: `${Math.max(4, progressToNext)}%` }}
           />
         </div>
+      </section>
+
+      {/* Premium-Pass Kaufkarte */}
+      <section className="mb-8">
+        {hasPremiumPass ? (
+          <div className="flex items-center gap-3 rounded-card border border-gold bg-gold/10 p-4">
+            <span className="text-2xl">👑</span>
+            <div className="flex-1">
+              <p className="font-display text-sm font-semibold text-gold">Premium-Pass aktiv</p>
+              <p className="text-xs text-muted">
+                Du erhältst zusätzlich zu jeder Stufe die Premium-Belohnung rechts daneben.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-start gap-3 rounded-card border border-edge bg-gradient-to-br from-surface to-surface-hover p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="flex items-center gap-2 font-display text-sm font-semibold text-ink">
+                <span className="text-lg">👑</span> Premium-Pass freischalten
+              </p>
+              <p className="mt-0.5 text-xs text-muted">
+                Einmalig {PREMIUM_PASS_PRICE} – schaltet auf jeder Stufe eine zusätzliche exklusive
+                Belohnung frei (Rahmen, Titel, Sterne-Boni). Kein Zufall, keine Lose – du bekommst
+                garantiert alle Premium-Inhalte, die du mit deinen Punkten erreichst.
+              </p>
+            </div>
+            <button
+              onClick={handleBuyPremium}
+              disabled={purchasing}
+              className="shrink-0 rounded-full bg-gold px-5 py-2.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90 disabled:opacity-60"
+            >
+              {purchasing ? "Wird verarbeitet…" : `Freischalten – ${PREMIUM_PASS_PRICE}`}
+            </button>
+          </div>
+        )}
       </section>
 
       {/* Pass-Track */}
@@ -96,6 +143,25 @@ export default function FortschrittPage() {
                     )}
                   </p>
                 </div>
+
+                {lvl.premiumReward && (
+                  <div
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${
+                      hasPremiumPass && unlocked
+                        ? "border-gold/60 bg-gold/10"
+                        : "border-edge bg-pitch opacity-60"
+                    }`}
+                  >
+                    <span className="text-lg">{hasPremiumPass && unlocked ? lvl.premiumIcon : "🔒"}</span>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-gold">
+                        Premium
+                      </p>
+                      <p className="max-w-[9rem] text-xs text-muted">{lvl.premiumReward}</p>
+                    </div>
+                  </div>
+                )}
+
                 <span className="text-xs text-muted">{lvl.xpRequired.toLocaleString("de-DE")} P</span>
               </div>
             );

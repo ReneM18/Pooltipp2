@@ -19,6 +19,8 @@ interface UserContextValue {
   selectedRankIconId: string | null;
   setSelectedRankIconId: (id: string) => void;
   activeRankIcon: RankIconOption | null;
+  hasPremiumPass: boolean;
+  buyPremiumPass: () => void;
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
@@ -29,6 +31,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [points] = useState(mockUser.points);
   const [tipsSubmitted, setTipsSubmitted] = useState(0);
   const [friends, setFriends] = useState<string[]>(["Sabine K.", "Marco T."]);
+  const [hasPremiumPass, setHasPremiumPass] = useState(false);
+
+  // Platzhalter für die echte Zahlungsanbindung (z. B. Stripe/RevenueCat) –
+  // schaltet die Premium-Spur des Saison-Passes lokal frei.
+  function buyPremiumPass() {
+    setHasPremiumPass(true);
+  }
 
   const rankIconOptions = useMemo(() => getAvailableRankIcons(), []);
   const [selectedRankIconId, setSelectedRankIconId] = useState<string | null>(null);
@@ -80,6 +89,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         selectedRankIconId,
         setSelectedRankIconId,
         activeRankIcon,
+        hasPremiumPass,
+        buyPremiumPass,
       }}
     >
       {children}
