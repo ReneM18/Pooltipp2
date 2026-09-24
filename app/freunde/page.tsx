@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import { getMockRankIconForName } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
+import { TrashIcon } from "@/components/Icons";
 
 export default function FreundePage() {
   const { friends, removeFriend, pendingRequests, sendFriendRequest } = useUser();
@@ -53,7 +54,7 @@ export default function FreundePage() {
             }`}
           >
             <Link href={`/spieler/${encodeURIComponent(friend)}`} className="flex items-center gap-3 text-sm text-ink">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-hover font-display text-xs font-semibold text-muted">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-hover font-display text-xs font-semibold text-muted">
                 {friend.slice(0, 1).toUpperCase()}
               </span>
               <span className="flex items-center gap-2 hover:text-gold">
@@ -63,8 +64,9 @@ export default function FreundePage() {
             </Link>
             <button
               onClick={() => removeFriend(friend)}
-              className="text-xs text-muted hover:text-ink"
+              className="flex items-center gap-1 text-xs text-muted transition-colors hover:text-red-400"
             >
+              <TrashIcon className="h-3.5 w-3.5" />
               Entfernen
             </button>
           </div>
@@ -77,12 +79,15 @@ export default function FreundePage() {
             }`}
           >
             <Link href={`/spieler/${encodeURIComponent(name)}`} className="flex items-center gap-3 text-sm text-muted">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface-hover font-display text-xs font-semibold text-muted">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-hover font-display text-xs font-semibold text-muted">
                 {name.slice(0, 1).toUpperCase()}
               </span>
               <span className="hover:text-gold">{name}</span>
             </Link>
-            <span className="text-xs text-muted">Anfrage ausstehend…</span>
+            <span className="flex items-center gap-1.5 text-xs text-muted">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gold" />
+              Anfrage ausstehend…
+            </span>
           </div>
         ))}
       </div>

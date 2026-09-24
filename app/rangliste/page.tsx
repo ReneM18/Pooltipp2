@@ -56,10 +56,11 @@ export default function RanglistePage() {
             key={entry.rank}
             className={`flex items-center justify-between px-5 py-4 ${
               index !== entries.length - 1 ? "border-b border-edge" : ""
-            } ${entry.isCurrentUser ? "bg-surface-hover" : ""}`}
+            } ${entry.isCurrentUser ? "bg-surface-hover" : podiumRowClass(entry.rank)}`}
           >
             <div className="flex items-center gap-3">
               <RankNumber rank={entry.rank} />
+              <NameAvatar name={entry.name} rank={entry.rank} />
               <RankBadge
                 option={
                   tab === "Gesamt"
@@ -105,8 +106,34 @@ export default function RanglistePage() {
 function RankNumber({ rank }: { rank: number }) {
   const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
   return (
-    <span className="flex h-7 w-7 items-center justify-center font-display text-sm text-muted">
+    <span className="flex h-7 w-7 shrink-0 items-center justify-center font-display text-sm text-muted">
       {medal ?? rank}
+    </span>
+  );
+}
+
+// Dezente Podium-Färbung für die ersten drei Plätze, damit sie auf einen
+// Blick auffallen, statt sich nur durch die Medaille zu unterscheiden.
+function podiumRowClass(rank: number): string {
+  if (rank === 1) return "bg-gold/[0.06]";
+  if (rank === 2) return "bg-ink/[0.03]";
+  if (rank === 3) return "bg-[#CD7F32]/[0.06]";
+  return "";
+}
+
+const PODIUM_RING: Record<number, string> = {
+  1: "ring-2 ring-gold",
+  2: "ring-2 ring-muted/60",
+  3: "ring-2 ring-[#CD7F32]/70",
+};
+
+function NameAvatar({ name, rank }: { name: string; rank: number }) {
+  const ring = PODIUM_RING[rank] ?? "";
+  return (
+    <span
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-hover font-display text-xs font-semibold text-muted ${ring}`}
+    >
+      {name.slice(0, 1).toUpperCase()}
     </span>
   );
 }
