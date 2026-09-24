@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, ReactNode, useMemo, useEffect } from "react";
 import { mockUser } from "@/lib/mockData";
 import { getAvailableRankIcons, getBestRankIcon, RankIconOption } from "@/lib/rankTiers";
+import { PhotoVisibility } from "@/lib/mockUsers";
 
 interface UserContextValue {
   displayName: string;
@@ -16,6 +17,10 @@ interface UserContextValue {
   friends: string[];
   addFriend: (name: string) => void;
   removeFriend: (name: string) => void;
+  pendingRequests: string[];
+  sendFriendRequest: (name: string) => void;
+  photoVisibility: PhotoVisibility;
+  setPhotoVisibility: (visibility: PhotoVisibility) => void;
   rankIconOptions: RankIconOption[];
   selectedRankIconId: string | null;
   setSelectedRankIconId: (id: string) => void;
@@ -36,6 +41,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }
   const [tipsSubmitted, setTipsSubmitted] = useState(0);
   const [friends, setFriends] = useState<string[]>(["Sabine K.", "Marco T."]);
+  const [pendingRequests, setPendingRequests] = useState<string[]>([]);
+  const [photoVisibility, setPhotoVisibility] = useState<PhotoVisibility>("friends");
   const [hasPremiumPass, setHasPremiumPass] = useState(false);
 
   // Platzhalter für die echte Zahlungsanbindung (z. B. Stripe/RevenueCat) –
@@ -75,6 +82,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   function removeFriend(name: string) {
     setFriends((current) => current.filter((f) => f !== name));
+    setPendingRequests((current) => current.filter((n) => n !== name));
+  }
+
+  // Da es (noch) keine echten Gegenüber-Accounts gibt, simuliert das die
+  // Annahme der Freundschaftsanfrage nach kurzer Zeit – erst danach werden
+  // z. B. private Fotos des anderen Users sichtbar.
+  function sendFriendRequest(name: string) {
+    if (!name.trim() || friends.includes(name) || pendingRequests.includes(name)) return;
+    setPendingRequests((current) => [...current, name]);
+    setTimeout(() => {
+      setFriends((current) => (current.includes(name) ? current : [...current, name]));
+      setPendingRequests((current) => current.filter((n) => n !== name));
+    }, 2500);
   }
 
   return (
@@ -91,6 +111,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
         friends,
         addFriend,
         removeFriend,
+        pendingRequests,
+        sendFriendRequest,
+        photoVisibility,
+        setPhotoVisibility,
         rankIconOptions,
         selectedRankIconId,
         setSelectedRankIconId,

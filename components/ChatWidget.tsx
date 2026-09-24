@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import { getMockRankIconForName } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
@@ -60,10 +61,13 @@ export default function ChatWidget() {
                   }`}
                 >
                   {!msg.isMe && (
-                    <p className="mb-1 flex items-center gap-2 text-xs font-semibold text-gold">
+                    <Link
+                      href={`/spieler/${encodeURIComponent(msg.author)}`}
+                      className="mb-1 flex items-center gap-2 text-xs font-semibold text-gold hover:opacity-80"
+                    >
                       <RankBadge option={getMockRankIconForName(msg.author)} size="sm" />
                       {msg.author}
-                    </p>
+                    </Link>
                   )}
                   {msg.text}
                 </div>

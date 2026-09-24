@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { mockLeaderboard, mockLeaderboardBySport, LeaderboardEntry } from "@/lib/mockLeaderboard";
 import { SPORTS, Sport } from "@/lib/types";
 import { getTierForPoints, RANK_COLORS, SPORT_EMOJI, getIconForName } from "@/lib/rankTiers";
@@ -77,16 +78,19 @@ export default function RanglistePage() {
                 }
                 size="sm"
               />
-              <span
-                className={`font-display text-base font-semibold ${
-                  entry.isCurrentUser ? "text-gold" : "text-ink"
-                }`}
-              >
-                {entry.name}
-                {entry.isCurrentUser && (
+              {entry.isCurrentUser ? (
+                <span className="font-display text-base font-semibold text-gold">
+                  {entry.name}
                   <span className="ml-2 text-xs font-medium text-muted">(Du)</span>
-                )}
-              </span>
+                </span>
+              ) : (
+                <Link
+                  href={`/spieler/${encodeURIComponent(entry.name)}`}
+                  className="font-display text-base font-semibold text-ink transition-colors hover:text-gold"
+                >
+                  {entry.name}
+                </Link>
+              )}
             </div>
             <span className="font-display text-base font-semibold text-ink">
               {entry.points.toLocaleString("de-DE")}

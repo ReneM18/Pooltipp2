@@ -26,6 +26,8 @@ export default function ProfilPage() {
     selectedRankIconId,
     setSelectedRankIconId,
     activeRankIcon,
+    photoVisibility,
+    setPhotoVisibility,
   } = useUser();
   const { matches, getTeam, myTips } = useAppData();
   const [nameInput, setNameInput] = useState(displayName);
@@ -183,7 +185,41 @@ export default function ProfilPage() {
       {profileTab === "Übersicht" && (
         <>
       <section className="mb-8">
-        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Fotos</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-display text-lg font-semibold text-ink">Deine Fotos</h2>
+        </div>
+
+        <div className="mb-4 flex flex-col gap-2 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-ink">Wer darf deine Fotos sehen?</p>
+            <p className="text-xs text-muted">
+              Gilt für dein Profil, wenn andere User dich antippen (z. B. in der Rangliste).
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              onClick={() => setPhotoVisibility("public")}
+              className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                photoVisibility === "public"
+                  ? "border-gold bg-gold/15 text-gold"
+                  : "border-edge bg-pitch text-muted hover:text-ink"
+              }`}
+            >
+              🌐 Öffentlich
+            </button>
+            <button
+              onClick={() => setPhotoVisibility("friends")}
+              className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                photoVisibility === "friends"
+                  ? "border-gold bg-gold/15 text-gold"
+                  : "border-edge bg-pitch text-muted hover:text-ink"
+              }`}
+            >
+              🔒 Nur für Freunde
+            </button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-3 gap-3">
           {photos.map((photo, index) => (
             <div
