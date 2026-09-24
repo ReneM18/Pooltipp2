@@ -10,9 +10,12 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-10 border-b border-edge bg-pitch/95 backdrop-blur">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-3 py-3 sm:px-5 sm:py-4">
-        <span className="font-display text-lg font-bold tracking-wide text-ink sm:text-2xl">
+        <Link
+          href="/"
+          className="font-display text-lg font-bold tracking-wide text-ink transition-opacity hover:opacity-80 sm:text-2xl"
+        >
           Pool<span className="text-gold">Tipp</span>
-        </span>
+        </Link>
 
         <div className="flex items-center gap-1.5 sm:gap-3">
           <div
