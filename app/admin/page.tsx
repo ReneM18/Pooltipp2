@@ -83,11 +83,20 @@ function TeamManager() {
   const [primaryColor, setPrimaryColor] = useState("#3FA66B");
   const [secondaryColor, setSecondaryColor] = useState("#FFFFFF");
   const [jerseyStyle, setJerseyStyle] = useState<JerseyStyle>("solid");
+  const [isNationalTeam, setIsNationalTeam] = useState(false);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    addTeam({ name: name.trim(), sport, countryCode, primaryColor, secondaryColor, jerseyStyle });
+    addTeam({
+      name: name.trim(),
+      sport,
+      countryCode,
+      primaryColor,
+      secondaryColor,
+      jerseyStyle,
+      isNationalTeam,
+    });
     setName("");
   }
 
@@ -139,29 +148,43 @@ function TeamManager() {
           </div>
         </div>
 
+        <label className="flex w-fit items-center gap-2 text-xs text-muted">
+          <input
+            type="checkbox"
+            checked={isNationalTeam}
+            onChange={(e) => setIsNationalTeam(e.target.checked)}
+            className="h-4 w-4 accent-action"
+          />
+          Nationalmannschaft (Icon zeigt automatisch die Landesflagge statt Trikot/Helm)
+        </label>
+
         <div className="flex flex-wrap items-end gap-4">
-          <div>
-            <label className="mb-1 block text-xs text-muted">
-              {sport === "NFL" ? "Helmfarbe" : "Trikotfarbe"}
-            </label>
-            <input
-              type="color"
-              value={primaryColor}
-              onChange={(e) => setPrimaryColor(e.target.value)}
-              className="h-9 w-14 cursor-pointer rounded-lg border border-edge bg-pitch p-1"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">
-              {sport === "NFL" ? "Streifen-/Gitterfarbe" : "Kragen-/Saumfarbe"}
-            </label>
-            <input
-              type="color"
-              value={secondaryColor}
-              onChange={(e) => setSecondaryColor(e.target.value)}
-              className="h-9 w-14 cursor-pointer rounded-lg border border-edge bg-pitch p-1"
-            />
-          </div>
+          {!isNationalTeam && (
+            <>
+              <div>
+                <label className="mb-1 block text-xs text-muted">
+                  {sport === "NFL" ? "Helmfarbe" : "Trikotfarbe"}
+                </label>
+                <input
+                  type="color"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="h-9 w-14 cursor-pointer rounded-lg border border-edge bg-pitch p-1"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-muted">
+                  {sport === "NFL" ? "Streifen-/Gitterfarbe" : "Kragen-/Saumfarbe"}
+                </label>
+                <input
+                  type="color"
+                  value={secondaryColor}
+                  onChange={(e) => setSecondaryColor(e.target.value)}
+                  className="h-9 w-14 cursor-pointer rounded-lg border border-edge bg-pitch p-1"
+                />
+              </div>
+            </>
+          )}
 
           <div className="flex items-center gap-2 rounded-lg border border-edge bg-pitch px-3 py-2">
             <TeamBadge
@@ -169,12 +192,14 @@ function TeamManager() {
               primaryColor={primaryColor}
               secondaryColor={secondaryColor}
               jerseyStyle={jerseyStyle}
+              isNationalTeam={isNationalTeam}
+              countryCode={countryCode}
               size={32}
             />
             <span className="text-xs text-muted">Vorschau</span>
           </div>
 
-          {sport === "Fußball" && (
+          {!isNationalTeam && sport === "Fußball" && (
             <div>
               <label className="mb-1 block text-xs text-muted">Trikot-Stil</label>
               <select
@@ -217,11 +242,16 @@ function TeamManager() {
                 primaryColor={team.primaryColor}
                 secondaryColor={team.secondaryColor}
                 jerseyStyle={team.jerseyStyle}
+                isNationalTeam={team.isNationalTeam}
+                countryCode={team.countryCode}
                 size={28}
               />
-              <span>{flagEmoji(team.countryCode)}</span>
+              {!team.isNationalTeam && <span>{flagEmoji(team.countryCode)}</span>}
               <span className="font-medium">{team.name}</span>
-              <span className="text-xs text-muted">· {team.sport}</span>
+              <span className="text-xs text-muted">
+                · {team.sport}
+                {team.isNationalTeam ? " · Nationalmannschaft" : ""}
+              </span>
             </span>
             <button
               onClick={() => removeTeam(team.id)}
@@ -464,6 +494,8 @@ function MatchManager() {
                     primaryColor={home.primaryColor}
                     secondaryColor={home.secondaryColor}
                     jerseyStyle={home.jerseyStyle}
+                    isNationalTeam={home.isNationalTeam}
+                    countryCode={home.countryCode}
                     size={22}
                   />
                 )}
@@ -476,6 +508,8 @@ function MatchManager() {
                     primaryColor={away.primaryColor}
                     secondaryColor={away.secondaryColor}
                     jerseyStyle={away.jerseyStyle}
+                    isNationalTeam={away.isNationalTeam}
+                    countryCode={away.countryCode}
                     flip
                     size={22}
                   />

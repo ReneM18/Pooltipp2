@@ -1,5 +1,6 @@
 import { JerseyStyle, Sport } from "@/lib/types";
 import { BASKETBALL_JERSEY_MARKUP } from "@/lib/basketballJerseyMarkup";
+import { flagEmoji } from "@/lib/flags";
 
 interface TeamBadgeProps {
   sport: Sport;
@@ -9,6 +10,23 @@ interface TeamBadgeProps {
   size?: number;
   /** Spiegelt das Symbol horizontal – z. B. damit der Auswärts-Helm nach links schaut. */
   flip?: boolean;
+  /** Nationalmannschaft -> zeigt die Landesflagge statt Trikot/Helm-Icon. */
+  isNationalTeam?: boolean;
+  /** Nur nötig, wenn isNationalTeam gesetzt ist. */
+  countryCode?: string;
+}
+
+function NationalFlagBadge({ countryCode, size }: { countryCode: string; size: number }) {
+  return (
+    <span
+      role="img"
+      aria-label={`Flagge ${countryCode}`}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.62) }}
+      className="flex shrink-0 items-center justify-center rounded-full border border-edge bg-surface leading-none"
+    >
+      {flagEmoji(countryCode)}
+    </span>
+  );
 }
 
 // Hellt (percent > 0) oder verdunkelt (percent < 0) eine Hex-Farbe.
@@ -32,7 +50,12 @@ export default function TeamBadge({
   secondaryColor,
   size = 36,
   flip = false,
+  isNationalTeam = false,
+  countryCode,
 }: TeamBadgeProps) {
+  if (isNationalTeam && countryCode) {
+    return <NationalFlagBadge countryCode={countryCode} size={size} />;
+  }
   if (sport === "NFL") {
     return <HelmetIcon primary={primaryColor} secondary={secondaryColor} size={size} flip={flip} />;
   }

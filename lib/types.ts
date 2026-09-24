@@ -18,6 +18,7 @@ export interface Team {
   primaryColor: string; // Hex, z. B. "#DC052D"
   secondaryColor: string; // Hex, z. B. "#FFFFFF"
   jerseyStyle?: JerseyStyle; // nur relevant für Fußball/NBA, wird bei NFL ignoriert
+  isNationalTeam?: boolean; // Nationalmannschaft -> Icon zeigt die Landesflagge statt Trikot/Helm
 }
 
 export type MatchStatus = "upcoming" | "live" | "finished";

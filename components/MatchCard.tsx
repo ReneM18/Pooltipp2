@@ -102,7 +102,7 @@ export default function MatchCard({
       <div className="flex items-center justify-between bg-gradient-to-r from-surface-hover to-surface px-5 py-2.5">
         <span className="flex items-center gap-2 text-sm font-semibold text-ink">
           <span className="text-lg">{sportIcon[match.sport] ?? ""}</span>
-          <span>{flagEmoji(homeTeam.countryCode)}</span>
+          {!homeTeam.isNationalTeam && <span>{flagEmoji(homeTeam.countryCode)}</span>}
           <span>
             {match.competition}
             {match.matchday ? ` · Spieltag ${match.matchday}` : ""}
@@ -131,6 +131,8 @@ export default function MatchCard({
               primaryColor={homeTeam.primaryColor}
               secondaryColor={homeTeam.secondaryColor}
               jerseyStyle={homeTeam.jerseyStyle}
+              isNationalTeam={homeTeam.isNationalTeam}
+              countryCode={homeTeam.countryCode}
               size={26}
             />
             <TeamLabel name={homeTeam.name} align="right" />
@@ -142,6 +144,8 @@ export default function MatchCard({
               primaryColor={awayTeam.primaryColor}
               secondaryColor={awayTeam.secondaryColor}
               jerseyStyle={awayTeam.jerseyStyle}
+              isNationalTeam={awayTeam.isNationalTeam}
+              countryCode={awayTeam.countryCode}
               flip
               size={26}
             />
