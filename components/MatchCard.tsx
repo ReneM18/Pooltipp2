@@ -59,7 +59,7 @@ export default function MatchCard({
   myTip,
   onSubmitTip,
 }: MatchCardProps) {
-  const isOneXTwo = match.sport === "NFL";
+  const isOneXTwo = match.tipMode === "1x2";
   const [homeScore, setHomeScore] = useState<number>(0);
   const [awayScore, setAwayScore] = useState<number>(0);
   const [nflPick, setNflPick] = useState<OneXTwo | null>(null);

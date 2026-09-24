@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode } from "react";
-import { Match, Sport, Team } from "./types";
+import { Match, Sport, Team, TipMode } from "./types";
 
 export interface SubmittedTip {
   id: string;
@@ -48,6 +48,7 @@ const initialMatches: Match[] = [
     liveAwayScore: 1,
     summaryVideoUrl: "https://www.youtube.com/results?search_query=bayern+dortmund+highlights",
     tvChannel: "Sky Sport Bundesliga",
+    tipMode: "score",
   },
   {
     id: "match-2",
@@ -64,6 +65,7 @@ const initialMatches: Match[] = [
     liveAwayScore: null,
     summaryVideoUrl: null,
     tvChannel: null,
+    tipMode: "score",
   },
   {
     id: "match-3",
@@ -80,6 +82,7 @@ const initialMatches: Match[] = [
     liveAwayScore: null,
     summaryVideoUrl: null,
     tvChannel: null,
+    tipMode: "score",
   },
   {
     id: "match-4",
@@ -95,6 +98,7 @@ const initialMatches: Match[] = [
     liveAwayScore: null,
     summaryVideoUrl: null,
     tvChannel: null,
+    tipMode: "1x2",
   },
   {
     id: "match-5",
@@ -110,6 +114,7 @@ const initialMatches: Match[] = [
     liveAwayScore: null,
     summaryVideoUrl: null,
     tvChannel: null,
+    tipMode: "score",
   },
   {
     id: "match-6",
@@ -126,6 +131,7 @@ const initialMatches: Match[] = [
     liveAwayScore: null,
     summaryVideoUrl: null,
     tvChannel: null,
+    tipMode: "score",
   },
   {
     id: "match-7",
@@ -141,6 +147,7 @@ const initialMatches: Match[] = [
     liveAwayScore: null,
     summaryVideoUrl: null,
     tvChannel: null,
+    tipMode: "1x2",
   },
   {
     id: "match-8",
@@ -156,6 +163,7 @@ const initialMatches: Match[] = [
     liveAwayScore: null,
     summaryVideoUrl: null,
     tvChannel: null,
+    tipMode: "score",
   },
 ];
 
@@ -175,6 +183,7 @@ interface AppDataContextValue {
   updateMatchScore: (matchId: string, homeScore: number | null, awayScore: number | null, status: Match["status"]) => void;
   setSummaryVideo: (matchId: string, url: string) => void;
   setTvChannel: (matchId: string, channel: string) => void;
+  setTipMode: (matchId: string, mode: TipMode) => void;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -270,6 +279,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  function setTipMode(matchId: string, mode: TipMode) {
+    setMatches((current) =>
+      current.map((m) => (m.id === matchId ? { ...m, tipMode: mode } : m))
+    );
+  }
+
   return (
     <AppDataContext.Provider
       value={{
@@ -288,6 +303,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         updateMatchScore,
         setSummaryVideo,
         setTvChannel,
+        setTipMode,
       }}
     >
       {children}

@@ -289,7 +289,7 @@ export default function ProfilPage() {
                   </p>
                   <p className="text-xs text-muted">
                     Getippt:{" "}
-                    {match.sport === "NFL"
+                    {match.tipMode === "1x2"
                       ? tip.predictedHomeScore > tip.predictedAwayScore
                         ? "1 (Heimsieg)"
                         : tip.predictedAwayScore > tip.predictedHomeScore

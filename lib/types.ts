@@ -22,6 +22,10 @@ export interface Team {
 
 export type MatchStatus = "upcoming" | "live" | "finished";
 
+// "score" = User tippt das genaue Ergebnis (z. B. 2:1).
+// "1x2" = User tippt nur Heimsieg / Unentschieden / Auswärtssieg.
+export type TipMode = "score" | "1x2";
+
 export interface Match {
   id: string;
   sport: Sport;
@@ -37,6 +41,7 @@ export interface Match {
   liveAwayScore: number | null;
   summaryVideoUrl: string | null; // z. B. YouTube-Link zur Spiel-Zusammenfassung
   tvChannel: string | null; // z. B. "Sky", "DAZN", "ORF1" – wo das Spiel live läuft
+  tipMode: TipMode; // vom Admin pro Spiel frei wählbar, unabhängig von der Sportart
 }
 
 export interface Tip {

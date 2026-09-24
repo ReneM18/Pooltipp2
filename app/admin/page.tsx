@@ -2,7 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useAppData } from "@/lib/AppDataContext";
-import { Sport, SPORTS, JerseyStyle, JERSEY_STYLES, Match, MatchStatus } from "@/lib/types";
+import { Sport, SPORTS, JerseyStyle, JERSEY_STYLES, Match, MatchStatus, TipMode } from "@/lib/types";
 import { COUNTRIES, flagEmoji } from "@/lib/flags";
 import TeamBadge from "@/components/TeamBadge";
 
@@ -237,8 +237,17 @@ function TeamManager() {
 }
 
 function MatchManager() {
-  const { teams, matches, addMatch, removeMatch, getTeam, updateMatchScore, setSummaryVideo, setTvChannel } =
-    useAppData();
+  const {
+    teams,
+    matches,
+    addMatch,
+    removeMatch,
+    getTeam,
+    updateMatchScore,
+    setSummaryVideo,
+    setTvChannel,
+    setTipMode,
+  } = useAppData();
   const [sport, setSport] = useState<Sport>("Fußball");
   const [competition, setCompetition] = useState("");
   const [matchday, setMatchday] = useState("");
@@ -248,6 +257,7 @@ function MatchManager() {
   const [awayTeamId, setAwayTeamId] = useState("");
   const [fixedStake, setFixedStake] = useState("20");
   const [tvChannel, setTvChannelInput] = useState("");
+  const [tipMode, setTipModeInput] = useState<TipMode>("score");
 
   const teamsForSport = teams.filter((t) => t.sport === sport);
 
@@ -272,6 +282,7 @@ function MatchManager() {
       liveAwayScore: null,
       summaryVideoUrl: null,
       tvChannel: tvChannel.trim() || null,
+      tipMode,
     });
 
     setCompetition("");
@@ -282,6 +293,7 @@ function MatchManager() {
     setAwayTeamId("");
     setFixedStake("20");
     setTvChannelInput("");
+    setTipModeInput("score");
   }
 
   return (
@@ -403,6 +415,17 @@ function MatchManager() {
               className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
             />
           </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Tipp-Art</label>
+            <select
+              value={tipMode}
+              onChange={(e) => setTipModeInput(e.target.value as TipMode)}
+              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+            >
+              <option value="score">Ergebnis-Tipp (z. B. 2:1)</option>
+              <option value="1x2">1X2 (Heimsieg / Unentschieden / Auswärtssieg)</option>
+            </select>
+          </div>
         </div>
 
         {teamsForSport.length < 2 && (
@@ -463,6 +486,7 @@ function MatchManager() {
               </span>
 
               <div className="flex flex-wrap items-center gap-2">
+                <TipModeEditor match={match} onSave={setTipMode} />
                 <LiveScoreEditor match={match} onUpdate={updateMatchScore} />
                 <TvChannelEditor match={match} onSave={setTvChannel} />
                 <VideoLinkEditor match={match} onSave={setSummaryVideo} />
@@ -478,6 +502,26 @@ function MatchManager() {
         })}
       </div>
     </section>
+  );
+}
+
+function TipModeEditor({
+  match,
+  onSave,
+}: {
+  match: Match;
+  onSave: (matchId: string, mode: TipMode) => void;
+}) {
+  return (
+    <select
+      value={match.tipMode}
+      onChange={(e) => onSave(match.id, e.target.value as TipMode)}
+      className="rounded-lg border border-edge bg-pitch px-2 py-1 text-xs text-ink outline-none focus:border-gold"
+      title="Tipp-Art für dieses Spiel"
+    >
+      <option value="score">Ergebnis-Tipp</option>
+      <option value="1x2">1X2</option>
+    </select>
   );
 }
 
