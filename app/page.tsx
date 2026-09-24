@@ -44,7 +44,7 @@ export default function DashboardPage() {
           Deine Tipps für den Spieltag
         </h1>
         <p className="mt-1 text-sm text-muted">
-          Setze deine Gratis-Sterne auf die kommenden Spiele. ✅ Test-Update angekommen
+          Setze deine Gratis-Sterne auf die kommenden Spiele.
         </p>
       </div>
 
