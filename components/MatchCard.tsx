@@ -27,6 +27,30 @@ interface MatchCardProps {
   onSubmitTip: (homeScore: number, awayScore: number) => void;
 }
 
+// NFL wird nur per 1X2 (Heimsieg / Unentschieden / Auswärtssieg) getippt,
+// nicht per genauem Ergebnis. Codierung als Score-Paar, damit der bestehende
+// Tipp-Datenfluss (predictedHomeScore/predictedAwayScore) unverändert bleibt:
+// "1" -> 1:0, "X" -> 0:0, "2" -> 0:1.
+type OneXTwo = "1" | "X" | "2";
+
+function oneXTwoToScore(pick: OneXTwo): [number, number] {
+  if (pick === "1") return [1, 0];
+  if (pick === "2") return [0, 1];
+  return [0, 0];
+}
+
+function scoreToOneXTwo(home: number, away: number): OneXTwo {
+  if (home > away) return "1";
+  if (away > home) return "2";
+  return "X";
+}
+
+const ONE_X_TWO_LABEL: Record<OneXTwo, string> = {
+  "1": "Heimsieg (1)",
+  X: "Unentschieden (X)",
+  "2": "Auswärtssieg (2)",
+};
+
 export default function MatchCard({
   match,
   homeTeam,
@@ -35,8 +59,10 @@ export default function MatchCard({
   myTip,
   onSubmitTip,
 }: MatchCardProps) {
+  const isOneXTwo = match.sport === "NFL";
   const [homeScore, setHomeScore] = useState<number>(0);
   const [awayScore, setAwayScore] = useState<number>(0);
+  const [nflPick, setNflPick] = useState<OneXTwo | null>(null);
   const [tippingClosed, setTippingClosed] = useState(
     () => new Date(match.tipDeadline).getTime() <= Date.now()
   );
@@ -61,6 +87,12 @@ export default function MatchCard({
   const showResultView = hasTipped || tippingClosed;
 
   function handleSubmit() {
+    if (isOneXTwo) {
+      if (!nflPick) return;
+      const [h, a] = oneXTwoToScore(nflPick);
+      onSubmitTip(h, a);
+      return;
+    }
     onSubmitTip(homeScore, awayScore);
   }
 
@@ -119,21 +151,40 @@ export default function MatchCard({
 
         {!showResultView && (
           <>
-            <div className="mb-5 flex items-center justify-center gap-3">
-              <ScoreInput
-                value={homeScore}
-                onChange={setHomeScore}
-                disabled={false}
-                label={`Tor-Ergebnis ${homeTeam.name}`}
-              />
-              <span className="font-display text-xl text-muted">:</span>
-              <ScoreInput
-                value={awayScore}
-                onChange={setAwayScore}
-                disabled={false}
-                label={`Tor-Ergebnis ${awayTeam.name}`}
-              />
-            </div>
+            {isOneXTwo ? (
+              <div className="mb-5 flex items-center justify-center gap-2">
+                {(["1", "X", "2"] as OneXTwo[]).map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => setNflPick(option)}
+                    aria-label={ONE_X_TWO_LABEL[option]}
+                    className={`flex h-12 w-16 flex-col items-center justify-center rounded-lg border font-display text-lg font-bold transition-colors ${
+                      nflPick === option
+                        ? "border-gold bg-gold/15 text-gold"
+                        : "border-edge bg-pitch text-ink hover:border-muted"
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="mb-5 flex items-center justify-center gap-3">
+                <ScoreInput
+                  value={homeScore}
+                  onChange={setHomeScore}
+                  disabled={false}
+                  label={`Tor-Ergebnis ${homeTeam.name}`}
+                />
+                <span className="font-display text-xl text-muted">:</span>
+                <ScoreInput
+                  value={awayScore}
+                  onChange={setAwayScore}
+                  disabled={false}
+                  label={`Tor-Ergebnis ${awayTeam.name}`}
+                />
+              </div>
+            )}
 
             <div className="mb-5 flex items-center justify-between rounded-lg border border-edge bg-pitch px-4 py-2.5">
               <span className="text-sm text-muted">Einsatz für dieses Spiel</span>
@@ -144,7 +195,8 @@ export default function MatchCard({
 
             <button
               onClick={handleSubmit}
-              className="w-full rounded-full bg-action py-2.5 font-display font-semibold tracking-wide text-base text-pitch shadow-[0_0_20px_rgba(63,166,107,0.35)] transition-all hover:bg-action-hover hover:shadow-[0_0_28px_rgba(63,166,107,0.5)]"
+              disabled={isOneXTwo && !nflPick}
+              className="w-full rounded-full bg-action py-2.5 font-display font-semibold tracking-wide text-base text-pitch shadow-[0_0_20px_rgba(63,166,107,0.35)] transition-all enabled:hover:bg-action-hover enabled:hover:shadow-[0_0_28px_rgba(63,166,107,0.5)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Tipp abgeben
             </button>
@@ -157,7 +209,11 @@ export default function MatchCard({
               <div className="flex items-center justify-between rounded-lg border border-edge bg-pitch px-4 py-2.5">
                 <span className="text-sm text-muted">Dein Tipp</span>
                 <span className="font-display font-semibold text-ink">
-                  {myTip!.predictedHomeScore} : {myTip!.predictedAwayScore}
+                  {isOneXTwo
+                    ? ONE_X_TWO_LABEL[
+                        scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore)
+                      ]
+                    : `${myTip!.predictedHomeScore} : ${myTip!.predictedAwayScore}`}
                 </span>
               </div>
             )}

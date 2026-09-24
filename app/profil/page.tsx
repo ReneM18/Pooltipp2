@@ -288,7 +288,14 @@ export default function ProfilPage() {
                     {homeTeam.name} vs {awayTeam.name}
                   </p>
                   <p className="text-xs text-muted">
-                    Getippt: {tip.predictedHomeScore}:{tip.predictedAwayScore}
+                    Getippt:{" "}
+                    {match.sport === "NFL"
+                      ? tip.predictedHomeScore > tip.predictedAwayScore
+                        ? "1 (Heimsieg)"
+                        : tip.predictedAwayScore > tip.predictedHomeScore
+                        ? "2 (Auswärtssieg)"
+                        : "X (Unentschieden)"
+                      : `${tip.predictedHomeScore}:${tip.predictedAwayScore}`}
                     {match.status === "finished" &&
                       ` · Endstand: ${match.liveHomeScore}:${match.liveAwayScore}`}{" "}
                     · {new Date(tip.submittedAt).toLocaleString("de-DE")}
