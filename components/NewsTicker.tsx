@@ -1,12 +1,22 @@
-const headlines = [
-  "🔥 Bayern führt weiter die Bundesliga-Tabelle an",
-  "⚡ Neu im Prämien-Shop: der Titel „Tipp-König“",
-  "🏆 Sabine K. verteidigt Platz 1 in der Rangliste",
-  "📊 Über 500.000 Sterne im Spiel-Topf diesen Spieltag",
-  "🎯 Perfekter Tipp bringt den größten Sterne-Gewinn",
-];
+"use client";
+
+import { useAppData } from "@/lib/AppDataContext";
+
+const sportIcon: Record<string, string> = {
+  "Fußball": "⚽",
+  NFL: "🏈",
+  NBA: "🏀",
+  NHL: "🏒",
+};
 
 export default function NewsTicker() {
+  const { newsItems } = useAppData();
+
+  const headlines =
+    newsItems.length > 0
+      ? newsItems.map((n) => (n.sport ? `${sportIcon[n.sport] ?? ""} ${n.text}` : n.text))
+      : ["Noch keine News – im Admin-Bereich könnt ihr welche anlegen."];
+
   const content = headlines.join("        •        ");
 
   return (

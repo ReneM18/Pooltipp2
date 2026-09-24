@@ -12,6 +12,13 @@ export interface SubmittedTip {
   submittedAt: string;
 }
 
+export interface NewsItem {
+  id: string;
+  text: string;
+  sport: Sport | null; // null = allgemeine News ohne Sportart-Icon
+  createdAt: string;
+}
+
 // Hinweis: Diese Daten leben nur im Browser-Speicher (React-State) und
 // gehen beim Neuladen der Seite verloren. Das ist bewusst so für dieses
 // MVP-Stadium — sobald Firestore angebunden ist, ersetzt das hier die
@@ -167,6 +174,14 @@ const initialMatches: Match[] = [
   },
 ];
 
+const initialNews: NewsItem[] = [
+  { id: "news-1", text: "Bayern führt weiter die Bundesliga-Tabelle an", sport: "Fußball", createdAt: "2026-09-20T10:00:00+02:00" },
+  { id: "news-2", text: "Neu im Prämien-Shop: der Titel „Tipp-König“", sport: null, createdAt: "2026-09-20T09:00:00+02:00" },
+  { id: "news-3", text: "Sabine K. verteidigt Platz 1 in der Rangliste", sport: null, createdAt: "2026-09-19T09:00:00+02:00" },
+  { id: "news-4", text: "Über 500.000 Sterne im Spiel-Topf diesen Spieltag", sport: null, createdAt: "2026-09-18T09:00:00+02:00" },
+  { id: "news-5", text: "Perfekter Tipp bringt den größten Sterne-Gewinn", sport: null, createdAt: "2026-09-17T09:00:00+02:00" },
+];
+
 interface AppDataContextValue {
   teams: Team[];
   matches: Match[];
@@ -184,6 +199,9 @@ interface AppDataContextValue {
   setSummaryVideo: (matchId: string, url: string) => void;
   setTvChannel: (matchId: string, channel: string) => void;
   setTipMode: (matchId: string, mode: TipMode) => void;
+  newsItems: NewsItem[];
+  addNews: (text: string, sport: Sport | null) => void;
+  removeNews: (id: string) => void;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -203,6 +221,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     NHL: 0,
   });
   const [myTips, setMyTips] = useState<SubmittedTip[]>([]);
+  const [newsItems, setNewsItems] = useState<NewsItem[]>(initialNews);
 
   function addTeam(team: Omit<Team, "id">) {
     const id = `team-${Date.now()}`;
@@ -285,6 +304,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  function addNews(text: string, sport: Sport | null) {
+    const id = `news-${Date.now()}`;
+    setNewsItems((current) => [
+      { id, text, sport, createdAt: new Date().toISOString() },
+      ...current,
+    ]);
+  }
+
+  function removeNews(id: string) {
+    setNewsItems((current) => current.filter((n) => n.id !== id));
+  }
+
   return (
     <AppDataContext.Provider
       value={{
@@ -304,6 +335,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setSummaryVideo,
         setTvChannel,
         setTipMode,
+        newsItems,
+        addNews,
+        removeNews,
       }}
     >
       {children}

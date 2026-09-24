@@ -29,10 +29,103 @@ export default function AdminPage() {
       <div className="flex flex-col gap-10">
         <TeamManager />
         <MatchManager />
+        <NewsManager />
       </div>
     </main>
   );
 }
+
+function NewsManager() {
+  const { newsItems, addNews, removeNews } = useAppData();
+  const [text, setText] = useState("");
+  const [sport, setSport] = useState<Sport | "">("");
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!text.trim()) return;
+    addNews(text.trim(), sport || null);
+    setText("");
+    setSport("");
+  }
+
+  return (
+    <section>
+      <h2 className="mb-3 font-display text-xl font-semibold text-ink">News-Ticker</h2>
+      <p className="mb-3 text-xs text-muted">
+        Diese Meldungen laufen oben im Laufband durch. Wählst du eine Sportart aus, wird deren
+        Icon automatisch vor die Meldung gesetzt.
+      </p>
+
+      <form
+        onSubmit={handleSubmit}
+        className="mb-4 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-end"
+      >
+        <div className="flex-1">
+          <label className="mb-1 block text-xs text-muted">Meldung</label>
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="z. B. Bayern gewinnt Topspiel 3:1"
+            className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-muted">Sportart (optional)</label>
+          <select
+            value={sport}
+            onChange={(e) => setSport(e.target.value as Sport | "")}
+            className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+          >
+            <option value="">Allgemein (kein Icon)</option>
+            {SPORTS.map((s) => (
+              <option key={s} value={s}>
+                {sportIcon[s]} {s}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="submit"
+          className="rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+        >
+          Veröffentlichen
+        </button>
+      </form>
+
+      <div className="overflow-hidden rounded-card border border-edge bg-surface">
+        {newsItems.length === 0 && (
+          <p className="p-4 text-sm text-muted">Noch keine News angelegt.</p>
+        )}
+        {newsItems.map((item, index) => (
+          <div
+            key={item.id}
+            className={`flex items-center justify-between gap-3 px-4 py-3 ${
+              index !== newsItems.length - 1 ? "border-b border-edge" : ""
+            }`}
+          >
+            <span className="flex items-center gap-2 text-sm text-ink">
+              {item.sport && <span>{sportIcon[item.sport]}</span>}
+              {item.text}
+            </span>
+            <button
+              onClick={() => removeNews(item.id)}
+              className="shrink-0 text-xs text-muted hover:text-ink"
+            >
+              Entfernen
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const sportIcon: Record<Sport, string> = {
+  "Fußball": "⚽",
+  NFL: "🏈",
+  NBA: "🏀",
+  NHL: "🏒",
+};
 
 function PinGate({ onUnlock }: { onUnlock: () => void }) {
   const [pin, setPin] = useState("");
