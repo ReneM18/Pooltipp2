@@ -14,7 +14,8 @@ export interface SubmittedTip {
 
 export interface NewsItem {
   id: string;
-  text: string;
+  text: string; // Kurz-Headline im Laufband
+  article: string | null; // ausführlicher Artikeltext, öffnet sich beim Antippen der Headline
   sport: Sport | null; // null = allgemeine News ohne Sportart-Icon
   createdAt: string;
 }
@@ -175,11 +176,18 @@ const initialMatches: Match[] = [
 ];
 
 const initialNews: NewsItem[] = [
-  { id: "news-1", text: "Bayern führt weiter die Bundesliga-Tabelle an", sport: "Fußball", createdAt: "2026-09-20T10:00:00+02:00" },
-  { id: "news-2", text: "Neu im Prämien-Shop: der Titel „Tipp-König“", sport: null, createdAt: "2026-09-20T09:00:00+02:00" },
-  { id: "news-3", text: "Sabine K. verteidigt Platz 1 in der Rangliste", sport: null, createdAt: "2026-09-19T09:00:00+02:00" },
-  { id: "news-4", text: "Über 500.000 Sterne im Spiel-Topf diesen Spieltag", sport: null, createdAt: "2026-09-18T09:00:00+02:00" },
-  { id: "news-5", text: "Perfekter Tipp bringt den größten Sterne-Gewinn", sport: null, createdAt: "2026-09-17T09:00:00+02:00" },
+  {
+    id: "news-1",
+    text: "Bayern führt weiter die Bundesliga-Tabelle an",
+    article:
+      "Nach dem Sieg im Topspiel gegen Dortmund bleibt Bayern München an der Tabellenspitze der Bundesliga. Die Mannschaft zeigte über weite Strecken eine starke Leistung und setzte sich verdient durch.",
+    sport: "Fußball",
+    createdAt: "2026-09-20T10:00:00+02:00",
+  },
+  { id: "news-2", text: "Neu im Prämien-Shop: der Titel „Tipp-König“", article: null, sport: null, createdAt: "2026-09-20T09:00:00+02:00" },
+  { id: "news-3", text: "Sabine K. verteidigt Platz 1 in der Rangliste", article: null, sport: null, createdAt: "2026-09-19T09:00:00+02:00" },
+  { id: "news-4", text: "Über 500.000 Sterne im Spiel-Topf diesen Spieltag", article: null, sport: null, createdAt: "2026-09-18T09:00:00+02:00" },
+  { id: "news-5", text: "Perfekter Tipp bringt den größten Sterne-Gewinn", article: null, sport: null, createdAt: "2026-09-17T09:00:00+02:00" },
 ];
 
 interface AppDataContextValue {
@@ -200,7 +208,7 @@ interface AppDataContextValue {
   setTvChannel: (matchId: string, channel: string) => void;
   setTipMode: (matchId: string, mode: TipMode) => void;
   newsItems: NewsItem[];
-  addNews: (text: string, sport: Sport | null) => void;
+  addNews: (text: string, sport: Sport | null, article: string | null) => void;
   removeNews: (id: string) => void;
 }
 
@@ -304,10 +312,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  function addNews(text: string, sport: Sport | null) {
+  function addNews(text: string, sport: Sport | null, article: string | null) {
     const id = `news-${Date.now()}`;
     setNewsItems((current) => [
-      { id, text, sport, createdAt: new Date().toISOString() },
+      { id, text, sport, article, createdAt: new Date().toISOString() },
       ...current,
     ]);
   }

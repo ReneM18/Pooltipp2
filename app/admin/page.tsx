@@ -39,54 +39,73 @@ function NewsManager() {
   const { newsItems, addNews, removeNews } = useAppData();
   const [text, setText] = useState("");
   const [sport, setSport] = useState<Sport | "">("");
+  const [article, setArticle] = useState("");
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!text.trim()) return;
-    addNews(text.trim(), sport || null);
+    addNews(text.trim(), sport || null, article.trim() || null);
     setText("");
     setSport("");
+    setArticle("");
   }
 
   return (
     <section>
       <h2 className="mb-3 font-display text-xl font-semibold text-ink">News-Ticker</h2>
       <p className="mb-3 text-xs text-muted">
-        Diese Meldungen laufen oben im Laufband durch. Wählst du eine Sportart aus, wird deren
-        Icon automatisch vor die Meldung gesetzt.
+        Die Headline läuft oben im Laufband durch. Tippt ein User sie an, öffnet sich der
+        Artikeltext (falls vorhanden). Wählst du eine Sportart aus, wird deren Icon automatisch
+        vor die Headline gesetzt.
       </p>
 
       <form
         onSubmit={handleSubmit}
-        className="mb-4 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-end"
+        className="mb-4 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4"
       >
-        <div className="flex-1">
-          <label className="mb-1 block text-xs text-muted">Meldung</label>
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="z. B. Bayern gewinnt Topspiel 3:1"
-            className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs text-muted">Headline</label>
+            <input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="z. B. Bayern gewinnt Topspiel 3:1"
+              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Sportart (optional)</label>
+            <select
+              value={sport}
+              onChange={(e) => setSport(e.target.value as Sport | "")}
+              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+            >
+              <option value="">Allgemein (kein Icon)</option>
+              {SPORTS.map((s) => (
+                <option key={s} value={s}>
+                  {sportIcon[s]} {s}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs text-muted">
+            Artikeltext (optional – ohne bleibt die Headline beim Antippen ohne Detailansicht)
+          </label>
+          <textarea
+            value={article}
+            onChange={(e) => setArticle(e.target.value)}
+            rows={4}
+            placeholder="Ausführlicher Text, der sich öffnet, wenn ein User auf die Headline tippt…"
+            className="w-full resize-y rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
           />
         </div>
-        <div>
-          <label className="mb-1 block text-xs text-muted">Sportart (optional)</label>
-          <select
-            value={sport}
-            onChange={(e) => setSport(e.target.value as Sport | "")}
-            className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-          >
-            <option value="">Allgemein (kein Icon)</option>
-            {SPORTS.map((s) => (
-              <option key={s} value={s}>
-                {sportIcon[s]} {s}
-              </option>
-            ))}
-          </select>
-        </div>
+
         <button
           type="submit"
-          className="rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+          className="self-start rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
         >
           Veröffentlichen
         </button>
@@ -106,6 +125,11 @@ function NewsManager() {
             <span className="flex items-center gap-2 text-sm text-ink">
               {item.sport && <span>{sportIcon[item.sport]}</span>}
               {item.text}
+              {item.article && (
+                <span className="rounded-full bg-surface-hover px-2 py-0.5 text-[10px] font-semibold text-muted">
+                  Artikel
+                </span>
+              )}
             </span>
             <button
               onClick={() => removeNews(item.id)}
