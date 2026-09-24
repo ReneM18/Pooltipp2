@@ -1,4 +1,3 @@
-import { useId } from "react";
 import { JerseyStyle, Sport } from "@/lib/types";
 import { BASKETBALL_JERSEY_MARKUP } from "@/lib/basketballJerseyMarkup";
 
@@ -41,12 +40,14 @@ export default function TeamBadge({
     return <BasketballJerseyIcon primary={primaryColor} secondary={secondaryColor} size={size} />;
   }
   if (sport === "NHL") {
-    return <PuckIcon primary={primaryColor} secondary={secondaryColor} size={size} />;
+    return <HockeyJerseyIcon primary={primaryColor} secondary={secondaryColor} size={size} />;
   }
   return <JerseyIcon primary={primaryColor} secondary={secondaryColor} size={size} />;
 }
 
-function PuckIcon({
+// Kontur 1:1 aus der vom User bereitgestellten Eishockey-Trikot-Vorlage
+// nachgezeichnet (via Bildanalyse), damit die Form exakt passt.
+function HockeyJerseyIcon({
   primary,
   secondary,
   size,
@@ -55,70 +56,25 @@ function PuckIcon({
   secondary: string;
   size: number;
 }) {
-  const uid = useId().replace(/[:]/g, "");
-
   return (
-    <svg width={size} height={size} viewBox="0 0 400 300" aria-hidden="true">
-      <defs>
-        <pattern id={`knurling-${uid}`} width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <rect width="4" height="8" fill="#111111" />
-          <rect x="4" width="4" height="8" fill="#222222" />
-        </pattern>
-
-        <radialGradient id={`dropShadow-${uid}`} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#000000" stopOpacity="0.6" />
-          <stop offset="100%" stopColor="#000000" stopOpacity="0" />
-        </radialGradient>
-
-        <linearGradient id={`sideGradient-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#0a0a0a" />
-          <stop offset="25%" stopColor="#2c2c2c" />
-          <stop offset="50%" stopColor="#141414" />
-          <stop offset="85%" stopColor="#2a2a2a" />
-          <stop offset="100%" stopColor="#050505" />
-        </linearGradient>
-
-        <radialGradient id={`topSurface-${uid}`} cx="40%" cy="35%" r="60%">
-          <stop offset="0%" stopColor="#333333" />
-          <stop offset="50%" stopColor="#1a1a1a" />
-          <stop offset="95%" stopColor="#0d0d0d" />
-          <stop offset="100%" stopColor="#050505" />
-        </radialGradient>
-
-        <linearGradient id={`edgeBevel-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#555555" stopOpacity="0.2" />
-          <stop offset="30%" stopColor="#ffffff" stopOpacity="0.6" />
-          <stop offset="70%" stopColor="#444444" stopOpacity="0.1" />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity="0.3" />
-        </linearGradient>
-      </defs>
-
-      {/* Schlagschatten */}
-      <ellipse cx="200" cy="235" rx="135" ry="40" fill={`url(#dropShadow-${uid})`} />
-
-      {/* Seitenwand (3D-Körper) */}
+    <svg width={size} height={size} viewBox="0 0 300 300" aria-hidden="true">
       <path
-        d="M 70 160 A 130 45 0 0 0 330 160 L 330 200 A 130 45 0 0 1 70 200 Z"
-        fill={`url(#sideGradient-${uid})`}
+        d="M 50.2,50.9 L 42.6,64.9 L 32.4,106.5 L 40.0,107.3 L 47.9,75.5 L 52.1,74.8 L 64.6,89.1 L 74.4,111.4 L 80.8,164.4 L 77.0,176.1 L 28.3,168.5 L 36.6,122.8 L 34.3,117.9 L 29.0,119.8 L 12.0,232.8 L 16.9,241.1 L 60.8,248.7 L 67.2,243.4 L 75.1,214.7 L 78.5,214.3 L 81.9,259.6 L 90.3,270.2 L 204.8,271.4 L 216.9,261.9 L 220.7,213.5 L 224.1,213.9 L 231.7,242.3 L 238.8,248.7 L 284.2,239.6 L 287.6,228.6 L 275.9,149.6 L 269.1,152.3 L 270.6,168.9 L 222.2,176.1 L 218.8,164.7 L 225.6,109.5 L 234.3,89.9 L 247.9,74.4 L 251.3,74.8 L 266.4,139.0 L 274.0,139.4 L 256.6,64.6 L 244.1,46.0 L 218.8,34.7 L 183.6,28.3 L 165.9,49.8 L 145.5,55.1 L 132.2,48.7 L 120.5,30.1 L 112.6,28.3 L 75.1,36.6 Z"
+        fill={primary}
       />
-      <path
-        d="M 70 160 A 130 45 0 0 0 330 160 L 330 200 A 130 45 0 0 1 70 200 Z"
-        fill={`url(#knurling-${uid})`}
-        opacity="0.35"
-        style={{ mixBlendMode: "overlay" }}
-      />
-      <ellipse cx="200" cy="200" rx="130" ry="45" fill="none" stroke="#111111" strokeWidth="2" />
-
-      {/* Oberseite */}
-      <ellipse cx="200" cy="160" rx="130" ry="45" fill={`url(#topSurface-${uid})`} />
-      <ellipse cx="200" cy="160" rx="130" ry="45" fill="none" stroke={`url(#edgeBevel-${uid})`} strokeWidth="2.5" />
-
-      {/* Team-Akzentring statt neutraler Linie */}
-      <ellipse cx="200" cy="160" rx="115" ry="40" fill="none" stroke={primary} strokeWidth="2.5" opacity="0.8" />
-
-      {/* Team-Logo-Kreis (Akzentfarbe) */}
-      <circle cx="200" cy="158" r="22" fill={secondary} opacity="0.9" />
-      <circle cx="200" cy="158" r="22" fill="none" stroke={primary} strokeWidth="2" />
+      {/* Rippkragen */}
+      <path d="M114 36 Q150 68 186 36" fill="none" stroke={secondary} strokeWidth="7" strokeLinecap="round" />
+      <path d="M120 34 Q150 58 180 34" fill="none" stroke="#F3F1EA" strokeWidth="3.5" strokeLinecap="round" />
+      {/* Bund-Streifen */}
+      <rect x="86.9" y="194.6" width="126.2" height="12.9" fill={secondary} />
+      <rect x="86.9" y="215.0" width="126.2" height="12.9" fill="#F3F1EA" />
+      <rect x="86.9" y="235.4" width="126.2" height="12.9" fill={secondary} />
+      {/* Ärmel-Streifen links */}
+      <rect x="24.9" y="176.5" width="49.9" height="18.1" fill={secondary} />
+      <rect x="22.6" y="195.0" width="47.2" height="17.4" fill="#F3F1EA" />
+      {/* Ärmel-Streifen rechts */}
+      <rect x="225.2" y="176.5" width="49.9" height="18.1" fill={secondary} />
+      <rect x="230.2" y="195.0" width="47.2" height="17.4" fill="#F3F1EA" />
     </svg>
   );
 }

@@ -142,7 +142,7 @@ function TeamManager() {
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <label className="mb-1 block text-xs text-muted">
-              {sport === "NFL" ? "Helmfarbe" : sport === "NHL" ? "Ringfarbe" : "Trikotfarbe"}
+              {sport === "NFL" ? "Helmfarbe" : "Trikotfarbe"}
             </label>
             <input
               type="color"
@@ -153,11 +153,7 @@ function TeamManager() {
           </div>
           <div>
             <label className="mb-1 block text-xs text-muted">
-              {sport === "NFL"
-                ? "Streifen-/Gitterfarbe"
-                : sport === "NHL"
-                ? "Logo-Farbe"
-                : "Kragen-/Saumfarbe"}
+              {sport === "NFL" ? "Streifen-/Gitterfarbe" : "Kragen-/Saumfarbe"}
             </label>
             <input
               type="color"
