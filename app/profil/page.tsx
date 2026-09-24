@@ -78,13 +78,18 @@ export default function ProfilPage() {
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
       <div className="mb-8 flex items-center gap-4">
-        <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-2xl font-bold text-gold">
-          {photos[0] ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={photos[0]} alt="Profilbild" className="h-full w-full object-cover" />
-          ) : (
-            displayName.slice(0, 1).toUpperCase()
-          )}
+        <div className="relative h-16 w-16 shrink-0">
+          {/* Das Foto wird in einem eigenen, rund abgeschnittenen Kreis
+              dargestellt – die Rang-Badge sitzt außerhalb davon, sonst
+              schneidet "overflow-hidden" sie zu einem hässlichen Eck ab. */}
+          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-2xl font-bold text-gold">
+            {photos[0] ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={photos[0]} alt="Profilbild" className="h-full w-full object-cover" />
+            ) : (
+              displayName.slice(0, 1).toUpperCase()
+            )}
+          </div>
           {activeRankIcon && (
             <span className="absolute -bottom-2 -right-2 rounded-full ring-[3px] ring-pitch">
               <RankBadge option={activeRankIcon} size="md" />

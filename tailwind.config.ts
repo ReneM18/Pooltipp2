@@ -28,8 +28,8 @@ const config: Config = {
       },
       keyframes: {
         eliteGlow: {
-          "0%, 100%": { boxShadow: "0 0 8px 1px rgba(255,95,162,0.45)" },
-          "50%": { boxShadow: "0 0 16px 5px rgba(255,215,0,0.7)" },
+          "0%, 100%": { boxShadow: "0 0 3px 0.5px rgba(255,95,162,0.35)" },
+          "50%": { boxShadow: "0 0 7px 1.5px rgba(255,215,0,0.45)" },
         },
       },
       animation: {
