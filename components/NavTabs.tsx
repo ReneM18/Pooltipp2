@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+// Logisch gruppiert: erst die eigene Spiel-Schleife (Tippen, Spiele,
+// Fortschritt), danach alles Community-Bezogene (Rangliste, Feed, Freunde).
+// Der Prämien-Shop hat jetzt sein eigenes Icon oben in der Navbar, direkt
+// bei der Sterne-Anzeige – daher hier nicht mehr als Tab.
 const tabs = [
   { href: "/", label: "Tipps" },
   { href: "/matchcenter", label: "Matchcenter" },
+  { href: "/fortschritt", label: "Saison-Pass" },
   { href: "/rangliste", label: "Rangliste" },
   { href: "/feed", label: "Feed" },
-  { href: "/shop", label: "Prämien-Shop" },
-  { href: "/fortschritt", label: "Saison-Pass" },
   { href: "/freunde", label: "Freunde" },
 ];
 

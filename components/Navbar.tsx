@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import RankBadge from "@/components/RankBadge";
-import { StarIcon, TrophyIcon, GearIcon } from "@/components/Icons";
+import { StarIcon, TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
 
 export default function Navbar() {
   const { displayName, freeStars, points, activeRankIcon } = useUser();
@@ -28,6 +28,14 @@ export default function Navbar() {
               {freeStars.toLocaleString("de-DE")}
             </span>
           </div>
+
+          <Link
+            href="/shop"
+            title="Prämien-Shop"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gold/60 bg-surface text-gold transition-colors hover:border-gold hover:bg-gold/10 sm:h-8 sm:w-8"
+          >
+            <CartIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          </Link>
 
           <div
             className="flex items-center gap-1 rounded-full border border-edge bg-surface px-2 py-1 sm:gap-2 sm:px-3 sm:py-1.5"
