@@ -116,6 +116,7 @@ export default function ProfilPage() {
             >
               <span className="text-sm">{activeRankIcon.icon}</span>
               {activeRankIcon.label}
+              {activeRankIcon.title && <span className="opacity-80">· {activeRankIcon.title}</span>}
             </span>
           )}
         </div>

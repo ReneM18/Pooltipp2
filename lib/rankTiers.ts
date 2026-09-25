@@ -38,6 +38,18 @@ export const RANK_COLORS: Record<RankName, { from: string; to: string; text: str
   Diamant: { from: "#7a8cff", to: "#c9d2ff", text: "#0a0f2b" },
 };
 
+// Titel werden NICHT mehr über den Saison-Pass verteilt, sondern verdient
+// man sich automatisch über den erreichten Rang (Punkte) – pro Hauptrang
+// ein fester Titel, unabhängig von der Sportart. So bleibt ein Titel immer
+// an eine echte Leistung gekoppelt statt an ein Pass-Level.
+export const RANK_TITLES: Record<RankName, string> = {
+  Bronze: "Neuling",
+  Silber: "Aufsteiger der Saison",
+  Gold: "Champion",
+  Platin: "VIP-Tipper",
+  Diamant: "Tipp-Legende",
+};
+
 export const SPORT_EMOJI: Record<Sport, string> = {
   "Fußball": "⚽",
   NFL: "🏈",
@@ -76,6 +88,8 @@ export interface RankIconOption {
   colorFrom: string;
   colorTo: string;
   colorText: string;
+  /** Rang-Titel (z.B. "Champion"), automatisch aus dem erreichten Rang. */
+  title?: string;
 }
 
 const ELITE_COLORS = { from: "#ffd700", to: "#ff5fa2", text: "#1a0a12" };
@@ -108,6 +122,7 @@ export function getAvailableRankIcons(): RankIconOption[] {
       colorFrom: colors.from,
       colorTo: colors.to,
       colorText: colors.text,
+      title: RANK_TITLES[tier.rank],
     });
   }
 
@@ -176,6 +191,7 @@ export function getIconForName(name: string): RankIconOption | null {
     colorFrom: colors.from,
     colorTo: colors.to,
     colorText: colors.text,
+    title: RANK_TITLES[tier.rank],
   };
 }
 
@@ -200,5 +216,6 @@ export function getMockRankIconForName(name: string): RankIconOption {
     colorFrom: colors.from,
     colorTo: colors.to,
     colorText: colors.text,
+    title: RANK_TITLES[tier.rank],
   };
 }

@@ -63,6 +63,7 @@ export default function SpielerProfilPage() {
             >
               <span className="text-sm">{rankIcon.icon}</span>
               {rankIcon.label}
+              {rankIcon.title && <span className="opacity-80">· {rankIcon.title}</span>}
             </span>
           )}
         </div>

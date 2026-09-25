@@ -14,8 +14,13 @@ export interface PassLevel {
 }
 
 // Alle Belohnungen hier sind Saison-exklusiv: man bekommt sie NUR durchs Spielen
-// (Punkte sammeln), sie sind nirgendwo im Shop kaufbar. Das letzte Level zahlt
+// (Punkte sammeln), sie sind nirgendwo im Shop kaufbar. Einzelne Level zahlen
 // stattdessen Sterne aus, die dann wieder im Shop ausgegeben werden können.
+//
+// WICHTIG: Titel (z.B. "Tipp-Legende") sind bewusst KEINE Pass-Belohnung mehr –
+// die verdient man sich automatisch über den erreichten Rang, siehe
+// RANK_TITLES in lib/rankTiers.ts. So bleibt ein Titel an eine echte Leistung
+// gekoppelt statt an ein beliebiges Pass-Level.
 export const PASS_LEVELS: PassLevel[] = [
   { level: 1, xpRequired: 0, reward: "Willkommens-Banner", icon: "🎉" },
   {
@@ -37,8 +42,8 @@ export const PASS_LEVELS: PassLevel[] = [
   {
     level: 4,
     xpRequired: 900,
-    reward: "Titel „Aufsteiger der Saison“",
-    icon: "📈",
+    reward: "Kommentar-Sticker-Paket",
+    icon: "🏷️",
     premiumReward: "Premium-Emote-Paket",
     premiumIcon: "🎭",
   },
@@ -64,14 +69,16 @@ export const PASS_LEVELS: PassLevel[] = [
     xpRequired: 2700,
     reward: "Profil-Rahmen „Saison-Gold“",
     icon: "🥇",
-    premiumReward: "Titel „VIP-Tipper“",
-    premiumIcon: "👑",
+    premiumReward: "75 Sterne Sofort-Bonus",
+    premiumIcon: "⭐",
+    premiumStarsReward: 75,
   },
   {
     level: 8,
     xpRequired: 3500,
-    reward: "Titel „Tipp-Legende“",
-    icon: "🏅",
+    reward: "30 Sterne Bonus",
+    icon: "⭐",
+    starsReward: 30,
     premiumReward: "Animiertes Kronen-Icon",
     premiumIcon: "👑",
   },

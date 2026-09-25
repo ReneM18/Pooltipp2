@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { mockLeaderboard, mockLeaderboardBySport, LeaderboardEntry } from "@/lib/mockLeaderboard";
 import { SPORTS, Sport } from "@/lib/types";
-import { getTierForPoints, RANK_COLORS, SPORT_EMOJI, getIconForName } from "@/lib/rankTiers";
+import { getTierForPoints, RANK_COLORS, RANK_TITLES, SPORT_EMOJI, getIconForName } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
 
 const sportIcon: Record<Sport, string> = {
@@ -75,6 +75,7 @@ export default function RanglistePage() {
                         colorFrom: RANK_COLORS[getTierForPoints(entry.points).rank].from,
                         colorTo: RANK_COLORS[getTierForPoints(entry.points).rank].to,
                         colorText: RANK_COLORS[getTierForPoints(entry.points).rank].text,
+                        title: RANK_TITLES[getTierForPoints(entry.points).rank],
                       }
                 }
                 size="sm"
