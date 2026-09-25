@@ -5,8 +5,6 @@ import { mockShopItems, ShopItem } from "@/lib/mockShopItems";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 
-const categories: ShopItem["category"][] = ["Profil", "In-Game", "Badges"];
-
 export default function ShopPage() {
   const { freeStars, spendStars } = useUser();
   const { showToast, celebrate } = useFeedback();
@@ -26,28 +24,20 @@ export default function ShopPage() {
       <div className="mb-6">
         <h1 className="font-display text-3xl font-bold text-ink">Prämien-Shop</h1>
         <p className="mt-1 text-sm text-muted">
-          Tausche deine erspielten Sterne gegen Extras – kein Echtgeld nötig.
+          Tausche deine erspielten Sterne gegen spielerische Vorteile – kein Echtgeld nötig. Optisches
+          wie Rahmen, Farben und Titel gibt's nicht hier, sondern über den Saison-Pass.
         </p>
       </div>
 
-      <div className="flex flex-col gap-8">
-        {categories.map((category) => (
-          <section key={category}>
-            <h2 className="mb-3 font-display text-lg font-semibold text-ink">{category}</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {mockShopItems
-                .filter((item) => item.category === category)
-                .map((item) => (
-                  <ShopItemCard
-                    key={item.id}
-                    item={item}
-                    canAfford={freeStars >= item.cost}
-                    redeemed={redeemedIds.includes(item.id)}
-                    onRedeem={() => handleRedeem(item)}
-                  />
-                ))}
-            </div>
-          </section>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {mockShopItems.map((item) => (
+          <ShopItemCard
+            key={item.id}
+            item={item}
+            canAfford={freeStars >= item.cost}
+            redeemed={redeemedIds.includes(item.id)}
+            onRedeem={() => handleRedeem(item)}
+          />
         ))}
       </div>
     </main>

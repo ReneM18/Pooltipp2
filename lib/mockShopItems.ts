@@ -1,26 +1,18 @@
 export interface ShopItem {
   id: string;
-  category: "Profil" | "In-Game" | "Badges";
+  category: "In-Game";
   name: string;
   description: string;
   cost: number; // in Sternen
 }
 
+// Klare Trennung zum Saison-Pass: Der Prämien-Shop bietet AUSSCHLIESSLICH
+// funktionale, spielerische Vorteile an – keine optischen Dinge (Rahmen,
+// Farben, Titel, Badges). Alles Optische/Saison-Identität bleibt dem Pass
+// vorbehalten, den man sich durch Punkte verdient. So verbraucht der Shop
+// nie Ideen, die für den Pass gebraucht werden, und beide Bereiche bleiben
+// auf einen Blick unterscheidbar.
 export const mockShopItems: ShopItem[] = [
-  {
-    id: "profile-neon-frame",
-    category: "Profil",
-    name: "Neon-Rahmen",
-    description: "Jederzeit kaufbares Rahmen-Design – unabhängig von deinem Saison-Pass-Fortschritt.",
-    cost: 150,
-  },
-  {
-    id: "profile-title-tippkoenig",
-    category: "Profil",
-    name: 'Titel "Tipp-König"',
-    description: "Zeigt allen anderen Usern deinen Status in der Rangliste.",
-    cost: 300,
-  },
   {
     id: "joker-extra",
     category: "In-Game",
@@ -36,17 +28,31 @@ export const mockShopItems: ShopItem[] = [
     cost: 120,
   },
   {
-    id: "badge-perfekt",
-    category: "Badges",
-    name: 'Badge "Perfekter Spieltag"',
-    description: "Für alle, die einen kompletten Spieltag exakt getippt haben.",
+    id: "double-points-booster",
+    category: "In-Game",
+    name: "Doppel-Punkte-Booster",
+    description: "Ein Spiel deiner Wahl zählt doppelte Punkte.",
+    cost: 180,
+  },
+  {
+    id: "tip-insurance",
+    category: "In-Game",
+    name: "Tipp-Versicherung",
+    description: "Liegst du bei einem Spiel nur 1 Tor daneben, bekommst du trotzdem Teilpunkte statt 0.",
+    cost: 150,
+  },
+  {
+    id: "star-booster",
+    category: "In-Game",
+    name: "Sterne-Booster",
+    description: "Für deine nächsten 3 Spieltage verdienst du 25% mehr Sterne.",
     cost: 200,
   },
   {
-    id: "badge-veteran",
-    category: "Badges",
-    name: 'Badge "Saison-Veteran"',
-    description: "Zeigt, dass du seit der ersten Saison dabei bist.",
-    cost: 250,
+    id: "community-trend",
+    category: "In-Game",
+    name: "Community-Trend",
+    description: "Sieh vor Tippschluss, wie die Mehrheit der Community bei einem Spiel getippt hat.",
+    cost: 100,
   },
 ];
