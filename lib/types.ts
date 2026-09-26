@@ -58,5 +58,7 @@ export interface UserProfile {
   id: string;
   displayName: string;
   freeStars: number;
-  points: number;
+  // Saison-Pass-XP – siehe PoolScore-Konzept in lib/poolScore.ts. Steigt nur
+  // durch den täglichen Bonus, nicht durch Tipp-Ergebnisse.
+  passXP: number;
 }

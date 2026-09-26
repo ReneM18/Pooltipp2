@@ -15,10 +15,16 @@ const sportIcon: Record<string, string> = {
 };
 
 export default function FortschrittPage() {
-  const { points, hasPremiumPass, buyPremiumPass } = useUser();
+  const { passXP, hasPremiumPass, buyPremiumPass, canClaimDailyBonus, claimDailyBonus } = useUser();
   const { tipsBySport } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [purchasing, setPurchasing] = useState(false);
+
+  function handleClaimDailyBonus() {
+    claimDailyBonus();
+    celebrate();
+    showToast("🎁 Täglicher Bonus abgeholt: +8 Sterne, +100 Pass-XP!", "gold");
+  }
 
   function handleBuyPremium() {
     setPurchasing(true);
@@ -32,10 +38,10 @@ export default function FortschrittPage() {
     }, 600);
   }
 
-  const currentLevel = [...PASS_LEVELS].reverse().find((l) => points >= l.xpRequired) ?? PASS_LEVELS[0];
-  const nextLevel = PASS_LEVELS.find((l) => l.xpRequired > points);
+  const currentLevel = [...PASS_LEVELS].reverse().find((l) => passXP >= l.xpRequired) ?? PASS_LEVELS[0];
+  const nextLevel = PASS_LEVELS.find((l) => l.xpRequired > passXP);
   const progressToNext = nextLevel
-    ? Math.round(((points - currentLevel.xpRequired) / (nextLevel.xpRequired - currentLevel.xpRequired)) * 100)
+    ? Math.round(((passXP - currentLevel.xpRequired) / (nextLevel.xpRequired - currentLevel.xpRequired)) * 100)
     : 100;
 
   return (
@@ -54,8 +60,8 @@ export default function FortschrittPage() {
             Level {currentLevel.level} <span className="text-gold">{currentLevel.icon}</span>
           </span>
           <span className="text-sm text-muted">
-            {points.toLocaleString("de-DE")} Punkte
-            {nextLevel && ` · noch ${(nextLevel.xpRequired - points).toLocaleString("de-DE")} bis Level ${nextLevel.level}`}
+            {passXP.toLocaleString("de-DE")} XP
+            {nextLevel && ` · noch ${(nextLevel.xpRequired - passXP).toLocaleString("de-DE")} bis Level ${nextLevel.level}`}
           </span>
         </div>
         <div className="h-3 w-full overflow-hidden rounded-full bg-pitch">
@@ -63,6 +69,29 @@ export default function FortschrittPage() {
             className="h-full rounded-full bg-gradient-to-r from-gold to-action transition-all"
             style={{ width: `${Math.max(4, progressToNext)}%` }}
           />
+        </div>
+      </section>
+
+      {/* Täglicher Bonus – der EINZIGE Weg, wie der Saison-Pass steigt.
+          Tipp-Ergebnisse wirken sich nur auf Rangliste-Punkte und Sterne aus. */}
+      <section className="mb-8">
+        <div className="flex flex-col items-start gap-3 rounded-card border border-edge bg-gradient-to-br from-surface to-surface-hover p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="flex items-center gap-2 font-display text-sm font-semibold text-ink">
+              <span className="text-lg">🎁</span> Täglicher Bonus
+            </p>
+            <p className="mt-0.5 text-xs text-muted">
+              Einmal pro Tag: +8 Sterne und +100 Pass-XP. Der Saison-Pass klettert nur so –
+              nicht durch Tipp-Ergebnisse.
+            </p>
+          </div>
+          <button
+            onClick={handleClaimDailyBonus}
+            disabled={!canClaimDailyBonus}
+            className="shrink-0 rounded-full bg-gold px-5 py-2.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {canClaimDailyBonus ? "Bonus abholen" : "Heute schon abgeholt ✓"}
+          </button>
         </div>
       </section>
 
@@ -109,7 +138,7 @@ export default function FortschrittPage() {
         </div>
         <div className="flex flex-col gap-3">
           {PASS_LEVELS.map((lvl) => {
-            const unlocked = points >= lvl.xpRequired;
+            const unlocked = passXP >= lvl.xpRequired;
             const isCurrent = lvl.level === currentLevel.level;
             const isPayout = !!lvl.starsReward;
             return (

@@ -6,6 +6,7 @@ import { mockLeaderboard, mockLeaderboardBySport, LeaderboardEntry } from "@/lib
 import { SPORTS, Sport } from "@/lib/types";
 import { getTierForPoints, RANK_COLORS, RANK_TITLES, SPORT_EMOJI, getIconForName } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
+import { useUser } from "@/lib/UserContext";
 
 const sportIcon: Record<Sport, string> = {
   "Fußball": "⚽",
@@ -20,8 +21,21 @@ const TABS: ViewTab[] = ["Gesamt", ...SPORTS];
 
 export default function RanglistePage() {
   const [tab, setTab] = useState<ViewTab>("Gesamt");
+  const { rangPunkte } = useUser();
 
-  const entries: LeaderboardEntry[] = tab === "Gesamt" ? mockLeaderboard : mockLeaderboardBySport[tab];
+  // Die "Gesamt"-Ansicht bleibt eine separate Mock-Zahl (kein sinnvoller
+  // Summenwert über Sportarten hinweg). In den Sport-Ansichten wird der
+  // eigene Eintrag live mit den PoolScore-Rangliste-Punkten aktualisiert und
+  // die Tabelle neu sortiert, damit man nach einer Auswertung sofort sieht,
+  // wo man jetzt steht.
+  const baseEntries: LeaderboardEntry[] = tab === "Gesamt" ? mockLeaderboard : mockLeaderboardBySport[tab];
+  const entries: LeaderboardEntry[] =
+    tab === "Gesamt"
+      ? baseEntries
+      : [...baseEntries]
+          .map((entry) => (entry.isCurrentUser ? { ...entry, points: rangPunkte[tab] } : entry))
+          .sort((a, b) => b.points - a.points)
+          .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">

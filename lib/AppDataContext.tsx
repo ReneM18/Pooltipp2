@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode } from "react";
 import { Match, Sport, Team, TipMode } from "./types";
+import { TipResultTier } from "./poolScore";
 
 export interface SubmittedTip {
   id: string;
@@ -10,6 +11,14 @@ export interface SubmittedTip {
   predictedAwayScore: number;
   stake: number;
   submittedAt: string;
+  // PoolScore-Auswertung – erst gesetzt, sobald das Spiel beendet und
+  // ausgewertet wurde (siehe markTipEvaluated / UserContext.evaluateMatchForCurrentUser).
+  evaluated?: boolean;
+  resultTier?: TipResultTier;
+  rangDelta?: number;
+  starsDelta?: number;
+  beatPercent?: number;
+  narration?: string;
 }
 
 export interface NewsItem {
@@ -235,6 +244,16 @@ interface AppDataContextValue {
   tipsBySport: Record<Sport, number>;
   myTips: SubmittedTip[];
   submitTip: (matchId: string, predictedHomeScore: number, predictedAwayScore: number, stake: number) => void;
+  markTipEvaluated: (
+    tipId: string,
+    result: {
+      tier: TipResultTier;
+      rangDelta: number;
+      starsDelta: number;
+      beatPercent: number;
+      narration: string;
+    }
+  ) => void;
   updateMatchScore: (matchId: string, homeScore: number | null, awayScore: number | null, status: Match["status"]) => void;
   setSummaryVideo: (matchId: string, url: string) => void;
   setTvChannel: (matchId: string, channel: string) => void;
@@ -331,6 +350,33 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         `Du hast beim Spiel ${home?.name ?? "?"} vs. ${away?.name ?? "?"} getippt.`
       );
     }
+  }
+
+  function markTipEvaluated(
+    tipId: string,
+    result: {
+      tier: TipResultTier;
+      rangDelta: number;
+      starsDelta: number;
+      beatPercent: number;
+      narration: string;
+    }
+  ) {
+    setMyTips((current) =>
+      current.map((t) =>
+        t.id === tipId
+          ? {
+              ...t,
+              evaluated: true,
+              resultTier: result.tier,
+              rangDelta: result.rangDelta,
+              starsDelta: result.starsDelta,
+              beatPercent: result.beatPercent,
+              narration: result.narration,
+            }
+          : t
+      )
+    );
   }
 
   function updateMatchScore(
@@ -454,6 +500,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         tipsBySport,
         myTips,
         submitTip,
+        markTipEvaluated,
         updateMatchScore,
         setSummaryVideo,
         setTvChannel,

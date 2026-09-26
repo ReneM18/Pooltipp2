@@ -6,7 +6,7 @@ import RankBadge from "@/components/RankBadge";
 import { StarIcon, TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
 
 export default function Navbar() {
-  const { displayName, freeStars, points, activeRankIcon } = useUser();
+  const { displayName, freeStars, passXP, activeRankIcon } = useUser();
 
   return (
     <header className="sticky top-0 z-10 border-b border-edge bg-pitch/95 backdrop-blur">
@@ -39,11 +39,11 @@ export default function Navbar() {
 
           <div
             className="flex items-center gap-1 rounded-full border border-edge bg-surface px-2 py-1 sm:gap-2 sm:px-3 sm:py-1.5"
-            title="Deine Punkte"
+            title="Deine Saison-Pass-XP"
           >
             <TrophyIcon className="h-3.5 w-3.5 text-action sm:h-4 sm:w-4" />
             <span className="font-display text-sm font-semibold text-ink sm:text-base">
-              {points.toLocaleString("de-DE")}
+              {passXP.toLocaleString("de-DE")}
             </span>
           </div>
 

@@ -20,7 +20,7 @@ const FeedbackContext = createContext<FeedbackContextValue | null>(null);
 let idCounter = 0;
 
 export function FeedbackProvider({ children }: { children: ReactNode }) {
-  const { points } = useUser();
+  const { passXP } = useUser();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [bursts, setBursts] = useState<number[]>([]);
   const [levelUpInfo, setLevelUpInfo] = useState<(typeof PASS_LEVELS)[number] | null>(null);
@@ -42,12 +42,13 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     }, 1400);
   }
 
-  // Level-Up-Erkennung: sobald "points" eine neue Saison-Pass-Stufe erreicht,
-  // ein Popup zeigen. Beim allerersten Render wird nur der Startwert gemerkt,
-  // damit beim Laden der Seite kein falsches Popup aufpoppt.
+  // Level-Up-Erkennung: sobald "passXP" (Saison-Pass-XP, steigt nur durch den
+  // täglichen Bonus) eine neue Stufe erreicht, ein Popup zeigen. Beim
+  // allerersten Render wird nur der Startwert gemerkt, damit beim Laden der
+  // Seite kein falsches Popup aufpoppt.
   useEffect(() => {
     const currentLevel =
-      [...PASS_LEVELS].reverse().find((l) => points >= l.xpRequired) ?? PASS_LEVELS[0];
+      [...PASS_LEVELS].reverse().find((l) => passXP >= l.xpRequired) ?? PASS_LEVELS[0];
 
     if (lastLevelRef.current === null) {
       lastLevelRef.current = currentLevel.level;
@@ -60,7 +61,7 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
       celebrate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [points]);
+  }, [passXP]);
 
   return (
     <FeedbackContext.Provider value={{ showToast, celebrate }}>

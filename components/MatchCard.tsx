@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useRef, useState, FormEvent } from "react";
 import Link from "next/link";
 import { Match, Team } from "@/lib/types";
+import { TipResultTier } from "@/lib/poolScore";
 import { flagEmoji } from "@/lib/flags";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
+import { useFeedback } from "@/lib/FeedbackContext";
 import TeamBadge from "./TeamBadge";
 import Countdown from "./Countdown";
 import { StarIcon, TvIcon, PlayIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
@@ -20,6 +22,14 @@ const sportIcon: Record<string, string> = {
 interface MyTip {
   predictedHomeScore: number;
   predictedAwayScore: number;
+  // PoolScore-Auswertung – siehe lib/poolScore.ts. Erst gesetzt, sobald das
+  // Spiel beendet und der Tipp ausgewertet wurde.
+  evaluated?: boolean;
+  resultTier?: TipResultTier;
+  rangDelta?: number;
+  starsDelta?: number;
+  beatPercent?: number;
+  narration?: string;
 }
 
 interface MatchCardProps {
@@ -72,9 +82,24 @@ export default function MatchCard({
   );
   const { getCommentsForMatch, addComment, removeComment, toggleCommentLike } = useAppData();
   const { displayName } = useUser();
+  const { showToast, celebrate } = useFeedback();
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
   const matchComments = getCommentsForMatch(match.id);
+
+  // Der PoolScore-"Reveal"-Moment: sobald der eigene Tipp ausgewertet wurde,
+  // einmalig Konfetti + die narrierte Meldung als Toast zeigen (nicht bei
+  // jedem Re-Render erneut).
+  const celebratedRef = useRef(false);
+  useEffect(() => {
+    if (myTip?.evaluated && !celebratedRef.current) {
+      celebratedRef.current = true;
+      celebrate();
+      if (myTip.narration) {
+        showToast(myTip.narration, myTip.resultTier === "falsch" ? "info" : "gold");
+      }
+    }
+  }, [myTip?.evaluated, myTip?.narration, myTip?.resultTier, celebrate, showToast]);
 
   function handleCommentSubmit(e: FormEvent) {
     e.preventDefault();
@@ -239,6 +264,8 @@ export default function MatchCard({
               </div>
             )}
 
+            {hasTipped && myTip?.evaluated && <PoolScoreResultBox myTip={myTip!} />}
+
             <ResultBox match={match} />
 
             {!hasTipped && tippingClosed && (
@@ -336,6 +363,48 @@ export default function MatchCard({
               </button>
             </form>
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const TIER_LABEL: Record<TipResultTier, string> = {
+  exakt: "🎯 Exakt getroffen!",
+  tendenz: "👍 Tendenz richtig",
+  falsch: "😬 Daneben getippt",
+};
+
+const TIER_BOX_CLASS: Record<TipResultTier, string> = {
+  exakt: "border-gold bg-gold/10",
+  tendenz: "border-action bg-action/10",
+  falsch: "border-edge bg-pitch",
+};
+
+function PoolScoreResultBox({ myTip }: { myTip: MyTip }) {
+  const tier = myTip.resultTier ?? "falsch";
+  const rangDelta = myTip.rangDelta ?? 0;
+  const starsDelta = myTip.starsDelta ?? 0;
+
+  return (
+    <div className={`flex flex-col gap-2 rounded-lg border px-4 py-3 ${TIER_BOX_CLASS[tier]}`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-display text-sm font-semibold text-ink">{TIER_LABEL[tier]}</span>
+        <span
+          className={`font-display text-sm font-bold ${rangDelta >= 0 ? "text-action" : "text-red-400"}`}
+        >
+          {rangDelta >= 0 ? "+" : ""}
+          {rangDelta} Rangpunkte
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+        <span className={`flex items-center gap-1 font-semibold ${starsDelta >= 0 ? "text-gold" : "text-red-400"}`}>
+          <StarIcon className="h-3.5 w-3.5" />
+          {starsDelta >= 0 ? "+" : ""}
+          {starsDelta} Sterne
+        </span>
+        {typeof myTip.beatPercent === "number" && (
+          <span>Du hast dich gegen {myTip.beatPercent}% der Mitspieler durchgesetzt.</span>
         )}
       </div>
     </div>

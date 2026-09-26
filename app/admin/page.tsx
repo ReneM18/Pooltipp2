@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useAppData, NewsItem } from "@/lib/AppDataContext";
+import { useUser } from "@/lib/UserContext";
 import { Sport, SPORTS, JerseyStyle, JERSEY_STYLES, Match, MatchStatus, TipMode } from "@/lib/types";
 import { COUNTRIES, flagEmoji } from "@/lib/flags";
 import TeamBadge from "@/components/TeamBadge";
@@ -483,6 +484,25 @@ function MatchManager() {
     setTvChannel,
     setTipMode,
   } = useAppData();
+  const { evaluateMatchForCurrentUser } = useUser();
+
+  // Sobald ein Spiel hier auf "Beendet" gesetzt wird, löst das direkt die
+  // PoolScore-Auswertung des eigenen Tipps aus (Rangliste-Punkte, Sterne,
+  // Prozent-Vergleich) – siehe UserContext.evaluateMatchForCurrentUser.
+  function handleScoreUpdate(
+    matchId: string,
+    homeScore: number | null,
+    awayScore: number | null,
+    status: MatchStatus
+  ) {
+    const match = matches.find((m) => m.id === matchId);
+    const wasFinished = match?.status === "finished";
+    updateMatchScore(matchId, homeScore, awayScore, status);
+    if (status === "finished" && !wasFinished && match && homeScore !== null && awayScore !== null) {
+      evaluateMatchForCurrentUser(matchId, match.sport, homeScore, awayScore);
+    }
+  }
+
   const [sport, setSport] = useState<Sport>("Fußball");
   const [competition, setCompetition] = useState("");
   const [matchday, setMatchday] = useState("");
@@ -726,7 +746,7 @@ function MatchManager() {
 
               <div className="flex flex-wrap items-center gap-2">
                 <TipModeEditor match={match} onSave={setTipMode} />
-                <LiveScoreEditor match={match} onUpdate={updateMatchScore} />
+                <LiveScoreEditor match={match} onUpdate={handleScoreUpdate} />
                 <TvChannelEditor match={match} onSave={setTvChannel} />
                 <VideoLinkEditor match={match} onSave={setSummaryVideo} />
                 <button

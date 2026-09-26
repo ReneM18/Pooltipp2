@@ -6,12 +6,8 @@ import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 
-// Punkte, die es fürs Abgeben eines Tipps sofort gibt (Teilnahme-Bonus).
-// Die "richtige" Punktevergabe nach Ergebnis kommt erst mit dem echten Backend.
-const POINTS_PER_TIP = 10;
-
 export default function DashboardPage() {
-  const { spendStars, recordTipSubmitted, addPoints } = useUser();
+  const { spendStars, recordTipSubmitted } = useUser();
   const { matches, getTeam, tipCounts, submitTip, myTips } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [tab, setTab] = useState<"offen" | "geschlossen">("offen");
@@ -21,12 +17,18 @@ export default function DashboardPage() {
   }
 
   function handleSubmitTip(matchId: string, stake: number, homeScore: number, awayScore: number) {
-    spendStars(stake);
+    // Sicherheitsnetz: spendStars zieht nie mehr ab, als vorhanden ist – der
+    // tatsächlich abgezogene (ggf. reduzierte) Betrag ist der Einsatz, der
+    // gespeichert und bei der Auswertung berücksichtigt wird.
+    const actualStake = spendStars(stake);
     recordTipSubmitted();
-    submitTip(matchId, homeScore, awayScore, stake);
-    addPoints(POINTS_PER_TIP);
+    submitTip(matchId, homeScore, awayScore, actualStake);
     celebrate();
-    showToast("✓ Tipp gespeichert – viel Glück!");
+    showToast(
+      actualStake < stake
+        ? "✓ Tipp gespeichert – mit reduziertem Einsatz, da dein Sterne-Guthaben knapp ist."
+        : "✓ Tipp gespeichert – viel Glück!"
+    );
   }
 
   // Das Spiel mit dem nächsten Anpfiff steht immer ganz oben.
@@ -84,7 +86,16 @@ export default function DashboardPage() {
               tipCount={tipCounts[match.id] ?? 0}
               myTip={
                 tip
-                  ? { predictedHomeScore: tip.predictedHomeScore, predictedAwayScore: tip.predictedAwayScore }
+                  ? {
+                      predictedHomeScore: tip.predictedHomeScore,
+                      predictedAwayScore: tip.predictedAwayScore,
+                      evaluated: tip.evaluated,
+                      resultTier: tip.resultTier,
+                      rangDelta: tip.rangDelta,
+                      starsDelta: tip.starsDelta,
+                      beatPercent: tip.beatPercent,
+                      narration: tip.narration,
+                    }
                   : undefined
               }
               onSubmitTip={(homeScore, awayScore) =>

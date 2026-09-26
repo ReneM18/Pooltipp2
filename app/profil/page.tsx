@@ -20,7 +20,7 @@ export default function ProfilPage() {
     displayName,
     setDisplayName,
     freeStars,
-    points,
+    passXP,
     tipsSubmitted,
     rankIconOptions,
     selectedRankIconId,
@@ -282,7 +282,7 @@ export default function ProfilPage() {
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Statistik</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <StatCard label="Gratis-Sterne" value={freeStars.toLocaleString("de-DE")} accent="gold" />
-          <StatCard label="Punkte" value={points.toLocaleString("de-DE")} accent="action" />
+          <StatCard label="Pass-XP" value={passXP.toLocaleString("de-DE")} accent="action" />
           <StatCard label="Abgegebene Tipps" value={tipsSubmitted.toLocaleString("de-DE")} accent="ink" />
         </div>
         <p className="mt-3 text-xs text-muted">

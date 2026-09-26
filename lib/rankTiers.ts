@@ -101,7 +101,9 @@ const ELITE_COLORS = { from: "#ffd700", to: "#ff5fa2", text: "#1a0a12" };
  * eigenes Icon – und zusätzlich das Elite-Icon, sobald er in allen drei
  * Sportarten vertreten ist.
  */
-export function getAvailableRankIcons(): RankIconOption[] {
+export function getAvailableRankIcons(
+  livePointsBySport?: Partial<Record<Sport, number>>
+): RankIconOption[] {
   const options: RankIconOption[] = [];
   const sports = Object.keys(mockLeaderboardBySport) as Sport[];
   let sportsWithRank = 0;
@@ -110,7 +112,11 @@ export function getAvailableRankIcons(): RankIconOption[] {
     const entry = mockLeaderboardBySport[sport].find((e) => e.isCurrentUser);
     if (!entry) continue;
     sportsWithRank += 1;
-    const tier = getTierForPoints(entry.points);
+    // PoolScore aktualisiert die Rangliste-Punkte des eigenen Users live
+    // (UserContext.rangPunkte) – hier wird dieser aktuelle Stand verwendet,
+    // statt des eingefrorenen Werts aus den Mock-Daten.
+    const points = livePointsBySport?.[sport] ?? entry.points;
+    const tier = getTierForPoints(points);
     const colors = RANK_COLORS[tier.rank];
     options.push({
       id: `sport-${sport}`,
@@ -118,7 +124,7 @@ export function getAvailableRankIcons(): RankIconOption[] {
       sport,
       label: `${sport} ${tierLabel(tier)}`,
       icon: SPORT_EMOJI[sport],
-      points: entry.points,
+      points,
       colorFrom: colors.from,
       colorTo: colors.to,
       colorText: colors.text,
