@@ -241,6 +241,19 @@ export function evaluatePoolScore(params: {
 
 /** Sterne, die der tägliche Login-Bonus auszahlt. */
 export const DAILY_BONUS_STARS = 8;
+/**
+ * Maximaler Sterne-Einsatz, den ein User pro Tag insgesamt riskieren kann –
+ * UNABHÄNGIG davon, wie viele Spiele an diesem Tag angeboten werden. Ohne
+ * dieses Limit würde ein Tag mit vielen Spielen das Sterne-Guthaben viel
+ * schneller aufbrauchen als ein Tag mit wenigen. Ist das Tages-Limit erreicht,
+ * tippt man für die restlichen Spiele des Tages einfach ohne Einsatz weiter
+ * (Rangliste-Punkte gibt's trotzdem, nur keine Sterne-Bewegung mehr).
+ */
+export const DAILY_STAKE_BUDGET = 100;
+/** Sterne, die ein User einmalig geschenkt bekommt, wenn sein Guthaben auf 0 fällt. */
+export const RESCUE_BONUS_STARS = 20;
+/** Ab diesem Guthaben wird die Sterne-Anzeige als "knapp" markiert. */
+export const LOW_STARS_THRESHOLD = 20;
 /** Saison-Pass-XP, die der tägliche Login-Bonus auszahlt (einziger Weg, wie der Pass steigt). */
 export const DAILY_BONUS_XP = 100;
 /** So viele Tage Inaktivität sind erlaubt, bevor Rangliste-Punkte abzuklingen beginnen. */

@@ -6,7 +6,7 @@ import RankBadge from "@/components/RankBadge";
 import { StarIcon, TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
 
 export default function Navbar() {
-  const { displayName, freeStars, passXP, activeRankIcon, isRegistered } = useUser();
+  const { displayName, freeStars, passXP, activeRankIcon, isRegistered, isLowOnStars } = useUser();
 
   return (
     <header className="border-b border-edge bg-pitch/95 backdrop-blur">
@@ -50,11 +50,19 @@ export default function Navbar() {
           )}
 
           <div
-            className="flex items-center gap-0.5 rounded-full px-0.5 py-1 sm:gap-2 sm:border sm:border-edge sm:bg-surface sm:px-3 sm:py-1.5"
-            title="Deine Gratis-Sterne"
+            className={`flex items-center gap-0.5 rounded-full px-0.5 py-1 sm:gap-2 sm:border sm:px-3 sm:py-1.5 ${
+              isLowOnStars
+                ? "sm:border-red-400/60 sm:bg-red-400/10"
+                : "sm:border-edge sm:bg-surface"
+            }`}
+            title={isLowOnStars ? "Deine Gratis-Sterne werden knapp" : "Deine Gratis-Sterne"}
           >
-            <StarIcon className="h-4 w-4 text-gold sm:h-[18px] sm:w-[18px]" />
-            <span className="font-display text-base font-semibold text-ink sm:text-lg">
+            <StarIcon className={`h-4 w-4 sm:h-[18px] sm:w-[18px] ${isLowOnStars ? "text-red-400" : "text-gold"}`} />
+            <span
+              className={`font-display text-base font-semibold sm:text-lg ${
+                isLowOnStars ? "text-red-400" : "text-ink"
+              }`}
+            >
               {freeStars.toLocaleString("de-DE")}
             </span>
           </div>

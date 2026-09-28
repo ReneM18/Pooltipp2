@@ -26,7 +26,7 @@ export default function DashboardPage() {
     celebrate();
     showToast(
       actualStake < stake
-        ? "✓ Tipp gespeichert – mit reduziertem Einsatz, da dein Sterne-Guthaben knapp ist."
+        ? "✓ Tipp gespeichert – mit reduziertem Einsatz (Sterne-Guthaben oder Tages-Limit erreicht)."
         : "✓ Tipp gespeichert – viel Glück!"
     );
   }

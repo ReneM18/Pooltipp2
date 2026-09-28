@@ -15,6 +15,9 @@ import {
   INACTIVITY_GRACE_DAYS,
   DAILY_BONUS_STARS,
   DAILY_BONUS_XP,
+  DAILY_STAKE_BUDGET,
+  RESCUE_BONUS_STARS,
+  LOW_STARS_THRESHOLD,
 } from "@/lib/poolScore";
 
 const SPORT_ICON: Record<Sport, string> = { "Fußball": "⚽", NFL: "🏈", NBA: "🏀", NHL: "🏒" };
@@ -48,6 +51,12 @@ interface UserContextValue {
   // nie mehr als das vorhandene Guthaben – ein User mit 0 Sternen kann so
   // trotzdem mit Einsatz 0 weiter mittippen, statt komplett ausgeschlossen zu sein).
   spendStars: (amount: number) => number;
+  // Sterne, die heute schon eingesetzt wurden bzw. noch bis zum Tages-Limit
+  // eingesetzt werden können – unabhängig davon, wie viele Spiele heute
+  // angeboten werden (siehe DAILY_STAKE_BUDGET).
+  stakeBudgetRemainingToday: number;
+  // Zeigt Warnfarben etc., wenn das Sterne-Guthaben knapp wird.
+  isLowOnStars: boolean;
   evaluateMatchForCurrentUser: (
     matchId: string,
     sport: Sport,
@@ -85,6 +94,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [passXP, setPassXP] = useState(mockUser.passXP);
   const [rangPunkte, setRangPunkte] = useState<Record<Sport, number>>(initialRangPunkte);
   const [lastClaimedAt, setLastClaimedAt] = useState<string | null>(null);
+
+  // Tages-Einsatz-Limit: unabhängig von der Anzahl heutiger Spiele, damit ein
+  // Tag mit vielen Spielen das Guthaben nicht schneller leert als ein Tag mit
+  // wenigen. stakedToday/stakeBudgetDay setzen sich beim ersten Einsatz eines
+  // neuen Tages automatisch zurück.
+  const [stakedToday, setStakedToday] = useState(0);
+  const [stakeBudgetDay, setStakeBudgetDay] = useState<string | null>(null);
+  const [rescueBonusUsed, setRescueBonusUsed] = useState(false);
 
   const canClaimDailyBonus = lastClaimedAt === null || !isSameDay(lastClaimedAt, new Date().toISOString());
 
@@ -149,10 +166,35 @@ export function UserProvider({ children }: { children: ReactNode }) {
     rankIconOptions.find((o) => o.id === selectedRankIconId) ?? getBestRankIcon(rankIconOptions);
 
   function spendStars(amount: number): number {
-    const actual = Math.max(0, Math.min(amount, freeStars));
+    const now = new Date().toISOString();
+    const isNewBudgetDay = stakeBudgetDay === null || !isSameDay(stakeBudgetDay, now);
+    const alreadyStakedToday = isNewBudgetDay ? 0 : stakedToday;
+    const remainingBudget = Math.max(0, DAILY_STAKE_BUDGET - alreadyStakedToday);
+
+    const actual = Math.max(0, Math.min(amount, freeStars, remainingBudget));
+
     setFreeStars((current) => Math.max(0, current - actual));
+    setStakedToday(alreadyStakedToday + actual);
+    if (isNewBudgetDay) setStakeBudgetDay(now);
+
+    // Rettungs-Bonus: fällt das Guthaben nach diesem Einsatz auf 0, bekommt
+    // der User einmalig einen kleinen Polster, damit sich niemand komplett
+    // ausgeschlossen fühlt. Danach nicht mehr (kein Dauer-Selbstläufer).
+    if (!rescueBonusUsed && freeStars - actual <= 0 && actual > 0) {
+      setFreeStars((current) => current + RESCUE_BONUS_STARS);
+      setRescueBonusUsed(true);
+      addActivity("🎁", `Deine Sterne waren aufgebraucht – hier ${RESCUE_BONUS_STARS} Sterne geschenkt, damit's weitergeht.`);
+    }
+
     return actual;
   }
+
+  const stakeBudgetRemainingToday =
+    stakeBudgetDay === null || !isSameDay(stakeBudgetDay, new Date().toISOString())
+      ? DAILY_STAKE_BUDGET
+      : Math.max(0, DAILY_STAKE_BUDGET - stakedToday);
+
+  const isLowOnStars = freeStars <= LOW_STARS_THRESHOLD;
 
   // Kern der PoolScore-Auswertung: sucht den (noch nicht ausgewerteten) Tipp
   // des aktuellen Users zu diesem Spiel, berechnet Rangliste-Punkte- und
@@ -256,6 +298,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         canClaimDailyBonus,
         claimDailyBonus,
         spendStars,
+        stakeBudgetRemainingToday,
+        isLowOnStars,
         evaluateMatchForCurrentUser,
         tipsSubmitted,
         recordTipSubmitted,

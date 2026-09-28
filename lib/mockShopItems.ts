@@ -12,46 +12,51 @@ export interface ShopItem {
 // vorbehalten, den man sich durch Punkte verdient. So verbraucht der Shop
 // nie Ideen, die für den Pass gebraucht werden, und beide Bereiche bleiben
 // auf einen Blick unterscheidbar.
+//
+// Alle sechs Prämien sind bewusst als "Joker" konzipiert – jeder mit einem
+// klar eigenen, echten Nutzen für die PoolScore-Mechanik (Rangliste-Punkte
+// bzw. Tipp-Abgabe). Keiner davon zahlt in Sterne zurück (kein Kreislauf)
+// und keiner bezieht sich auf eine Mechanik, die es in der App nicht gibt.
 export const mockShopItems: ShopItem[] = [
   {
-    id: "joker-extra",
+    id: "schutz-joker",
     category: "In-Game",
-    name: "Extra-Joker",
-    description: "Ein zusätzlicher Risiko-Joker für den nächsten Spieltag.",
-    cost: 80,
-  },
-  {
-    id: "streak-saver",
-    category: "In-Game",
-    name: "Streak-Retter",
-    description: "Rettet deine Tipp-Serie, falls du einen Spieltag verpasst.",
+    name: "Schutz-Joker",
+    description: "Schützt deine Rangliste-Punkte beim nächsten Fehltipp – kein Punkteabzug für dieses eine Spiel.",
     cost: 120,
   },
   {
-    id: "double-points-booster",
+    id: "pause-joker",
     category: "In-Game",
-    name: "Doppel-Punkte-Booster",
-    description: "Ein Spiel deiner Wahl zählt doppelte Punkte.",
+    name: "Pause-Joker",
+    description: "Pausiert das langsame Abklingen deiner Rangliste-Punkte für 7 Tage, falls du mal keine Zeit hast.",
+    cost: 100,
+  },
+  {
+    id: "doppel-joker",
+    category: "In-Game",
+    name: "Doppel-Joker",
+    description: "Ein Spiel deiner Wahl zählt doppelte Rangliste-Punkte.",
     cost: 180,
   },
   {
-    id: "tip-insurance",
+    id: "toleranz-joker",
     category: "In-Game",
-    name: "Tipp-Versicherung",
+    name: "Toleranz-Joker",
     description: "Liegst du bei einem Spiel nur 1 Tor daneben, bekommst du trotzdem Teilpunkte statt 0.",
     cost: 150,
   },
   {
-    id: "star-booster",
+    id: "korrektur-joker",
     category: "In-Game",
-    name: "Sterne-Booster",
-    description: "Für deine nächsten 3 Spieltage verdienst du 25% mehr Sterne.",
-    cost: 200,
+    name: "Korrektur-Joker",
+    description: "Ändere einen bereits abgegebenen Tipp noch einmal, solange das Spiel noch nicht angepfiffen ist.",
+    cost: 90,
   },
   {
-    id: "community-trend",
+    id: "trend-joker",
     category: "In-Game",
-    name: "Community-Trend",
+    name: "Trend-Joker",
     description: "Sieh vor Tippschluss, wie die Mehrheit der Community bei einem Spiel getippt hat.",
     cost: 100,
   },
