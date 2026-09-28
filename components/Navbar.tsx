@@ -37,16 +37,6 @@ export default function Navbar() {
             <CartIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </Link>
 
-          <div
-            className="flex items-center gap-1 rounded-full border border-edge bg-surface px-2 py-1 sm:gap-2 sm:px-3 sm:py-1.5"
-            title="Deine Saison-Pass-XP"
-          >
-            <TrophyIcon className="h-3.5 w-3.5 text-action sm:h-4 sm:w-4" />
-            <span className="font-display text-sm font-semibold text-ink sm:text-base">
-              {passXP.toLocaleString("de-DE")}
-            </span>
-          </div>
-
           <Link
             href="/registrieren"
             className="hidden rounded-full border border-gold px-3 py-1.5 font-display text-sm font-semibold text-gold transition-colors hover:bg-gold hover:text-pitch md:block"
@@ -61,6 +51,20 @@ export default function Navbar() {
           >
             <GearIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </Link>
+
+          {/* Pass-XP jetzt direkt neben dem Profilbild – vorher stand der
+              Warenkorb zwischen den beiden Punkte-Anzeigen (Sterne/Pass-XP),
+              das wirkte durcheinander. Sterne + Warenkorb bleiben zusammen
+              (Sterne sind ja die Shop-Währung), Pass-XP wandert zum Profil. */}
+          <div
+            className="flex items-center gap-1 rounded-full border border-edge bg-surface px-2 py-1 sm:gap-2 sm:px-3 sm:py-1.5"
+            title="Deine Saison-Pass-XP"
+          >
+            <TrophyIcon className="h-3.5 w-3.5 text-action sm:h-4 sm:w-4" />
+            <span className="font-display text-sm font-semibold text-ink sm:text-base">
+              {passXP.toLocaleString("de-DE")}
+            </span>
+          </div>
 
           <Link href="/profil" className="relative ml-0.5 flex shrink-0 items-center">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface font-display text-xs font-semibold text-muted transition-colors hover:text-ink sm:h-8 sm:w-8 sm:text-sm">
