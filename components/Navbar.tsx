@@ -10,10 +10,10 @@ export default function Navbar() {
 
   return (
     <header className="border-b border-edge bg-pitch/95 backdrop-blur">
-      <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-3 py-3 sm:px-5 sm:py-4">
+      <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-4 py-3 sm:px-5 sm:py-4">
         <Link
           href="/"
-          className="font-display text-xl font-bold tracking-wide text-ink transition-opacity hover:opacity-80 sm:text-2xl"
+          className="font-display text-2xl font-bold tracking-wide text-ink transition-opacity hover:opacity-80 sm:text-3xl"
         >
           Pool<span className="text-gold">Tipp</span>
         </Link>
@@ -23,7 +23,7 @@ export default function Navbar() {
             Ranglisten-Punkte, Profil – die beiden "Punkte"-Anzeigen (Sterne
             und Ranglisten-Punkte) stehen jetzt bewusst zusammen direkt vorm
             Profilbild, statt durch den Warenkorb getrennt zu sein. */}
-        <div className="flex items-center gap-1.5 sm:gap-3">
+        <div className="flex items-center gap-1 sm:gap-3">
           <Link
             href="/shop"
             title="Prämien-Shop"
@@ -50,7 +50,7 @@ export default function Navbar() {
           )}
 
           <div
-            className="flex items-center gap-1 rounded-full border border-edge bg-surface px-2 py-1 sm:gap-2 sm:px-3 sm:py-1.5"
+            className="flex items-center gap-0.5 rounded-full px-0.5 py-1 sm:gap-2 sm:border sm:border-edge sm:bg-surface sm:px-3 sm:py-1.5"
             title="Deine Gratis-Sterne"
           >
             <StarIcon className="h-4 w-4 text-gold sm:h-[18px] sm:w-[18px]" />
@@ -60,7 +60,7 @@ export default function Navbar() {
           </div>
 
           <div
-            className="flex items-center gap-1 rounded-full border border-edge bg-surface px-2 py-1 sm:gap-2 sm:px-3 sm:py-1.5"
+            className="flex items-center gap-0.5 rounded-full px-0.5 py-1 sm:gap-2 sm:border sm:border-edge sm:bg-surface sm:px-3 sm:py-1.5"
             title="Deine Saison-Pass-XP"
           >
             <TrophyIcon className="h-4 w-4 text-action sm:h-[18px] sm:w-[18px]" />
