@@ -18,15 +18,9 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {/* Logo-Leiste, News-Ticker und Menüleiste als EIN gemeinsamer, fest
-          angehefteter Block – vorher war nur die Logo-Leiste sticky, dadurch
-          "verschwand" die Menüleiste beim Scrollen unter ihr und wirkte
-          instabil. So bleibt die ganze Kopfzeile immer an derselben Stelle. */}
-      <div className="sticky top-0 z-20">
-        <Navbar />
-        <NewsTicker />
-        <NavTabs />
-      </div>
+      <Navbar />
+      <NewsTicker />
+      <NavTabs />
       {children}
       <ChatWidget />
       <OnboardingTour />
