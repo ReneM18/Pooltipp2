@@ -9,7 +9,7 @@ export default function Navbar() {
   const { displayName, freeStars, passXP, activeRankIcon } = useUser();
 
   return (
-    <header className="sticky top-0 z-10 border-b border-edge bg-pitch/95 backdrop-blur">
+    <header className="border-b border-edge bg-pitch/95 backdrop-blur">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-3 py-3 sm:px-5 sm:py-4">
         <Link
           href="/"
