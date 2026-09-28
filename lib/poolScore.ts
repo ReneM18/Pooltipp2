@@ -56,12 +56,19 @@ export const RANG_BASE_POINTS: Record<TipResultTier, number> = {
  * Sterne-Gutschrift bei der Auswertung (wird auf das Guthaben aufgeschlagen,
  * nachdem der Einsatz bei Tipp-Abgabe bereits abgezogen wurde):
  *   - Exakt: Einsatz zurück + 50% Bonus obendrauf.
- *   - Tendenz: Einsatz zurück (Null-Ergebnis für die Sterne).
+ *   - Tendenz (bei Ergebnis-Tipps): Einsatz zurück (Null-Ergebnis für die Sterne)
+ *     – ist hier bewusst neutral, weil "Exakt" bei diesem Tipp-Modus noch
+ *     erreichbar gewesen wäre.
+ *   - Tendenz bei 1X2-Tipps: Bei diesem Tipp-Modus IST "richtig geraten"
+ *     bereits das bestmögliche Ergebnis (ein exaktes Ergebnis kann man hier
+ *     gar nicht abgeben) – deshalb gibt's hier einen echten, kleineren Bonus
+ *     statt nur des Einsatzes zurück, sonst würde sich 1X2-Mittippen mit
+ *     Einsatz nie lohnen.
  *   - Falsch: nur 50% des Einsatzes gehen verloren, die Hälfte kommt zurück.
  */
-export function starsDeltaForTier(tier: TipResultTier, stake: number): number {
+export function starsDeltaForTier(tier: TipResultTier, stake: number, isOneXTwo = false): number {
   if (tier === "exakt") return Math.round(stake * 1.5);
-  if (tier === "tendenz") return Math.round(stake);
+  if (tier === "tendenz") return Math.round(stake * (isOneXTwo ? 1.25 : 1));
   return Math.round(stake * 0.5);
 }
 
@@ -222,13 +229,14 @@ export function evaluatePoolScore(params: {
   actualAway: number;
   stake: number;
   myRangPunkte: number;
+  isOneXTwo?: boolean;
 }): PoolScoreResult {
   const tier = classifyTip(params.predictedHome, params.predictedAway, params.actualHome, params.actualAway);
   const rangPointsBase = RANG_BASE_POINTS[tier];
   const opponents = simulateOpponents(params.matchId, params.sport, params.actualHome, params.actualAway);
   const upset = computeUpsetAdjustment(params.myRangPunkte, tier, opponents);
   const rangDelta = Math.round(rangPointsBase + upset.net);
-  const starsCredit = starsDeltaForTier(tier, params.stake);
+  const starsCredit = starsDeltaForTier(tier, params.stake, params.isOneXTwo ?? false);
   const starsNet = starsCredit - params.stake;
   const beatPercent = computeBeatPercent(tier, opponents);
 

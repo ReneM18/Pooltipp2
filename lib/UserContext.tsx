@@ -88,7 +88,7 @@ interface UserContextValue {
 const UserContext = createContext<UserContextValue | null>(null);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const { addActivity, myTips, markTipEvaluated } = useAppData();
+  const { addActivity, myTips, markTipEvaluated, matches } = useAppData();
   const [displayName, setDisplayName] = useState(mockUser.displayName);
   const [freeStars, setFreeStars] = useState(mockUser.freeStars);
   const [passXP, setPassXP] = useState(mockUser.passXP);
@@ -210,6 +210,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const tip = [...myTips].reverse().find((t) => t.matchId === matchId && !t.evaluated);
     if (!tip) return;
 
+    const match = matches.find((m) => m.id === matchId);
+
     const result = evaluatePoolScore({
       matchId,
       sport,
@@ -219,6 +221,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       actualAway,
       stake: tip.stake,
       myRangPunkte: rangPunkte[sport],
+      isOneXTwo: match?.tipMode === "1x2",
     });
 
     setRangPunkte((current) => ({
