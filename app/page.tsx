@@ -40,15 +40,13 @@ export default function DashboardPage() {
   const visibleMatches = tab === "offen" ? offeneMatches : geschlosseneMatches;
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-8">
-      <div className="mb-6">
-        <h1 className="font-display text-3xl font-bold text-ink">
-          Deine Tipps für den Spieltag
-        </h1>
-        <p className="mt-1 text-sm text-muted">
-          Setze deine Gratis-Sterne auf die kommenden Spiele.
-        </p>
-      </div>
+    <main className="mx-auto max-w-3xl px-5 py-5 sm:py-8">
+      {/* Kompakter Titel statt großer Headline + Untertitel – die Sterne-Anzahl
+          steht schon oben in der Navbar, das musste hier nicht wiederholt
+          werden. Spart Platz, bevor die eigentlichen Spiele kommen. */}
+      <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">
+        Spieltag
+      </h1>
 
       <div className="mb-5 flex gap-2 border-b border-edge">
         <TabButton

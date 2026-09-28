@@ -9,8 +9,12 @@ html {
 html,
 body {
   /* Sicherheitsnetz gegen versehentliches horizontales Scrollen auf dem Handy,
-     falls irgendwo mal ein Element etwas zu breit wird. */
-  overflow-x: hidden;
+     falls irgendwo mal ein Element etwas zu breit wird. WICHTIG: "clip" statt
+     "hidden" verwenden – "overflow-x: hidden" auf html/body ist ein bekannter
+     Bug-Auslöser, der "position: sticky" (unsere fest angeheftete Kopf-
+     leiste) v. a. in mobilem Safari komplett lahmlegt. "clip" verhindert das
+     Scrollen genauso, bricht sticky aber nicht. */
+  overflow-x: clip;
 }
 
 body {
