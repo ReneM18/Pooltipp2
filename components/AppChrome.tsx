@@ -6,6 +6,7 @@ import NewsTicker from "./NewsTicker";
 import NavTabs from "./NavTabs";
 import ChatWidget from "./ChatWidget";
 import OnboardingTour from "./OnboardingTour";
+import Footer from "./Footer";
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -27,7 +28,12 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
         <NewsTicker />
         <NavTabs />
       </div>
-      {children}
+      {/* pb-24: reserviert unten Platz, damit der schwebende Chat-Button
+          nicht über den letzten Inhalt/Footer ragt. */}
+      <div className="pb-24">
+        {children}
+        <Footer />
+      </div>
       <ChatWidget />
       <OnboardingTour />
     </>

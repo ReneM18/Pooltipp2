@@ -61,12 +61,7 @@ export default function FeedPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
-      <div className="mb-6">
-        <h1 className="font-display text-3xl font-bold text-ink">Aktivitäts-Feed</h1>
-        <p className="mt-1 text-sm text-muted">
-          Was in der Community gerade passiert – Tipps, Kommentare, Freundschaften und mehr.
-        </p>
-      </div>
+      <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Feed</h1>
 
       {activity.length === 0 && (
         <p className="rounded-card border border-dashed border-edge bg-surface p-8 text-center text-sm text-muted">

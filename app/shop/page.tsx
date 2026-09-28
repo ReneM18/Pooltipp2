@@ -21,11 +21,10 @@ export default function ShopPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
-      <div className="mb-6">
-        <h1 className="font-display text-3xl font-bold text-ink">Prämien-Shop</h1>
-        <p className="mt-1 text-sm text-muted">
-          Tausche deine erspielten Sterne gegen spielerische Vorteile – kein Echtgeld nötig. Optisches
-          wie Rahmen, Farben und Titel gibt's nicht hier, sondern über den Saison-Pass.
+      <div className="mb-4">
+        <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Prämien-Shop</h1>
+        <p className="mt-0.5 text-xs text-muted">
+          Sterne gegen spielerische Vorteile – kein Echtgeld nötig.
         </p>
       </div>
 

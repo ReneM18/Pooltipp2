@@ -39,11 +39,9 @@ export default function RanglistePage() {
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
-      <div className="mb-6">
-        <h1 className="font-display text-3xl font-bold text-ink">Rangliste</h1>
-        <p className="mt-1 text-sm text-muted">
-          Wird jeden Monat zurückgesetzt – jeder hat wieder die gleiche Chance ganz oben zu landen.
-        </p>
+      <div className="mb-4">
+        <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Rangliste</h1>
+        <p className="mt-0.5 text-xs text-muted">Wird jeden Monat zurückgesetzt.</p>
       </div>
 
       {/* Tab-Umschalter: Gesamt + je Sportart */}
@@ -72,7 +70,7 @@ export default function RanglistePage() {
               index !== entries.length - 1 ? "border-b border-edge" : ""
             } ${entry.isCurrentUser ? "bg-surface-hover" : podiumRowClass(entry.rank)}`}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <RankNumber rank={entry.rank} />
               <NameAvatar name={entry.name} rank={entry.rank} />
               <RankBadge
@@ -95,20 +93,20 @@ export default function RanglistePage() {
                 size="sm"
               />
               {entry.isCurrentUser ? (
-                <span className="font-display text-base font-semibold text-gold">
+                <span className="min-w-0 truncate font-display text-base font-semibold text-gold">
                   {entry.name}
                   <span className="ml-2 text-xs font-medium text-muted">(Du)</span>
                 </span>
               ) : (
                 <Link
                   href={`/spieler/${encodeURIComponent(entry.name)}`}
-                  className="font-display text-base font-semibold text-ink transition-colors hover:text-gold"
+                  className="min-w-0 truncate font-display text-base font-semibold text-ink transition-colors hover:text-gold"
                 >
                   {entry.name}
                 </Link>
               )}
             </div>
-            <span className="font-display text-base font-semibold text-ink">
+            <span className="ml-2 shrink-0 font-display text-base font-semibold text-ink">
               {entry.points.toLocaleString("de-DE")}
             </span>
           </div>

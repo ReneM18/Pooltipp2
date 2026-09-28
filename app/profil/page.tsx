@@ -252,7 +252,8 @@ export default function ProfilPage() {
                   <img src={photo} alt={`Foto ${index + 1}`} className="h-full w-full object-cover" />
                   <button
                     onClick={() => removePhoto(index)}
-                    className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-pitch/80 text-xs text-ink"
+                    aria-label={`Foto ${index + 1} entfernen`}
+                    className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center rounded-full bg-pitch/80 text-sm text-ink"
                   >
                     ✕
                   </button>

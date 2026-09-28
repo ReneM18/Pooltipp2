@@ -20,12 +20,7 @@ export default function FreundePage() {
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
-      <div className="mb-6">
-        <h1 className="font-display text-3xl font-bold text-ink">Freunde</h1>
-        <p className="mt-1 text-sm text-muted">
-          Füge Freunde hinzu, um sie in der Rangliste im Blick zu behalten.
-        </p>
-      </div>
+      <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Freunde</h1>
 
       <form onSubmit={handleSubmit} className="mb-6 flex gap-3">
         <input
@@ -63,8 +58,12 @@ export default function FreundePage() {
               </span>
             </Link>
             <button
-              onClick={() => removeFriend(friend)}
-              className="flex items-center gap-1 text-xs text-muted transition-colors hover:text-red-400"
+              onClick={() => {
+                if (confirm(`${friend} wirklich aus deiner Freundesliste entfernen?`)) {
+                  removeFriend(friend);
+                }
+              }}
+              className="flex items-center gap-1 px-1 py-1 text-xs text-muted transition-colors hover:text-red-400"
             >
               <TrashIcon className="h-3.5 w-3.5" />
               Entfernen

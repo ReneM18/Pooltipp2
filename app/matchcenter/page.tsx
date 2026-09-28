@@ -36,12 +36,7 @@ export default function MatchcenterPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
-      <div className="mb-6">
-        <h1 className="font-display text-3xl font-bold text-ink">Matchcenter</h1>
-        <p className="mt-1 text-sm text-muted">
-          Echte Ergebnisse und Tabellen – Daten von TheSportsDB.
-        </p>
-      </div>
+      <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Matchcenter</h1>
 
       <div className="mb-5 flex flex-wrap gap-2">
         {LEAGUES.map((l) => (
@@ -87,7 +82,7 @@ export default function MatchcenterPage() {
               className="grid grid-cols-[2rem_1fr_2.5rem_2.5rem_2.5rem_2.5rem_3rem] gap-2 border-b border-edge px-4 py-2.5 text-sm last:border-0"
             >
               <span className="text-muted">{row.rank}</span>
-              <span className="text-ink">{row.teamName}</span>
+              <span className="min-w-0 truncate text-ink">{row.teamName}</span>
               <span className="text-center text-muted">{row.played}</span>
               <span className="text-center text-muted">{row.win}</span>
               <span className="text-center text-muted">{row.draw}</span>
@@ -108,13 +103,13 @@ export default function MatchcenterPage() {
               key={r.id}
               className="flex items-center justify-between rounded-card border border-edge bg-surface px-4 py-3"
             >
-              <span className="text-sm text-ink">
+              <span className="min-w-0 flex-1 truncate pr-2 text-sm text-ink">
                 {r.homeTeam} vs {r.awayTeam}
               </span>
-              <span className="font-display font-semibold text-ink">
+              <span className="shrink-0 font-display font-semibold text-ink">
                 {r.homeScore} : {r.awayScore}
               </span>
-              <span className="text-xs text-muted">{r.date}</span>
+              <span className="ml-2 shrink-0 text-xs text-muted">{r.date}</span>
             </div>
           ))}
         </div>

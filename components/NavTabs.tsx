@@ -20,7 +20,7 @@ export default function NavTabs() {
   const pathname = usePathname();
 
   return (
-    <nav className="border-b border-edge bg-pitch">
+    <nav className="relative border-b border-edge bg-pitch">
       {/* touch-pan-x + overscroll-x-contain: verhindert, dass ein seitliches
           Wischen über die Reiter auf dem Handy zusätzlich die ganze Seite
           vertikal "mitzieht" (das war das Auf-und-ab-Schwimmen beim
@@ -52,6 +52,11 @@ export default function NavTabs() {
           Tipprunden →
         </Link>
       </div>
+
+      {/* Deutet an, dass sich die Leiste noch weiter wischen lässt (z. B.
+          bis "Freunde"/"Tipprunden"), statt dass Inhalte einfach unsichtbar
+          am Rand abgeschnitten wirken. */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-pitch to-transparent" />
     </nav>
   );
 }

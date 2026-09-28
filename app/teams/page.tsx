@@ -39,11 +39,10 @@ export default function TeamsHubPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
-      <div className="mb-8">
-        <h1 className="font-display text-3xl font-bold text-ink">Private Tipp-Runden</h1>
-        <p className="mt-1 text-sm text-muted">
-          Eigene, abgeschottete Tipprunden für Freunde, Verein oder Kollegen – mit eigenem
-          Punktesystem, getrennt von den globalen PoolCoins.
+      <div className="mb-6">
+        <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Private Tipp-Runden</h1>
+        <p className="mt-0.5 text-xs text-muted">
+          Eigene Tipprunde für Freunde, Verein oder Kollegen – getrennt von der globalen Rangliste.
         </p>
       </div>
 
