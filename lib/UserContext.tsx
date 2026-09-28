@@ -69,6 +69,11 @@ interface UserContextValue {
   activeRankIcon: RankIconOption | null;
   hasPremiumPass: boolean;
   buyPremiumPass: () => void;
+  // Platzhalter fürs echte Login-System: sobald es steht, ersetzt der echte
+  // Auth-Status das hier. Steuert nur, ob der "Registrieren"-Button in der
+  // Navbar angezeigt wird.
+  isRegistered: boolean;
+  register: () => void;
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
@@ -121,6 +126,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // schaltet die Premium-Spur des Saison-Passes lokal frei.
   function buyPremiumPass() {
     setHasPremiumPass(true);
+  }
+
+  const [isRegistered, setIsRegistered] = useState(false);
+  function register() {
+    setIsRegistered(true);
   }
 
   const rankIconOptions = useMemo(() => getAvailableRankIcons(rangPunkte), [rangPunkte]);
@@ -262,6 +272,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         activeRankIcon,
         hasPremiumPass,
         buyPremiumPass,
+        isRegistered,
+        register,
       }}
     >
       {children}

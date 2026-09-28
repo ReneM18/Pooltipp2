@@ -6,68 +6,71 @@ import RankBadge from "@/components/RankBadge";
 import { StarIcon, TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
 
 export default function Navbar() {
-  const { displayName, freeStars, passXP, activeRankIcon } = useUser();
+  const { displayName, freeStars, passXP, activeRankIcon, isRegistered } = useUser();
 
   return (
     <header className="border-b border-edge bg-pitch/95 backdrop-blur">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-2 px-3 py-3 sm:px-5 sm:py-4">
         <Link
           href="/"
-          className="font-display text-lg font-bold tracking-wide text-ink transition-opacity hover:opacity-80 sm:text-2xl"
+          className="font-display text-xl font-bold tracking-wide text-ink transition-opacity hover:opacity-80 sm:text-2xl"
         >
           Pool<span className="text-gold">Tipp</span>
         </Link>
 
+        {/* Reihenfolge von links nach rechts: Warenkorb, Einstellungen,
+            Registrieren (nur solange man nicht registriert ist), Sterne,
+            Ranglisten-Punkte, Profil – die beiden "Punkte"-Anzeigen (Sterne
+            und Ranglisten-Punkte) stehen jetzt bewusst zusammen direkt vorm
+            Profilbild, statt durch den Warenkorb getrennt zu sein. */}
         <div className="flex items-center gap-1.5 sm:gap-3">
-          <div
-            className="flex items-center gap-1 rounded-full border border-edge bg-surface px-2 py-1 sm:gap-2 sm:px-3 sm:py-1.5"
-            title="Deine Gratis-Sterne"
-          >
-            <StarIcon className="h-3.5 w-3.5 text-gold sm:h-4 sm:w-4" />
-            <span className="font-display text-sm font-semibold text-ink sm:text-base">
-              {freeStars.toLocaleString("de-DE")}
-            </span>
-          </div>
-
           <Link
             href="/shop"
             title="Prämien-Shop"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gold/60 bg-surface text-gold transition-colors hover:border-gold hover:bg-gold/10 sm:h-8 sm:w-8"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold/60 bg-surface text-gold transition-colors hover:border-gold hover:bg-gold/10 sm:h-9 sm:w-9"
           >
-            <CartIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          </Link>
-
-          <Link
-            href="/registrieren"
-            className="hidden rounded-full border border-gold px-3 py-1.5 font-display text-sm font-semibold text-gold transition-colors hover:bg-gold hover:text-pitch md:block"
-          >
-            Registrieren
+            <CartIcon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
           </Link>
 
           <Link
             href="/admin"
             title="Admin-Bereich"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-edge bg-surface text-muted transition-colors hover:border-gold hover:text-gold sm:h-8 sm:w-8"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-edge bg-surface text-muted transition-colors hover:border-gold hover:text-gold sm:h-9 sm:w-9"
           >
-            <GearIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <GearIcon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
           </Link>
 
-          {/* Pass-XP jetzt direkt neben dem Profilbild – vorher stand der
-              Warenkorb zwischen den beiden Punkte-Anzeigen (Sterne/Pass-XP),
-              das wirkte durcheinander. Sterne + Warenkorb bleiben zusammen
-              (Sterne sind ja die Shop-Währung), Pass-XP wandert zum Profil. */}
+          {!isRegistered && (
+            <Link
+              href="/registrieren"
+              className="hidden rounded-full border border-gold px-3 py-1.5 font-display text-sm font-semibold text-gold transition-colors hover:bg-gold hover:text-pitch md:block"
+            >
+              Registrieren
+            </Link>
+          )}
+
+          <div
+            className="flex items-center gap-1 rounded-full border border-edge bg-surface px-2 py-1 sm:gap-2 sm:px-3 sm:py-1.5"
+            title="Deine Gratis-Sterne"
+          >
+            <StarIcon className="h-4 w-4 text-gold sm:h-[18px] sm:w-[18px]" />
+            <span className="font-display text-base font-semibold text-ink sm:text-lg">
+              {freeStars.toLocaleString("de-DE")}
+            </span>
+          </div>
+
           <div
             className="flex items-center gap-1 rounded-full border border-edge bg-surface px-2 py-1 sm:gap-2 sm:px-3 sm:py-1.5"
             title="Deine Saison-Pass-XP"
           >
-            <TrophyIcon className="h-3.5 w-3.5 text-action sm:h-4 sm:w-4" />
-            <span className="font-display text-sm font-semibold text-ink sm:text-base">
+            <TrophyIcon className="h-4 w-4 text-action sm:h-[18px] sm:w-[18px]" />
+            <span className="font-display text-base font-semibold text-ink sm:text-lg">
               {passXP.toLocaleString("de-DE")}
             </span>
           </div>
 
           <Link href="/profil" className="relative ml-0.5 flex shrink-0 items-center">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-surface font-display text-xs font-semibold text-muted transition-colors hover:text-ink sm:h-8 sm:w-8 sm:text-sm">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface font-display text-sm font-semibold text-muted transition-colors hover:text-ink sm:h-9 sm:w-9 sm:text-base">
               {displayName.slice(0, 1).toUpperCase()}
             </span>
             {activeRankIcon && (
