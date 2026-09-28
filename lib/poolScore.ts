@@ -249,6 +249,19 @@ export function evaluatePoolScore(params: {
 
 /** Sterne, die der tägliche Login-Bonus auszahlt. */
 export const DAILY_BONUS_STARS = 8;
+
+/**
+ * Der "typische" Einsatz pro Spiel (Standardwert im Admin-Bereich beim
+ * Anlegen eines Spiels). ALLE Sicherheits-Werte unten (Tages-Limit,
+ * Warnschwelle, Rettungs-Bonus) werden bewusst als VIELFACHES dieser einen
+ * Zahl berechnet statt als feste, unabhängige Zahlen. Grund: Wird künftig
+ * öfter mit höheren oder niedrigeren Einsätzen gespielt, reicht es, NUR
+ * diesen einen Wert anzupassen – die restlichen Sicherheits-Werte skalieren
+ * dann automatisch mit, statt an mehreren Stellen im Code angepasst werden
+ * zu müssen.
+ */
+export const REFERENCE_STAKE = 20;
+
 /**
  * Maximaler Sterne-Einsatz, den ein User pro Tag insgesamt riskieren kann –
  * UNABHÄNGIG davon, wie viele Spiele an diesem Tag angeboten werden. Ohne
@@ -256,12 +269,21 @@ export const DAILY_BONUS_STARS = 8;
  * schneller aufbrauchen als ein Tag mit wenigen. Ist das Tages-Limit erreicht,
  * tippt man für die restlichen Spiele des Tages einfach ohne Einsatz weiter
  * (Rangliste-Punkte gibt's trotzdem, nur keine Sterne-Bewegung mehr).
+ * Entspricht ca. 5 Einsätzen zum Referenz-Einsatz.
  */
-export const DAILY_STAKE_BUDGET = 100;
-/** Sterne, die ein User einmalig geschenkt bekommt, wenn sein Guthaben auf 0 fällt. */
-export const RESCUE_BONUS_STARS = 20;
-/** Ab diesem Guthaben wird die Sterne-Anzeige als "knapp" markiert. */
-export const LOW_STARS_THRESHOLD = 20;
+export const DAILY_STAKE_BUDGET = REFERENCE_STAKE * 5;
+/**
+ * Sterne, die ein User einmalig geschenkt bekommt, wenn sein Guthaben auf 0
+ * fällt – bewusst genau ein Referenz-Einsatz, damit man danach garantiert
+ * mindestens noch einmal mitspielen kann.
+ */
+export const RESCUE_BONUS_STARS = REFERENCE_STAKE;
+/**
+ * Ab diesem Guthaben wird die Sterne-Anzeige als "knapp" markiert – bewusst
+ * genau ein Referenz-Einsatz, damit die Warnung genau dann kommt, wenn's
+ * nicht mal mehr für einen weiteren vollen Einsatz reicht.
+ */
+export const LOW_STARS_THRESHOLD = REFERENCE_STAKE;
 /** Saison-Pass-XP, die der tägliche Login-Bonus auszahlt (einziger Weg, wie der Pass steigt). */
 export const DAILY_BONUS_XP = 100;
 /** So viele Tage Inaktivität sind erlaubt, bevor Rangliste-Punkte abzuklingen beginnen. */
