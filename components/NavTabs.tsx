@@ -54,7 +54,7 @@ export default function NavTabs() {
           schmalem Fenster (z. B. am Desktop ohne Wisch-Geste) rechts
           unsichtbar abgeschnitten zu sein. Trennlinie + eigener
           Hintergrundton heben die Zeile klar von den Reitern ab. */}
-      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-1.5 border-t border-edge bg-surface/40 px-2 pb-2.5 pt-2">
+      <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-1.5 border-t border-edge bg-surface/40 px-2 pb-2.5 pt-2">
         <Link
           href="/duelle"
           className="flex shrink-0 items-center rounded-full bg-gold px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:opacity-90"
