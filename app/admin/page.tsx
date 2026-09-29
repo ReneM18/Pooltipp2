@@ -10,32 +10,74 @@ import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
 import { Sport, SPORTS, JerseyStyle, JERSEY_STYLES, Match, MatchStatus, TipMode, Team } from "@/lib/types";
 import { COUNTRIES, flagEmoji } from "@/lib/flags";
 import TeamBadge from "@/components/TeamBadge";
+import { useFeedback } from "@/lib/FeedbackContext";
 
 // Einfacher Zugriffsschutz fürs MVP – KEINE echte Sicherheit.
 // Sobald der richtige Login (Firebase Auth) steht, ersetzt der diese PIN
 // durch eine echte Rechteprüfung (z. B. "ist dieser User Admin?").
 const ADMIN_PIN = "1805";
 
+type AdminTab = "spiele" | "teams" | "turniere" | "news";
+
 export default function AdminPage() {
   const [unlocked, setUnlocked] = useState(false);
+  // "Spiele" ist bewusst der Start-Tab: das wird im Alltag am häufigsten
+  // gebraucht und soll sofort sichtbar sein, ohne erst scrollen zu müssen.
+  const [tab, setTab] = useState<AdminTab>("spiele");
+  const { teams, matches, newsItems } = useAppData();
+  const { tournaments } = useTournaments();
 
   if (!unlocked) {
     return <PinGate onUnlock={() => setUnlocked(true)} />;
   }
 
+  const tabs: { id: AdminTab; label: string; icon: string; count: number }[] = [
+    { id: "spiele", label: "Spiele", icon: "⚽", count: matches.length },
+    { id: "teams", label: "Teams", icon: "🛡️", count: teams.length },
+    { id: "turniere", label: "Turniere", icon: "🏆", count: tournaments.length },
+    { id: "news", label: "News", icon: "📰", count: newsItems.length },
+  ];
+
   return (
-    <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
+    <main className="mx-auto max-w-3xl px-5 py-8 lg:max-w-6xl">
       <h1 className="mb-1 font-display text-3xl font-bold text-ink">Admin-Bereich</h1>
-      <p className="mb-8 text-sm text-muted">
-        Teams und Spiele anlegen. Änderungen gelten nur für diese Browser-Sitzung, solange
-        Firestore noch nicht angebunden ist.
+      <p className="mb-6 text-sm text-muted">
+        Teams, Spiele, Turniere und News anlegen. Änderungen gelten nur für diese
+        Browser-Sitzung, solange Firestore noch nicht angebunden ist.
       </p>
 
-      <div className="flex flex-col gap-10">
-        <TeamManager />
-        <MatchManager />
-        <TournamentManager />
-        <NewsManager />
+      {/* Klar getrennte Bereiche statt alles untereinander gestapelt – ein
+          Klick auf einen Reiter zeigt nur noch genau diesen Bereich, auf
+          voller Breite. */}
+      <div className="mb-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex items-center justify-center gap-2 rounded-card border px-4 py-3.5 font-display text-sm font-semibold transition-colors ${
+              tab === t.id
+                ? "border-gold bg-gold/15 text-gold"
+                : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
+            }`}
+          >
+            <span className="text-base">{t.icon}</span>
+            {t.label}
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
+                tab === t.id ? "bg-gold/20 text-gold" : "bg-surface-hover text-muted"
+              }`}
+            >
+              {t.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div>
+        {tab === "spiele" && <MatchManager />}
+        {tab === "teams" && <TeamManager />}
+        {tab === "turniere" && <TournamentManager />}
+        {tab === "news" && <NewsManager />}
       </div>
     </main>
   );
@@ -43,6 +85,7 @@ export default function AdminPage() {
 
 function NewsManager() {
   const { newsItems, addNews, updateNews, removeNews } = useAppData();
+  const { showToast } = useFeedback();
   const [text, setText] = useState("");
   const [sport, setSport] = useState<Sport | "">("");
   const [article, setArticle] = useState("");
@@ -50,10 +93,12 @@ function NewsManager() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!text.trim()) return;
+    if (!confirm(`Headline „${text.trim()}" veröffentlichen?`)) return;
     addNews(text.trim(), sport || null, article.trim() || null);
     setText("");
     setSport("");
     setArticle("");
+    showToast("✓ Headline veröffentlicht.", "success");
   }
 
   return (
@@ -146,6 +191,7 @@ function NewsItemRow({
   onSave: (id: string, text: string, sport: Sport | null, article: string | null) => void;
   onRemove: (id: string) => void;
 }) {
+  const { showToast } = useFeedback();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(item.text);
   const [sport, setSport] = useState<Sport | "">(item.sport ?? "");
@@ -153,8 +199,10 @@ function NewsItemRow({
 
   function handleSave() {
     if (!text.trim()) return;
+    if (!confirm("Änderungen an dieser Headline speichern?")) return;
     onSave(item.id, text.trim(), sport || null, article.trim() || null);
     setEditing(false);
+    showToast("✓ Änderungen gespeichert.", "success");
   }
 
   function handleCancel() {
@@ -230,7 +278,15 @@ function NewsItemRow({
         <button onClick={() => setEditing(true)} className="text-xs text-muted hover:text-gold">
           Bearbeiten
         </button>
-        <button onClick={() => onRemove(item.id)} className="text-xs text-muted hover:text-ink">
+        <button
+          onClick={() => {
+            if (confirm("Diese Headline wirklich entfernen?")) {
+              onRemove(item.id);
+              showToast("✓ Headline entfernt.", "info");
+            }
+          }}
+          className="text-xs text-muted hover:text-ink"
+        >
           Entfernen
         </button>
       </span>
@@ -288,6 +344,7 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
 
 function TeamManager() {
   const { teams, addTeam, removeTeam } = useAppData();
+  const { showToast } = useFeedback();
   const [name, setName] = useState("");
   const [sport, setSport] = useState<Sport>("Fußball");
   const [countryCode, setCountryCode] = useState(COUNTRIES[0].code);
@@ -299,6 +356,7 @@ function TeamManager() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    if (!confirm(`Team "${name.trim()}" anlegen?`)) return;
     addTeam({
       name: name.trim(),
       sport,
@@ -309,6 +367,7 @@ function TeamManager() {
       isNationalTeam,
     });
     setName("");
+    showToast(`✓ Team "${name.trim()}" angelegt.`, "success");
   }
 
   return (
@@ -465,7 +524,12 @@ function TeamManager() {
               </span>
             </span>
             <button
-              onClick={() => removeTeam(team.id)}
+              onClick={() => {
+                if (confirm(`Team "${team.name}" wirklich entfernen?`)) {
+                  removeTeam(team.id);
+                  showToast(`✓ Team "${team.name}" entfernt.`, "info");
+                }
+              }}
               className="text-xs text-muted hover:text-ink"
             >
               Entfernen
@@ -497,6 +561,7 @@ function MatchManager() {
     evaluateBonusAnswerForCurrentUser,
   } = useUser();
   const { resolveDuelsForMatch } = useDuels();
+  const { showToast } = useFeedback();
 
   function handleBonusAnswer(matchId: string, correctOptionIndex: number) {
     setBonusQuestionAnswer(matchId, correctOptionIndex);
@@ -554,6 +619,10 @@ function MatchManager() {
     const stakeValue = Number(fixedStake);
     if (!stakeValue || stakeValue < 1) return;
 
+    const homeName = getTeam(homeTeamId)?.name ?? "?";
+    const awayName = getTeam(awayTeamId)?.name ?? "?";
+    if (!confirm(`Spiel "${homeName} vs ${awayName}" (${competition.trim()}) anlegen?`)) return;
+
     addMatch({
       sport,
       competition: competition.trim(),
@@ -580,6 +649,7 @@ function MatchManager() {
     setFixedStake("20");
     setTvChannelInput("");
     setTipModeInput("score");
+    showToast(`✓ Spiel "${homeName} vs ${awayName}" angelegt.`, "success");
   }
 
   return (
@@ -782,7 +852,12 @@ function MatchManager() {
                 <VideoLinkEditor match={match} onSave={setSummaryVideo} />
                 <BonusQuestionEditor match={match} onSave={setBonusQuestion} onSetAnswer={handleBonusAnswer} />
                 <button
-                  onClick={() => removeMatch(match.id)}
+                  onClick={() => {
+                    if (confirm(`Spiel "${home?.name ?? "?"} vs ${away?.name ?? "?"}" wirklich entfernen?`)) {
+                      removeMatch(match.id);
+                      showToast("✓ Spiel entfernt.", "info");
+                    }
+                  }}
                   className="text-xs text-muted hover:text-ink"
                 >
                   Entfernen
@@ -803,16 +878,36 @@ function TipModeEditor({
   match: Match;
   onSave: (matchId: string, mode: TipMode) => void;
 }) {
+  const { showToast } = useFeedback();
+  const [mode, setMode] = useState<TipMode>(match.tipMode);
+
+  function handleSave() {
+    if (mode === match.tipMode) return;
+    if (!confirm("Tipp-Art für dieses Spiel wirklich ändern?")) return;
+    onSave(match.id, mode);
+    showToast("✓ Tipp-Art gespeichert.", "success");
+  }
+
   return (
-    <select
-      value={match.tipMode}
-      onChange={(e) => onSave(match.id, e.target.value as TipMode)}
-      className="rounded-lg border border-edge bg-pitch px-2 py-1 text-xs text-ink outline-none focus:border-gold"
-      title="Tipp-Art für dieses Spiel"
-    >
-      <option value="score">Ergebnis-Tipp</option>
-      <option value="1x2">1X2</option>
-    </select>
+    <div className="flex items-center gap-1.5">
+      <select
+        value={mode}
+        onChange={(e) => setMode(e.target.value as TipMode)}
+        className="rounded-lg border border-edge bg-pitch px-2 py-1 text-xs text-ink outline-none focus:border-gold"
+        title="Tipp-Art für dieses Spiel"
+      >
+        <option value="score">Ergebnis-Tipp</option>
+        <option value="1x2">1X2</option>
+      </select>
+      {mode !== match.tipMode && (
+        <button
+          onClick={handleSave}
+          className="rounded-lg bg-surface-hover px-2 py-1 text-xs font-semibold text-ink transition-colors hover:text-gold"
+        >
+          Speichern
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -823,7 +918,13 @@ function TvChannelEditor({
   match: Match;
   onSave: (matchId: string, channel: string) => void;
 }) {
+  const { showToast } = useFeedback();
   const [channel, setChannel] = useState(match.tvChannel ?? "");
+
+  function handleSave() {
+    onSave(match.id, channel.trim());
+    showToast("✓ TV-Sender gespeichert.", "success");
+  }
 
   return (
     <div className="flex items-center gap-1.5">
@@ -834,7 +935,7 @@ function TvChannelEditor({
         className="w-32 rounded-lg border border-edge bg-pitch px-2 py-1 text-xs text-ink outline-none focus:border-gold"
       />
       <button
-        onClick={() => onSave(match.id, channel.trim())}
+        onClick={handleSave}
         className="rounded-lg bg-surface-hover px-2 py-1 text-xs font-semibold text-ink transition-colors hover:text-gold"
       >
         Speichern
@@ -850,7 +951,13 @@ function VideoLinkEditor({
   match: Match;
   onSave: (matchId: string, url: string) => void;
 }) {
+  const { showToast } = useFeedback();
   const [url, setUrl] = useState(match.summaryVideoUrl ?? "");
+
+  function handleSave() {
+    onSave(match.id, url.trim());
+    showToast("✓ Video-Link gespeichert.", "success");
+  }
 
   return (
     <div className="flex items-center gap-1.5">
@@ -862,7 +969,7 @@ function VideoLinkEditor({
         className="w-48 rounded-lg border border-edge bg-pitch px-2 py-1 text-xs text-ink outline-none focus:border-gold"
       />
       <button
-        onClick={() => onSave(match.id, url.trim())}
+        onClick={handleSave}
         className="rounded-lg bg-surface-hover px-2 py-1 text-xs font-semibold text-ink transition-colors hover:text-gold"
       >
         Speichern
@@ -885,6 +992,7 @@ function BonusQuestionEditor({
   onSave: (matchId: string, question: string | null, options: string[], bonusStars: number) => void;
   onSetAnswer: (matchId: string, correctOptionIndex: number) => void;
 }) {
+  const { showToast } = useFeedback();
   const [editing, setEditing] = useState(false);
   const [question, setQuestionText] = useState(match.bonusQuestion?.question ?? "");
   const [optionsText, setOptionsText] = useState(match.bonusQuestion?.options.join(", ") ?? "");
@@ -897,14 +1005,18 @@ function BonusQuestionEditor({
       .map((o) => o.trim())
       .filter(Boolean);
     if (!question.trim() || options.length < 2) return;
+    if (!confirm("Bonusfrage speichern?")) return;
     onSave(match.id, question.trim(), options, Math.max(1, Number(bonusStars) || 10));
+    showToast("✓ Bonusfrage gespeichert.", "success");
   }
 
   function handleRemove() {
+    if (!confirm("Bonusfrage wirklich entfernen?")) return;
     onSave(match.id, null, [], 0);
     setQuestionText("");
     setOptionsText("");
     setEditing(false);
+    showToast("✓ Bonusfrage entfernt.", "info");
   }
 
   return (
@@ -978,7 +1090,11 @@ function BonusQuestionEditor({
                   ))}
                 </select>
                 <button
-                  onClick={() => onSetAnswer(match.id, answerIndex)}
+                  onClick={() => {
+                    if (!confirm("Richtige Antwort jetzt festlegen? Das wertet die Tipps aller User aus.")) return;
+                    onSetAnswer(match.id, answerIndex);
+                    showToast("✓ Richtige Antwort gespeichert – Tipps ausgewertet.", "gold");
+                  }}
                   className="rounded-lg bg-action px-3 py-1 text-xs font-semibold text-pitch transition-colors hover:bg-action-hover"
                 >
                   Übernehmen
@@ -999,12 +1115,26 @@ function LiveScoreEditor({
   match: Match;
   onUpdate: (matchId: string, homeScore: number | null, awayScore: number | null, status: MatchStatus) => void;
 }) {
+  const { showToast } = useFeedback();
   const [homeScore, setHomeScore] = useState(match.liveHomeScore ?? 0);
   const [awayScore, setAwayScore] = useState(match.liveAwayScore ?? 0);
   const [status, setStatus] = useState<MatchStatus>(match.status);
 
   function handleUpdate() {
-    onUpdate(match.id, homeScore, awayScore, status);
+    // Endstand setzen/korrigieren wertet direkt die Tipps ALLER User aus
+    // (siehe MatchManager.handleScoreUpdate) – folgenreich genug, um aktiv
+    // nachzufragen. Ein reiner Live-Spielstand (noch nicht "Beendet") wird
+    // oft mehrmals während eines Spiels aktualisiert und bleibt deshalb
+    // bewusst ohne Bestätigungs-Dialog – nur die kurze Rückmeldung danach.
+    if (status === "finished") {
+      const verb = match.status === "finished" ? "korrigieren" : "festlegen";
+      if (!confirm(`Endstand ${homeScore}:${awayScore} ${verb} und Tipps auswerten?`)) return;
+      onUpdate(match.id, homeScore, awayScore, status);
+      showToast("✓ Endstand gespeichert – Tipps wurden ausgewertet.", "gold");
+    } else {
+      onUpdate(match.id, homeScore, awayScore, status);
+      showToast("✓ Spielstand aktualisiert.", "success");
+    }
   }
 
   return (
@@ -1074,6 +1204,7 @@ function TournamentManager() {
   const { tournaments, createTournament, updateTournament, setTournamentMatches, removeTournament } =
     useTournaments();
   const { matches, getTeam } = useAppData();
+  const { showToast } = useFeedback();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -1084,12 +1215,14 @@ function TournamentManager() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim() || !startDate || !endDate) return;
+    if (!confirm(`Turnier "${name.trim()}" anlegen?`)) return;
     createTournament(name.trim(), description.trim(), icon.trim() || "🏆", new Date(startDate).toISOString(), new Date(endDate).toISOString());
     setName("");
     setDescription("");
     setIcon("🏆");
     setStartDate("");
     setEndDate("");
+    showToast(`✓ Turnier "${name.trim()}" angelegt.`, "success");
   }
 
   return (
@@ -1197,6 +1330,7 @@ function TournamentRow({
   onSetMatches: (id: string, matchIds: string[]) => void;
   onRemove: (id: string) => void;
 }) {
+  const { showToast } = useFeedback();
   const [editing, setEditing] = useState(false);
   const [pickingMatches, setPickingMatches] = useState(false);
   const [name, setName] = useState(tournament.name);
@@ -1209,8 +1343,10 @@ function TournamentRow({
 
   function handleSave() {
     if (!name.trim() || !startDate || !endDate) return;
+    if (!confirm("Änderungen an diesem Turnier speichern?")) return;
     onSave(tournament.id, name.trim(), description.trim(), icon.trim() || "🏆", new Date(startDate).toISOString(), new Date(endDate).toISOString());
     setEditing(false);
+    showToast("✓ Turnier gespeichert.", "success");
   }
 
   function handleCancel() {
@@ -1303,7 +1439,15 @@ function TournamentRow({
             <button onClick={() => setEditing(true)} className="text-xs text-muted hover:text-gold">
               Bearbeiten
             </button>
-            <button onClick={() => onRemove(tournament.id)} className="text-xs text-muted hover:text-red-400">
+            <button
+              onClick={() => {
+                if (confirm(`Turnier "${tournament.name}" wirklich löschen?`)) {
+                  onRemove(tournament.id);
+                  showToast("✓ Turnier gelöscht.", "info");
+                }
+              }}
+              className="text-xs text-muted hover:text-red-400"
+            >
               Löschen
             </button>
           </div>

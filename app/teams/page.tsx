@@ -115,9 +115,9 @@ export default function TeamsHubPage() {
       </div>
 
       <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Tipprunden</h2>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3.5">
         {myLeagues.length === 0 && (
-          <p className="text-sm text-muted">Du bist noch in keiner Tipprunde.</p>
+          <p className="text-sm text-muted lg:col-span-2">Du bist noch in keiner Tipprunde.</p>
         )}
         {myLeagues.map((league) => (
           <Link
