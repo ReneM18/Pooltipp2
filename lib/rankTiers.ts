@@ -92,7 +92,15 @@ export interface RankIconOption {
   title?: string;
 }
 
-const ELITE_COLORS = { from: "#ffd700", to: "#ff5fa2", text: "#1a0a12" };
+// Gold -> gedecktes Lila statt des vorherigen Gold/Pink-Verlaufs: Pink war
+// der einzige Fremdkörper im sonst grün-goldenen PoolTipp-Look. Gold->Lila
+// ist ein gängiges "Legendary"-Farbschema (eine Stufe über den kühleren
+// Diamant-Blautönen) und bleibt trotzdem hell genug für den dunklen Text.
+const ELITE_COLORS = { from: "#FFD700", to: "#B694F6", text: "#241040" };
+// Adler statt Krone: die Krone steht in der App schon für "Premium" (siehe
+// Level 8 im Saison-Pass), ein zweites Krone-Symbol fürs Elite-Rang-Icon war
+// verwirrend doppelt belegt.
+const ELITE_ICON = "🦅";
 
 /**
  * Ermittelt anhand der (aktuell noch statischen) Sport-Ranglisten, welche
@@ -137,7 +145,7 @@ export function getAvailableRankIcons(
       id: "elite",
       kind: "elite",
       label: "Sport-Allrounder (Elite)",
-      icon: "👑",
+      icon: ELITE_ICON,
       colorFrom: ELITE_COLORS.from,
       colorTo: ELITE_COLORS.to,
       colorText: ELITE_COLORS.text,
@@ -177,7 +185,7 @@ export function getIconForName(name: string): RankIconOption | null {
       id: `elite-${name}`,
       kind: "elite",
       label: "Sport-Allrounder (Elite)",
-      icon: "👑",
+      icon: ELITE_ICON,
       colorFrom: ELITE_COLORS.from,
       colorTo: ELITE_COLORS.to,
       colorText: ELITE_COLORS.text,

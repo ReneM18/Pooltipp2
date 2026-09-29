@@ -28,7 +28,7 @@ const config: Config = {
       },
       keyframes: {
         eliteGlow: {
-          "0%, 100%": { boxShadow: "0 0 3px 0.5px rgba(255,95,162,0.35)" },
+          "0%, 100%": { boxShadow: "0 0 3px 0.5px rgba(182,148,246,0.35)" },
           "50%": { boxShadow: "0 0 7px 1.5px rgba(255,215,0,0.45)" },
         },
       },
