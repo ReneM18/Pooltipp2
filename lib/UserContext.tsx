@@ -23,6 +23,10 @@ import {
 
 const SPORT_ICON: Record<Sport, string> = { "Fußball": "⚽", NFL: "🏈", NBA: "🏀", NHL: "🏒" };
 
+// Preis des fiktiven Werbefrei-Abos (kein echtes Zahlungssystem, siehe
+// buyAdFreeSubscription unten) – analog zu PREMIUM_PASS_PRICE in passLevels.ts.
+export const AD_FREE_PRICE = "2,99 € / Monat";
+
 function initialRangPunkte(): Record<Sport, number> {
   const initial = {} as Record<Sport, number>;
   for (const sport of SPORTS) {
@@ -118,6 +122,11 @@ interface UserContextValue {
   activeRankIcon: RankIconOption | null;
   hasPremiumPass: boolean;
   buyPremiumPass: () => void;
+  // Fiktives Werbefrei-Abo – kein echtes Zahlungssystem, blendet nur lokal
+  // die Demo-Werbebanner (siehe components/AdBanner.tsx) aus.
+  hasAdFreeSubscription: boolean;
+  buyAdFreeSubscription: () => void;
+  cancelAdFreeSubscription: () => void;
   // Platzhalter fürs echte Login-System: sobald es steht, ersetzt der echte
   // Auth-Status das hier. Steuert nur, ob der "Registrieren"-Button in der
   // Navbar angezeigt wird.
@@ -208,6 +217,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // schaltet die Premium-Spur des Saison-Passes lokal frei.
   function buyPremiumPass() {
     setHasPremiumPass(true);
+  }
+
+  const [hasAdFreeSubscription, setHasAdFreeSubscription] = useState(false);
+
+  // Ebenfalls nur ein Platzhalter, kein echtes Zahlungssystem – schaltet
+  // lokal die Demo-Werbebanner ab. cancelAdFreeSubscription gibt es nur,
+  // damit sich der Unterschied mit/ohne Werbung hier in der Vorschau auch
+  // wieder rückgängig machen lässt (ein echtes Abo würde man nicht per Klick
+  // sofort kündigen, sondern zum Ende der Laufzeit).
+  function buyAdFreeSubscription() {
+    setHasAdFreeSubscription(true);
+  }
+  function cancelAdFreeSubscription() {
+    setHasAdFreeSubscription(false);
   }
 
   const [isRegistered, setIsRegistered] = useState(false);
@@ -576,6 +599,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         activeRankIcon,
         hasPremiumPass,
         buyPremiumPass,
+        hasAdFreeSubscription,
+        buyAdFreeSubscription,
+        cancelAdFreeSubscription,
         isRegistered,
         register,
       }}

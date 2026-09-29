@@ -8,6 +8,7 @@ import {
   ResultRow,
   StandingRow,
 } from "@/lib/sportsApi";
+import AdBanner from "@/components/AdBanner";
 
 const LEAGUES = Object.keys(LEAGUE_IDS);
 
@@ -51,6 +52,8 @@ export default function MatchcenterPage() {
   return (
     <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
       <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Matchcenter</h1>
+
+      <AdBanner />
 
       <div className="mb-5 flex flex-wrap gap-2">
         {LEAGUES.map((l) => (

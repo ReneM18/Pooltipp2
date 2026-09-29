@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import MatchCard from "@/components/MatchCard";
+import AdBanner from "@/components/AdBanner";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
@@ -57,6 +58,8 @@ export default function DashboardPage() {
           </span>
         )}
       </div>
+
+      <AdBanner />
 
       <div className="mb-5 flex gap-2 border-b border-edge">
         <TabButton

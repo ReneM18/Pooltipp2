@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, FormEvent, ChangeEvent } from "react";
-import { useUser } from "@/lib/UserContext";
+import { useUser, AD_FREE_PRICE } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { mockLeaderboard } from "@/lib/mockLeaderboard";
 import RankBadge from "@/components/RankBadge";
 import RankProgress from "@/components/RankProgress";
+import { useFeedback } from "@/lib/FeedbackContext";
 import { Sport } from "@/lib/types";
 
 const sportIcon: Record<string, string> = {
@@ -32,11 +33,16 @@ export default function ProfilPage() {
     setPhoto,
     removePhoto,
     streakCount,
+    hasAdFreeSubscription,
+    buyAdFreeSubscription,
+    cancelAdFreeSubscription,
   } = useUser();
   const { matches, getTeam, myTips } = useAppData();
+  const { showToast, celebrate } = useFeedback();
   const [nameInput, setNameInput] = useState(displayName);
   const [saved, setSaved] = useState(false);
   const [profileTab, setProfileTab] = useState<"Übersicht" | "Rang">("Übersicht");
+  const [purchasingAdFree, setPurchasingAdFree] = useState(false);
 
   const sportProgressOptions = rankIconOptions.filter(
     (o) => o.kind === "sport" && o.sport && o.points !== undefined
@@ -64,6 +70,24 @@ export default function ProfilPage() {
       setPhoto(index, reader.result as string);
     };
     reader.readAsDataURL(file);
+  }
+
+  function handleBuyAdFree() {
+    setPurchasingAdFree(true);
+    // Simulierte kurze Verarbeitung, wie beim Premium-Pass-Kauf im
+    // "Fortschritt"-Bereich – Platzhalter für eine echte Zahlungsanbindung.
+    setTimeout(() => {
+      buyAdFreeSubscription();
+      setPurchasingAdFree(false);
+      celebrate();
+      showToast("🚫📢 Werbefrei-Abo aktiv – keine Werbebanner mehr.", "gold");
+    }, 600);
+  }
+
+  function handleCancelAdFree() {
+    if (!confirm("Werbefrei-Abo wirklich kündigen? Danach siehst du wieder Werbebanner in der App.")) return;
+    cancelAdFreeSubscription();
+    showToast("Werbefrei-Abo gekündigt.", "info");
   }
 
   return (
@@ -282,6 +306,45 @@ export default function ProfilPage() {
           Genauere Statistiken (Trefferquote, Tipp-Verlauf) kommen, sobald Tipps dauerhaft in
           Firestore gespeichert werden.
         </p>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Werbefrei-Abo</h2>
+        {hasAdFreeSubscription ? (
+          <div className="flex flex-col items-start gap-3 rounded-card border border-gold bg-gold/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🚫📢</span>
+              <div>
+                <p className="font-display text-sm font-semibold text-gold">Werbefrei aktiv</p>
+                <p className="text-xs text-muted">Du siehst aktuell keine Werbebanner in der App.</p>
+              </div>
+            </div>
+            <button
+              onClick={handleCancelAdFree}
+              className="shrink-0 rounded-full border border-edge px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:text-ink"
+            >
+              Kündigen
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-start gap-3 rounded-card border border-edge bg-gradient-to-br from-surface to-surface-hover p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="flex items-center gap-2 font-display text-sm font-semibold text-ink">
+                <span className="text-lg">🚫📢</span> Werbung ausblenden
+              </p>
+              <p className="mt-0.5 text-xs text-muted">
+                {AD_FREE_PRICE} – blendet alle Werbebanner in der App aus. Jederzeit kündbar.
+              </p>
+            </div>
+            <button
+              onClick={handleBuyAdFree}
+              disabled={purchasingAdFree}
+              className="shrink-0 rounded-full bg-gold px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90 disabled:opacity-60"
+            >
+              {purchasingAdFree ? "Wird verarbeitet…" : `Abonnieren – ${AD_FREE_PRICE}`}
+            </button>
+          </div>
+        )}
       </section>
 
       <section>
