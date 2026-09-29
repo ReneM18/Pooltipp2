@@ -62,7 +62,7 @@ export default function DuellePage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-8">
+    <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
       <h1 className="mb-1 font-display text-xl font-bold text-ink sm:text-2xl">Kopf-an-Kopf-Duelle</h1>
       <p className="mb-6 text-xs text-muted">
         Fordere einen Freund direkt mit Sterne-Einsatz heraus – wer beim Spiel besser tippt, gewinnt
@@ -143,9 +143,9 @@ export default function DuellePage() {
       )}
 
       <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Duelle</h2>
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3.5">
         {duels.length === 0 && (
-          <p className="py-4 text-center text-sm text-muted">Noch keine Duelle gestartet.</p>
+          <p className="py-4 text-center text-sm text-muted lg:col-span-2">Noch keine Duelle gestartet.</p>
         )}
         {duels.map((duel) => {
           const match = matches.find((m) => m.id === duel.matchId);

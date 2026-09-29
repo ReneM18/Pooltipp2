@@ -68,7 +68,7 @@ export default function RanglistePage() {
           .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-8">
+    <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
       <div className="mb-4">
         <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Rangliste</h1>
         {tab === "Spieltag" ? (

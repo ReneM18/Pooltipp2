@@ -69,7 +69,7 @@ export default function FeedPage() {
     .slice(0, 3);
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-8">
+    <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
       <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Feed</h1>
 
       {upcomingMatches.length > 0 && (
@@ -77,7 +77,7 @@ export default function FeedPage() {
           <h2 className="mb-2.5 px-1 font-display text-xs font-bold uppercase tracking-wider text-muted">
             Was die Community tippt
           </h2>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-2.5">
             {upcomingMatches.flatMap((match) => {
               const home = getTeam(match.homeTeamId);
               const away = getTeam(match.awayTeamId);

@@ -67,7 +67,7 @@ export default function ProfilPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-8">
+    <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
       <div className="mb-8 flex items-center gap-4">
         <div className="relative h-16 w-16 shrink-0">
           {/* Das Foto wird in einem eigenen, rund abgeschnittenen Kreis

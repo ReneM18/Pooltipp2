@@ -24,7 +24,7 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-8">
+    <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
       <h1 className="mb-1 font-display text-3xl font-bold text-ink">Admin-Bereich</h1>
       <p className="mb-8 text-sm text-muted">
         Teams und Spiele anlegen. Änderungen gelten nur für diese Browser-Sitzung, solange

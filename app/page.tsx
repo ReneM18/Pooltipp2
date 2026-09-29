@@ -40,7 +40,7 @@ export default function DashboardPage() {
   const visibleMatches = tab === "offen" ? offeneMatches : geschlosseneMatches;
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-5 sm:py-8">
+    <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-5 sm:py-8">
       {/* Kompakter Titel statt großer Headline + Untertitel – die Sterne-Anzahl
           steht schon oben in der Navbar, das musste hier nicht wiederholt
           werden. Spart Platz, bevor die eigentlichen Spiele kommen. */}
@@ -73,9 +73,12 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="flex flex-col gap-4">
+      {/* Ab lg: (Desktop) zweispaltig statt einer langen Liste – nutzt die
+          jetzt breitere Seite sinnvoll aus, statt Karten einfach nur breiter
+          zu ziehen. */}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-5">
         {visibleMatches.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted">
+          <p className="py-8 text-center text-sm text-muted lg:col-span-2">
             {tab === "offen" ? "Aktuell keine offenen Spiele." : "Noch keine beendeten Spiele."}
           </p>
         )}

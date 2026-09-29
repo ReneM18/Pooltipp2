@@ -11,7 +11,7 @@ const LEGAL_LINKS: { href: string; label: string }[] = [
 export default function Footer() {
   return (
     <footer className="mt-10 border-t border-edge bg-surface/40">
-      <div className="mx-auto max-w-3xl px-5 py-8">
+      <div className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
         <h2 className="mb-2 font-display text-base font-bold text-ink">Über PoolTipp</h2>
         <p className="text-sm leading-relaxed text-muted">
           PoolTipp ist das kostenlose Social-Tippspiel für echte Sportfans: Tippe live vor jedem

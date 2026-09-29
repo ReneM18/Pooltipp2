@@ -49,7 +49,7 @@ export default function MatchcenterPage() {
   }, [league, view, retryCount]);
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-8">
+    <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
       <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Matchcenter</h1>
 
       <div className="mb-5 flex flex-wrap gap-2">
@@ -118,9 +118,9 @@ export default function MatchcenterPage() {
       )}
 
       {!loading && !error && view === "ergebnisse" && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
           {(results ?? []).length === 0 && (
-            <p className="py-8 text-center text-sm text-muted">Keine Ergebnisse verfügbar.</p>
+            <p className="py-8 text-center text-sm text-muted lg:col-span-2">Keine Ergebnisse verfügbar.</p>
           )}
           {(results ?? []).map((r) => (
             <div

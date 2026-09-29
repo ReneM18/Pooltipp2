@@ -21,23 +21,23 @@ export default function NavTabs() {
 
   return (
     <nav className="relative border-b border-edge bg-pitch">
-      {/* Handy (Standard, kein Präfix): horizontal scrollbare Leiste zum
-          Wischen, Scrollbar versteckt – fühlt sich wie eine native App an.
-          touch-pan-x + overscroll-x-contain verhindert, dass das Wischen
-          zusätzlich die ganze Seite vertikal "mitzieht".
-          Ab sm: (Web/größere Breite) wird stattdessen umgebrochen
-          (flex-wrap) statt gescrollt – dort soll NICHTS zur Seite
-          geschoben werden und es gibt keine sichtbare Scrollbar, weil der
-          Inhalt einfach in eine zweite Zeile rutscht, sobald er nicht mehr
-          reinpasst (klassisches, responsives Navbar-Verhalten). */}
-      <div className="mx-auto flex max-w-3xl items-stretch gap-0.5 overflow-x-auto px-2 touch-pan-x overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-x-visible sm:py-1">
+      {/* Handy & Tablet (Standard, bis lg:): horizontal scrollbare Leiste
+          zum Wischen, Scrollbar versteckt – fühlt sich wie eine native App
+          an. touch-pan-x + overscroll-x-contain verhindert, dass das
+          Wischen zusätzlich die ganze Seite vertikal "mitzieht".
+          Ab lg: (echtes Desktop/Web, ≥1024px) ist die Leiste eine eigene,
+          für breite Bildschirme gebaute Variante: kein Wischen/Scrollen
+          mehr nötig (der Seiteninhalt ist ab lg: ohnehin breiter, siehe
+          max-w-5xl unten, dadurch passt alles in eine Zeile), dafür mehr
+          Abstand zwischen den Punkten statt der mobil-engen Reiter. */}
+      <div className="mx-auto flex max-w-3xl lg:max-w-5xl items-stretch gap-0.5 overflow-x-auto px-2 touch-pan-x overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-x-visible lg:gap-1 lg:px-6">
         {tabs.map((tab) => {
           const isActive = pathname === tab.href;
           return (
             <Link
               key={tab.href}
               href={tab.href}
-              className={`relative flex shrink-0 items-center px-3 py-3.5 font-display text-lg font-semibold tracking-wide transition-colors ${
+              className={`relative flex shrink-0 items-center px-3 py-3.5 font-display text-lg font-semibold tracking-wide transition-colors lg:px-4 ${
                 isActive ? "text-ink" : "text-muted hover:text-ink"
               }`}
             >
@@ -49,26 +49,27 @@ export default function NavTabs() {
           );
         })}
 
-        {/* Am Handy ganz rechts in der Scroll-Leiste (ml-auto). Ab sm:
-            fließt die Gruppe stattdessen ganz normal hinter den Reitern mit
-            (sm:ml-0) – sonst würde sie beim Umbrechen allein und weit
-            rechts in einer eigenen Zeile hängen, mit viel Leerraum davor. */}
-        <div className="my-2 ml-auto flex shrink-0 items-center gap-1 sm:ml-0">
+        {/* Rechtsbündig in derselben Zeile (ml-auto) – am Handy/Tablet ganz
+            rechts in der Scroll-Leiste, ab lg: rechts in der einzeiligen
+            Desktop-Leiste. lg:flex-wrap oben ist nur ein Sicherheitsnetz,
+            falls ein Fenster doch mal knapper ist; normalerweise passt ab
+            lg: alles in eine Zeile. */}
+        <div className="my-2 ml-auto flex shrink-0 items-center gap-1.5 lg:gap-2">
           <Link
             href="/duelle"
-            className="flex shrink-0 items-center rounded-full bg-gold px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:opacity-90"
+            className="flex shrink-0 items-center rounded-full bg-gold px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:opacity-90 lg:px-3.5 lg:py-1.5 lg:text-sm"
           >
             Duelle
           </Link>
           <Link
             href="/teams"
-            className="flex shrink-0 items-center rounded-full bg-blue-500 px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:bg-blue-400"
+            className="flex shrink-0 items-center rounded-full bg-blue-500 px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:bg-blue-400 lg:px-3.5 lg:py-1.5 lg:text-sm"
           >
             Tipprunden
           </Link>
           <Link
             href="/turnier"
-            className="flex shrink-0 items-center rounded-full bg-violet-500 px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:bg-violet-400"
+            className="flex shrink-0 items-center rounded-full bg-violet-500 px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:bg-violet-400 lg:px-3.5 lg:py-1.5 lg:text-sm"
           >
             Turniere
           </Link>
