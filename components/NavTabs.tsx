@@ -44,33 +44,35 @@ export default function NavTabs() {
             </Link>
           );
         })}
-
-        <div className="my-1.5 ml-auto flex shrink-0 items-center gap-1.5">
-          <Link
-            href="/duelle"
-            className="flex shrink-0 items-center rounded-full bg-gold px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:opacity-90"
-          >
-            Duelle →
-          </Link>
-          <Link
-            href="/teams"
-            className="flex shrink-0 items-center rounded-full bg-blue-500 px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
-          >
-            Tipprunden →
-          </Link>
-          <Link
-            href="/turnier"
-            className="flex shrink-0 items-center rounded-full bg-violet-500 px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-violet-400"
-          >
-            Turniere →
-          </Link>
-        </div>
       </div>
 
-      {/* Deutet an, dass sich die Leiste noch weiter wischen lässt (z. B.
-          bis "Freunde"/"Tipprunden"), statt dass Inhalte einfach unsichtbar
-          am Rand abgeschnitten wirken. */}
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-pitch to-transparent" />
+      {/* Deutet an, dass sich die Reiter-Leiste noch weiter wischen lässt. */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 top-0 h-[52px] w-8 bg-gradient-to-l from-pitch to-transparent" />
+
+      {/* Eigene Zeile statt Teil der scrollbaren Reiter-Leiste: mit flex-wrap
+          bleiben alle Pills auf jeder Bildschirmbreite sichtbar, statt bei
+          schmalem Fenster (z. B. am Desktop ohne Wisch-Geste) rechts
+          unsichtbar abgeschnitten zu sein. */}
+      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-1.5 px-2 pb-2.5 pt-1">
+        <Link
+          href="/duelle"
+          className="flex shrink-0 items-center rounded-full bg-gold px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:opacity-90"
+        >
+          Duelle →
+        </Link>
+        <Link
+          href="/teams"
+          className="flex shrink-0 items-center rounded-full bg-blue-500 px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
+        >
+          Tipprunden →
+        </Link>
+        <Link
+          href="/turnier"
+          className="flex shrink-0 items-center rounded-full bg-violet-500 px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-violet-400"
+        >
+          Turniere →
+        </Link>
+      </div>
     </nav>
   );
 }
