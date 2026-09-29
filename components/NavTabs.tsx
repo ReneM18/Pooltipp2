@@ -25,8 +25,12 @@ export default function NavTabs() {
           Wischen über die Reiter auf dem Handy zusätzlich die ganze Seite
           vertikal "mitzieht" (das war das Auf-und-ab-Schwimmen beim
           Bewegen der Leiste). items-stretch statt items-center hält alle
-          Kinder auf derselben Zeilenhöhe, statt einzeln zu zentrieren. */}
-      <div className="mx-auto flex max-w-3xl items-stretch gap-0.5 overflow-x-auto px-2 touch-pan-x overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          Kinder auf derselben Zeilenhöhe, statt einzeln zu zentrieren.
+          Anders als vorher wird die Scrollbar NICHT versteckt: dadurch sieht
+          man am Desktop sofort, dass die Zeile mehr Inhalt hat und wie man
+          weiterscrollt (das war der Grund, warum "Turniere" vorher wie
+          abgeschnitten wirkte, ohne dass klar war, wie man's sieht). */}
+      <div className="mx-auto flex max-w-3xl items-stretch gap-0.5 overflow-x-auto px-2 touch-pan-x overscroll-x-contain">
         {tabs.map((tab) => {
           const isActive = pathname === tab.href;
           return (
@@ -44,35 +48,30 @@ export default function NavTabs() {
             </Link>
           );
         })}
-      </div>
 
-      {/* Deutet an, dass sich die Reiter-Leiste noch weiter wischen lässt. */}
-      <div className="pointer-events-none absolute inset-y-0 right-0 top-0 h-[52px] w-8 bg-gradient-to-l from-pitch to-transparent" />
-
-      {/* Eigene Zeile statt Teil der scrollbaren Reiter-Leiste: mit flex-wrap
-          bleiben alle Pills auf jeder Bildschirmbreite sichtbar, statt bei
-          schmalem Fenster (z. B. am Desktop ohne Wisch-Geste) rechts
-          unsichtbar abgeschnitten zu sein. Trennlinie + eigener
-          Hintergrundton heben die Zeile klar von den Reitern ab. */}
-      <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-1.5 border-t border-edge bg-surface/40 px-2 pb-2.5 pt-2">
-        <Link
-          href="/duelle"
-          className="flex shrink-0 items-center rounded-full bg-gold px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:opacity-90"
-        >
-          Duelle →
-        </Link>
-        <Link
-          href="/teams"
-          className="flex shrink-0 items-center rounded-full bg-blue-500 px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
-        >
-          Tipprunden →
-        </Link>
-        <Link
-          href="/turnier"
-          className="flex shrink-0 items-center rounded-full bg-violet-500 px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-violet-400"
-        >
-          Turniere →
-        </Link>
+        {/* Kompakter als vorher (kürzere Labels, kleinerer Text) und in
+            derselben Zeile wie die Reiter, damit alles zusammen in einer
+            Menüzeile Platz hat. */}
+        <div className="my-2 ml-auto flex shrink-0 items-center gap-1">
+          <Link
+            href="/duelle"
+            className="flex shrink-0 items-center rounded-full bg-gold px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:opacity-90"
+          >
+            Duelle
+          </Link>
+          <Link
+            href="/teams"
+            className="flex shrink-0 items-center rounded-full bg-blue-500 px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:bg-blue-400"
+          >
+            Tipprunden
+          </Link>
+          <Link
+            href="/turnier"
+            className="flex shrink-0 items-center rounded-full bg-violet-500 px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:bg-violet-400"
+          >
+            Turniere
+          </Link>
+        </div>
       </div>
     </nav>
   );
