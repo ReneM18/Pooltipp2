@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useRef, FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTeams } from "@/lib/TeamsContext";
 import { useUser } from "@/lib/UserContext";
@@ -372,6 +372,12 @@ function LeagueMatchCard({
 }) {
   const [home, setHome] = useState(0);
   const [away, setAway] = useState(0);
+  // Gleicher Doppel-Tipp-Schutz wie im Haupt-Spieltag (MatchCard.tsx): ohne
+  // das würde ein Doppel-Klick den Tipp doppelt speichern und in der
+  // Mini-Liga-Rangliste doppelt zählen (dort werden alle passenden Tipps
+  // aufsummiert).
+  const submittedRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
   const [finalHome, setFinalHome] = useState(match.finalHomeScore ?? 0);
   const [finalAway, setFinalAway] = useState(match.finalAwayScore ?? 0);
   const [editing, setEditing] = useState(false);
@@ -482,10 +488,16 @@ function LeagueMatchCard({
             className="h-9 w-12 rounded-lg border border-edge bg-pitch text-center text-sm text-ink outline-none focus:border-blue-400"
           />
           <button
-            onClick={() => onSubmitTip(home, away)}
-            className="rounded-full bg-blue-500 px-4 py-1.5 text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
+            onClick={() => {
+              if (submittedRef.current) return;
+              submittedRef.current = true;
+              setSubmitting(true);
+              onSubmitTip(home, away);
+            }}
+            disabled={submitting}
+            className="rounded-full bg-blue-500 px-4 py-1.5 text-sm font-semibold text-pitch transition-colors hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Tippen
+            {submitting ? "…" : "Tippen"}
           </button>
         </div>
       )}

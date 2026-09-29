@@ -43,7 +43,8 @@ export default function RegistrierenPage() {
     <main className="mx-auto max-w-md px-5 py-12">
       <h1 className="mb-1 font-display text-2xl font-bold text-ink">Registrieren</h1>
       <p className="mb-6 text-sm text-muted">
-        Sichere dir deinen Account, damit dein Fortschritt und deine Sterne erhalten bleiben.
+        Leg dein Spieler-Profil an, damit du in Rangliste, Feed und bei Freunden mit deinem Namen
+        erkennbar bist.
       </p>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-card border border-edge bg-surface p-5">
         <div>

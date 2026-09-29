@@ -77,6 +77,13 @@ export default function MatchCard({
   const [homeScore, setHomeScore] = useState<number>(0);
   const [awayScore, setAwayScore] = useState<number>(0);
   const [nflPick, setNflPick] = useState<OneXTwo | null>(null);
+  // Schutz gegen Doppel-Tipp durch einen versehentlichen Doppel-Klick/-Tap
+  // (am Handy sehr real): submittedRef greift SOFORT (synchron), bevor
+  // React überhaupt neu rendert – submitting steuert nur die Optik (Button
+  // gesperrt/Text geändert), bis die Karte ohnehin auf die Ergebnis-Ansicht
+  // umschaltet.
+  const submittedRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
   const [tippingClosed, setTippingClosed] = useState(
     () => new Date(match.tipDeadline).getTime() <= Date.now()
   );
@@ -128,8 +135,16 @@ export default function MatchCard({
   const showResultView = hasTipped || tippingClosed;
 
   function handleSubmit() {
+    if (submittedRef.current) return;
+    submittedRef.current = true;
+    setSubmitting(true);
+
     if (isOneXTwo) {
-      if (!nflPick) return;
+      if (!nflPick) {
+        submittedRef.current = false;
+        setSubmitting(false);
+        return;
+      }
       const [h, a] = oneXTwoToScore(nflPick);
       onSubmitTip(h, a);
       return;
@@ -241,10 +256,10 @@ export default function MatchCard({
 
             <button
               onClick={handleSubmit}
-              disabled={isOneXTwo && !nflPick}
+              disabled={submitting || (isOneXTwo && !nflPick)}
               className="w-full rounded-full bg-action py-2.5 font-display font-semibold tracking-wide text-base text-pitch shadow-[0_0_20px_rgba(63,166,107,0.35)] transition-all enabled:hover:bg-action-hover enabled:hover:shadow-[0_0_28px_rgba(63,166,107,0.5)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Tipp abgeben
+              {submitting ? "Wird gespeichert…" : "Tipp abgeben"}
             </button>
           </>
         )}

@@ -12,8 +12,8 @@ const SLIDES = [
   },
   {
     icon: "⭐",
-    title: "Das Pool-Prinzip",
-    text: "Alle verlorenen Sterne eines Spiels wandern in einen gemeinsamen Topf. Der wird dann an die besten Tipper verteilt – exakte Tipps bekommen am meisten.",
+    title: "So funktioniert PoolScore",
+    text: "Dein Einsatz zählt: Exakt getroffen bringt Sterne-Bonus obendrauf, bei der Tendenz bekommst du deinen Einsatz zurück, nur bei Fehltipps geht ein Teil verloren – nie alles auf einmal. Dazu siehst du, gegen wie viele Mitspieler du dich durchgesetzt hast.",
   },
   {
     icon: "👑",

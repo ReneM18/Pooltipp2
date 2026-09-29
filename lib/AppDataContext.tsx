@@ -211,7 +211,7 @@ const initialNews: NewsItem[] = [
   },
   { id: "news-2", text: "Neu im Prämien-Shop: der Titel „Tipp-König“", article: null, sport: null, createdAt: "2026-09-20T09:00:00+02:00" },
   { id: "news-3", text: "Sabine K. verteidigt Platz 1 in der Rangliste", article: null, sport: null, createdAt: "2026-09-19T09:00:00+02:00" },
-  { id: "news-4", text: "Über 500.000 Sterne im Spiel-Topf diesen Spieltag", article: null, sport: null, createdAt: "2026-09-18T09:00:00+02:00" },
+  { id: "news-4", text: "Über 500.000 Sterne wurden diesen Spieltag verteilt", article: null, sport: null, createdAt: "2026-09-18T09:00:00+02:00" },
   { id: "news-5", text: "Perfekter Tipp bringt den größten Sterne-Gewinn", article: null, sport: null, createdAt: "2026-09-17T09:00:00+02:00" },
 ];
 

@@ -21,7 +21,7 @@ const TABS: ViewTab[] = ["Gesamt", ...SPORTS];
 
 export default function RanglistePage() {
   const [tab, setTab] = useState<ViewTab>("Gesamt");
-  const { rangPunkte } = useUser();
+  const { rangPunkte, displayName } = useUser();
 
   // Die "Gesamt"-Ansicht bleibt eine separate Mock-Zahl (kein sinnvoller
   // Summenwert über Sportarten hinweg). In den Sport-Ansichten wird der
@@ -31,9 +31,14 @@ export default function RanglistePage() {
   const baseEntries: LeaderboardEntry[] = tab === "Gesamt" ? mockLeaderboard : mockLeaderboardBySport[tab];
   const entries: LeaderboardEntry[] =
     tab === "Gesamt"
-      ? baseEntries
+      ? baseEntries.map((entry) => (entry.isCurrentUser ? { ...entry, name: displayName } : entry))
       : [...baseEntries]
-          .map((entry) => (entry.isCurrentUser ? { ...entry, points: rangPunkte[tab] } : entry))
+          // Beim eigenen Eintrag IMMER auch den aktuellen Anzeigenamen
+          // einsetzen (nicht nur die Punkte) – sonst zeigt die Rangliste nach
+          // einer Namensänderung im Profil weiter den alten Mock-Namen an.
+          .map((entry) =>
+            entry.isCurrentUser ? { ...entry, name: displayName, points: rangPunkte[tab] } : entry
+          )
           .sort((a, b) => b.points - a.points)
           .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
