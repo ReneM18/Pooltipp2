@@ -4,6 +4,8 @@ import "./globals.css";
 import { UserProvider } from "@/lib/UserContext";
 import { AppDataProvider } from "@/lib/AppDataContext";
 import { TeamsProvider } from "@/lib/TeamsContext";
+import { DuelsProvider } from "@/lib/DuelsContext";
+import { TournamentProvider } from "@/lib/TournamentContext";
 import { FeedbackProvider } from "@/lib/FeedbackContext";
 import AppChrome from "@/components/AppChrome";
 
@@ -34,11 +36,15 @@ export default function RootLayout({
       <body className="font-body min-h-screen bg-pitch text-ink antialiased">
         <AppDataProvider>
           <UserProvider>
-            <TeamsProvider>
-              <FeedbackProvider>
-                <AppChrome>{children}</AppChrome>
-              </FeedbackProvider>
-            </TeamsProvider>
+            <DuelsProvider>
+              <TournamentProvider>
+                <TeamsProvider>
+                  <FeedbackProvider>
+                    <AppChrome>{children}</AppChrome>
+                  </FeedbackProvider>
+                </TeamsProvider>
+              </TournamentProvider>
+            </DuelsProvider>
           </UserProvider>
         </AppDataProvider>
       </body>

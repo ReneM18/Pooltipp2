@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Match, Team } from "@/lib/types";
 import { TipResultTier } from "@/lib/poolScore";
 import { flagEmoji } from "@/lib/flags";
+import { generateTickerEvents } from "@/lib/liveTicker";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
@@ -90,7 +91,10 @@ export default function MatchCard({
   // Vorwarnung in der letzten Minute vor Tippschluss, damit das Formular
   // nicht kommentarlos mitten beim Ausfüllen verschwindet.
   const [closingSoon, setClosingSoon] = useState(false);
-  const { getCommentsForMatch, addComment, removeComment, toggleCommentLike } = useAppData();
+  const { getCommentsForMatch, addComment, removeComment, toggleCommentLike, myBonusAnswers, submitBonusAnswer } =
+    useAppData();
+  const [bonusPick, setBonusPick] = useState<number | null>(null);
+  const myBonusAnswer = myBonusAnswers.find((a) => a.matchId === match.id);
   const { displayName } = useUser();
   const { showToast, celebrate } = useFeedback();
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -146,6 +150,13 @@ export default function MatchCard({
     if (submittedRef.current) return;
     submittedRef.current = true;
     setSubmitting(true);
+
+    // Bonusfrage ist optional und blockiert die eigentliche Tipp-Abgabe
+    // nicht – nur wenn eine Auswahl getroffen wurde UND noch keine Antwort
+    // existiert, wird sie zusammen mit dem Tipp mit abgeschickt.
+    if (match.bonusQuestion && bonusPick !== null && !myBonusAnswer) {
+      submitBonusAnswer(match.id, bonusPick);
+    }
 
     if (isOneXTwo) {
       if (!nflPick) {
@@ -259,6 +270,40 @@ export default function MatchCard({
               </div>
             )}
 
+            {match.bonusQuestion && (
+              <div className="mb-5 rounded-lg border border-gold/30 bg-gold/5 px-4 py-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                    <span aria-hidden>🎁</span> {match.bonusQuestion.question}
+                  </span>
+                  <span className="shrink-0 text-xs font-semibold text-gold">
+                    +{match.bonusQuestion.bonusStars} Sterne
+                  </span>
+                </div>
+                {myBonusAnswer ? (
+                  <p className="text-xs text-muted">
+                    Deine Antwort: <span className="text-ink">{match.bonusQuestion.options[myBonusAnswer.optionIndex]}</span>
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {match.bonusQuestion.options.map((option, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setBonusPick(i)}
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                          bonusPick === i
+                            ? "border-gold bg-gold/20 text-gold"
+                            : "border-edge bg-pitch text-muted hover:text-ink"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="mb-5 flex items-center justify-between rounded-lg border border-edge bg-pitch px-4 py-2.5">
               <span className="text-sm text-muted">Einsatz für dieses Spiel</span>
               <span className="flex items-center gap-1 font-display font-semibold text-gold">
@@ -294,7 +339,31 @@ export default function MatchCard({
 
             {hasTipped && myTip?.evaluated && <PoolScoreResultBox myTip={myTip!} />}
 
-            <ResultBox match={match} />
+            {match.bonusQuestion && myBonusAnswer && (
+              <div
+                className={`flex items-center justify-between rounded-lg border px-4 py-2.5 ${
+                  myBonusAnswer.evaluated
+                    ? myBonusAnswer.correct
+                      ? "border-gold bg-gold/10"
+                      : "border-edge bg-pitch"
+                    : "border-gold/30 bg-gold/5"
+                }`}
+              >
+                <span className="text-sm text-muted">
+                  🎁 {match.bonusQuestion.question} ·{" "}
+                  <span className="text-ink">{match.bonusQuestion.options[myBonusAnswer.optionIndex]}</span>
+                </span>
+                {myBonusAnswer.evaluated ? (
+                  <span className={`shrink-0 font-display text-sm font-bold ${myBonusAnswer.correct ? "text-gold" : "text-muted"}`}>
+                    {myBonusAnswer.correct ? `✓ +${myBonusAnswer.starsDelta}` : "✗"}
+                  </span>
+                ) : (
+                  <span className="shrink-0 text-xs text-muted">wartet auf Auswertung</span>
+                )}
+              </div>
+            )}
+
+            <ResultBox match={match} homeTeam={homeTeam} awayTeam={awayTeam} />
 
             {!hasTipped && tippingClosed && (
               <p className="text-center text-xs text-muted">
@@ -440,15 +509,45 @@ function PoolScoreResultBox({ myTip }: { myTip: MyTip }) {
   );
 }
 
-function ResultBox({ match }: { match: Match }) {
+function ResultBox({ match, homeTeam, awayTeam }: { match: Match; homeTeam: Team; awayTeam: Team }) {
   if (match.status === "live") {
+    // Live-Ticker-Gefühl: nur bei Fußball, weil Tor/Karte dort die
+    // gewohnten Begriffe sind – bei den anderen Sportarten bleibt es beim
+    // schlichten LIVE-Badge, statt falsche Fußball-Begriffe zu verwenden.
+    const events =
+      match.sport === "Fußball"
+        ? generateTickerEvents(match.id, match.liveHomeScore ?? 0, match.liveAwayScore ?? 0)
+        : [];
+    const eventLabel: Record<string, string> = {
+      tor: "Tor für",
+      gelb: "Gelbe Karte:",
+      rot: "Rote Karte:",
+    };
+    const eventIcon: Record<string, string> = { tor: "⚽", gelb: "🟨", rot: "🟥" };
+
     return (
-      <div className="flex items-center justify-center gap-3 rounded-lg border border-action bg-action/10 px-4 py-3">
-        <span className="flex h-2 w-2 animate-pulse rounded-full bg-action" />
-        <span className="font-display text-sm font-semibold text-action">LIVE</span>
-        <span className="font-display text-xl font-bold text-ink">
-          {match.liveHomeScore ?? 0} : {match.liveAwayScore ?? 0}
-        </span>
+      <div className="flex flex-col gap-2 rounded-lg border border-action bg-action/10 px-4 py-3">
+        <div className="flex items-center justify-center gap-3">
+          <span className="flex h-2 w-2 animate-pulse rounded-full bg-action" />
+          <span className="font-display text-sm font-semibold text-action">LIVE</span>
+          <span className="font-display text-xl font-bold text-ink">
+            {match.liveHomeScore ?? 0} : {match.liveAwayScore ?? 0}
+          </span>
+        </div>
+        {events.length > 0 && (
+          <div className="flex flex-col gap-1 border-t border-action/20 pt-2">
+            {events.map((event, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs">
+                <span className="w-7 shrink-0 text-right font-display text-muted">{event.minute}&apos;</span>
+                <span aria-hidden>{eventIcon[event.type]}</span>
+                <span className="text-muted">
+                  {eventLabel[event.type]}{" "}
+                  <span className="text-ink">{event.team === "home" ? homeTeam.name : awayTeam.name}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }

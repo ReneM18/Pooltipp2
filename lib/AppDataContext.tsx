@@ -29,6 +29,16 @@ export interface NewsItem {
   createdAt: string;
 }
 
+export interface SubmittedBonusAnswer {
+  id: string;
+  matchId: string;
+  optionIndex: number;
+  submittedAt: string;
+  evaluated?: boolean;
+  correct?: boolean;
+  starsDelta?: number;
+}
+
 export interface Comment {
   id: string;
   matchId: string;
@@ -258,6 +268,14 @@ interface AppDataContextValue {
   setSummaryVideo: (matchId: string, url: string) => void;
   setTvChannel: (matchId: string, channel: string) => void;
   setTipMode: (matchId: string, mode: TipMode) => void;
+  // Bonusfrage: Admin legt Frage+Optionen an (oder entfernt sie wieder mit
+  // question:null), setzt später die richtige Antwort separat vom Endstand,
+  // weil beides zu unterschiedlichen Zeitpunkten feststehen kann.
+  setBonusQuestion: (matchId: string, question: string | null, options: string[], bonusStars: number) => void;
+  setBonusQuestionAnswer: (matchId: string, correctOptionIndex: number) => void;
+  myBonusAnswers: SubmittedBonusAnswer[];
+  submitBonusAnswer: (matchId: string, optionIndex: number) => void;
+  markBonusAnswerEvaluated: (id: string, result: { correct: boolean; starsDelta: number }) => void;
   newsItems: NewsItem[];
   addNews: (text: string, sport: Sport | null, article: string | null) => void;
   updateNews: (id: string, text: string, sport: Sport | null, article: string | null) => void;
@@ -288,6 +306,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     NHL: 0,
   });
   const [myTips, setMyTips] = useState<SubmittedTip[]>([]);
+  const [myBonusAnswers, setMyBonusAnswers] = useState<SubmittedBonusAnswer[]>([]);
   const [newsItems, setNewsItems] = useState<NewsItem[]>(initialNews);
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [activity, setActivity] = useState<ActivityItem[]>(initialActivity);
@@ -419,6 +438,50 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  // question:null entfernt eine bestehende Bonusfrage wieder komplett.
+  function setBonusQuestion(matchId: string, question: string | null, options: string[], bonusStars: number) {
+    setMatches((current) =>
+      current.map((m) =>
+        m.id === matchId
+          ? {
+              ...m,
+              bonusQuestion: question
+                ? { question, options, correctOptionIndex: null, bonusStars }
+                : null,
+            }
+          : m
+      )
+    );
+  }
+
+  // Setzt die richtige Antwort separat vom Endstand (die Bonusfrage muss
+  // nicht zwingend zum Abpfiff schon feststehen, z. B. "Wer schießt das
+  // erste Tor?" steht oft schon vor Spielende fest).
+  function setBonusQuestionAnswer(matchId: string, correctOptionIndex: number) {
+    setMatches((current) =>
+      current.map((m) =>
+        m.id === matchId && m.bonusQuestion
+          ? { ...m, bonusQuestion: { ...m.bonusQuestion, correctOptionIndex } }
+          : m
+      )
+    );
+  }
+
+  function submitBonusAnswer(matchId: string, optionIndex: number) {
+    setMyBonusAnswers((current) => [
+      ...current,
+      { id: `bonus-${Date.now()}`, matchId, optionIndex, submittedAt: new Date().toISOString() },
+    ]);
+  }
+
+  function markBonusAnswerEvaluated(id: string, result: { correct: boolean; starsDelta: number }) {
+    setMyBonusAnswers((current) =>
+      current.map((a) =>
+        a.id === id ? { ...a, evaluated: true, correct: result.correct, starsDelta: result.starsDelta } : a
+      )
+    );
+  }
+
   function addNews(text: string, sport: Sport | null, article: string | null) {
     const id = `news-${Date.now()}`;
     setNewsItems((current) => [
@@ -505,6 +568,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setSummaryVideo,
         setTvChannel,
         setTipMode,
+        setBonusQuestion,
+        setBonusQuestionAnswer,
+        myBonusAnswers,
+        submitBonusAnswer,
+        markBonusAnswerEvaluated,
         newsItems,
         addNews,
         updateNews,

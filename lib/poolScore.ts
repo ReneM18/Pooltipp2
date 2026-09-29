@@ -291,6 +291,23 @@ export const INACTIVITY_GRACE_DAYS = 14;
 /** Danach: so viele Punkte Abzug pro weiterer inaktiver Woche (langsam, betrifft alle Ränge). */
 export const INACTIVITY_DECAY_PER_WEEK = 5;
 
+// ============================================================================
+// Tipp-Streak
+// ============================================================================
+
+/**
+ * Meilensteine für die Tipp-Streak ("X Tage in Folge getippt"): bei jedem
+ * erreichten Meilenstein gibt's einmalig einen Sterne-Bonus obendrauf. Ein
+ * Tag zählt, sobald an ihm mindestens ein Tipp abgegeben wurde – bleibt ein
+ * Kalendertag komplett ohne Tipp, reißt die Serie und beginnt wieder bei 1.
+ */
+export const STREAK_MILESTONES: { days: number; bonusStars: number }[] = [
+  { days: 3, bonusStars: 10 },
+  { days: 5, bonusStars: 15 },
+  { days: 10, bonusStars: 30 },
+  { days: 20, bonusStars: 60 },
+];
+
 export function daysBetween(aIso: string, bIso: string): number {
   const a = new Date(aIso).getTime();
   const b = new Date(bIso).getTime();

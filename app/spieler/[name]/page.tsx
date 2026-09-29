@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import { mockLeaderboard } from "@/lib/mockLeaderboard";
 import { getMockUserProfile } from "@/lib/mockUsers";
@@ -91,6 +92,14 @@ export default function SpielerProfilPage() {
             >
               {isPending ? "Ausstehend…" : "Anfrage senden"}
             </button>
+          )}
+          {isFriend && (
+            <Link
+              href="/duelle"
+              className="shrink-0 rounded-full bg-gold px-4 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:opacity-90"
+            >
+              ⚔️ Herausfordern
+            </Link>
           )}
         </div>
       )}

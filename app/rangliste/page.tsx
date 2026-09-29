@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { mockLeaderboard, mockLeaderboardBySport, LeaderboardEntry } from "@/lib/mockLeaderboard";
 import { SPORTS, Sport } from "@/lib/types";
 import { getTierForPoints, RANK_COLORS, RANK_TITLES, SPORT_EMOJI, getIconForName } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
 import { useUser } from "@/lib/UserContext";
+import { useAppData } from "@/lib/AppDataContext";
+import { getCurrentWeekWindow, getSimulatedWeeklyEntries, sumWeeklyRangDelta } from "@/lib/weeklyLeaderboard";
 
 const sportIcon: Record<Sport, string> = {
   "Fußball": "⚽",
@@ -15,23 +17,46 @@ const sportIcon: Record<Sport, string> = {
   NHL: "🏒",
 };
 
-type ViewTab = "Gesamt" | Sport;
+type ViewTab = "Gesamt" | "Spieltag" | Sport;
 
-const TABS: ViewTab[] = ["Gesamt", ...SPORTS];
+const TABS: ViewTab[] = ["Gesamt", "Spieltag", ...SPORTS];
 
 export default function RanglistePage() {
   const [tab, setTab] = useState<ViewTab>("Gesamt");
   const { rangPunkte, displayName } = useUser();
+  const { myTips } = useAppData();
 
   // Die "Gesamt"-Ansicht bleibt eine separate Mock-Zahl (kein sinnvoller
   // Summenwert über Sportarten hinweg). In den Sport-Ansichten wird der
   // eigene Eintrag live mit den PoolScore-Rangliste-Punkten aktualisiert und
   // die Tabelle neu sortiert, damit man nach einer Auswertung sofort sieht,
   // wo man jetzt steht.
-  const baseEntries: LeaderboardEntry[] = tab === "Gesamt" ? mockLeaderboard : mockLeaderboardBySport[tab];
+  const baseEntries: LeaderboardEntry[] =
+    tab === "Gesamt" || tab === "Spieltag" ? mockLeaderboard : mockLeaderboardBySport[tab];
+
+  // Spieltags-Rangliste: nur die Rangpunkte-Änderung aus dieser Kalenderwoche
+  // zählt, mit Countdown bis zum Reset – siehe lib/weeklyLeaderboard.ts.
+  const weekWindow = getCurrentWeekWindow();
+  const weeklyEntries: LeaderboardEntry[] =
+    tab === "Spieltag"
+      ? [
+          ...getSimulatedWeeklyEntries(weekWindow.start),
+          { name: displayName, points: sumWeeklyRangDelta(myTips, weekWindow) },
+        ]
+          .sort((a, b) => b.points - a.points)
+          .map((entry, index) => ({
+            rank: index + 1,
+            name: entry.name,
+            points: entry.points,
+            isCurrentUser: entry.name === displayName,
+          }))
+      : [];
+
   const entries: LeaderboardEntry[] =
     tab === "Gesamt"
       ? baseEntries.map((entry) => (entry.isCurrentUser ? { ...entry, name: displayName } : entry))
+      : tab === "Spieltag"
+      ? weeklyEntries
       : [...baseEntries]
           // Beim eigenen Eintrag IMMER auch den aktuellen Anzeigenamen
           // einsetzen (nicht nur die Punkte) – sonst zeigt die Rangliste nach
@@ -46,10 +71,16 @@ export default function RanglistePage() {
     <main className="mx-auto max-w-3xl px-5 py-8">
       <div className="mb-4">
         <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Rangliste</h1>
-        <p className="mt-0.5 text-xs text-muted">Wird jeden Monat zurückgesetzt.</p>
+        {tab === "Spieltag" ? (
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
+            Zählt nur Punkte dieser Woche · <WeeklyCountdown target={weekWindow.end.getTime()} />
+          </p>
+        ) : (
+          <p className="mt-0.5 text-xs text-muted">Wird jeden Monat zurückgesetzt.</p>
+        )}
       </div>
 
-      {/* Tab-Umschalter: Gesamt + je Sportart */}
+      {/* Tab-Umschalter: Gesamt + Spieltag + je Sportart */}
       <div className="mb-5 flex gap-2 overflow-x-auto">
         {TABS.map((t) => (
           <button
@@ -61,7 +92,8 @@ export default function RanglistePage() {
                 : "border-edge bg-surface text-muted hover:text-ink"
             }`}
           >
-            {t !== "Gesamt" && <span>{sportIcon[t as Sport]}</span>}
+            {t === "Spieltag" && <span aria-hidden>⏱️</span>}
+            {t !== "Gesamt" && t !== "Spieltag" && <span>{sportIcon[t as Sport]}</span>}
             {t}
           </button>
         ))}
@@ -80,7 +112,7 @@ export default function RanglistePage() {
               <NameAvatar name={entry.name} rank={entry.rank} />
               <RankBadge
                 option={
-                  tab === "Gesamt"
+                  tab === "Gesamt" || tab === "Spieltag"
                     ? getIconForName(entry.name)
                     : {
                         id: `${tab}-${entry.rank}`,
@@ -144,6 +176,29 @@ const PODIUM_RING: Record<number, string> = {
   2: "ring-2 ring-muted/60",
   3: "ring-2 ring-[#CD7F32]/70",
 };
+
+// Countdown bis zum wöchentlichen Reset der Spieltags-Rangliste (Montag
+// 00:00). Eigene, kleine Komponente statt components/Countdown.tsx, weil
+// deren Text ("schließt in…", "Tippannahme geschlossen") auf Tipp-Fristen
+// zugeschnitten ist, nicht auf einen Ranglisten-Reset.
+function WeeklyCountdown({ target }: { target: number }) {
+  const [remaining, setRemaining] = useState(() => target - Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setRemaining(target - Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [target]);
+
+  if (remaining <= 0) return <span>wird gerade zurückgesetzt…</span>;
+  const totalMinutes = Math.floor(remaining / 60000);
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) return <span>endet in {days}T {hours}h</span>;
+  if (hours > 0) return <span>endet in {hours}h {minutes}m</span>;
+  return <span>endet in {minutes}m</span>;
+}
 
 function NameAvatar({ name, rank }: { name: string; rank: number }) {
   const ring = PODIUM_RING[rank] ?? "";

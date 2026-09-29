@@ -45,12 +45,26 @@ export default function NavTabs() {
           );
         })}
 
-        <Link
-          href="/teams"
-          className="my-1.5 ml-auto flex shrink-0 items-center rounded-full bg-blue-500 px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
-        >
-          Tipprunden →
-        </Link>
+        <div className="my-1.5 ml-auto flex shrink-0 items-center gap-1.5">
+          <Link
+            href="/duelle"
+            className="flex shrink-0 items-center rounded-full bg-gold px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:opacity-90"
+          >
+            Duelle →
+          </Link>
+          <Link
+            href="/teams"
+            className="flex shrink-0 items-center rounded-full bg-blue-500 px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
+          >
+            Tipprunden →
+          </Link>
+          <Link
+            href="/turnier"
+            className="flex shrink-0 items-center rounded-full bg-violet-500 px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-violet-400"
+          >
+            Turniere →
+          </Link>
+        </div>
       </div>
 
       {/* Deutet an, dass sich die Leiste noch weiter wischen lässt (z. B.

@@ -27,6 +27,17 @@ export type MatchStatus = "upcoming" | "live" | "finished";
 // "1x2" = User tippt nur Heimsieg / Unentschieden / Auswärtssieg.
 export type TipMode = "score" | "1x2";
 
+// Optionale Zusatzfrage neben dem Ergebnis-Tipp (z. B. "Wer schießt das
+// erste Tor?"). correctOptionIndex ist null, solange der Admin die richtige
+// Antwort noch nicht gesetzt hat – erst dann werden abgegebene Antworten
+// ausgewertet (siehe UserContext.evaluateBonusAnswerForCurrentUser).
+export interface BonusQuestion {
+  question: string;
+  options: string[]; // 2–4 Antwortoptionen
+  correctOptionIndex: number | null;
+  bonusStars: number; // Sterne-Bonus bei richtiger Antwort
+}
+
 export interface Match {
   id: string;
   sport: Sport;
@@ -43,6 +54,7 @@ export interface Match {
   summaryVideoUrl: string | null; // z. B. YouTube-Link zur Spiel-Zusammenfassung
   tvChannel: string | null; // z. B. "Sky", "DAZN", "ORF1" – wo das Spiel live läuft
   tipMode: TipMode; // vom Admin pro Spiel frei wählbar, unabhängig von der Sportart
+  bonusQuestion?: BonusQuestion | null; // optional, vom Admin pro Spiel angelegt
 }
 
 export interface Tip {

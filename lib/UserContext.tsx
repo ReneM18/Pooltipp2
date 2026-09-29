@@ -18,6 +18,7 @@ import {
   DAILY_STAKE_BUDGET,
   RESCUE_BONUS_STARS,
   LOW_STARS_THRESHOLD,
+  STREAK_MILESTONES,
 } from "@/lib/poolScore";
 
 const SPORT_ICON: Record<Sport, string> = { "Fußball": "⚽", NFL: "🏈", NBA: "🏀", NHL: "🏒" };
@@ -61,6 +62,10 @@ interface UserContextValue {
   // nie mehr als das vorhandene Guthaben – ein User mit 0 Sternen kann so
   // trotzdem mit Einsatz 0 weiter mittippen, statt komplett ausgeschlossen zu sein).
   spendStars: (amount: number) => number;
+  // Gegenstück zu spendStars – schreibt Sterne gut (z. B. Duell-Gewinn).
+  // Bewusst öffentlich statt nur intern, damit auch DuelsContext Gewinne
+  // gutschreiben kann, ohne den internen starsState-Setter zu kennen.
+  creditStars: (amount: number) => void;
   // Sterne, die heute schon eingesetzt wurden bzw. noch bis zum Tages-Limit
   // eingesetzt werden können – unabhängig davon, wie viele Spiele heute
   // angeboten werden (siehe DAILY_STAKE_BUDGET).
@@ -83,8 +88,15 @@ interface UserContextValue {
     actualHome: number,
     actualAway: number
   ) => void;
+  // Wertet die eigene (noch offene) Bonusfrage-Antwort zu diesem Spiel aus,
+  // sobald der Admin die richtige Antwort gesetzt hat – tut nichts, wenn es
+  // keine offene Antwort gibt oder noch keine richtige Antwort feststeht.
+  evaluateBonusAnswerForCurrentUser: (matchId: string) => void;
   tipsSubmitted: number;
   recordTipSubmitted: () => void;
+  // Anzahl aufeinanderfolgender Tage mit mindestens einem abgegebenen Tipp
+  // (siehe STREAK_MILESTONES in lib/poolScore.ts für die Sterne-Boni).
+  streakCount: number;
   friends: string[];
   addFriend: (name: string) => void;
   removeFriend: (name: string) => void;
@@ -116,7 +128,8 @@ interface UserContextValue {
 const UserContext = createContext<UserContextValue | null>(null);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const { addActivity, myTips, markTipEvaluated, matches } = useAppData();
+  const { addActivity, myTips, markTipEvaluated, matches, myBonusAnswers, markBonusAnswerEvaluated } =
+    useAppData();
   const [userId] = useState(generateUserId);
   const [displayName, setDisplayName] = useState(mockUser.displayName);
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
@@ -175,6 +188,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }
 
   const [tipsSubmitted, setTipsSubmitted] = useState(0);
+  // Ein Objekt statt getrennter useStates (gleiches Muster wie starsState),
+  // damit recordTipSubmitted bei schnell aufeinanderfolgenden Tipps immer
+  // mit einem konsistenten Stand rechnet.
+  const [streakState, setStreakState] = useState({
+    count: 0,
+    lastTipDate: null as string | null,
+    claimedMilestones: [] as number[],
+  });
   const [friends, setFriends] = useState<string[]>(["Sabine K.", "Marco T."]);
   const [pendingRequests, setPendingRequests] = useState<string[]>([]);
   const [photoVisibility, setPhotoVisibility] = useState<PhotoVisibility>("friends");
@@ -249,6 +270,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
 
     return actual;
+  }
+
+  function creditStars(amount: number) {
+    if (amount <= 0) return;
+    setStarsState((current) => ({ ...current, freeStars: current.freeStars + amount }));
   }
 
   const stakeBudgetRemainingToday =
@@ -391,8 +417,73 @@ export function UserProvider({ children }: { children: ReactNode }) {
     addActivity(SPORT_ICON[sport], narration);
   }
 
+  function evaluateBonusAnswerForCurrentUser(matchId: string) {
+    const answer = [...myBonusAnswers].reverse().find((a) => a.matchId === matchId && !a.evaluated);
+    if (!answer) return;
+
+    const match = matches.find((m) => m.id === matchId);
+    if (!match?.bonusQuestion || match.bonusQuestion.correctOptionIndex === null) return;
+
+    const correct = answer.optionIndex === match.bonusQuestion.correctOptionIndex;
+    const starsDelta = correct ? match.bonusQuestion.bonusStars : 0;
+
+    if (starsDelta > 0) {
+      setStarsState((current) => ({ ...current, freeStars: current.freeStars + starsDelta }));
+    }
+
+    markBonusAnswerEvaluated(answer.id, { correct, starsDelta });
+
+    addActivity(
+      correct ? "🎁" : "🤔",
+      correct
+        ? `🎁 Bonusfrage richtig beantwortet – +${starsDelta} Sterne!`
+        : "Bonusfrage leider daneben – kein Sterne-Bonus diesmal."
+    );
+  }
+
   function recordTipSubmitted() {
     setTipsSubmitted((current) => current + 1);
+
+    // Tipp-Streak fortschreiben: derselbe Kalendertag zählt nur einmal, der
+    // Folgetag verlängert die Serie, ein übersprungener Tag setzt sie zurück
+    // auf 1. Meilenstein-Bonus wird außerhalb des Updaters vergeben (addActivity
+    // ist kein State-Setter und gehört da nicht rein – gleiches Muster wie der
+    // Rettungs-Bonus in spendStars).
+    const now = new Date().toISOString();
+    let milestoneBonus = 0;
+    let milestoneDays = 0;
+
+    setStreakState((current) => {
+      if (current.lastTipDate && isSameDay(current.lastTipDate, now)) {
+        return { ...current, lastTipDate: now };
+      }
+      const isNextDay = current.lastTipDate !== null && daysBetween(current.lastTipDate, now) === 1;
+      const nextCount = isNextDay ? current.count + 1 : 1;
+
+      const milestone = STREAK_MILESTONES.find(
+        (m) => m.days === nextCount && !current.claimedMilestones.includes(m.days)
+      );
+      if (milestone) {
+        milestoneBonus = milestone.bonusStars;
+        milestoneDays = milestone.days;
+      }
+
+      return {
+        count: nextCount,
+        lastTipDate: now,
+        claimedMilestones: milestone
+          ? [...current.claimedMilestones, milestone.days]
+          : current.claimedMilestones,
+      };
+    });
+
+    if (milestoneBonus > 0) {
+      setStarsState((current) => ({ ...current, freeStars: current.freeStars + milestoneBonus }));
+      addActivity(
+        "🔥",
+        `${milestoneDays} Spieltage in Folge getippt – +${milestoneBonus} Sterne Bonus!`
+      );
+    }
   }
 
   function addFriend(name: string) {
@@ -460,12 +551,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
         canClaimDailyBonus,
         claimDailyBonus,
         spendStars,
+        creditStars,
         stakeBudgetRemainingToday,
         isLowOnStars,
         evaluateMatchForCurrentUser,
         correctMatchEvaluationForCurrentUser,
+        evaluateBonusAnswerForCurrentUser,
         tipsSubmitted,
         recordTipSubmitted,
+        streakCount: streakState.count,
         friends,
         addFriend,
         removeFriend,

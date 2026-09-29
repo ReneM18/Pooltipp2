@@ -3,7 +3,11 @@
 import { useState, FormEvent } from "react";
 import { useAppData, NewsItem } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
-import { Sport, SPORTS, JerseyStyle, JERSEY_STYLES, Match, MatchStatus, TipMode } from "@/lib/types";
+import { useDuels } from "@/lib/DuelsContext";
+import { useTournaments } from "@/lib/TournamentContext";
+import { Tournament } from "@/lib/tournamentTypes";
+import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
+import { Sport, SPORTS, JerseyStyle, JERSEY_STYLES, Match, MatchStatus, TipMode, Team } from "@/lib/types";
 import { COUNTRIES, flagEmoji } from "@/lib/flags";
 import TeamBadge from "@/components/TeamBadge";
 
@@ -30,6 +34,7 @@ export default function AdminPage() {
       <div className="flex flex-col gap-10">
         <TeamManager />
         <MatchManager />
+        <TournamentManager />
         <NewsManager />
       </div>
     </main>
@@ -483,8 +488,20 @@ function MatchManager() {
     setSummaryVideo,
     setTvChannel,
     setTipMode,
+    setBonusQuestion,
+    setBonusQuestionAnswer,
   } = useAppData();
-  const { evaluateMatchForCurrentUser, correctMatchEvaluationForCurrentUser } = useUser();
+  const {
+    evaluateMatchForCurrentUser,
+    correctMatchEvaluationForCurrentUser,
+    evaluateBonusAnswerForCurrentUser,
+  } = useUser();
+  const { resolveDuelsForMatch } = useDuels();
+
+  function handleBonusAnswer(matchId: string, correctOptionIndex: number) {
+    setBonusQuestionAnswer(matchId, correctOptionIndex);
+    evaluateBonusAnswerForCurrentUser(matchId);
+  }
 
   // Sobald ein Spiel hier auf "Beendet" gesetzt wird, löst das direkt die
   // PoolScore-Auswertung des eigenen Tipps aus (Rangliste-Punkte, Sterne,
@@ -511,6 +528,9 @@ function MatchManager() {
       } else if (scoreChanged) {
         correctMatchEvaluationForCurrentUser(matchId, match.sport, homeScore, awayScore);
       }
+      // Löst auch offene Kopf-an-Kopf-Duelle zu diesem Spiel aus – tut
+      // nichts, wenn es keine gibt oder sie schon ausgewertet sind.
+      resolveDuelsForMatch(matchId, homeScore, awayScore);
     }
   }
 
@@ -760,6 +780,7 @@ function MatchManager() {
                 <LiveScoreEditor match={match} onUpdate={handleScoreUpdate} />
                 <TvChannelEditor match={match} onSave={setTvChannel} />
                 <VideoLinkEditor match={match} onSave={setSummaryVideo} />
+                <BonusQuestionEditor match={match} onSave={setBonusQuestion} onSetAnswer={handleBonusAnswer} />
                 <button
                   onClick={() => removeMatch(match.id)}
                   className="text-xs text-muted hover:text-ink"
@@ -850,6 +871,127 @@ function VideoLinkEditor({
   );
 }
 
+// Bonusfrage: Anlegen/Bearbeiten der Frage+Optionen UND separat das Setzen
+// der richtigen Antwort (die steht oft erst nach Anlegen der Frage fest,
+// manchmal schon vor Spielende) – deshalb zwei getrennte Aktionen in einem
+// Editor statt in der Spiel-Anlegen-Form, wo der richtige Zeitpunkt für
+// beides noch nicht feststeht.
+function BonusQuestionEditor({
+  match,
+  onSave,
+  onSetAnswer,
+}: {
+  match: Match;
+  onSave: (matchId: string, question: string | null, options: string[], bonusStars: number) => void;
+  onSetAnswer: (matchId: string, correctOptionIndex: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [question, setQuestionText] = useState(match.bonusQuestion?.question ?? "");
+  const [optionsText, setOptionsText] = useState(match.bonusQuestion?.options.join(", ") ?? "");
+  const [bonusStars, setBonusStars] = useState(String(match.bonusQuestion?.bonusStars ?? 10));
+  const [answerIndex, setAnswerIndex] = useState(match.bonusQuestion?.correctOptionIndex ?? 0);
+
+  function handleSave() {
+    const options = optionsText
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean);
+    if (!question.trim() || options.length < 2) return;
+    onSave(match.id, question.trim(), options, Math.max(1, Number(bonusStars) || 10));
+  }
+
+  function handleRemove() {
+    onSave(match.id, null, [], 0);
+    setQuestionText("");
+    setOptionsText("");
+    setEditing(false);
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        onClick={() => setEditing((v) => !v)}
+        className={`rounded-lg px-2 py-1 text-xs font-semibold transition-colors ${
+          match.bonusQuestion ? "bg-gold/15 text-gold" : "bg-surface-hover text-ink hover:text-gold"
+        }`}
+      >
+        {match.bonusQuestion ? "Bonusfrage ✓" : "+ Bonusfrage"}
+      </button>
+
+      {editing && (
+        <div className="w-full rounded-lg border border-edge bg-pitch p-3">
+          <div className="mb-2 flex flex-col gap-2 sm:flex-row">
+            <input
+              value={question}
+              onChange={(e) => setQuestionText(e.target.value)}
+              placeholder="z. B. Wer schießt das erste Tor?"
+              className="flex-1 rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+            />
+            <input
+              value={optionsText}
+              onChange={(e) => setOptionsText(e.target.value)}
+              placeholder="Optionen, mit Komma getrennt"
+              className="flex-1 rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+            />
+            <input
+              type="number"
+              min={1}
+              value={bonusStars}
+              onChange={(e) => setBonusStars(e.target.value)}
+              title="Sterne-Bonus bei richtiger Antwort"
+              className="w-20 rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleSave}
+              className="rounded-lg bg-action px-3 py-1 text-xs font-semibold text-pitch transition-colors hover:bg-action-hover"
+            >
+              Speichern
+            </button>
+            {match.bonusQuestion && (
+              <button
+                onClick={handleRemove}
+                className="rounded-lg border border-edge px-3 py-1 text-xs text-muted transition-colors hover:text-red-400"
+              >
+                Entfernen
+              </button>
+            )}
+          </div>
+
+          {match.bonusQuestion && (
+            <div className="mt-3 border-t border-edge pt-2">
+              <p className="mb-1.5 text-xs text-muted">
+                Richtige Antwort
+                {match.bonusQuestion.correctOptionIndex !== null ? " (schon gesetzt, überschreiben?)" : " festlegen"}:
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <select
+                  value={answerIndex}
+                  onChange={(e) => setAnswerIndex(Number(e.target.value))}
+                  className="rounded-lg border border-edge bg-surface px-2 py-1 text-xs text-ink outline-none focus:border-gold"
+                >
+                  {match.bonusQuestion.options.map((opt, i) => (
+                    <option key={i} value={i}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => onSetAnswer(match.id, answerIndex)}
+                  className="rounded-lg bg-action px-3 py-1 text-xs font-semibold text-pitch transition-colors hover:bg-action-hover"
+                >
+                  Übernehmen
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LiveScoreEditor({
   match,
   onUpdate,
@@ -902,6 +1044,297 @@ function LiveScoreEditor({
       >
         {match.status === "finished" ? "Korrigieren" : "OK"}
       </button>
+    </div>
+  );
+}
+
+// Wandelt einen ISO-Zeitstempel in den String um, den ein
+// datetime-local-Input als value erwartet (lokale Zeit, ohne Offset).
+function toDatetimeLocalValue(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
+    d.getMinutes()
+  )}`;
+}
+
+const tournamentStatusLabel: Record<ReturnType<typeof getTournamentStatus>, string> = {
+  aktiv: "Aktiv",
+  kommend: "Kommend",
+  beendet: "Beendet",
+};
+
+const tournamentStatusClass: Record<ReturnType<typeof getTournamentStatus>, string> = {
+  aktiv: "border-gold bg-gold/15 text-gold",
+  kommend: "border-blue-400/60 bg-blue-400/10 text-blue-300",
+  beendet: "border-edge bg-surface-hover text-muted",
+};
+
+function TournamentManager() {
+  const { tournaments, createTournament, updateTournament, setTournamentMatches, removeTournament } =
+    useTournaments();
+  const { matches, getTeam } = useAppData();
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [icon, setIcon] = useState("🏆");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !startDate || !endDate) return;
+    createTournament(name.trim(), description.trim(), icon.trim() || "🏆", new Date(startDate).toISOString(), new Date(endDate).toISOString());
+    setName("");
+    setDescription("");
+    setIcon("🏆");
+    setStartDate("");
+    setEndDate("");
+  }
+
+  return (
+    <section>
+      <h2 className="mb-3 font-display text-xl font-semibold text-ink">Turniere</h2>
+      <p className="mb-3 text-xs text-muted">
+        Zeitlich begrenzter Sonder-Bereich (z. B. WM, EM), der eine Auswahl bestehender Spiele
+        bündelt und eine eigene, öffentliche Mini-Rangliste zeigt. Spiele werden unten je Turnier
+        einzeln zugeordnet.
+      </p>
+
+      <form
+        onSubmit={handleSubmit}
+        className="mb-4 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4"
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-xs text-muted">Name</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="z. B. Weltmeisterschaft 2026"
+              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Icon (Emoji)</label>
+            <input
+              value={icon}
+              onChange={(e) => setIcon(e.target.value)}
+              placeholder="🏆"
+              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Start</label>
+            <input
+              type="datetime-local"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+            />
+          </div>
+          <div className="sm:col-span-3">
+            <label className="mb-1 block text-xs text-muted">Beschreibung (optional)</label>
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Kurzer Hinweis, worum es bei diesem Turnier geht"
+              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Ende</label>
+            <input
+              type="datetime-local"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+            />
+          </div>
+        </div>
+        <button
+          type="submit"
+          className="self-start rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+        >
+          Turnier anlegen
+        </button>
+      </form>
+
+      <div className="flex flex-col gap-3">
+        {tournaments.length === 0 && (
+          <p className="rounded-card border border-dashed border-edge bg-surface p-4 text-center text-sm text-muted">
+            Noch keine Turniere angelegt.
+          </p>
+        )}
+        {tournaments.map((tournament) => (
+          <TournamentRow
+            key={tournament.id}
+            tournament={tournament}
+            allMatches={matches}
+            getTeam={getTeam}
+            onSave={updateTournament}
+            onSetMatches={setTournamentMatches}
+            onRemove={removeTournament}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TournamentRow({
+  tournament,
+  allMatches,
+  getTeam,
+  onSave,
+  onSetMatches,
+  onRemove,
+}: {
+  tournament: Tournament;
+  allMatches: Match[];
+  getTeam: (id: string) => Team | undefined;
+  onSave: (id: string, name: string, description: string, icon: string, startDate: string, endDate: string) => void;
+  onSetMatches: (id: string, matchIds: string[]) => void;
+  onRemove: (id: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [pickingMatches, setPickingMatches] = useState(false);
+  const [name, setName] = useState(tournament.name);
+  const [description, setDescription] = useState(tournament.description);
+  const [icon, setIcon] = useState(tournament.icon);
+  const [startDate, setStartDate] = useState(toDatetimeLocalValue(tournament.startDate));
+  const [endDate, setEndDate] = useState(toDatetimeLocalValue(tournament.endDate));
+
+  const status = getTournamentStatus(tournament);
+
+  function handleSave() {
+    if (!name.trim() || !startDate || !endDate) return;
+    onSave(tournament.id, name.trim(), description.trim(), icon.trim() || "🏆", new Date(startDate).toISOString(), new Date(endDate).toISOString());
+    setEditing(false);
+  }
+
+  function handleCancel() {
+    setName(tournament.name);
+    setDescription(tournament.description);
+    setIcon(tournament.icon);
+    setStartDate(toDatetimeLocalValue(tournament.startDate));
+    setEndDate(toDatetimeLocalValue(tournament.endDate));
+    setEditing(false);
+  }
+
+  function toggleMatch(matchId: string) {
+    const current = tournament.matchIds;
+    const next = current.includes(matchId)
+      ? current.filter((id) => id !== matchId)
+      : [...current, matchId];
+    onSetMatches(tournament.id, next);
+  }
+
+  return (
+    <div className="rounded-card border border-edge bg-surface p-4">
+      {editing ? (
+        <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="rounded-lg border border-edge bg-pitch px-2 py-1.5 text-xs text-ink outline-none focus:border-gold sm:col-span-2"
+            />
+            <input
+              value={icon}
+              onChange={(e) => setIcon(e.target.value)}
+              className="rounded-lg border border-edge bg-pitch px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+            />
+            <input
+              type="datetime-local"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="rounded-lg border border-edge bg-pitch px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+            />
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="rounded-lg border border-edge bg-pitch px-2 py-1.5 text-xs text-ink outline-none focus:border-gold sm:col-span-3"
+            />
+            <input
+              type="datetime-local"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="rounded-lg border border-edge bg-pitch px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSave}
+              className="rounded-lg bg-action px-3 py-1 text-xs font-semibold text-pitch transition-colors hover:bg-action-hover"
+            >
+              Speichern
+            </button>
+            <button onClick={handleCancel} className="rounded-lg border border-edge px-3 py-1 text-xs text-muted hover:text-ink">
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="text-lg">{tournament.icon}</span>
+            <div className="min-w-0">
+              <p className="truncate font-display text-sm font-semibold text-ink">{tournament.name}</p>
+              {tournament.description && (
+                <p className="truncate text-xs text-muted">{tournament.description}</p>
+              )}
+            </div>
+            <span
+              className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${tournamentStatusClass[status]}`}
+            >
+              {tournamentStatusLabel[status]}
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              onClick={() => setPickingMatches((v) => !v)}
+              className={`rounded-lg px-2 py-1 text-xs font-semibold transition-colors ${
+                pickingMatches ? "bg-gold/15 text-gold" : "bg-surface-hover text-ink hover:text-gold"
+              }`}
+            >
+              Spiele ({tournament.matchIds.length})
+            </button>
+            <button onClick={() => setEditing(true)} className="text-xs text-muted hover:text-gold">
+              Bearbeiten
+            </button>
+            <button onClick={() => onRemove(tournament.id)} className="text-xs text-muted hover:text-red-400">
+              Löschen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {pickingMatches && !editing && (
+        <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-edge bg-pitch p-2">
+          {allMatches.length === 0 && (
+            <p className="p-2 text-xs text-muted">Noch keine Spiele angelegt.</p>
+          )}
+          {allMatches.map((match) => {
+            const home = getTeam(match.homeTeamId);
+            const away = getTeam(match.awayTeamId);
+            const checked = tournament.matchIds.includes(match.id);
+            return (
+              <label
+                key={match.id}
+                className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-ink hover:bg-surface-hover"
+              >
+                <input type="checkbox" checked={checked} onChange={() => toggleMatch(match.id)} />
+                <span>{sportIcon[match.sport]}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {home?.name ?? "?"} vs {away?.name ?? "?"}
+                </span>
+                <span className="shrink-0 text-muted">{new Date(match.kickoff).toLocaleDateString("de-DE")}</span>
+              </label>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 
 export default function DashboardPage() {
-  const { spendStars, recordTipSubmitted } = useUser();
+  const { spendStars, recordTipSubmitted, streakCount } = useUser();
   const { matches, getTeam, tipCounts, submitTip, myTips } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [tab, setTab] = useState<"offen" | "geschlossen">("offen");
@@ -44,9 +44,19 @@ export default function DashboardPage() {
       {/* Kompakter Titel statt großer Headline + Untertitel – die Sterne-Anzahl
           steht schon oben in der Navbar, das musste hier nicht wiederholt
           werden. Spart Platz, bevor die eigentlichen Spiele kommen. */}
-      <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">
-        Spieltag
-      </h1>
+      <div className="mb-4 flex items-center gap-2.5">
+        <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">
+          Spieltag
+        </h1>
+        {streakCount > 0 && (
+          <span
+            title="Aufeinanderfolgende Tage mit mindestens einem Tipp"
+            className="flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 font-display text-xs font-bold text-gold"
+          >
+            🔥 {streakCount} {streakCount === 1 ? "Tag" : "Tage"} in Folge
+          </span>
+        )}
+      </div>
 
       <div className="mb-5 flex gap-2 border-b border-edge">
         <TabButton

@@ -31,6 +31,7 @@ export default function ProfilPage() {
     photos,
     setPhoto,
     removePhoto,
+    streakCount,
   } = useUser();
   const { matches, getTeam, myTips } = useAppData();
   const [nameInput, setNameInput] = useState(displayName);
@@ -275,6 +276,7 @@ export default function ProfilPage() {
           <StatCard label="Gratis-Sterne" value={freeStars.toLocaleString("de-DE")} accent="gold" />
           <StatCard label="Pass-XP" value={passXP.toLocaleString("de-DE")} accent="action" />
           <StatCard label="Abgegebene Tipps" value={tipsSubmitted.toLocaleString("de-DE")} accent="ink" />
+          <StatCard label="Tipp-Streak" value={`🔥 ${streakCount.toLocaleString("de-DE")}`} accent="gold" />
         </div>
         <p className="mt-3 text-xs text-muted">
           Genauere Statistiken (Trefferquote, Tipp-Verlauf) kommen, sobald Tipps dauerhaft in
