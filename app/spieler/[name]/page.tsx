@@ -7,6 +7,7 @@ import { mockLeaderboard } from "@/lib/mockLeaderboard";
 import { getMockUserProfile } from "@/lib/mockUsers";
 import { getIconForName } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
+import RankMeaningBadge from "@/components/RankMeaningBadge";
 
 export default function SpielerProfilPage() {
   const params = useParams();
@@ -51,22 +52,10 @@ export default function SpielerProfilPage() {
           <p className="text-sm text-muted">
             {leaderboardEntry ? `Platz ${leaderboardEntry.rank} in der Gesamt-Rangliste` : "Noch nicht platziert"}
           </p>
-          {/* Rang-Icon groß & deutlich als Abzeichen zeigen, statt nur als
-              winziges Eck-Icon – damit andere auf einen Blick sehen, welchen
-              Rang jemand erreicht hat. */}
-          {rankIcon && (
-            <span
-              className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 font-display text-xs font-bold"
-              style={{
-                background: `linear-gradient(135deg, ${rankIcon.colorFrom}, ${rankIcon.colorTo})`,
-                color: rankIcon.colorText,
-              }}
-            >
-              <span className="text-sm">{rankIcon.icon}</span>
-              {rankIcon.label}
-              {rankIcon.title && <span className="opacity-80">· {rankIcon.title}</span>}
-            </span>
-          )}
+          {/* Rang-Icon als kompaktes Abzeichen zeigen – die Bedeutung (Label
+              + Titel) steht nicht mehr fix daneben, sondern poppt erst bei
+              Hover/Antippen auf (siehe components/RankMeaningBadge.tsx). */}
+          {rankIcon && <RankMeaningBadge option={rankIcon} />}
         </div>
       </div>
 

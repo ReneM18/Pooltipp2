@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import RankBadge from "@/components/RankBadge";
+import SeasonFrame from "@/components/SeasonFrame";
 import { StarIcon, TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
 
 export default function Navbar() {
@@ -78,14 +79,16 @@ export default function Navbar() {
           </div>
 
           <Link href="/profil" className="relative ml-0.5 flex shrink-0 items-center">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-sm font-semibold text-muted transition-colors hover:text-ink sm:h-9 sm:w-9 sm:text-base">
-              {photos[0] ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={photos[0]} alt="Profilbild" className="h-full w-full object-cover" />
-              ) : (
-                displayName.slice(0, 1).toUpperCase()
-              )}
-            </span>
+            <SeasonFrame size={32}>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-sm font-semibold text-muted transition-colors hover:text-ink sm:h-9 sm:w-9 sm:text-base">
+                {photos[0] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={photos[0]} alt="Profilbild" className="h-full w-full object-cover" />
+                ) : (
+                  displayName.slice(0, 1).toUpperCase()
+                )}
+              </span>
+            </SeasonFrame>
             {activeRankIcon && (
               <span className="absolute -bottom-1.5 -right-1.5 rounded-full ring-[3px] ring-pitch">
                 <RankBadge option={activeRankIcon} size="xs" />
