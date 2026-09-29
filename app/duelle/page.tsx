@@ -1,14 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, FormEvent } from "react";
+import { useRef, useState, FormEvent } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useDuels } from "@/lib/DuelsContext";
 import { useFeedback } from "@/lib/FeedbackContext";
-import { xpForLevel } from "@/lib/seasonPass";
-import { Duel } from "@/lib/duelTypes";
-import { Team } from "@/lib/types";
 import { StarIcon } from "@/components/Icons";
 
 export default function DuellePage() {
@@ -154,67 +151,50 @@ export default function DuellePage() {
           const match = matches.find((m) => m.id === duel.matchId);
           const home = match ? getTeam(match.homeTeamId) : undefined;
           const away = match ? getTeam(match.awayTeamId) : undefined;
-          return <DuelRow key={duel.id} duel={duel} home={home} away={away} />;
+          return (
+            <div
+              key={duel.id}
+              className={`rounded-card border px-4 py-3.5 ${
+                duel.status === "offen"
+                  ? "border-edge bg-surface"
+                  : duel.result === "gewonnen"
+                  ? "border-gold bg-gold/10"
+                  : duel.result === "verloren"
+                  ? "border-edge bg-pitch"
+                  : "border-action/40 bg-action/5"
+              }`}
+            >
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <span className="font-display text-sm font-semibold text-ink">Du vs. {duel.opponentName}</span>
+                <span className="flex items-center gap-1 font-display text-sm font-semibold text-gold">
+                  <StarIcon className="h-3.5 w-3.5" /> {duel.stake}
+                </span>
+              </div>
+              <p className="text-xs text-muted">
+                {home?.name ?? "?"} vs {away?.name ?? "?"} · {duel.opponentName} tippt (simuliert):{" "}
+                <span className="text-ink">{duel.opponentPickLabel}</span>
+              </p>
+              {duel.status === "offen" ? (
+                <p className="mt-1.5 text-xs text-muted">Wartet auf Spielende…</p>
+              ) : (
+                <p
+                  className={`mt-1.5 text-xs font-semibold ${
+                    duel.result === "gewonnen"
+                      ? "text-gold"
+                      : duel.result === "verloren"
+                      ? "text-red-400"
+                      : "text-action"
+                  }`}
+                >
+                  {duel.result === "gewonnen" && `🏆 Gewonnen – +${(duel.starsCredited ?? 0) - duel.stake} Sterne`}
+                  {duel.result === "verloren" && `Verloren – ${duel.stake} Sterne weg`}
+                  {duel.result === "unentschieden" && "Unentschieden – Einsatz zurück"}
+                </p>
+              )}
+            </div>
+          );
         })}
       </div>
     </main>
-  );
-}
-
-function DuelRow({ duel, home, away }: { duel: Duel; home?: Team; away?: Team }) {
-  const { hasPremiumPass, passXP } = useUser();
-  const { celebrate } = useFeedback();
-
-  // Level 4 Premium: "Sieges-Animation bei gewonnenen Duellen" – einmaliger
-  // Sterne-Burst, sobald ein Duell erstmals als gewonnen erkannt wird
-  // (gleiches celebratedRef-Muster wie in components/MatchCard.tsx).
-  const celebratedRef = useRef(false);
-  useEffect(() => {
-    if (duel.result === "gewonnen" && !celebratedRef.current && hasPremiumPass && passXP >= xpForLevel(4)) {
-      celebratedRef.current = true;
-      celebrate();
-    }
-  }, [duel.result, hasPremiumPass, passXP, celebrate]);
-
-  return (
-    <div
-      className={`rounded-card border px-4 py-3.5 ${
-        duel.status === "offen"
-          ? "border-edge bg-surface"
-          : duel.result === "gewonnen"
-          ? "border-gold bg-gold/10"
-          : duel.result === "verloren"
-          ? "border-edge bg-pitch"
-          : "border-action/40 bg-action/5"
-      }`}
-    >
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="font-display text-sm font-semibold text-ink">Du vs. {duel.opponentName}</span>
-        <span className="flex items-center gap-1 font-display text-sm font-semibold text-gold">
-          <StarIcon className="h-3.5 w-3.5" /> {duel.stake}
-        </span>
-      </div>
-      <p className="text-xs text-muted">
-        {home?.name ?? "?"} vs {away?.name ?? "?"} · {duel.opponentName} tippt (simuliert):{" "}
-        <span className="text-ink">{duel.opponentPickLabel}</span>
-      </p>
-      {duel.status === "offen" ? (
-        <p className="mt-1.5 text-xs text-muted">Wartet auf Spielende…</p>
-      ) : (
-        <p
-          className={`mt-1.5 text-xs font-semibold ${
-            duel.result === "gewonnen"
-              ? "text-gold"
-              : duel.result === "verloren"
-              ? "text-red-400"
-              : "text-action"
-          }`}
-        >
-          {duel.result === "gewonnen" && `🏆 Gewonnen – +${(duel.starsCredited ?? 0) - duel.stake} Sterne`}
-          {duel.result === "verloren" && `Verloren – ${duel.stake} Sterne weg`}
-          {duel.result === "unentschieden" && "Unentschieden – Einsatz zurück"}
-        </p>
-      )}
-    </div>
   );
 }

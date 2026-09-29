@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, CSSProperties } from "react";
+import { useState } from "react";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { PASS_LEVELS, PREMIUM_PASS_PRICE } from "@/lib/passLevels";
-import { xpForLevel } from "@/lib/seasonPass";
-import { SEASON_THEME } from "@/lib/seasonTheme";
 import { SPORTS } from "@/lib/types";
 import { useFeedback } from "@/lib/FeedbackContext";
 
@@ -16,45 +14,9 @@ const sportIcon: Record<string, string> = {
   NHL: "🏒",
 };
 
-// Deterministisch simulierter Community-Durchschnitt fürs Tiefen-Statistik-
-// Feature (Level 7 Premium) – gleiches hashString+mulberry32-Muster wie in
-// lib/communityTips.ts / lib/poolScore.ts, hier lokal gehalten, da nur eine
-// einzelne Zahl pro Sportart gebraucht wird.
-function hashString(input: string): number {
-  let h = 0;
-  for (let i = 0; i < input.length; i++) {
-    h = (Math.imul(h, 31) + input.charCodeAt(i)) | 0;
-  }
-  return h >>> 0;
-}
-
-function mulberry32(seed: number): () => number {
-  let state = seed;
-  return function () {
-    state |= 0;
-    state = (state + 0x6d2b79f5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function communityHitRateForSport(sport: string): number {
-  const rand = mulberry32(hashString(`community-hitrate-${sport}`));
-  return 28 + Math.round(rand() * 24); // 28–52 % – plausible Trefferquote für "exakt"
-}
-
 export default function FortschrittPage() {
-  const {
-    passXP,
-    hasPremiumPass,
-    buyPremiumPass,
-    canClaimDailyBonus,
-    claimDailyBonus,
-    customFrameColors,
-    setCustomFrameColors,
-  } = useUser();
-  const { tipsBySport, myTips, matches } = useAppData();
+  const { passXP, hasPremiumPass, buyPremiumPass, canClaimDailyBonus, claimDailyBonus } = useUser();
+  const { tipsBySport } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [purchasing, setPurchasing] = useState(false);
 
@@ -82,23 +44,6 @@ export default function FortschrittPage() {
     ? Math.round(((passXP - currentLevel.xpRequired) / (nextLevel.xpRequired - currentLevel.xpRequired)) * 100)
     : 100;
 
-  // Premium-Pass-Stufen (siehe lib/passLevels.ts): true, sobald die Premium-Spur
-  // gekauft UND das jeweilige Level per Pass-XP erreicht ist.
-  const hasLevelPremium = (level: number) => hasPremiumPass && passXP >= xpForLevel(level);
-
-  // Level 7 Premium "Tiefen-Statistik": eigene Trefferquote (exakte Tipps) pro
-  // Sportart, ermittelt aus echten myTips-Daten (nicht simuliert).
-  const hitRateBySport: Partial<Record<string, { exakt: number; total: number }>> = {};
-  for (const tip of myTips) {
-    if (!tip.evaluated) continue;
-    const sport = matches.find((m) => m.id === tip.matchId)?.sport;
-    if (!sport) continue;
-    const entry = hitRateBySport[sport] ?? { exakt: 0, total: 0 };
-    entry.total += 1;
-    if (tip.resultTier === "exakt") entry.exakt += 1;
-    hitRateBySport[sport] = entry;
-  }
-
   return (
     <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
       <div className="mb-6">
@@ -108,18 +53,8 @@ export default function FortschrittPage() {
         </p>
       </div>
 
-      {/* Season-Pass Fortschrittsbalken. Level 1 Premium: "Start-Glow im
-          Saison-Design" – Leuchten in der Saison-Farbe aus SEASON_THEME. */}
-      <section
-        className={`mb-8 rounded-card border border-edge bg-gradient-to-br from-surface to-surface-hover p-5 ${
-          hasLevelPremium(1) ? "animate-glow-pulse" : ""
-        }`}
-        style={
-          hasLevelPremium(1)
-            ? ({ "--glow-color": `${SEASON_THEME.colorFrom}66` } as CSSProperties)
-            : undefined
-        }
-      >
+      {/* Season-Pass Fortschrittsbalken */}
+      <section className="mb-8 rounded-card border border-edge bg-gradient-to-br from-surface to-surface-hover p-5">
         <div className="mb-3 flex items-center justify-between">
           <span className="font-display text-lg font-bold text-ink">
             Level {currentLevel.level} <span className="text-gold">{currentLevel.icon}</span>
@@ -194,87 +129,6 @@ export default function FortschrittPage() {
           </div>
         )}
       </section>
-
-      {/* Level 5 Premium: eigener Farbwähler für den Profil-Rahmen */}
-      {hasLevelPremium(5) && (
-        <section className="mb-8">
-          <h2 className="mb-3 font-display text-lg font-semibold text-ink">Eigener Rahmen-Farbwähler</h2>
-          <div className="flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-ink">Mische deine eigene Rahmenfarbe</p>
-              <p className="text-xs text-muted">
-                Ersetzt den Neon-Pulse-Rahmen überall in der App durch deine eigene Farbkombination.
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="flex flex-col items-center gap-1 text-xs text-muted">
-                Von
-                <input
-                  type="color"
-                  value={customFrameColors?.from ?? SEASON_THEME.colorFrom}
-                  onChange={(e) =>
-                    setCustomFrameColors(e.target.value, customFrameColors?.to ?? SEASON_THEME.colorTo)
-                  }
-                  className="h-9 w-12 cursor-pointer rounded border border-edge bg-transparent"
-                />
-              </label>
-              <label className="flex flex-col items-center gap-1 text-xs text-muted">
-                Nach
-                <input
-                  type="color"
-                  value={customFrameColors?.to ?? SEASON_THEME.colorTo}
-                  onChange={(e) =>
-                    setCustomFrameColors(customFrameColors?.from ?? SEASON_THEME.colorFrom, e.target.value)
-                  }
-                  className="h-9 w-12 cursor-pointer rounded border border-edge bg-transparent"
-                />
-              </label>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Level 7 Premium: Tiefen-Statistik – eigene Trefferquote (echte
-          myTips-Daten) vs. ein illustrativer Community-Durchschnitt. */}
-      {hasLevelPremium(7) && (
-        <section className="mb-8">
-          <h2 className="mb-1 font-display text-lg font-semibold text-ink">Tiefen-Statistik</h2>
-          <p className="mb-3 text-xs text-muted">
-            Deine Trefferquote (exakte Tipps) pro Sportart im Vergleich zum Community-Durchschnitt.
-          </p>
-          <div className="flex flex-col gap-3">
-            {SPORTS.map((sport) => {
-              const stat = hitRateBySport[sport];
-              const myRate = stat && stat.total > 0 ? Math.round((stat.exakt / stat.total) * 100) : null;
-              const communityRate = communityHitRateForSport(sport);
-              return (
-                <div key={sport} className="rounded-card border border-edge bg-surface p-4">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 font-display text-sm font-semibold text-ink">
-                      {sportIcon[sport]} {sport}
-                    </span>
-                    <span className="text-xs text-muted">{stat?.total ?? 0} ausgewertete Tipps</span>
-                  </div>
-                  <div className="mb-1 flex items-center justify-between text-[11px]">
-                    <span className="text-gold">Du</span>
-                    <span className="text-gold">{myRate !== null ? `${myRate}%` : "–"}</span>
-                  </div>
-                  <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-pitch">
-                    <div className="h-full rounded-full bg-gold" style={{ width: `${myRate ?? 0}%` }} />
-                  </div>
-                  <div className="mb-1 flex items-center justify-between text-[11px]">
-                    <span className="text-muted">Community</span>
-                    <span className="text-muted">{communityRate}%</span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-pitch">
-                    <div className="h-full rounded-full bg-muted/50" style={{ width: `${communityRate}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       {/* Pass-Track */}
       <section className="mb-8">

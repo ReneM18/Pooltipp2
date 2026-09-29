@@ -85,43 +85,6 @@ input[type="range"].stake-slider::-moz-range-thumb {
   }
 }
 
-/* Premium-Pass-Rahmen (Neon-Pulse, Level 2 Premium): sanftes Pulsieren per
-   Skalierung/Helligkeit statt fester Farbe im Keyframe, damit sich derselbe
-   Effekt für jede Saison-Farbe (SEASON_THEME) wiederverwenden lässt, ohne
-   den Keyframe selbst anzufassen. */
-@keyframes frame-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    filter: brightness(1) saturate(1);
-  }
-  50% {
-    transform: scale(1.05);
-    filter: brightness(1.25) saturate(1.3);
-  }
-}
-
-.animate-frame-pulse {
-  animation: frame-pulse 2.2s ease-in-out infinite;
-}
-
-/* Start-Glow (Level 1 Premium): Leuchten per CSS-Variable statt fester Farbe,
-   damit die Saison-Farbe (SEASON_THEME) den Glow einfärbt, ohne den
-   Keyframe selbst neu zu schreiben. */
-@keyframes glow-pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0px 0px var(--glow-color, rgba(232, 179, 76, 0.35));
-  }
-  50% {
-    box-shadow: 0 0 26px 3px var(--glow-color, rgba(232, 179, 76, 0.35));
-  }
-}
-
-.animate-glow-pulse {
-  animation: glow-pulse 2.6s ease-in-out infinite;
-}
-
 @keyframes toast-in {
   from {
     transform: translateY(10px);

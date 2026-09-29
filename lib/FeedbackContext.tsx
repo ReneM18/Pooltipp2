@@ -12,9 +12,7 @@ interface Toast {
 
 interface FeedbackContextValue {
   showToast: (message: string, variant?: Toast["variant"]) => void;
-  // big = größerer, auffälligerer Sterne-Burst (siehe Saison-Pass Level 6
-  // Premium: "Große goldene Sternenexplosion bei exaktem Tipp").
-  celebrate: (big?: boolean) => void;
+  celebrate: () => void;
 }
 
 const FeedbackContext = createContext<FeedbackContextValue | null>(null);
@@ -24,7 +22,7 @@ let idCounter = 0;
 export function FeedbackProvider({ children }: { children: ReactNode }) {
   const { passXP } = useUser();
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [bursts, setBursts] = useState<{ id: number; big: boolean }[]>([]);
+  const [bursts, setBursts] = useState<number[]>([]);
   const [levelUpInfo, setLevelUpInfo] = useState<(typeof PASS_LEVELS)[number] | null>(null);
   const lastLevelRef = useRef<number | null>(null);
 
@@ -36,11 +34,11 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     }, 2800);
   }
 
-  function celebrate(big = false) {
+  function celebrate() {
     const id = ++idCounter;
-    setBursts((current) => [...current, { id, big }]);
+    setBursts((current) => [...current, id]);
     setTimeout(() => {
-      setBursts((current) => current.filter((b) => b.id !== id));
+      setBursts((current) => current.filter((b) => b !== id));
     }, 1400);
   }
 
@@ -70,8 +68,8 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
       {children}
 
       {/* Sterne-Burst statt Konfetti — passt zur "Sterne"-Währung der App */}
-      {bursts.map((b) => (
-        <StarBurst key={b.id} big={b.big} />
+      {bursts.map((id) => (
+        <StarBurst key={id} />
       ))}
 
       {/* Toast-Stack */}
@@ -119,20 +117,17 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// big = die "Große goldene Sternenexplosion" aus Level 6 des Premium-Passes:
-// doppelt so viele Sterne, größer und mit mehr Schwung – sonst derselbe
-// Effekt, kein eigener zweiter Mechanismus nötig.
-function StarBurst({ big = false }: { big?: boolean }) {
-  const stars = Array.from({ length: big ? 28 : 14 }, (_, i) => i);
+function StarBurst() {
+  const stars = Array.from({ length: 14 }, (_, i) => i);
   return (
     <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center overflow-hidden">
       {stars.map((i) => {
         const angle = (360 / stars.length) * i;
-        const distance = (big ? 130 : 90) + Math.random() * (big ? 110 : 70);
+        const distance = 90 + Math.random() * 70;
         const dx = Math.cos((angle * Math.PI) / 180) * distance;
         const dy = Math.sin((angle * Math.PI) / 180) * distance;
         const delay = Math.random() * 0.1;
-        const size = (big ? 18 : 14) + Math.random() * (big ? 16 : 12);
+        const size = 14 + Math.random() * 12;
         return (
           <span
             key={i}
