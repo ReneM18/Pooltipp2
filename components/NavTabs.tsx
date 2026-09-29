@@ -23,14 +23,18 @@ export default function NavTabs() {
     <nav className="relative border-b border-edge bg-pitch">
       {/* Handy & Tablet (Standard, bis lg:): horizontal scrollbare Leiste
           zum Wischen, Scrollbar versteckt – fühlt sich wie eine native App
-          an. touch-pan-x + overscroll-x-contain verhindert, dass das
-          Wischen zusätzlich die ganze Seite vertikal "mitzieht".
+          an. touch-pan-x + overscroll-contain (statt nur -x) +
+          overflow-y-hidden verhindern zusammen, dass das seitliche Wischen
+          zusätzlich die ganze Seite vertikal "mitzieht" bzw. "schwimmt"
+          (die fest angeheftete Kopfzeile in AppChrome.tsx bekommt zusätzlich
+          einen GPU-Compositing-Hint, weil position:sticky + horizontales
+          Wischen direkt darunter auf iOS Safari sonst zum Ruckeln neigt).
           Ab lg: (echtes Desktop/Web, ≥1024px) ist die Leiste eine eigene,
           für breite Bildschirme gebaute Variante: kein Wischen/Scrollen
           mehr nötig (der Seiteninhalt ist ab lg: ohnehin breiter, siehe
           max-w-5xl unten, dadurch passt alles in eine Zeile), dafür mehr
           Abstand zwischen den Punkten statt der mobil-engen Reiter. */}
-      <div className="mx-auto flex max-w-3xl lg:max-w-5xl items-stretch gap-0.5 overflow-x-auto px-2 touch-pan-x overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-x-visible lg:gap-1 lg:px-6">
+      <div className="mx-auto flex max-w-3xl lg:max-w-5xl items-stretch gap-0.5 overflow-x-auto overflow-y-hidden px-2 touch-pan-x overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-x-visible lg:gap-1 lg:px-6">
         {tabs.map((tab) => {
           const isActive = pathname === tab.href;
           return (
