@@ -37,7 +37,7 @@ export default function RankProgress({ sport, points }: { sport: Sport; points: 
       <p className="mb-4 text-xs text-muted">
         {next
           ? `Noch ${(next.minPoints - points).toLocaleString("de-DE")} Punkte bis ${tierLabel(next)}.`
-          : "Höchste Stufe erreicht – Diamant I."}
+          : `Höchste Stufe erreicht – ${tierLabel(RANK_LADDER[RANK_LADDER.length - 1])}.`}
       </p>
 
       <div className="flex flex-wrap gap-1.5">

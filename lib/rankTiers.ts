@@ -1,7 +1,7 @@
 import { Sport } from "@/lib/types";
 import { mockLeaderboardBySport } from "@/lib/mockLeaderboard";
 
-export type RankName = "Bronze" | "Silber" | "Gold" | "Platin" | "Diamant";
+export type RankName = "Bronze" | "Silber" | "Gold" | "Platin" | "Diamant" | "Legende";
 export type SubTier = "III" | "II" | "I";
 
 export interface RankTierDef {
@@ -11,7 +11,7 @@ export interface RankTierDef {
 }
 
 // Fixe Punktegrenzen – gelten pro Sportart, unabhängig davon wie viele andere
-// User gerade mitspielen. 5 Ränge x 3 Unterstufen (III = niedrigste, I = höchste).
+// User gerade mitspielen. 6 Ränge x 3 Unterstufen (III = niedrigste, I = höchste).
 export const RANK_LADDER: RankTierDef[] = [
   { rank: "Bronze", sub: "III", minPoints: 0 },
   { rank: "Bronze", sub: "II", minPoints: 100 },
@@ -28,6 +28,9 @@ export const RANK_LADDER: RankTierDef[] = [
   { rank: "Diamant", sub: "III", minPoints: 3400 },
   { rank: "Diamant", sub: "II", minPoints: 4000 },
   { rank: "Diamant", sub: "I", minPoints: 4700 },
+  { rank: "Legende", sub: "III", minPoints: 5500 },
+  { rank: "Legende", sub: "II", minPoints: 6400 },
+  { rank: "Legende", sub: "I", minPoints: 7400 },
 ];
 
 export const RANK_COLORS: Record<RankName, { from: string; to: string; text: string }> = {
@@ -36,6 +39,9 @@ export const RANK_COLORS: Record<RankName, { from: string; to: string; text: str
   Gold: { from: "#e0a834", to: "#ffd873", text: "#2a1c00" },
   Platin: { from: "#5ad1c9", to: "#b8fff2", text: "#012b26" },
   Diamant: { from: "#7a8cff", to: "#c9d2ff", text: "#0a0f2b" },
+  // Feurig statt kühl – hebt sich bewusst von Diamants Blau/Lila ab, damit auf
+  // einen Blick klar ist: das ist nochmal eine eigene, höhere Stufe.
+  Legende: { from: "#F97316", to: "#DC2626", text: "#2a0800" },
 };
 
 // Titel werden NICHT mehr über den Saison-Pass verteilt, sondern verdient
@@ -44,10 +50,11 @@ export const RANK_COLORS: Record<RankName, { from: string; to: string; text: str
 // an eine echte Leistung gekoppelt statt an ein Pass-Level.
 export const RANK_TITLES: Record<RankName, string> = {
   Bronze: "Neuling",
-  Silber: "Aufsteiger der Saison",
+  Silber: "Herausforderer",
   Gold: "Champion",
   Platin: "VIP-Tipper",
-  Diamant: "Tipp-Legende",
+  Diamant: "Unaufhaltbar",
+  Legende: "Elite-Tipper",
 };
 
 export const SPORT_EMOJI: Record<Sport, string> = {
@@ -70,7 +77,7 @@ export function tierLabel(tier: RankTierDef): string {
   return `${tier.rank} ${tier.sub}`;
 }
 
-/** Die nächste Stufe nach den aktuellen Punkten, oder null wenn schon Diamant I erreicht ist. */
+/** Die nächste Stufe nach den aktuellen Punkten, oder null wenn schon die höchste Stufe (Legende I) erreicht ist. */
 export function getNextTier(points: number): RankTierDef | null {
   const currentIndex = RANK_LADDER.findIndex((t) => t === getTierForPoints(points));
   return RANK_LADDER[currentIndex + 1] ?? null;
@@ -97,10 +104,12 @@ export interface RankIconOption {
 // ist ein gängiges "Legendary"-Farbschema (eine Stufe über den kühleren
 // Diamant-Blautönen) und bleibt trotzdem hell genug für den dunklen Text.
 const ELITE_COLORS = { from: "#FFD700", to: "#B694F6", text: "#241040" };
-// Adler statt Krone: die Krone steht in der App schon für "Premium" (siehe
-// Level 8 im Saison-Pass), ein zweites Krone-Symbol fürs Elite-Rang-Icon war
-// verwirrend doppelt belegt.
-const ELITE_ICON = "🦅";
+// GOAT-Ziege statt Krone: die Krone steht in der App schon für "Premium"
+// (siehe Level 8 im Saison-Pass), ein zweites Krone-Symbol fürs Elite-
+// Rang-Icon war verwirrend doppelt belegt. GOAT ("Greatest Of All Time")
+// ist im Sport-Slang etabliert und passt inhaltlich zu "bester in allen
+// Sportarten zugleich".
+const ELITE_ICON = "🐐";
 
 /**
  * Ermittelt anhand der (aktuell noch statischen) Sport-Ranglisten, welche
