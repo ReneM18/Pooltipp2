@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%">
+      <stop offset="0%" stop-color="#24332C" />
+      <stop offset="100%" stop-color="#0D1512" />
+    </radialGradient>
+    <linearGradient id="fig" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F3CD7E" />
+      <stop offset="100%" stop-color="#E8B34C" />
+    </linearGradient>
+  </defs>
+
+  <rect width="200" height="200" fill="url(#bg)" />
+
+  <!-- Kopf -->
+  <circle cx="100" cy="82" r="34" fill="url(#fig)" />
+
+  <!-- Schultern / Oberkörper -->
+  <path d="M40 190 C40 138 65 122 100 122 C135 122 160 138 160 190 Z" fill="url(#fig)" />
+
+  <!-- Dezenter Ring als Rahmen -->
+  <circle cx="100" cy="100" r="97" fill="none" stroke="#E8B34C" stroke-opacity="0.25" stroke-width="3" />
+</svg>

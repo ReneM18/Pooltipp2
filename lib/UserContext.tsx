@@ -132,7 +132,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
     useAppData();
   const [userId] = useState(generateUserId);
   const [displayName, setDisplayName] = useState(mockUser.displayName);
-  const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
+  // Erstes Foto ist zu Demo-Zwecken mit einem Platzhalter-Avatar vorbefüllt,
+  // damit man gleich sieht, wie ein echtes Foto im Profil aussieht – einfach
+  // über "Foto ändern" im Profil durch ein eigenes Foto ersetzen.
+  const [photos, setPhotos] = useState<(string | null)[]>(["/demo-avatar.svg", null, null]);
 
   // Sterne-Guthaben UND alles, was direkt beim Einsetzen davon abhängt
   // (Tages-Limit, Rettungs-Bonus), leben bewusst in EINEM einzigen State-
