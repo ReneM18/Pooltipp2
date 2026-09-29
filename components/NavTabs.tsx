@@ -52,8 +52,9 @@ export default function NavTabs() {
       {/* Eigene Zeile statt Teil der scrollbaren Reiter-Leiste: mit flex-wrap
           bleiben alle Pills auf jeder Bildschirmbreite sichtbar, statt bei
           schmalem Fenster (z. B. am Desktop ohne Wisch-Geste) rechts
-          unsichtbar abgeschnitten zu sein. */}
-      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-1.5 px-2 pb-2.5 pt-1">
+          unsichtbar abgeschnitten zu sein. Trennlinie + eigener
+          Hintergrundton heben die Zeile klar von den Reitern ab. */}
+      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-1.5 border-t border-edge bg-surface/40 px-2 pb-2.5 pt-2">
         <Link
           href="/duelle"
           className="flex shrink-0 items-center rounded-full bg-gold px-3 py-1.5 font-display text-sm font-semibold text-pitch transition-colors hover:opacity-90"
