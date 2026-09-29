@@ -21,16 +21,16 @@ export default function NavTabs() {
 
   return (
     <nav className="relative border-b border-edge bg-pitch">
-      {/* touch-pan-x + overscroll-x-contain: verhindert, dass ein seitliches
-          Wischen über die Reiter auf dem Handy zusätzlich die ganze Seite
-          vertikal "mitzieht" (das war das Auf-und-ab-Schwimmen beim
-          Bewegen der Leiste). items-stretch statt items-center hält alle
-          Kinder auf derselben Zeilenhöhe, statt einzeln zu zentrieren.
-          Anders als vorher wird die Scrollbar NICHT versteckt: dadurch sieht
-          man am Desktop sofort, dass die Zeile mehr Inhalt hat und wie man
-          weiterscrollt (das war der Grund, warum "Turniere" vorher wie
-          abgeschnitten wirkte, ohne dass klar war, wie man's sieht). */}
-      <div className="mx-auto flex max-w-3xl items-stretch gap-0.5 overflow-x-auto px-2 touch-pan-x overscroll-x-contain">
+      {/* Handy (Standard, kein Präfix): horizontal scrollbare Leiste zum
+          Wischen, Scrollbar versteckt – fühlt sich wie eine native App an.
+          touch-pan-x + overscroll-x-contain verhindert, dass das Wischen
+          zusätzlich die ganze Seite vertikal "mitzieht".
+          Ab sm: (Web/größere Breite) wird stattdessen umgebrochen
+          (flex-wrap) statt gescrollt – dort soll NICHTS zur Seite
+          geschoben werden und es gibt keine sichtbare Scrollbar, weil der
+          Inhalt einfach in eine zweite Zeile rutscht, sobald er nicht mehr
+          reinpasst (klassisches, responsives Navbar-Verhalten). */}
+      <div className="mx-auto flex max-w-3xl items-stretch gap-0.5 overflow-x-auto px-2 touch-pan-x overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-x-visible sm:py-1">
         {tabs.map((tab) => {
           const isActive = pathname === tab.href;
           return (
@@ -49,10 +49,11 @@ export default function NavTabs() {
           );
         })}
 
-        {/* Kompakter als vorher (kürzere Labels, kleinerer Text) und in
-            derselben Zeile wie die Reiter, damit alles zusammen in einer
-            Menüzeile Platz hat. */}
-        <div className="my-2 ml-auto flex shrink-0 items-center gap-1">
+        {/* Am Handy ganz rechts in der Scroll-Leiste (ml-auto). Ab sm:
+            fließt die Gruppe stattdessen ganz normal hinter den Reitern mit
+            (sm:ml-0) – sonst würde sie beim Umbrechen allein und weit
+            rechts in einer eigenen Zeile hängen, mit viel Leerraum davor. */}
+        <div className="my-2 ml-auto flex shrink-0 items-center gap-1 sm:ml-0">
           <Link
             href="/duelle"
             className="flex shrink-0 items-center rounded-full bg-gold px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:opacity-90"
