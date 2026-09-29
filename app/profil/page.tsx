@@ -164,9 +164,14 @@ export default function ProfilPage() {
               👑
             </span>
           )}
+          {/* Rang-Icon direkt am Profilbild – Bedeutung (Label + Titel) steht
+              nicht mehr zusätzlich als Text daneben, sondern poppt bei
+              Hover/Antippen auf genau diesem Icon auf (siehe
+              components/RankMeaningBadge.tsx). Kein zweites, doppeltes Icon
+              mehr weiter unten. */}
           {activeRankIcon && (
             <span className="absolute -bottom-2 -right-2 rounded-full ring-[3px] ring-pitch">
-              <RankBadge option={activeRankIcon} size="md" />
+              <RankMeaningBadge option={activeRankIcon} size="md" />
             </span>
           )}
         </div>
@@ -183,10 +188,6 @@ export default function ProfilPage() {
           <p className="text-sm text-muted">
             {currentRank ? `Aktuell Platz ${currentRank} in der Rangliste` : "Noch nicht platziert"}
           </p>
-          {/* Rang-Icon als kompaktes Abzeichen zeigen – die Bedeutung (Label
-              + Titel) steht nicht mehr fix daneben, sondern poppt erst bei
-              Hover/Antippen auf (siehe components/RankMeaningBadge.tsx). */}
-          {activeRankIcon && <RankMeaningBadge option={activeRankIcon} />}
           {/* Level 10 Premium: Saison-gebundener Champion-Titel (siehe
               lib/passLevels.ts – bewusst an SEASON_THEME.year statt an einen
               Rang gebunden). */}

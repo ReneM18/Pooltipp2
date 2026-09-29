@@ -6,7 +6,6 @@ import { useUser } from "@/lib/UserContext";
 import { mockLeaderboard } from "@/lib/mockLeaderboard";
 import { getMockUserProfile } from "@/lib/mockUsers";
 import { getIconForName } from "@/lib/rankTiers";
-import RankBadge from "@/components/RankBadge";
 import RankMeaningBadge from "@/components/RankMeaningBadge";
 
 export default function SpielerProfilPage() {
@@ -38,9 +37,12 @@ export default function SpielerProfilPage() {
       <div className="mb-6 flex items-center gap-4">
         <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface font-display text-2xl font-bold text-gold">
           {name.slice(0, 1).toUpperCase()}
+          {/* Rang-Icon direkt am Profilbild – Bedeutung (Label + Titel) steht
+              nicht zusätzlich als Text daneben, sondern poppt bei
+              Hover/Antippen auf genau diesem Icon auf. */}
           {rankIcon && (
             <span className="absolute -bottom-2 -right-2 rounded-full ring-[3px] ring-pitch">
-              <RankBadge option={rankIcon} size="md" />
+              <RankMeaningBadge option={rankIcon} size="md" />
             </span>
           )}
         </div>
@@ -52,10 +54,6 @@ export default function SpielerProfilPage() {
           <p className="text-sm text-muted">
             {leaderboardEntry ? `Platz ${leaderboardEntry.rank} in der Gesamt-Rangliste` : "Noch nicht platziert"}
           </p>
-          {/* Rang-Icon als kompaktes Abzeichen zeigen – die Bedeutung (Label
-              + Titel) steht nicht mehr fix daneben, sondern poppt erst bei
-              Hover/Antippen auf (siehe components/RankMeaningBadge.tsx). */}
-          {rankIcon && <RankMeaningBadge option={rankIcon} />}
         </div>
       </div>
 
