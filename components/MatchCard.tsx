@@ -368,12 +368,6 @@ export default function MatchCard({
             )}
 
             <ResultBox match={match} homeTeam={homeTeam} awayTeam={awayTeam} />
-
-            {!hasTipped && tippingClosed && (
-              <p className="text-center text-xs text-muted">
-                Tippannahme für dieses Spiel ist bereits geschlossen.
-              </p>
-            )}
           </div>
         )}
 
