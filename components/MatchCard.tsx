@@ -9,6 +9,7 @@ import { generateTickerEvents } from "@/lib/liveTicker";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
+import { xpForLevel } from "@/lib/seasonPass";
 import TeamBadge from "./TeamBadge";
 import Countdown from "./Countdown";
 import { StarIcon, TvIcon, PlayIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
@@ -95,7 +96,7 @@ export default function MatchCard({
     useAppData();
   const [bonusPick, setBonusPick] = useState<number | null>(null);
   const myBonusAnswer = myBonusAnswers.find((a) => a.matchId === match.id);
-  const { displayName } = useUser();
+  const { displayName, hasPremiumPass, passXP } = useUser();
   const { showToast, celebrate } = useFeedback();
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
@@ -109,12 +110,15 @@ export default function MatchCard({
   useEffect(() => {
     if (myTip?.evaluated && !celebratedRef.current) {
       celebratedRef.current = true;
-      celebrate();
+      // Level 6 Premium: "Große goldene Sternenexplosion bei exaktem Tipp" –
+      // ansonsten der normale (kleinere) Sterne-Burst.
+      const bigBurst = myTip.resultTier === "exakt" && hasPremiumPass && passXP >= xpForLevel(6);
+      celebrate(bigBurst);
       if (myTip.narration) {
         showToast(myTip.narration, myTip.resultTier === "falsch" ? "info" : "gold");
       }
     }
-  }, [myTip?.evaluated, myTip?.narration, myTip?.resultTier, celebrate, showToast]);
+  }, [myTip?.evaluated, myTip?.narration, myTip?.resultTier, hasPremiumPass, passXP, celebrate, showToast]);
 
   function handleCommentSubmit(e: FormEvent) {
     e.preventDefault();

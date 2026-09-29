@@ -122,6 +122,11 @@ interface UserContextValue {
   activeRankIcon: RankIconOption | null;
   hasPremiumPass: boolean;
   buyPremiumPass: () => void;
+  // Eigene Rahmenfarben (Level 5 Premium: "Eigener Farbwähler") – null,
+  // solange noch keine eigene Kombination gewählt wurde (siehe
+  // lib/seasonPass.ts: fällt dann auf den Neon-Pulse-Rahmen zurück).
+  customFrameColors: { from: string; to: string } | null;
+  setCustomFrameColors: (from: string, to: string) => void;
   // Fiktives Werbefrei-Abo – kein echtes Zahlungssystem, blendet nur lokal
   // die Demo-Werbebanner (siehe components/AdBanner.tsx) aus.
   hasAdFreeSubscription: boolean;
@@ -217,6 +222,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // schaltet die Premium-Spur des Saison-Passes lokal frei.
   function buyPremiumPass() {
     setHasPremiumPass(true);
+  }
+
+  const [customFrameColors, setCustomFrameColorsState] = useState<{ from: string; to: string } | null>(
+    null
+  );
+  function setCustomFrameColors(from: string, to: string) {
+    setCustomFrameColorsState({ from, to });
   }
 
   const [hasAdFreeSubscription, setHasAdFreeSubscription] = useState(false);
@@ -599,6 +611,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         activeRankIcon,
         hasPremiumPass,
         buyPremiumPass,
+        customFrameColors,
+        setCustomFrameColors,
         hasAdFreeSubscription,
         buyAdFreeSubscription,
         cancelAdFreeSubscription,

@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, FormEvent, ChangeEvent } from "react";
+import { useState, useEffect, useRef, FormEvent, ChangeEvent } from "react";
 import { useUser, AD_FREE_PRICE } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { mockLeaderboard } from "@/lib/mockLeaderboard";
 import RankBadge from "@/components/RankBadge";
 import RankProgress from "@/components/RankProgress";
+import SeasonFrame from "@/components/SeasonFrame";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { Sport } from "@/lib/types";
+import { SEASON_THEME } from "@/lib/seasonTheme";
+import { xpForLevel } from "@/lib/seasonPass";
 
 const sportIcon: Record<string, string> = {
   "Fußball": "⚽",
@@ -36,6 +39,7 @@ export default function ProfilPage() {
     hasAdFreeSubscription,
     buyAdFreeSubscription,
     cancelAdFreeSubscription,
+    hasPremiumPass,
   } = useUser();
   const { matches, getTeam, myTips } = useAppData();
   const { showToast, celebrate } = useFeedback();
@@ -53,6 +57,37 @@ export default function ProfilPage() {
   const selectedProgress = sportProgressOptions.find((o) => o.sport === rangSportTab);
 
   const currentRank = mockLeaderboard.find((entry) => entry.isCurrentUser)?.rank;
+
+  // Premium-Pass-Stufen (siehe lib/passLevels.ts): true, sobald die Premium-Spur
+  // gekauft UND das jeweilige Level per Pass-XP erreicht ist.
+  const hasLevelPremium = (level: number) => hasPremiumPass && passXP >= xpForLevel(level);
+
+  const evaluatedTips = myTips.filter((t) => t.evaluated);
+  const exaktCount = evaluatedTips.filter((t) => t.resultTier === "exakt").length;
+  const trefferquote =
+    evaluatedTips.length > 0 ? Math.round((exaktCount / evaluatedTips.length) * 100) : 0;
+
+  // Level 10 Premium: einmaliges Abschluss-Feuerwerk beim Erreichen des
+  // Champion-Titels – analog zum celebratedRef-Muster in MatchCard.tsx.
+  const championCelebratedRef = useRef(false);
+  useEffect(() => {
+    if (hasLevelPremium(10) && !championCelebratedRef.current) {
+      championCelebratedRef.current = true;
+      celebrate(true);
+      showToast(`🎆 Champion ${SEASON_THEME.year} – herzlichen Glückwunsch!`, "gold");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPremiumPass, passXP]);
+
+  function handleShareRueckblick() {
+    const text = `🏆 Mein PoolTipp-Rückblick ${SEASON_THEME.year}\n${tipsSubmitted} Tipps abgegeben · ${trefferquote}% Trefferquote (exakt)${
+      currentRank ? `\nRang ${currentRank} in der Gesamt-Rangliste` : ""
+    }${activeRankIcon ? ` · ${activeRankIcon.label}` : ""}\n🔥 ${streakCount} Tage Streak`;
+    navigator.clipboard
+      ?.writeText(text)
+      .then(() => showToast("📋 Rückblick in die Zwischenablage kopiert.", "gold"))
+      .catch(() => showToast("Kopieren nicht möglich – bitte manuell markieren.", "info"));
+  }
 
   function handleSaveName(e: FormEvent) {
     e.preventDefault();
@@ -92,19 +127,42 @@ export default function ProfilPage() {
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
-      <div className="mb-8 flex items-center gap-4">
+      {/* Level 8 Premium: Profil-Hintergrundbanner in den Saison-Farben
+          (SEASON_THEME) – nur ein Farbverlauf, kein neues Bild pro Saison nötig. */}
+      <div
+        className={`mb-8 flex items-center gap-4 ${hasLevelPremium(8) ? "rounded-card p-5" : ""}`}
+        style={
+          hasLevelPremium(8)
+            ? {
+                background: `linear-gradient(135deg, ${SEASON_THEME.colorFrom}26, ${SEASON_THEME.colorTo}26)`,
+                border: `1px solid ${SEASON_THEME.colorFrom}55`,
+              }
+            : undefined
+        }
+      >
         <div className="relative h-16 w-16 shrink-0">
           {/* Das Foto wird in einem eigenen, rund abgeschnittenen Kreis
               dargestellt – die Rang-Badge sitzt außerhalb davon, sonst
               schneidet "overflow-hidden" sie zu einem hässlichen Eck ab. */}
-          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-2xl font-bold text-gold">
-            {photos[0] ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={photos[0]} alt="Profilbild" className="h-full w-full object-cover" />
-            ) : (
-              displayName.slice(0, 1).toUpperCase()
-            )}
-          </div>
+          <SeasonFrame size={64}>
+            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-2xl font-bold text-gold">
+              {photos[0] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photos[0]} alt="Profilbild" className="h-full w-full object-cover" />
+              ) : (
+                displayName.slice(0, 1).toUpperCase()
+              )}
+            </div>
+          </SeasonFrame>
+          {/* Level 8 Premium: animiertes Kronen-Icon */}
+          {hasLevelPremium(8) && (
+            <span
+              className="animate-frame-pulse absolute -left-1 -top-1 text-lg"
+              title="Kronen-Icon (Level 8 Premium)"
+            >
+              👑
+            </span>
+          )}
           {activeRankIcon && (
             <span className="absolute -bottom-2 -right-2 rounded-full ring-[3px] ring-pitch">
               <RankBadge option={activeRankIcon} size="md" />
@@ -114,6 +172,12 @@ export default function ProfilPage() {
         <div>
           <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-ink">
             {displayName}
+            {/* Level 3 Premium: Saison-Icon neben dem Namen */}
+            {hasLevelPremium(3) && (
+              <span className="text-lg" title={`Saison-Icon (${SEASON_THEME.name})`}>
+                {SEASON_THEME.icon}
+              </span>
+            )}
           </h1>
           <p className="text-sm text-muted">
             {currentRank ? `Aktuell Platz ${currentRank} in der Rangliste` : "Noch nicht platziert"}
@@ -132,6 +196,14 @@ export default function ProfilPage() {
               <span className="text-sm">{activeRankIcon.icon}</span>
               {activeRankIcon.label}
               {activeRankIcon.title && <span className="opacity-80">· {activeRankIcon.title}</span>}
+            </span>
+          )}
+          {/* Level 10 Premium: Saison-gebundener Champion-Titel (siehe
+              lib/passLevels.ts – bewusst an SEASON_THEME.year statt an einen
+              Rang gebunden). */}
+          {hasLevelPremium(10) && (
+            <span className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full border border-gold px-3 py-1 font-display text-xs font-bold text-gold">
+              🎆 Champion {SEASON_THEME.year}
             </span>
           )}
         </div>
@@ -307,6 +379,53 @@ export default function ProfilPage() {
           Firestore gespeichert werden.
         </p>
       </section>
+
+      {/* Level 9 Premium: automatische, teilbare Saison-Rückblick-Karte –
+          läuft komplett mit echten Daten (myTips, streakCount, currentRank),
+          braucht also keine wiederkehrende Design-Arbeit pro Saison. */}
+      {hasLevelPremium(9) && (
+        <section className="mb-8">
+          <h2 className="mb-3 font-display text-lg font-semibold text-ink">Saison-Rückblick-Karte</h2>
+          <div
+            className="rounded-card border p-5"
+            style={{
+              background: `linear-gradient(135deg, ${SEASON_THEME.colorFrom}33, ${SEASON_THEME.colorTo}33)`,
+              borderColor: `${SEASON_THEME.colorFrom}66`,
+            }}
+          >
+            <p className="font-display text-sm font-semibold text-gold">
+              {SEASON_THEME.icon} {SEASON_THEME.name}
+            </p>
+            <p className="mt-1 font-display text-xl font-bold text-ink">{displayName}</p>
+            <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="font-display text-lg font-bold text-ink">{tipsSubmitted}</p>
+                <p className="text-[11px] text-muted">Tipps</p>
+              </div>
+              <div>
+                <p className="font-display text-lg font-bold text-ink">{trefferquote}%</p>
+                <p className="text-[11px] text-muted">Trefferquote</p>
+              </div>
+              <div>
+                <p className="font-display text-lg font-bold text-ink">🔥 {streakCount}</p>
+                <p className="text-[11px] text-muted">Streak</p>
+              </div>
+            </div>
+            {currentRank && (
+              <p className="mt-3 text-xs text-muted">
+                Rang {currentRank} in der Gesamt-Rangliste
+                {activeRankIcon ? ` · ${activeRankIcon.label}` : ""}
+              </p>
+            )}
+            <button
+              onClick={handleShareRueckblick}
+              className="mt-4 w-full rounded-full bg-gold py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90"
+            >
+              📋 Rückblick kopieren
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="mb-8">
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Werbefrei-Abo</h2>
