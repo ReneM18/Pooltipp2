@@ -23,10 +23,6 @@ import {
 
 const SPORT_ICON: Record<Sport, string> = { "Fußball": "⚽", NFL: "🏈", NBA: "🏀", NHL: "🏒" };
 
-// Preis des fiktiven Werbefrei-Abos (kein echtes Zahlungssystem, siehe
-// buyAdFreeSubscription unten) – analog zu PREMIUM_PASS_PRICE in passLevels.ts.
-export const AD_FREE_PRICE = "2,99 € / Monat";
-
 function initialRangPunkte(): Record<Sport, number> {
   const initial = {} as Record<Sport, number>;
   for (const sport of SPORTS) {
@@ -127,11 +123,10 @@ interface UserContextValue {
   // lib/seasonPass.ts: fällt dann auf den Neon-Pulse-Rahmen zurück).
   customFrameColors: { from: string; to: string } | null;
   setCustomFrameColors: (from: string, to: string) => void;
-  // Fiktives Werbefrei-Abo – kein echtes Zahlungssystem, blendet nur lokal
-  // die Demo-Werbebanner (siehe components/AdBanner.tsx) aus.
+  // Werbefrei ist kein eigener Kauf mehr, sondern seit der letzten Absprache
+  // immer automatisch im Premium-Pass enthalten (siehe hasPremiumPass) –
+  // blendet lokal die Demo-Werbebanner aus (siehe components/AdBanner.tsx).
   hasAdFreeSubscription: boolean;
-  buyAdFreeSubscription: () => void;
-  cancelAdFreeSubscription: () => void;
   // Platzhalter fürs echte Login-System: sobald es steht, ersetzt der echte
   // Auth-Status das hier. Steuert nur, ob der "Registrieren"-Button in der
   // Navbar angezeigt wird.
@@ -231,19 +226,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setCustomFrameColorsState({ from, to });
   }
 
-  const [hasAdFreeSubscription, setHasAdFreeSubscription] = useState(false);
-
-  // Ebenfalls nur ein Platzhalter, kein echtes Zahlungssystem – schaltet
-  // lokal die Demo-Werbebanner ab. cancelAdFreeSubscription gibt es nur,
-  // damit sich der Unterschied mit/ohne Werbung hier in der Vorschau auch
-  // wieder rückgängig machen lässt (ein echtes Abo würde man nicht per Klick
-  // sofort kündigen, sondern zum Ende der Laufzeit).
-  function buyAdFreeSubscription() {
-    setHasAdFreeSubscription(true);
-  }
-  function cancelAdFreeSubscription() {
-    setHasAdFreeSubscription(false);
-  }
+  // Kein eigener State mehr: Werbefrei ist automatisch dabei, sobald man den
+  // Premium-Pass hat – kein separater Kauf, keine eigene Kündigung.
+  const hasAdFreeSubscription = hasPremiumPass;
 
   const [isRegistered, setIsRegistered] = useState(false);
   function register() {
@@ -614,8 +599,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
         customFrameColors,
         setCustomFrameColors,
         hasAdFreeSubscription,
-        buyAdFreeSubscription,
-        cancelAdFreeSubscription,
         isRegistered,
         register,
       }}

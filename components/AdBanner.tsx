@@ -1,32 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { useUser, AD_FREE_PRICE } from "@/lib/UserContext";
-import { useFeedback } from "@/lib/FeedbackContext";
+import Link from "next/link";
+import { useUser } from "@/lib/UserContext";
 
 // Demo-Werbebanner: zeigt, wie sich eine echte In-App-Werbung (z. B. Google
-// AdSense/AdMob) anfühlen würde, und wirbt direkt für das fiktive
-// Werbefrei-Abo. Kein echtes Werbenetzwerk angebunden – reiner Platzhalter,
-// damit der Unterschied mit/ohne Abo sofort sichtbar ist. Sobald das Abo
-// aktiv ist, rendert diese Komponente gar nichts mehr.
+// AdSense/AdMob) anfühlen würde. Kein echtes Werbenetzwerk angebunden –
+// reiner Platzhalter. Werbefrei ist kein eigener Kauf mehr, sondern immer im
+// Premium-Pass enthalten (siehe hasPremiumPass in lib/UserContext.tsx) –
+// dieser Banner verlinkt daher nur noch dorthin, statt selbst zu verkaufen.
+// Sobald hasAdFreeSubscription (= hasPremiumPass) aktiv ist, rendert diese
+// Komponente gar nichts mehr.
 export default function AdBanner() {
-  const { hasAdFreeSubscription, buyAdFreeSubscription } = useUser();
-  const { showToast, celebrate } = useFeedback();
-  const [purchasing, setPurchasing] = useState(false);
+  const { hasAdFreeSubscription } = useUser();
 
   if (hasAdFreeSubscription) return null;
-
-  function handleBuy() {
-    setPurchasing(true);
-    // Simulierte kurze Verarbeitung, wie beim Premium-Pass-Kauf im
-    // "Fortschritt"-Bereich – Platzhalter für eine echte Zahlungsanbindung.
-    setTimeout(() => {
-      buyAdFreeSubscription();
-      setPurchasing(false);
-      celebrate();
-      showToast("🚫📢 Werbefrei-Abo aktiv – keine Werbebanner mehr.", "gold");
-    }, 600);
-  }
 
   return (
     <div className="mb-5 flex flex-col items-start gap-3 rounded-card border border-dashed border-edge bg-surface/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -38,13 +25,12 @@ export default function AdBanner() {
           Platzhalter für Werbung (z. B. Google AdSense/AdMob) – hier würde ein Werbepartner erscheinen.
         </p>
       </div>
-      <button
-        onClick={handleBuy}
-        disabled={purchasing}
-        className="shrink-0 rounded-full border border-gold/50 px-3.5 py-1.5 text-xs font-semibold text-gold transition-colors hover:bg-gold/10 disabled:opacity-60"
+      <Link
+        href="/fortschritt"
+        className="shrink-0 rounded-full border border-gold/50 px-3.5 py-1.5 text-xs font-semibold text-gold transition-colors hover:bg-gold/10"
       >
-        {purchasing ? "Wird verarbeitet…" : `Werbefrei für ${AD_FREE_PRICE}`}
-      </button>
+        Werbefrei im Premium-Pass →
+      </Link>
     </div>
   );
 }
