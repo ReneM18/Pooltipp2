@@ -148,9 +148,10 @@ export default function ProfilPage() {
               nicht mehr zusätzlich als Text daneben, sondern poppt bei
               Hover/Antippen auf genau diesem Icon auf (siehe
               components/RankMeaningBadge.tsx). Kein zweites, doppeltes Icon
-              mehr weiter unten. */}
+              mehr weiter unten. Bewusst ohne Rahmen um das Icon – wirkte als
+              dunkler Ring auf dem Profilbild optisch wie ein Fremdkörper. */}
           {activeRankIcon && (
-            <span className="absolute -bottom-2 -right-2 rounded-full ring-[3px] ring-pitch">
+            <span className="absolute -bottom-2 -right-2 rounded-full">
               <RankMeaningBadge option={activeRankIcon} size="md" />
             </span>
           )}

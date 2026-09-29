@@ -90,7 +90,7 @@ export default function Navbar() {
               </span>
             </SeasonFrame>
             {activeRankIcon && (
-              <span className="absolute -bottom-1.5 -right-1.5 rounded-full ring-[3px] ring-pitch">
+              <span className="absolute -bottom-1.5 -right-1.5 rounded-full">
                 <RankBadge option={activeRankIcon} size="xs" />
               </span>
             )}
