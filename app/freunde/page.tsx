@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useRef, useState, FormEvent } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import { getMockRankIconForName } from "@/lib/rankTiers";
@@ -10,22 +10,33 @@ import { TrashIcon } from "@/components/Icons";
 export default function FreundePage() {
   const { friends, removeFriend, pendingRequests, sendFriendRequest } = useUser();
   const [name, setName] = useState("");
+  const [error, setError] = useState(false);
+  // Ref statt State: greift synchron sofort, bevor React neu rendert – ein
+  // State-Flag allein würde einen sehr schnellen Doppel-Klick nicht
+  // zuverlässig verhindern (siehe gleiches Muster in MatchCard.tsx).
+  const submittingRef = useRef(false);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
-    sendFriendRequest(name.trim());
-    setName("");
+    if (!name.trim() || submittingRef.current) return;
+    submittingRef.current = true;
+    const ok = sendFriendRequest(name.trim());
+    setError(!ok);
+    if (ok) setName("");
+    submittingRef.current = false;
   }
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
       <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Freunde</h1>
 
-      <form onSubmit={handleSubmit} className="mb-6 flex gap-3">
+      <form onSubmit={handleSubmit} className="mb-2 flex gap-3">
         <input
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (error) setError(false);
+          }}
           placeholder="Name eingeben…"
           className="flex-1 rounded-lg border border-edge bg-surface px-4 py-2.5 text-sm text-ink outline-none focus:border-gold"
         />
@@ -36,8 +47,14 @@ export default function FreundePage() {
           Anfrage senden
         </button>
       </form>
+      {error && (
+        <p className="mb-4 text-xs text-red-400">
+          Das geht nicht – Name muss zwischen 2 und 30 Zeichen lang sein und darf nicht dein
+          eigener Name oder schon in deiner Liste sein.
+        </p>
+      )}
 
-      <div className="overflow-hidden rounded-card border border-edge bg-surface">
+      <div className="mt-4 overflow-hidden rounded-card border border-edge bg-surface">
         {friends.length === 0 && pendingRequests.length === 0 && (
           <p className="p-4 text-sm text-muted">Noch keine Freunde hinzugefügt.</p>
         )}

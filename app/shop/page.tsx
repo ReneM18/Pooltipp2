@@ -1,22 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { mockShopItems, ShopItem } from "@/lib/mockShopItems";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 
 export default function ShopPage() {
-  const { freeStars, spendStars } = useUser();
+  const { freeStars, spendStars, stakeBudgetRemainingToday } = useUser();
   const { showToast, celebrate } = useFeedback();
   const [redeemedIds, setRedeemedIds] = useState<string[]>([]);
+  // Schutz gegen Doppel-Klick (gleiches Muster wie bei den Tipp-Formularen).
+  const redeemingRef = useRef(false);
 
   function handleRedeem(item: ShopItem) {
-    const success = spendStars(item.cost);
-    if (success) {
+    if (redeemingRef.current) return;
+    redeemingRef.current = true;
+
+    // spendStars() kann WENIGER als den vollen Preis abziehen, wenn das
+    // Sterne-Guthaben oder das Tages-Limit nicht reicht (Sicherheitsnetz für
+    // Tipp-Einsätze – siehe UserContext.spendStars). Für den Shop soll das
+    // aber immer "alles oder nichts" sein: vorher prüfen, damit nie Sterne
+    // abgebucht werden, ohne dass die Prämie auch wirklich gutgeschrieben wird.
+    if (freeStars < item.cost || stakeBudgetRemainingToday < item.cost) {
+      showToast("✗ Nicht genug Sterne verfügbar (oder heutiges Limit erreicht).", "info");
+      redeemingRef.current = false;
+      return;
+    }
+
+    const actual = spendStars(item.cost);
+    if (actual === item.cost) {
       setRedeemedIds((current) => [...current, item.id]);
       celebrate();
       showToast(`✓ „${item.name}" eingelöst!`, "gold");
+    } else {
+      showToast("✗ Einlösen hat nicht geklappt – bitte nochmal versuchen.", "info");
     }
+    redeemingRef.current = false;
   }
 
   return (
@@ -33,7 +52,7 @@ export default function ShopPage() {
           <ShopItemCard
             key={item.id}
             item={item}
-            canAfford={freeStars >= item.cost}
+            canAfford={freeStars >= item.cost && stakeBudgetRemainingToday >= item.cost}
             redeemed={redeemedIds.includes(item.id)}
             onRedeem={() => handleRedeem(item)}
           />

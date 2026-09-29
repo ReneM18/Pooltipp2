@@ -87,11 +87,15 @@ export default function MatchCard({
   const [tippingClosed, setTippingClosed] = useState(
     () => new Date(match.tipDeadline).getTime() <= Date.now()
   );
+  // Vorwarnung in der letzten Minute vor Tippschluss, damit das Formular
+  // nicht kommentarlos mitten beim Ausfüllen verschwindet.
+  const [closingSoon, setClosingSoon] = useState(false);
   const { getCommentsForMatch, addComment, removeComment, toggleCommentLike } = useAppData();
   const { displayName } = useUser();
   const { showToast, celebrate } = useFeedback();
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
+  const commentSubmittedRef = useRef(false);
   const matchComments = getCommentsForMatch(match.id);
 
   // Der PoolScore-"Reveal"-Moment: sobald der eigene Tipp ausgewertet wurde,
@@ -110,15 +114,19 @@ export default function MatchCard({
 
   function handleCommentSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!commentDraft.trim()) return;
+    if (!commentDraft.trim() || commentSubmittedRef.current) return;
+    commentSubmittedRef.current = true;
     addComment(match.id, displayName, commentDraft);
     setCommentDraft("");
+    commentSubmittedRef.current = false;
   }
 
   useEffect(() => {
     const deadline = new Date(match.tipDeadline).getTime();
     const interval = setInterval(() => {
-      setTippingClosed(deadline <= Date.now());
+      const remaining = deadline - Date.now();
+      setTippingClosed(remaining <= 0);
+      setClosingSoon(remaining > 0 && remaining <= 60 * 1000);
     }, 1000);
     return () => clearInterval(interval);
   }, [match.tipDeadline]);
@@ -211,6 +219,11 @@ export default function MatchCard({
 
         {!showResultView && (
           <>
+            {closingSoon && (
+              <p className="mb-3 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">
+                <span aria-hidden>⏰</span> Gleich geschlossen – jetzt noch schnell tippen!
+              </p>
+            )}
             {isOneXTwo ? (
               <div className="mb-5 flex items-center justify-center gap-2">
                 {(["1", "X", "2"] as OneXTwo[]).map((option) => (
@@ -503,7 +516,7 @@ function ScoreInput({
       value={value}
       disabled={disabled}
       aria-label={label}
-      onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
+      onChange={(e) => onChange(Math.min(20, Math.max(0, Number(e.target.value))))}
       className="h-12 w-14 rounded-lg border border-edge bg-pitch text-center font-display text-xl font-semibold text-ink outline-none focus:border-gold disabled:opacity-60"
     />
   );

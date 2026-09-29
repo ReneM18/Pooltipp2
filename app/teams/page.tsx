@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useRef, useState, FormEvent } from "react";
 import Link from "next/link";
 import { useTeams } from "@/lib/TeamsContext";
 import { useUser } from "@/lib/UserContext";
@@ -15,26 +15,36 @@ export default function TeamsHubPage() {
   const [scoringMode, setScoringMode] = useState<ScoringMode>("ergebnis");
   const [joinCode, setJoinCode] = useState("");
   const [joinError, setJoinError] = useState(false);
+  // Schutz gegen versehentliches Doppel-Absenden (z. B. Doppel-Tap am Handy) –
+  // gleiches Muster wie in MatchCard.tsx / freunde/page.tsx.
+  const createSubmittedRef = useRef(false);
+  const joinSubmittedRef = useRef(false);
 
   const myLeagues = leagues.filter((l) => l.members.includes(displayName));
 
   function handleCreate(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || createSubmittedRef.current) return;
+    createSubmittedRef.current = true;
     createLeague(name.trim(), description.trim(), scoringMode);
     setName("");
     setDescription("");
+    createSubmittedRef.current = false;
   }
 
   function handleJoin(e: FormEvent) {
     e.preventDefault();
+    if (joinSubmittedRef.current) return;
+    joinSubmittedRef.current = true;
     const league = joinLeague(joinCode);
     if (!league) {
       setJoinError(true);
+      joinSubmittedRef.current = false;
       return;
     }
     setJoinError(false);
     setJoinCode("");
+    joinSubmittedRef.current = false;
   }
 
   return (

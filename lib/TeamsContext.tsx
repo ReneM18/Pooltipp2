@@ -19,6 +19,11 @@ const initialLeagues: League[] = [
     scoringMode: "ergebnis",
     members: ["Alex", "Sabine K.", "Marco T."],
     creator: "Alex",
+    // Feste, nicht erreichbare Demo-ID: kein echter Nutzer kann sie je
+    // besitzen (userId wird zufällig generiert), also bleibt die Demo-Runde
+    // immer schreibgeschützt für echte User – unabhängig davon, wie sie
+    // sich selbst nennen.
+    creatorId: "demo-alex",
   },
 ];
 
@@ -54,7 +59,7 @@ interface TeamsContextValue {
 const TeamsContext = createContext<TeamsContextValue | null>(null);
 
 export function TeamsProvider({ children }: { children: ReactNode }) {
-  const { displayName } = useUser();
+  const { displayName, userId } = useUser();
   const [leagues, setLeagues] = useState<League[]>(initialLeagues);
   const [matches, setMatches] = useState<LeagueMatch[]>(initialMatches);
   const [tips, setTips] = useState<LeagueTip[]>([]);
@@ -68,6 +73,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
       scoringMode,
       members: [displayName],
       creator: displayName,
+      creatorId: userId,
     };
     setLeagues((current) => [...current, league]);
     return league;

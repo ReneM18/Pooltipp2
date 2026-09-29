@@ -10,7 +10,18 @@ import {
 } from "@/lib/sportsApi";
 
 const LEAGUES = Object.keys(LEAGUE_IDS);
-const CURRENT_SEASON = "2025-2026";
+
+// Berechnet die aktuelle Saison automatisch aus dem heutigen Datum, statt sie
+// fest zu codieren (europäische Fußball-Saisons laufen Sommer bis Sommer:
+// ab Juli zählt das laufende Jahr als Start-Jahr der neuen Saison).
+function getCurrentSeason(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1–12
+  const startYear = month >= 7 ? year : year - 1;
+  return `${startYear}-${startYear + 1}`;
+}
+const CURRENT_SEASON = getCurrentSeason();
 
 export default function MatchcenterPage() {
   const [league, setLeague] = useState(LEAGUES[0]);
@@ -19,6 +30,7 @@ export default function MatchcenterPage() {
   const [results, setResults] = useState<ResultRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     const leagueId = LEAGUE_IDS[league];
@@ -30,9 +42,11 @@ export default function MatchcenterPage() {
         ? fetchStandings(leagueId, CURRENT_SEASON).then(setStandings)
         : fetchRecentResults(leagueId).then(setResults);
 
-    request.catch(() => setError("Daten konnten gerade nicht geladen werden. Später erneut versuchen."))
+    request.catch(() => setError("Daten konnten gerade nicht geladen werden."))
       .finally(() => setLoading(false));
-  }, [league, view]);
+    // retryCount hat keinen eigenen Effekt außer den useEffect erneut
+    // auszulösen – genau das braucht der "Erneut versuchen"-Button unten.
+  }, [league, view, retryCount]);
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-8">
@@ -60,7 +74,17 @@ export default function MatchcenterPage() {
       </div>
 
       {loading && <p className="py-8 text-center text-sm text-muted">Lädt…</p>}
-      {error && <p className="py-8 text-center text-sm text-muted">{error}</p>}
+      {error && (
+        <div className="flex flex-col items-center gap-3 py-8 text-center">
+          <p className="text-sm text-muted">{error}</p>
+          <button
+            onClick={() => setRetryCount((c) => c + 1)}
+            className="rounded-full border border-edge px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-gold hover:text-gold"
+          >
+            Erneut versuchen
+          </button>
+        </div>
+      )}
 
       {!loading && !error && view === "tabelle" && (
         <div className="overflow-hidden rounded-card border border-edge bg-surface">

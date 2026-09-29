@@ -34,7 +34,17 @@ function isSameDay(aIso: string, bIso: string): boolean {
   return new Date(aIso).toDateString() === new Date(bIso).toDateString();
 }
 
+// Stabile, sitzungsweite Kennung des aktuellen Users – bleibt gleich, auch
+// wenn der Anzeigename geändert wird (anders als displayName, das sich
+// jederzeit ändern kann). Wird z. B. gebraucht, damit man die
+// Ersteller-Rechte einer eigenen Tipprunde nicht durch Umbenennen verliert.
+function generateUserId(): string {
+  return `u_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 interface UserContextValue {
+  // Stabile Sitzungs-ID, unabhängig vom (änderbaren) Anzeigenamen.
+  userId: string;
   displayName: string;
   setDisplayName: (name: string) => void;
   freeStars: number;
@@ -63,13 +73,31 @@ interface UserContextValue {
     actualHome: number,
     actualAway: number
   ) => void;
+  // Für den Admin-Bereich: korrigiert die Auswertung eines Spiels, das schon
+  // einmal ausgewertet wurde (z. B. weil der Endstand falsch eingetragen
+  // war). Macht die alte Rangpunkte-/Sterne-Gutschrift rückgängig, bevor die
+  // neue angewendet wird – sonst würden sich Korrekturen aufsummieren.
+  correctMatchEvaluationForCurrentUser: (
+    matchId: string,
+    sport: Sport,
+    actualHome: number,
+    actualAway: number
+  ) => void;
   tipsSubmitted: number;
   recordTipSubmitted: () => void;
   friends: string[];
   addFriend: (name: string) => void;
   removeFriend: (name: string) => void;
   pendingRequests: string[];
-  sendFriendRequest: (name: string) => void;
+  // Gibt false zurück, wenn der Name die (leichte) Validierung nicht besteht
+  // (zu kurz/lang oder der eigene Name) – die aufrufende Seite kann das dann
+  // als Fehlermeldung anzeigen.
+  sendFriendRequest: (name: string) => boolean;
+  // Eigene hochgeladene Fotos, global verfügbar (z. B. auch auf der
+  // öffentlichen Spieler-Profilseite sichtbar, nicht nur im eigenen Profil).
+  photos: (string | null)[];
+  setPhoto: (index: number, dataUrl: string) => void;
+  removePhoto: (index: number) => void;
   photoVisibility: PhotoVisibility;
   setPhotoVisibility: (visibility: PhotoVisibility) => void;
   rankIconOptions: RankIconOption[];
@@ -89,19 +117,32 @@ const UserContext = createContext<UserContextValue | null>(null);
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const { addActivity, myTips, markTipEvaluated, matches } = useAppData();
+  const [userId] = useState(generateUserId);
   const [displayName, setDisplayName] = useState(mockUser.displayName);
-  const [freeStars, setFreeStars] = useState(mockUser.freeStars);
+  const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
+
+  // Sterne-Guthaben UND alles, was direkt beim Einsetzen davon abhängt
+  // (Tages-Limit, Rettungs-Bonus), leben bewusst in EINEM einzigen State-
+  // Objekt statt in vier separaten useState-Aufrufen. Grund: Nur so sieht
+  // spendStars() bei jedem Aufruf garantiert einen vollständig konsistenten,
+  // aktuellen Stand – mit getrennten useStates könnte ein sehr schneller
+  // zweiter Aufruf (bevor React neu gerendert hat) noch mit veralteten
+  // Werten rechnen und das Tages-Limit falsch fortschreiben.
+  const [starsState, setStarsState] = useState({
+    freeStars: mockUser.freeStars,
+    // Tages-Einsatz-Limit: unabhängig von der Anzahl heutiger Spiele, damit
+    // ein Tag mit vielen Spielen das Guthaben nicht schneller leert als ein
+    // Tag mit wenigen. stakedToday/stakeBudgetDay setzen sich beim ersten
+    // Einsatz eines neuen Tages automatisch zurück.
+    stakedToday: 0,
+    stakeBudgetDay: null as string | null,
+    rescueBonusUsed: false,
+  });
+  const { freeStars, stakedToday, stakeBudgetDay } = starsState;
+
   const [passXP, setPassXP] = useState(mockUser.passXP);
   const [rangPunkte, setRangPunkte] = useState<Record<Sport, number>>(initialRangPunkte);
   const [lastClaimedAt, setLastClaimedAt] = useState<string | null>(null);
-
-  // Tages-Einsatz-Limit: unabhängig von der Anzahl heutiger Spiele, damit ein
-  // Tag mit vielen Spielen das Guthaben nicht schneller leert als ein Tag mit
-  // wenigen. stakedToday/stakeBudgetDay setzen sich beim ersten Einsatz eines
-  // neuen Tages automatisch zurück.
-  const [stakedToday, setStakedToday] = useState(0);
-  const [stakeBudgetDay, setStakeBudgetDay] = useState<string | null>(null);
-  const [rescueBonusUsed, setRescueBonusUsed] = useState(false);
 
   const canClaimDailyBonus = lastClaimedAt === null || !isSameDay(lastClaimedAt, new Date().toISOString());
 
@@ -124,7 +165,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    setFreeStars((current) => current + DAILY_BONUS_STARS);
+    setStarsState((current) => ({ ...current, freeStars: current.freeStars + DAILY_BONUS_STARS }));
     setPassXP((current) => current + DAILY_BONUS_XP);
     setLastClaimedAt(now);
     addActivity(
@@ -166,23 +207,44 @@ export function UserProvider({ children }: { children: ReactNode }) {
     rankIconOptions.find((o) => o.id === selectedRankIconId) ?? getBestRankIcon(rankIconOptions);
 
   function spendStars(amount: number): number {
-    const now = new Date().toISOString();
-    const isNewBudgetDay = stakeBudgetDay === null || !isSameDay(stakeBudgetDay, now);
-    const alreadyStakedToday = isNewBudgetDay ? 0 : stakedToday;
-    const remainingBudget = Math.max(0, DAILY_STAKE_BUDGET - alreadyStakedToday);
+    // Ein einziger setStarsState-Aufruf mit funktionalem Update: der
+    // Updater sieht IMMER den zuletzt tatsächlich übernommenen Stand, auch
+    // wenn spendStars zweimal sehr schnell hintereinander aufgerufen wird
+    // (React reiht solche Updates auf und wendet sie garantiert nacheinander
+    // auf den jeweils aktuellsten Stand an – anders als bei separaten
+    // useStates, wo jeder Aufruf mit einem eigenen, ggf. veralteten
+    // Zwischenstand rechnen würde).
+    let actual = 0;
+    let rescueBonusGranted = false;
 
-    const actual = Math.max(0, Math.min(amount, freeStars, remainingBudget));
+    setStarsState((current) => {
+      const now = new Date().toISOString();
+      const isNewBudgetDay = current.stakeBudgetDay === null || !isSameDay(current.stakeBudgetDay, now);
+      const alreadyStakedToday = isNewBudgetDay ? 0 : current.stakedToday;
+      const remainingBudget = Math.max(0, DAILY_STAKE_BUDGET - alreadyStakedToday);
 
-    setFreeStars((current) => Math.max(0, current - actual));
-    setStakedToday(alreadyStakedToday + actual);
-    if (isNewBudgetDay) setStakeBudgetDay(now);
+      actual = Math.max(0, Math.min(amount, current.freeStars, remainingBudget));
+      let nextFreeStars = Math.max(0, current.freeStars - actual);
+      let nextRescueUsed = current.rescueBonusUsed;
 
-    // Rettungs-Bonus: fällt das Guthaben nach diesem Einsatz auf 0, bekommt
-    // der User einmalig einen kleinen Polster, damit sich niemand komplett
-    // ausgeschlossen fühlt. Danach nicht mehr (kein Dauer-Selbstläufer).
-    if (!rescueBonusUsed && freeStars - actual <= 0 && actual > 0) {
-      setFreeStars((current) => current + RESCUE_BONUS_STARS);
-      setRescueBonusUsed(true);
+      // Rettungs-Bonus: fällt das Guthaben nach diesem Einsatz auf 0, bekommt
+      // der User einmalig einen kleinen Polster, damit sich niemand komplett
+      // ausgeschlossen fühlt. Danach nicht mehr (kein Dauer-Selbstläufer).
+      if (!current.rescueBonusUsed && nextFreeStars <= 0 && actual > 0) {
+        nextFreeStars += RESCUE_BONUS_STARS;
+        nextRescueUsed = true;
+        rescueBonusGranted = true;
+      }
+
+      return {
+        freeStars: nextFreeStars,
+        stakedToday: alreadyStakedToday + actual,
+        stakeBudgetDay: isNewBudgetDay ? now : current.stakeBudgetDay,
+        rescueBonusUsed: nextRescueUsed,
+      };
+    });
+
+    if (rescueBonusGranted) {
       addActivity("🎁", `Deine Sterne waren aufgebraucht – hier ${RESCUE_BONUS_STARS} Sterne geschenkt, damit's weitergeht.`);
     }
 
@@ -228,7 +290,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
       ...current,
       [sport]: Math.max(0, current[sport] + result.rangDelta),
     }));
-    setFreeStars((current) => current + result.starsCredit);
+    setStarsState((current) => ({
+      ...current,
+      freeStars: Math.max(0, current.freeStars + result.starsCredit),
+    }));
 
     const namedBeaten = result.opponents.filter(
       (o) => !o.name.startsWith("Mitspieler #") && TIER_ORDER[o.tier] < TIER_ORDER[result.tier]
@@ -264,6 +329,68 @@ export function UserProvider({ children }: { children: ReactNode }) {
     addActivity(SPORT_ICON[sport], narration);
   }
 
+  // Gegenstück zu evaluateMatchForCurrentUser, aber für einen bereits
+  // ausgewerteten Tipp: sucht bewusst einen Tipp MIT evaluated:true (nicht
+  // ohne), macht dessen alte Gutschrift rückgängig und wendet die neu
+  // berechnete an. So bleibt eine spätere Endstand-Korrektur im Admin-Bereich
+  // fair, statt die alte (falsche) Gutschrift einfach stehen zu lassen oder
+  // eine zweite obendrauf zu addieren.
+  function correctMatchEvaluationForCurrentUser(
+    matchId: string,
+    sport: Sport,
+    actualHome: number,
+    actualAway: number
+  ) {
+    const tip = [...myTips].reverse().find((t) => t.matchId === matchId && t.evaluated);
+    if (!tip) return;
+
+    const match = matches.find((m) => m.id === matchId);
+    const oldRangDelta = tip.rangDelta ?? 0;
+    const oldStarsDelta = tip.starsDelta ?? 0;
+
+    const result = evaluatePoolScore({
+      matchId,
+      sport,
+      predictedHome: tip.predictedHomeScore,
+      predictedAway: tip.predictedAwayScore,
+      actualHome,
+      actualAway,
+      stake: tip.stake,
+      // Rangpunkte-Stand VOR der ursprünglichen (jetzt zu korrigierenden)
+      // Auswertung, als Basis für den Außenseiter-Bonus/-Malus.
+      myRangPunkte: rangPunkte[sport] - oldRangDelta,
+      isOneXTwo: match?.tipMode === "1x2",
+    });
+
+    setRangPunkte((current) => ({
+      ...current,
+      [sport]: Math.max(0, current[sport] - oldRangDelta + result.rangDelta),
+    }));
+    setStarsState((current) => ({
+      ...current,
+      freeStars: Math.max(0, current.freeStars - oldStarsDelta + result.starsCredit),
+    }));
+
+    const deltaLabel = result.rangDelta >= 0 ? `+${result.rangDelta}` : `${result.rangDelta}`;
+    const tierText =
+      result.tier === "exakt"
+        ? "jetzt exakt getroffen"
+        : result.tier === "tendenz"
+        ? "jetzt Tendenz richtig"
+        : "jetzt daneben";
+    const narration = `🔧 Ein Admin hat den Endstand korrigiert – dein Tipp gilt ${tierText} (${deltaLabel} Rangpunkte).`;
+
+    markTipEvaluated(tip.id, {
+      tier: result.tier,
+      rangDelta: result.rangDelta,
+      starsDelta: result.starsNet,
+      beatPercent: result.beatPercent,
+      narration,
+    });
+
+    addActivity(SPORT_ICON[sport], narration);
+  }
+
   function recordTipSubmitted() {
     setTipsSubmitted((current) => current + 1);
   }
@@ -280,21 +407,53 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Da es (noch) keine echten Gegenüber-Accounts gibt, simuliert das die
   // Annahme der Freundschaftsanfrage nach kurzer Zeit – erst danach werden
   // z. B. private Fotos des anderen Users sichtbar.
-  function sendFriendRequest(name: string) {
-    if (!name.trim() || friends.includes(name) || pendingRequests.includes(name)) return;
-    setPendingRequests((current) => [...current, name]);
+  // Leichte Validierung (ohne echte Nutzerliste ist mehr nicht sinnvoll
+  // möglich): Name muss eine plausible Länge haben und darf nicht der
+  // eigene Name sein. Gibt zurück, ob die Anfrage angenommen wurde, damit
+  // die aufrufende Seite bei Ablehnung eine Fehlermeldung zeigen kann.
+  function sendFriendRequest(name: string): boolean {
+    const trimmed = name.trim();
+    if (trimmed.length < 2 || trimmed.length > 30) return false;
+    if (trimmed.toLowerCase() === displayName.toLowerCase()) return false;
+    if (friends.includes(trimmed) || pendingRequests.includes(trimmed)) return false;
+
+    setPendingRequests((current) => [...current, trimmed]);
     setTimeout(() => {
-      setFriends((current) => (current.includes(name) ? current : [...current, name]));
-      setPendingRequests((current) => current.filter((n) => n !== name));
-      addActivity("🤝", `Du bist jetzt mit ${name} befreundet.`);
+      setFriends((current) => (current.includes(trimmed) ? current : [...current, trimmed]));
+      setPendingRequests((current) => current.filter((n) => n !== trimmed));
+      addActivity("🤝", `Du bist jetzt mit ${trimmed} befreundet.`);
     }, 2500);
+    return true;
+  }
+
+  // Eigene hochgeladene Fotos – global im UserContext statt nur lokal auf
+  // der Profilseite, damit sie z. B. auch auf der eigenen öffentlichen
+  // Spieler-Profilseite sichtbar sind.
+  function setPhoto(index: number, dataUrl: string) {
+    setPhotos((current) => {
+      const next = [...current];
+      next[index] = dataUrl;
+      return next;
+    });
+  }
+
+  function removePhoto(index: number) {
+    setPhotos((current) => {
+      const next = [...current];
+      next[index] = null;
+      return next;
+    });
   }
 
   return (
     <UserContext.Provider
       value={{
+        userId,
         displayName,
         setDisplayName,
+        photos,
+        setPhoto,
+        removePhoto,
         freeStars,
         passXP,
         rangPunkte,
@@ -304,6 +463,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         stakeBudgetRemainingToday,
         isLowOnStars,
         evaluateMatchForCurrentUser,
+        correctMatchEvaluationForCurrentUser,
         tipsSubmitted,
         recordTipSubmitted,
         friends,

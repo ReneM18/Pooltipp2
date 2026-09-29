@@ -10,7 +10,7 @@ import RankBadge from "@/components/RankBadge";
 export default function SpielerProfilPage() {
   const params = useParams();
   const router = useRouter();
-  const { displayName, friends, pendingRequests, sendFriendRequest } = useUser();
+  const { displayName, friends, pendingRequests, sendFriendRequest, photos: myPhotos } = useUser();
 
   const name = decodeURIComponent(
     Array.isArray(params.name) ? params.name[0] : params.name ?? ""
@@ -108,7 +108,30 @@ export default function SpielerProfilPage() {
         </div>
 
         {photosVisible ? (
-          profile.photos.length > 0 ? (
+          isSelf ? (
+            // Für die eigene Person zeigen wir die echten hochgeladenen
+            // Fotos aus dem Profil (global im UserContext), statt der
+            // dekorativen Mock-Platzhalter der anderen User.
+            myPhotos.some((p) => p) ? (
+              <div className="grid grid-cols-3 gap-3">
+                {myPhotos.map((photo, i) =>
+                  photo ? (
+                    <div
+                      key={i}
+                      className="aspect-square overflow-hidden rounded-card border border-edge"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={photo} alt={`Foto ${i + 1}`} className="h-full w-full object-cover" />
+                    </div>
+                  ) : null
+                )}
+              </div>
+            ) : (
+              <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted">
+                Noch keine Fotos hochgeladen.
+              </p>
+            )
+          ) : profile.photos.length > 0 ? (
             <div className="grid grid-cols-3 gap-3">
               {profile.photos.map((photo, i) => (
                 <div

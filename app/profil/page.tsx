@@ -28,11 +28,13 @@ export default function ProfilPage() {
     activeRankIcon,
     photoVisibility,
     setPhotoVisibility,
+    photos,
+    setPhoto,
+    removePhoto,
   } = useUser();
   const { matches, getTeam, myTips } = useAppData();
   const [nameInput, setNameInput] = useState(displayName);
   const [saved, setSaved] = useState(false);
-  const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
   const [profileTab, setProfileTab] = useState<"Übersicht" | "Rang">("Übersicht");
 
   const sportProgressOptions = rankIconOptions.filter(
@@ -58,21 +60,9 @@ export default function ProfilPage() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      setPhotos((current) => {
-        const next = [...current];
-        next[index] = reader.result as string;
-        return next;
-      });
+      setPhoto(index, reader.result as string);
     };
     reader.readAsDataURL(file);
-  }
-
-  function removePhoto(index: number) {
-    setPhotos((current) => {
-      const next = [...current];
-      next[index] = null;
-      return next;
-    });
   }
 
   return (

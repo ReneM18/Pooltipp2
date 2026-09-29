@@ -78,7 +78,7 @@ export default function ShareResultCard({ leagueName, leaderboard, currentUser }
       ctx.textAlign = "right";
       ctx.font = "bold 30px Arial";
       ctx.fillStyle = "#3FA66B";
-      ctx.fillText(`${pts} Pkt`, W - 75, y);
+      ctx.fillText(`${pts} Liga-Pkt`, W - 75, y);
 
       y += rowH;
     });

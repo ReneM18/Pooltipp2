@@ -484,11 +484,16 @@ function MatchManager() {
     setTvChannel,
     setTipMode,
   } = useAppData();
-  const { evaluateMatchForCurrentUser } = useUser();
+  const { evaluateMatchForCurrentUser, correctMatchEvaluationForCurrentUser } = useUser();
 
   // Sobald ein Spiel hier auf "Beendet" gesetzt wird, löst das direkt die
   // PoolScore-Auswertung des eigenen Tipps aus (Rangliste-Punkte, Sterne,
   // Prozent-Vergleich) – siehe UserContext.evaluateMatchForCurrentUser.
+  // War das Spiel schon vorher "Beendet" und der Endstand wird jetzt nur
+  // NACHTRÄGLICH korrigiert (z. B. Tippfehler beim ersten Eintragen), läuft
+  // stattdessen die Korrektur-Variante: die macht die alte Punkte-/
+  // Sterne-Gutschrift rückgängig, bevor sie die neue anwendet – sonst bliebe
+  // entweder der falsche Stand stehen oder es würde doppelt gutgeschrieben.
   function handleScoreUpdate(
     matchId: string,
     homeScore: number | null,
@@ -497,9 +502,15 @@ function MatchManager() {
   ) {
     const match = matches.find((m) => m.id === matchId);
     const wasFinished = match?.status === "finished";
+    const scoreChanged =
+      homeScore !== match?.liveHomeScore || awayScore !== match?.liveAwayScore;
     updateMatchScore(matchId, homeScore, awayScore, status);
-    if (status === "finished" && !wasFinished && match && homeScore !== null && awayScore !== null) {
-      evaluateMatchForCurrentUser(matchId, match.sport, homeScore, awayScore);
+    if (status === "finished" && match && homeScore !== null && awayScore !== null) {
+      if (!wasFinished) {
+        evaluateMatchForCurrentUser(matchId, match.sport, homeScore, awayScore);
+      } else if (scoreChanged) {
+        correctMatchEvaluationForCurrentUser(matchId, match.sport, homeScore, awayScore);
+      }
     }
   }
 
@@ -882,9 +893,14 @@ function LiveScoreEditor({
       />
       <button
         onClick={handleUpdate}
+        title={
+          match.status === "finished"
+            ? "Endstand erneut übernehmen korrigiert die bereits vergebenen Rangpunkte/Sterne."
+            : undefined
+        }
         className="rounded-lg bg-action px-2 py-1 text-xs font-semibold text-pitch transition-colors hover:bg-action-hover"
       >
-        OK
+        {match.status === "finished" ? "Korrigieren" : "OK"}
       </button>
     </div>
   );

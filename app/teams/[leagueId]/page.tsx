@@ -46,11 +46,14 @@ export default function LeagueDetailPage() {
     leaveLeague,
     deleteLeague,
   } = useTeams();
-  const { displayName } = useUser();
+  const { displayName, userId } = useUser();
 
   const league = leagues.find((l) => l.id === params.leagueId);
   const leagueMatches = matches.filter((m) => m.leagueId === params.leagueId);
-  const isCreator = league?.creator === displayName;
+  // Rechte-Prüfung über die feste userId statt über den frei änderbaren
+  // Anzeigenamen – sonst könnte sich jemand einfach "Alex" nennen und hätte
+  // Gründer-Rechte in der Demo-Tipprunde.
+  const isCreator = league?.creatorId === userId;
 
   const [tab, setTab] = useState<"spiele" | "rangliste" | "mitglieder">("spiele");
   const [editingLeague, setEditingLeague] = useState(false);
@@ -194,6 +197,10 @@ export default function LeagueDetailPage() {
 
       {tab === "rangliste" && (
         <div className="flex flex-col gap-4">
+          {/* Bewusst "Liga-Pkt" statt nur "Pkt": diese Punkte sind ein
+              eigenes System nur innerhalb dieser Tipprunde (siehe pointsFor
+              oben) und haben nichts mit den PoolScore-Rangpunkten der
+              globalen Rangliste zu tun – sonst denken User, es sei dasselbe. */}
           {leaderboard.length > 0 && (
             <ShareResultCard leagueName={league.name} leaderboard={leaderboard} currentUser={displayName} />
           )}
@@ -208,7 +215,7 @@ export default function LeagueDetailPage() {
               <span className="text-sm text-ink">
                 {i + 1}. {name} {name === displayName && <span className="text-muted">(Du)</span>}
               </span>
-              <span className="font-display font-semibold text-blue-400">{pts} Pkt</span>
+              <span className="font-display font-semibold text-blue-400">{pts} Liga-Pkt</span>
             </div>
           ))}
         </div>

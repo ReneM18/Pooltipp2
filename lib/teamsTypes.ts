@@ -7,7 +7,13 @@ export interface League {
   code: string; // Einladungs-Code zum Beitreten
   scoringMode: ScoringMode;
   members: string[];
+  // "creator" ist nur der Anzeige-Name (Nutzer können ihn jederzeit ändern).
+  // Für Rechte-Prüfungen (Bearbeiten/Löschen) zählt allein creatorId – eine
+  // pro Sitzung feste, nicht änderbare ID (siehe UserContext.userId). Sonst
+  // könnte sich theoretisch jemand einfach in "Alex" umbenennen und hätte
+  // Gründer-Rechte in der Demo-Tipprunde.
   creator: string;
+  creatorId: string;
 }
 
 export interface LeagueMatch {
