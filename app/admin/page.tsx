@@ -890,10 +890,10 @@ function MatchManager() {
 
         return (
           <>
-            <div className="mb-4 flex gap-2">
+            <div className="mb-4 flex gap-2.5">
               <button
                 onClick={() => setMatchListTab("bevorstehend")}
-                className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                className={`min-w-[11rem] rounded-full border px-5 py-3 text-base font-semibold transition-colors ${
                   matchListTab === "bevorstehend"
                     ? "border-gold bg-gold/15 text-gold"
                     : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
@@ -903,7 +903,7 @@ function MatchManager() {
               </button>
               <button
                 onClick={() => setMatchListTab("beendet")}
-                className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                className={`min-w-[11rem] rounded-full border px-5 py-3 text-base font-semibold transition-colors ${
                   matchListTab === "beendet"
                     ? "border-gold bg-gold/15 text-gold"
                     : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
@@ -1176,7 +1176,7 @@ function MatchDetailsEditor({
     <div className="flex items-center gap-1.5">
       <button
         onClick={() => setEditing((v) => !v)}
-        className="rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
+        className="min-w-[8rem] rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
       >
         Bearbeiten
       </button>
@@ -1288,7 +1288,7 @@ function TipModeEditor({
       <select
         value={mode}
         onChange={(e) => setMode(e.target.value as TipMode)}
-        className="rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+        className="min-w-[11rem] rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
         title="Tipp-Art für dieses Spiel"
       >
         <option value="score">Ergebnis-Tipp</option>
@@ -1297,7 +1297,7 @@ function TipModeEditor({
       {mode !== match.tipMode && (
         <button
           onClick={handleSave}
-          className="rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
+          className="min-w-[7rem] rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
         >
           Speichern
         </button>
@@ -1327,11 +1327,11 @@ function TvChannelEditor({
         value={channel}
         onChange={(e) => setChannel(e.target.value)}
         placeholder="TV-Sender"
-        className="w-36 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+        className="w-44 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
       />
       <button
         onClick={handleSave}
-        className="rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
+        className="min-w-[7rem] rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
       >
         Speichern
       </button>
@@ -1361,11 +1361,11 @@ function VideoLinkEditor({
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         placeholder="YouTube-Link zur Zusammenfassung"
-        className="w-52 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+        className="w-60 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
       />
       <button
         onClick={handleSave}
-        className="rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
+        className="min-w-[7rem] rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
       >
         Speichern
       </button>
@@ -1418,7 +1418,7 @@ function BonusQuestionEditor({
     <div className="flex items-center gap-1.5">
       <button
         onClick={() => setEditing((v) => !v)}
-        className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+        className={`min-w-[8rem] rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
           match.bonusQuestion ? "bg-gold/15 text-gold" : "bg-surface-hover text-ink hover:text-gold"
         }`}
       >
@@ -1537,7 +1537,7 @@ function LiveScoreEditor({
       <select
         value={status}
         onChange={(e) => setStatus(e.target.value as MatchStatus)}
-        className="rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+        className="min-w-[11rem] rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
       >
         <option value="upcoming">Bevorstehend</option>
         <option value="live">Live</option>
