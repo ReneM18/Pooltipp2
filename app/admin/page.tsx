@@ -990,10 +990,13 @@ function MatchManager() {
 
               <div className="flex flex-wrap items-center gap-2 border-t border-edge pt-4">
                 <MatchDetailsEditor match={match} teams={teams} onSave={updateMatchDetails} />
-                <TipModeEditor match={match} onSave={setTipMode} />
                 <LiveScoreEditor match={match} onUpdate={handleScoreUpdate} />
-                <TvChannelEditor match={match} onSave={setTvChannel} />
-                <VideoLinkEditor match={match} onSave={setSummaryVideo} />
+                <MatchExtrasEditor
+                  match={match}
+                  onSaveTipMode={setTipMode}
+                  onSaveTvChannel={setTvChannel}
+                  onSaveVideoUrl={setSummaryVideo}
+                />
                 <BonusQuestionEditor match={match} onSave={setBonusQuestion} onSetAnswer={handleBonusAnswer} />
                 <button
                   onClick={() => {
@@ -1176,7 +1179,7 @@ function MatchDetailsEditor({
     <div className="flex items-center gap-1.5">
       <button
         onClick={() => setEditing((v) => !v)}
-        className="min-w-[8rem] rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
+        className="min-w-[9rem] rounded-lg bg-surface-hover px-3 py-2.5 text-base font-semibold text-ink transition-colors hover:text-gold"
       >
         Bearbeiten
       </button>
@@ -1266,109 +1269,70 @@ function MatchDetailsEditor({
   );
 }
 
-function TipModeEditor({
+// Fasst Tipp-Art, TV-Sender und Video-Link in EINEM Editor mit EINEM
+// "Speichern"-Button zusammen – vorher brauchte jedes einzelne Feld einen
+// eigenen Klick auf "Speichern", was bei drei Feldern in Folge lästig war.
+function MatchExtrasEditor({
   match,
-  onSave,
+  onSaveTipMode,
+  onSaveTvChannel,
+  onSaveVideoUrl,
 }: {
   match: Match;
-  onSave: (matchId: string, mode: TipMode) => void;
+  onSaveTipMode: (matchId: string, mode: TipMode) => void;
+  onSaveTvChannel: (matchId: string, channel: string) => void;
+  onSaveVideoUrl: (matchId: string, url: string) => void;
 }) {
   const { showToast } = useFeedback();
-  const [mode, setMode] = useState<TipMode>(match.tipMode);
+  const [tipMode, setTipMode] = useState<TipMode>(match.tipMode);
+  const [tvChannel, setTvChannel] = useState(match.tvChannel ?? "");
+  const [videoUrl, setVideoUrl] = useState(match.summaryVideoUrl ?? "");
+
+  const tipModeChanged = tipMode !== match.tipMode;
+  const tvChannelChanged = tvChannel.trim() !== (match.tvChannel ?? "");
+  const videoUrlChanged = videoUrl.trim() !== (match.summaryVideoUrl ?? "");
+  const hasChanges = tipModeChanged || tvChannelChanged || videoUrlChanged;
 
   function handleSave() {
-    if (mode === match.tipMode) return;
-    if (!confirm("Tipp-Art für dieses Spiel wirklich ändern?")) return;
-    onSave(match.id, mode);
-    showToast("✓ Tipp-Art gespeichert.", "success");
+    if (tipModeChanged && !confirm("Tipp-Art für dieses Spiel wirklich ändern?")) return;
+    if (tipModeChanged) onSaveTipMode(match.id, tipMode);
+    if (tvChannelChanged) onSaveTvChannel(match.id, tvChannel.trim());
+    if (videoUrlChanged) onSaveVideoUrl(match.id, videoUrl.trim());
+    showToast("✓ Gespeichert.", "success");
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <select
-        value={mode}
-        onChange={(e) => setMode(e.target.value as TipMode)}
-        className="min-w-[11rem] rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+        value={tipMode}
+        onChange={(e) => setTipMode(e.target.value as TipMode)}
+        className="min-w-[12rem] rounded-lg border border-edge bg-pitch px-3 py-2.5 text-base text-ink outline-none focus:border-gold"
         title="Tipp-Art für dieses Spiel"
       >
         <option value="score">Ergebnis-Tipp</option>
         <option value="1x2">1X2</option>
       </select>
-      {mode !== match.tipMode && (
+      <input
+        value={tvChannel}
+        onChange={(e) => setTvChannel(e.target.value)}
+        placeholder="TV-Sender"
+        className="w-44 rounded-lg border border-edge bg-pitch px-3 py-2.5 text-base text-ink outline-none focus:border-gold"
+      />
+      <input
+        type="url"
+        value={videoUrl}
+        onChange={(e) => setVideoUrl(e.target.value)}
+        placeholder="YouTube-Link zur Zusammenfassung"
+        className="w-60 rounded-lg border border-edge bg-pitch px-3 py-2.5 text-base text-ink outline-none focus:border-gold"
+      />
+      {hasChanges && (
         <button
           onClick={handleSave}
-          className="min-w-[7rem] rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
+          className="min-w-[8rem] rounded-lg bg-action px-3 py-2.5 text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
         >
           Speichern
         </button>
       )}
-    </div>
-  );
-}
-
-function TvChannelEditor({
-  match,
-  onSave,
-}: {
-  match: Match;
-  onSave: (matchId: string, channel: string) => void;
-}) {
-  const { showToast } = useFeedback();
-  const [channel, setChannel] = useState(match.tvChannel ?? "");
-
-  function handleSave() {
-    onSave(match.id, channel.trim());
-    showToast("✓ TV-Sender gespeichert.", "success");
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        value={channel}
-        onChange={(e) => setChannel(e.target.value)}
-        placeholder="TV-Sender"
-        className="w-44 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-      />
-      <button
-        onClick={handleSave}
-        className="min-w-[7rem] rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
-      >
-        Speichern
-      </button>
-    </div>
-  );
-}
-
-function VideoLinkEditor({
-  match,
-  onSave,
-}: {
-  match: Match;
-  onSave: (matchId: string, url: string) => void;
-}) {
-  const { showToast } = useFeedback();
-  const [url, setUrl] = useState(match.summaryVideoUrl ?? "");
-
-  function handleSave() {
-    onSave(match.id, url.trim());
-    showToast("✓ Video-Link gespeichert.", "success");
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        type="url"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="YouTube-Link zur Zusammenfassung"
-        className="w-60 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-      />
-      <button
-        onClick={handleSave}
-        className="min-w-[7rem] rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
-      >
-        Speichern
-      </button>
     </div>
   );
 }
@@ -1418,7 +1382,7 @@ function BonusQuestionEditor({
     <div className="flex items-center gap-1.5">
       <button
         onClick={() => setEditing((v) => !v)}
-        className={`min-w-[8rem] rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
+        className={`min-w-[9rem] rounded-lg px-3 py-2.5 text-base font-semibold transition-colors ${
           match.bonusQuestion ? "bg-gold/15 text-gold" : "bg-surface-hover text-ink hover:text-gold"
         }`}
       >
@@ -1503,6 +1467,11 @@ function BonusQuestionEditor({
   );
 }
 
+// Statt eines Status-Dropdowns (bei dem leicht vergessen wird, es auch
+// wirklich auf "Beendet" umzustellen) gibt es jetzt klar benannte Buttons:
+// "Spiel beenden" ist die Standard-Aktion und macht sofort, was der Name
+// sagt – Endstand setzen UND auswerten. "Nur Zwischenstand speichern" ist
+// die Ausnahme für einen Live-Spielstand, der das Spiel noch nicht beendet.
 function LiveScoreEditor({
   match,
   onUpdate,
@@ -1513,62 +1482,56 @@ function LiveScoreEditor({
   const { showToast } = useFeedback();
   const [homeScore, setHomeScore] = useState(match.liveHomeScore ?? 0);
   const [awayScore, setAwayScore] = useState(match.liveAwayScore ?? 0);
-  const [status, setStatus] = useState<MatchStatus>(match.status);
+  const alreadyFinished = match.status === "finished";
 
-  function handleUpdate() {
-    // Endstand setzen/korrigieren wertet direkt die Tipps ALLER User aus
-    // (siehe MatchManager.handleScoreUpdate) – folgenreich genug, um aktiv
-    // nachzufragen. Ein reiner Live-Spielstand (noch nicht "Beendet") wird
-    // oft mehrmals während eines Spiels aktualisiert und bleibt deshalb
-    // bewusst ohne Bestätigungs-Dialog – nur die kurze Rückmeldung danach.
-    if (status === "finished") {
-      const verb = match.status === "finished" ? "korrigieren" : "festlegen";
-      if (!confirm(`Endstand ${homeScore}:${awayScore} ${verb} und Tipps auswerten?`)) return;
-      onUpdate(match.id, homeScore, awayScore, status);
-      showToast("✓ Endstand gespeichert – Tipps wurden ausgewertet.", "gold");
-    } else {
-      onUpdate(match.id, homeScore, awayScore, status);
-      showToast("✓ Spielstand aktualisiert.", "success");
-    }
+  function handleFinish() {
+    const verb = alreadyFinished ? "korrigieren" : "festlegen";
+    if (!confirm(`Endstand ${homeScore}:${awayScore} ${verb} und Tipps auswerten?`)) return;
+    onUpdate(match.id, homeScore, awayScore, "finished");
+    showToast("✓ Endstand gespeichert – Tipps wurden ausgewertet.", "gold");
+  }
+
+  function handleSaveLive() {
+    onUpdate(match.id, homeScore, awayScore, "live");
+    showToast("✓ Zwischenstand gespeichert.", "success");
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <select
-        value={status}
-        onChange={(e) => setStatus(e.target.value as MatchStatus)}
-        className="min-w-[11rem] rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-      >
-        <option value="upcoming">Bevorstehend</option>
-        <option value="live">Live</option>
-        <option value="finished">Beendet</option>
-      </select>
+    <div className="flex flex-wrap items-center gap-2">
       <input
         type="number"
         min={0}
         value={homeScore}
         onChange={(e) => setHomeScore(Number(e.target.value))}
-        className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2 text-center text-sm text-ink outline-none focus:border-gold"
+        className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2.5 text-center text-base text-ink outline-none focus:border-gold"
       />
-      <span className="text-sm text-muted">:</span>
+      <span className="text-base text-muted">:</span>
       <input
         type="number"
         min={0}
         value={awayScore}
         onChange={(e) => setAwayScore(Number(e.target.value))}
-        className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2 text-center text-sm text-ink outline-none focus:border-gold"
+        className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2.5 text-center text-base text-ink outline-none focus:border-gold"
       />
       <button
-        onClick={handleUpdate}
+        onClick={handleFinish}
         title={
-          match.status === "finished"
+          alreadyFinished
             ? "Endstand erneut übernehmen korrigiert die bereits vergebenen Rangpunkte/Sterne."
             : undefined
         }
-        className="rounded-lg bg-action px-3 py-2 text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+        className="min-w-[9rem] rounded-lg bg-action px-3 py-2.5 text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
       >
-        {match.status === "finished" ? "Korrigieren" : "OK"}
+        {alreadyFinished ? "Endstand korrigieren" : "Spiel beenden"}
       </button>
+      {!alreadyFinished && (
+        <button
+          onClick={handleSaveLive}
+          className="rounded-lg bg-surface-hover px-3 py-2.5 text-sm font-semibold text-muted transition-colors hover:text-ink"
+        >
+          Nur Zwischenstand speichern
+        </button>
+      )}
     </div>
   );
 }
