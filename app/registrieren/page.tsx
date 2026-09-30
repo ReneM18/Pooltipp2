@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
@@ -21,6 +21,28 @@ export default function RegistrierenPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+
+  // Nur für den Test: zeigt an, ob im Browser gerade eine echte
+  // Supabase-Sitzung aktiv ist, und bietet einen Logout-Button dafür.
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSessionEmail(data.session?.user.email ?? null);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionEmail(session?.user.email ?? null);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    await supabase.auth.signOut();
+    setLoggingOut(false);
+    setResult({ kind: "success", text: "Ausgeloggt." });
+  }
 
   async function handleRegister(e: FormEvent) {
     e.preventDefault();
@@ -94,6 +116,22 @@ export default function RegistrierenPage() {
           ? "Testseite: legt ein echtes Konto bei Supabase an (noch nicht mit dem Rest der App verknüpft)."
           : "Testseite: prüft, ob der Login mit einem bereits angelegten Konto funktioniert."}
       </p>
+
+      {sessionEmail && (
+        <div className="mb-6 flex items-center justify-between rounded-lg border border-gold/40 bg-gold/10 p-3 text-sm text-ink">
+          <span>
+            Aktive Sitzung: <span className="font-semibold">{sessionEmail}</span>
+          </span>
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="rounded-full border border-edge px-3 py-1 text-xs font-semibold text-muted transition-colors hover:text-ink disabled:opacity-60"
+          >
+            {loggingOut ? "…" : "Ausloggen"}
+          </button>
+        </div>
+      )}
 
       <form
         onSubmit={mode === "register" ? handleRegister : handleLogin}
