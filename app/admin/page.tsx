@@ -615,6 +615,11 @@ function MatchManager() {
     }
   }
 
+  // Trennt die Liste unten in "Bevorstehend" (inkl. Live) und "Beendet" –
+  // sonst wächst die Liste mit der Zeit endlos und man muss an alten,
+  // abgepfiffenen Spielen vorbeiscrollen, um ein neues zu bearbeiten.
+  const [matchListTab, setMatchListTab] = useState<"bevorstehend" | "beendet">("bevorstehend");
+
   const [sport, setSport] = useState<Sport>("Fußball");
   const [competition, setCompetition] = useState("");
   const [matchday, setMatchday] = useState("");
@@ -803,28 +808,20 @@ function MatchManager() {
         <div>
           <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted">Termine</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-sm text-muted">Anpfiff</label>
-              <input
-                type="datetime-local"
-                value={kickoff}
-                onChange={(e) => {
-                  setKickoff(e.target.value);
-                  // Vorschlag: Tippschluss = Anpfiff, falls noch nicht gesetzt
-                  if (!tipDeadline) setTipDeadline(e.target.value);
-                }}
-                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm text-muted">Tippschluss (ab dann kein Tipp mehr möglich)</label>
-              <input
-                type="datetime-local"
-                value={tipDeadline}
-                onChange={(e) => setTipDeadline(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
-              />
-            </div>
+            <QuickDateTimeField
+              label="Anpfiff"
+              value={kickoff}
+              onChange={(v) => {
+                setKickoff(v);
+                // Vorschlag: Tippschluss = Anpfiff, falls noch nicht gesetzt
+                if (!tipDeadline) setTipDeadline(v);
+              }}
+            />
+            <QuickDateTimeField
+              label="Tippschluss (ab dann kein Tipp mehr möglich)"
+              value={tipDeadline}
+              onChange={setTipDeadline}
+            />
           </div>
         </div>
 
@@ -882,15 +879,51 @@ function MatchManager() {
         </button>
       </form>
 
-      <div className="flex flex-col gap-4">
-        {matches.length === 0 && (
-          <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted">
-            Noch keine Spiele angelegt.
-          </p>
-        )}
-        {matches.map((match) => {
-          const home = getTeam(match.homeTeamId);
-          const away = getTeam(match.awayTeamId);
+      {(() => {
+        const upcomingMatches = matches
+          .filter((m) => m.status !== "finished")
+          .sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime());
+        const finishedMatches = matches
+          .filter((m) => m.status === "finished")
+          .sort((a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime());
+        const visibleMatches = matchListTab === "bevorstehend" ? upcomingMatches : finishedMatches;
+
+        return (
+          <>
+            <div className="mb-4 flex gap-2">
+              <button
+                onClick={() => setMatchListTab("bevorstehend")}
+                className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                  matchListTab === "bevorstehend"
+                    ? "border-gold bg-gold/15 text-gold"
+                    : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
+                }`}
+              >
+                Bevorstehend ({upcomingMatches.length})
+              </button>
+              <button
+                onClick={() => setMatchListTab("beendet")}
+                className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                  matchListTab === "beendet"
+                    ? "border-gold bg-gold/15 text-gold"
+                    : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
+                }`}
+              >
+                Beendet ({finishedMatches.length})
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {visibleMatches.length === 0 && (
+                <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted">
+                  {matchListTab === "bevorstehend"
+                    ? "Keine bevorstehenden Spiele."
+                    : "Noch keine beendeten Spiele."}
+                </p>
+              )}
+              {visibleMatches.map((match) => {
+                const home = getTeam(match.homeTeamId);
+                const away = getTeam(match.awayTeamId);
           return (
             <div key={match.id} className="rounded-card border border-edge bg-surface p-5 sm:p-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -975,9 +1008,12 @@ function MatchManager() {
                 </button>
               </div>
             </div>
-          );
-        })}
-      </div>
+                );
+              })}
+            </div>
+          </>
+        );
+      })()}
     </section>
   );
 }
@@ -992,6 +1028,92 @@ function toLocalInputValue(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
     d.getMinutes()
   )}`;
+}
+
+// Übliche Anstoßzeiten – spart das mühsame Eintippen/Scrollen im nativen
+// Zeit-Picker für den häufigsten Fall.
+const QUICK_KICKOFF_TIMES = ["15:30", "17:30", "18:30", "20:00", "20:45"];
+
+// Schnell-Auswahl für Anpfiff/Tippschluss: der native datetime-local-Picker
+// bleibt als Fallback für genaue Werte erhalten, aber ein Tag-Button (Heute/
+// Morgen/...) + ein Uhrzeit-Button reichen für den Alltag meist schon aus,
+// statt sich durch Kalender und Ziffern klicken zu müssen. Tag- und
+// Uhrzeit-Teil werden dabei unabhängig voneinander gesetzt – der jeweils
+// andere Teil (falls schon vorhanden) bleibt erhalten.
+function QuickDateTimeField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  function todayDatePart(): string {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  }
+
+  function setDayOffset(daysFromToday: number) {
+    const base = new Date();
+    base.setDate(base.getDate() + daysFromToday);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const datePart = `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}`;
+    const timePart = value.includes("T") ? value.split("T")[1] : "15:30";
+    onChange(`${datePart}T${timePart}`);
+  }
+
+  function setTimePart(time: string) {
+    const datePart = value.includes("T") ? value.split("T")[0] : todayDatePart();
+    onChange(`${datePart}T${time}`);
+  }
+
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm text-muted">{label}</label>
+      <input
+        type="datetime-local"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mb-1.5 w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+      />
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          onClick={() => setDayOffset(0)}
+          className="rounded-lg bg-surface-hover px-2.5 py-1 text-xs font-semibold text-ink transition-colors hover:text-gold"
+        >
+          Heute
+        </button>
+        <button
+          type="button"
+          onClick={() => setDayOffset(1)}
+          className="rounded-lg bg-surface-hover px-2.5 py-1 text-xs font-semibold text-ink transition-colors hover:text-gold"
+        >
+          Morgen
+        </button>
+        <button
+          type="button"
+          onClick={() => setDayOffset(7)}
+          className="rounded-lg bg-surface-hover px-2.5 py-1 text-xs font-semibold text-ink transition-colors hover:text-gold"
+        >
+          +1 Woche
+        </button>
+        <span className="mx-0.5 w-px self-stretch bg-edge" />
+        {QUICK_KICKOFF_TIMES.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTimePart(t)}
+            className="rounded-lg bg-surface-hover px-2.5 py-1 text-xs font-semibold text-ink transition-colors hover:text-gold"
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // Bearbeiten der Stammdaten eines bereits angelegten Spiels – vorher ließ
@@ -1054,98 +1176,86 @@ function MatchDetailsEditor({
     <div className="flex items-center gap-1.5">
       <button
         onClick={() => setEditing((v) => !v)}
-        className="rounded-lg bg-surface-hover px-2 py-1 text-xs font-semibold text-ink transition-colors hover:text-gold"
+        className="rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
       >
         Bearbeiten
       </button>
 
       {editing && (
-        <div className="w-full rounded-lg border border-edge bg-pitch p-3">
-          <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="w-full rounded-lg border border-edge bg-pitch p-4">
+          <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs text-muted">Wettbewerb</label>
+              <label className="mb-1.5 block text-sm text-muted">Wettbewerb</label>
               <input
                 value={competition}
                 onChange={(e) => setCompetition(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+                className="w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-gold"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-muted">Spieltag (optional)</label>
+              <label className="mb-1.5 block text-sm text-muted">Spieltag (optional)</label>
               <input
                 type="number"
                 value={matchday}
                 onChange={(e) => setMatchday(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+                className="w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-gold"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs text-muted">Einsatz (Sterne)</label>
+              <label className="mb-1.5 block text-sm text-muted">Heimteam</label>
+              <select
+                value={homeTeamId}
+                onChange={(e) => setHomeTeamId(e.target.value)}
+                className="w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+              >
+                {teamsForSport.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {flagEmoji(t.countryCode)} {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm text-muted">Auswärtsteam</label>
+              <select
+                value={awayTeamId}
+                onChange={(e) => setAwayTeamId(e.target.value)}
+                className="w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+              >
+                {teamsForSport.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {flagEmoji(t.countryCode)} {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm text-muted">Einsatz (Sterne)</label>
               <input
                 type="number"
                 min={1}
                 value={fixedStake}
                 onChange={(e) => setFixedStake(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-muted">Heimteam</label>
-              <select
-                value={homeTeamId}
-                onChange={(e) => setHomeTeamId(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
-              >
-                {teamsForSport.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {flagEmoji(t.countryCode)} {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-muted">Auswärtsteam</label>
-              <select
-                value={awayTeamId}
-                onChange={(e) => setAwayTeamId(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
-              >
-                {teamsForSport.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {flagEmoji(t.countryCode)} {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-muted">Anpfiff</label>
-              <input
-                type="datetime-local"
-                value={kickoff}
-                onChange={(e) => setKickoff(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-muted">Tippschluss</label>
-              <input
-                type="datetime-local"
-                value={tipDeadline}
-                onChange={(e) => setTipDeadline(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+                className="w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-gold"
               />
             </div>
           </div>
+
+          <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <QuickDateTimeField label="Anpfiff" value={kickoff} onChange={setKickoff} />
+            <QuickDateTimeField label="Tippschluss" value={tipDeadline} onChange={setTipDeadline} />
+          </div>
+
           <div className="flex items-center gap-2">
             <button
               onClick={handleSave}
-              className="rounded-lg bg-action px-3 py-1 text-xs font-semibold text-pitch transition-colors hover:bg-action-hover"
+              className="rounded-lg bg-action px-3 py-1.5 text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
             >
               Speichern
             </button>
             <button
               onClick={() => setEditing(false)}
-              className="rounded-lg border border-edge px-3 py-1 text-xs text-muted transition-colors hover:text-ink"
+              className="rounded-lg border border-edge px-3 py-1.5 text-sm text-muted transition-colors hover:text-ink"
             >
               Abbrechen
             </button>
@@ -1174,11 +1284,11 @@ function TipModeEditor({
   }
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
       <select
         value={mode}
         onChange={(e) => setMode(e.target.value as TipMode)}
-        className="rounded-lg border border-edge bg-pitch px-2 py-1 text-xs text-ink outline-none focus:border-gold"
+        className="rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
         title="Tipp-Art für dieses Spiel"
       >
         <option value="score">Ergebnis-Tipp</option>
@@ -1187,7 +1297,7 @@ function TipModeEditor({
       {mode !== match.tipMode && (
         <button
           onClick={handleSave}
-          className="rounded-lg bg-surface-hover px-2 py-1 text-xs font-semibold text-ink transition-colors hover:text-gold"
+          className="rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
         >
           Speichern
         </button>
@@ -1212,16 +1322,16 @@ function TvChannelEditor({
   }
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
       <input
         value={channel}
         onChange={(e) => setChannel(e.target.value)}
         placeholder="TV-Sender"
-        className="w-32 rounded-lg border border-edge bg-pitch px-2 py-1 text-xs text-ink outline-none focus:border-gold"
+        className="w-36 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
       />
       <button
         onClick={handleSave}
-        className="rounded-lg bg-surface-hover px-2 py-1 text-xs font-semibold text-ink transition-colors hover:text-gold"
+        className="rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
       >
         Speichern
       </button>
@@ -1245,17 +1355,17 @@ function VideoLinkEditor({
   }
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
       <input
         type="url"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         placeholder="YouTube-Link zur Zusammenfassung"
-        className="w-48 rounded-lg border border-edge bg-pitch px-2 py-1 text-xs text-ink outline-none focus:border-gold"
+        className="w-52 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
       />
       <button
         onClick={handleSave}
-        className="rounded-lg bg-surface-hover px-2 py-1 text-xs font-semibold text-ink transition-colors hover:text-gold"
+        className="rounded-lg bg-surface-hover px-3 py-2 text-sm font-semibold text-ink transition-colors hover:text-gold"
       >
         Speichern
       </button>
@@ -1308,7 +1418,7 @@ function BonusQuestionEditor({
     <div className="flex items-center gap-1.5">
       <button
         onClick={() => setEditing((v) => !v)}
-        className={`rounded-lg px-2 py-1 text-xs font-semibold transition-colors ${
+        className={`rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
           match.bonusQuestion ? "bg-gold/15 text-gold" : "bg-surface-hover text-ink hover:text-gold"
         }`}
       >
@@ -1423,11 +1533,11 @@ function LiveScoreEditor({
   }
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-2">
       <select
         value={status}
         onChange={(e) => setStatus(e.target.value as MatchStatus)}
-        className="rounded-lg border border-edge bg-pitch px-2 py-1 text-xs text-ink outline-none focus:border-gold"
+        className="rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
       >
         <option value="upcoming">Bevorstehend</option>
         <option value="live">Live</option>
@@ -1438,15 +1548,15 @@ function LiveScoreEditor({
         min={0}
         value={homeScore}
         onChange={(e) => setHomeScore(Number(e.target.value))}
-        className="w-12 rounded-lg border border-edge bg-pitch px-1.5 py-1 text-center text-xs text-ink outline-none focus:border-gold"
+        className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2 text-center text-sm text-ink outline-none focus:border-gold"
       />
-      <span className="text-xs text-muted">:</span>
+      <span className="text-sm text-muted">:</span>
       <input
         type="number"
         min={0}
         value={awayScore}
         onChange={(e) => setAwayScore(Number(e.target.value))}
-        className="w-12 rounded-lg border border-edge bg-pitch px-1.5 py-1 text-center text-xs text-ink outline-none focus:border-gold"
+        className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2 text-center text-sm text-ink outline-none focus:border-gold"
       />
       <button
         onClick={handleUpdate}
@@ -1455,7 +1565,7 @@ function LiveScoreEditor({
             ? "Endstand erneut übernehmen korrigiert die bereits vergebenen Rangpunkte/Sterne."
             : undefined
         }
-        className="rounded-lg bg-action px-2 py-1 text-xs font-semibold text-pitch transition-colors hover:bg-action-hover"
+        className="rounded-lg bg-action px-3 py-2 text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
       >
         {match.status === "finished" ? "Korrigieren" : "OK"}
       </button>
