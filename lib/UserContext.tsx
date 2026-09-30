@@ -142,8 +142,15 @@ interface UserContextValue {
 const UserContext = createContext<UserContextValue | null>(null);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const { addActivity, myTips, markTipEvaluated, matches, myBonusAnswers, markBonusAnswerEvaluated } =
-    useAppData();
+  const {
+    addActivity,
+    myTips,
+    hydrateTips,
+    markTipEvaluated,
+    matches,
+    myBonusAnswers,
+    markBonusAnswerEvaluated,
+  } = useAppData();
   // Startet leer statt sofort mit Math.random() zu würfeln: Server und
   // Browser würden beim allerersten Rendern sonst unterschiedliche IDs
   // erzeugen (Hydration-Fehler). Die echte ID wird gleich nach dem Laden,
@@ -326,6 +333,88 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (error) console.warn("Profil konnte nicht gespeichert werden:", error.message);
       });
   }, [displayName, freeStars, isRegistered, authUserId, profileLoaded]);
+
+  // Tipp-Abgleich mit Supabase (gleiches Muster wie oben beim Profil): Sobald
+  // eine echte Sitzung erkannt wird, werden die bisher abgegebenen Tipps
+  // dieses Kontos aus der "tips"-Tabelle geladen und in den lokalen State
+  // übernommen (hydrateTips ergänzt nur, überschreibt nichts) – so bleiben
+  // eigene Tipps auch nach einem Neuladen der Seite oder einem Login auf
+  // einem anderen Gerät sichtbar. tipsLoaded verhindert, dass der Sync-Effekt
+  // weiter unten die frisch geladenen Tipps sofort wieder (unnötig) zurück an
+  // Supabase schreibt, bevor sie angekommen sind.
+  const [tipsLoaded, setTipsLoaded] = useState(false);
+  useEffect(() => {
+    if (!authUserId) {
+      setTipsLoaded(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.from("tips").select("*").eq("user_id", authUserId);
+
+      if (cancelled) return;
+
+      if (error) {
+        console.warn("Tipps konnten nicht geladen werden:", error.message);
+        setTipsLoaded(true);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        hydrateTips(
+          data.map((row) => ({
+            id: row.id,
+            matchId: row.match_id,
+            predictedHomeScore: row.predicted_home_score,
+            predictedAwayScore: row.predicted_away_score,
+            stake: row.stake,
+            submittedAt: row.submitted_at,
+            evaluated: row.evaluated ?? false,
+            resultTier: row.result_tier ?? undefined,
+            rangDelta: row.rang_delta ?? undefined,
+            starsDelta: row.stars_delta ?? undefined,
+            beatPercent: row.beat_percent ?? undefined,
+            narration: row.narration ?? undefined,
+          }))
+        );
+      }
+      setTipsLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUserId]);
+
+  // Schreibt eigene Tipps (neue wie nachträglich ausgewertete) automatisch
+  // nach Supabase zurück, sobald sich myTips ändert – gleiches
+  // Zentral-Sync-Muster wie beim Profil, damit nicht jede einzelne Stelle
+  // (submitTip, markTipEvaluated in AppDataContext) selbst einen
+  // Datenbank-Aufruf kennen muss.
+  useEffect(() => {
+    if (!isRegistered || !authUserId || !tipsLoaded || myTips.length === 0) return;
+    const rows = myTips.map((t) => ({
+      id: t.id,
+      user_id: authUserId,
+      match_id: t.matchId,
+      predicted_home_score: t.predictedHomeScore,
+      predicted_away_score: t.predictedAwayScore,
+      stake: t.stake,
+      submitted_at: t.submittedAt,
+      evaluated: t.evaluated ?? false,
+      result_tier: t.resultTier ?? null,
+      rang_delta: t.rangDelta ?? null,
+      stars_delta: t.starsDelta ?? null,
+      beat_percent: t.beatPercent ?? null,
+      narration: t.narration ?? null,
+    }));
+    supabase
+      .from("tips")
+      .upsert(rows, { onConflict: "id" })
+      .then(({ error }) => {
+        if (error) console.warn("Tipps konnten nicht gespeichert werden:", error.message);
+      });
+  }, [myTips, isRegistered, authUserId, tipsLoaded]);
 
   const rankIconOptions = useMemo(() => getAvailableRankIcons(rangPunkte), [rangPunkte]);
   const [selectedRankIconId, setSelectedRankIconId] = useState<string | null>(null);

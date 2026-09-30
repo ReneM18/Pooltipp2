@@ -254,6 +254,12 @@ interface AppDataContextValue {
   tipsBySport: Record<Sport, number>;
   myTips: SubmittedTip[];
   submitTip: (matchId: string, predictedHomeScore: number, predictedAwayScore: number, stake: number) => void;
+  // Übernimmt beim Login aus Supabase geladene Tipps in den lokalen State –
+  // OHNE die Nebenwirkungen von submitTip (kein erneutes registerTip, kein
+  // neuer Feed-Eintrag). Ergänzt nur Tipps, die lokal noch nicht bekannt
+  // sind (per id), bestehende lokale Tipps bleiben unangetastet (siehe
+  // lib/UserContext.tsx für den zugehörigen Lade-/Sync-Effekt).
+  hydrateTips: (tips: SubmittedTip[]) => void;
   markTipEvaluated: (
     tipId: string,
     result: {
@@ -369,6 +375,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         `Du hast beim Spiel ${home?.name ?? "?"} vs. ${away?.name ?? "?"} getippt.`
       );
     }
+  }
+
+  function hydrateTips(tips: SubmittedTip[]) {
+    setMyTips((current) => {
+      const existingIds = new Set(current.map((t) => t.id));
+      const missing = tips.filter((t) => !existingIds.has(t.id));
+      if (missing.length === 0) return current;
+      return [...current, ...missing];
+    });
   }
 
   function markTipEvaluated(
@@ -563,6 +578,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         tipsBySport,
         myTips,
         submitTip,
+        hydrateTips,
         markTipEvaluated,
         updateMatchScore,
         setSummaryVideo,
