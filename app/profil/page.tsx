@@ -40,7 +40,16 @@ export default function ProfilPage() {
     streakCount,
     hasAdFreeSubscription,
     hasPremiumPass,
+    isRegistered,
+    authEmail,
+    logout,
   } = useUser();
+  const [loggingOut, setLoggingOut] = useState(false);
+  async function handleLogout() {
+    setLoggingOut(true);
+    await logout();
+    setLoggingOut(false);
+  }
   const { matches, getTeam, myTips } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [nameInput, setNameInput] = useState(displayName);
@@ -452,9 +461,35 @@ export default function ProfilPage() {
           </button>
         </form>
         <p className="mt-2 text-xs text-muted">
-          Weitere Einstellungen (Benachrichtigungen, Passwort, Konto löschen) kommen mit dem
-          echten Login-System.
+          Weitere Einstellungen (Benachrichtigungen, Passwort, Konto löschen) folgen noch.
         </p>
+
+        {isRegistered ? (
+          <div className="mt-4 flex items-center justify-between rounded-card border border-edge bg-surface p-4">
+            <div>
+              <p className="text-xs text-muted">Angemeldet als</p>
+              <p className="text-sm font-semibold text-ink">{authEmail}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="shrink-0 rounded-full border border-edge px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-red-400/60 hover:text-red-300 disabled:opacity-60"
+            >
+              {loggingOut ? "…" : "Ausloggen"}
+            </button>
+          </div>
+        ) : (
+          <Link
+            href="/registrieren"
+            className="mt-4 flex items-center justify-between rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
+          >
+            <span className="text-sm text-muted">Noch nicht eingeloggt</span>
+            <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
+              Registrieren / Einloggen →
+            </span>
+          </Link>
+        )}
       </section>
       <section className="mt-8">
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Meine Tipp-Historie</h2>
