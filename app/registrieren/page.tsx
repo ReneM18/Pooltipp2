@@ -1,47 +1,29 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useState, FormEvent } from "react";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function RegistrierenPage() {
-  const { isRegistered, register, displayName } = useUser();
+  // isRegistered/authEmail/logout kommen jetzt direkt aus der echten
+  // Supabase-Sitzung (siehe lib/UserContext.tsx) – gelten dadurch in der
+  // ganzen App einheitlich, nicht nur auf dieser Seite.
+  const { isRegistered, authEmail, logout, displayName } = useUser();
   const { showToast, celebrate } = useFeedback();
-  const router = useRouter();
 
-  // "register" = Konto anlegen, "login" = mit bestehendem Konto einloggen.
-  // Beides auf einer Seite, weil wir hier gerade nur testen, ob die
-  // Supabase-Anbindung grundsätzlich funktioniert – noch keine echte
-  // Verzahnung mit dem Rest der App (Rangliste, Tipps etc.).
   const [mode, setMode] = useState<"register" | "login">("register");
   const [name, setName] = useState(displayName);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ kind: "success" | "error"; text: string } | null>(null);
-
-  // Nur für den Test: zeigt an, ob im Browser gerade eine echte
-  // Supabase-Sitzung aktiv ist, und bietet einen Logout-Button dafür.
-  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSessionEmail(data.session?.user.email ?? null);
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSessionEmail(session?.user.email ?? null);
-    });
-    return () => listener.subscription.unsubscribe();
-  }, []);
+  const [result, setResult] = useState<{ kind: "success" | "error"; text: string } | null>(null);
 
   async function handleLogout() {
     setLoggingOut(true);
-    await supabase.auth.signOut();
+    await logout();
     setLoggingOut(false);
-    setResult({ kind: "success", text: "Ausgeloggt." });
   }
 
   async function handleRegister(e: FormEvent) {
@@ -63,21 +45,15 @@ export default function RegistrierenPage() {
       return;
     }
 
-    // Test-Erfolg: Der Account wurde bei Supabase angelegt. Ob man sich
-    // sofort einloggen kann, hängt davon ab, ob "Confirm email" in den
-    // Supabase-Auth-Einstellungen an ist (Standard: an -> erst nach Klick
-    // auf den Bestätigungslink in der Mail nutzbar).
+    // War "Confirm email" in Supabase aktiviert, ist man nach dem Signup
+    // noch NICHT eingeloggt (isRegistered bleibt false, bis die Mail
+    // bestätigt und danach eingeloggt wird). Ist es deaktiviert, greift der
+    // useEffect in UserContext sofort und isRegistered springt automatisch
+    // auf true, ganz ohne Zutun dieser Seite.
     setResult({
       kind: "success",
-      text: data.user
-        ? "Konto wurde bei Supabase angelegt! Prüf jetzt im Supabase-Dashboard unter Authentication -> Users, ob der Eintrag erscheint. Falls eine Bestätigungsmail nötig ist, bekommst du die gerade zugeschickt."
-        : "Anfrage war erfolgreich, aber es kam keine User-Rückmeldung – bitte im Supabase-Dashboard nachschauen.",
+      text: "Konto wurde bei Supabase angelegt! Falls eine Bestätigungsmail nötig ist, schau in dein Postfach und klick den Link – danach kannst du dich einloggen.",
     });
-
-    // Bestehende, lokale "isRegistered"-Logik bleibt vorerst zusätzlich
-    // aktiv, damit sich der Rest der App (z.B. Navbar) nicht anders verhält
-    // als bisher, solange wir noch testen.
-    register();
     celebrate();
     showToast("🎉 Bei Supabase registriert!", "gold");
   }
@@ -88,7 +64,7 @@ export default function RegistrierenPage() {
     setSubmitting(true);
     setResult(null);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
@@ -99,11 +75,29 @@ export default function RegistrierenPage() {
       setResult({ kind: "error", text: `Login fehlgeschlagen: ${error.message}` });
       return;
     }
+    // Kein manuelles State-Update nötig – der Login löst automatisch das
+    // onAuthStateChange in UserContext aus, isRegistered/authEmail
+    // aktualisieren sich von selbst.
+  }
 
-    setResult({
-      kind: "success",
-      text: `Eingeloggt als ${data.user?.email}. Die Supabase-Verbindung funktioniert also auch fürs Einloggen.`,
-    });
+  if (isRegistered) {
+    return (
+      <main className="mx-auto max-w-md px-5 py-12 text-center">
+        <p className="text-5xl">✓</p>
+        <h1 className="mt-4 font-display text-2xl font-bold text-ink">Du bist eingeloggt</h1>
+        <p className="mt-2 text-sm text-muted">
+          Angemeldet als <span className="font-semibold text-ink">{authEmail}</span>
+        </p>
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="mt-6 rounded-full border border-edge px-5 py-2 text-sm font-semibold text-muted transition-colors hover:text-ink disabled:opacity-60"
+        >
+          {loggingOut ? "…" : "Ausloggen"}
+        </button>
+      </main>
+    );
   }
 
   return (
@@ -113,25 +107,9 @@ export default function RegistrierenPage() {
       </h1>
       <p className="mb-6 text-sm text-muted">
         {mode === "register"
-          ? "Testseite: legt ein echtes Konto bei Supabase an (noch nicht mit dem Rest der App verknüpft)."
-          : "Testseite: prüft, ob der Login mit einem bereits angelegten Konto funktioniert."}
+          ? "Leg dein Spieler-Profil an, damit du in Rangliste, Feed und bei Freunden mit deinem Namen erkennbar bist."
+          : "Melde dich mit deinem bestehenden Konto an."}
       </p>
-
-      {sessionEmail && (
-        <div className="mb-6 flex items-center justify-between rounded-lg border border-gold/40 bg-gold/10 p-3 text-sm text-ink">
-          <span>
-            Aktive Sitzung: <span className="font-semibold">{sessionEmail}</span>
-          </span>
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={loggingOut}
-            className="rounded-full border border-edge px-3 py-1 text-xs font-semibold text-muted transition-colors hover:text-ink disabled:opacity-60"
-          >
-            {loggingOut ? "…" : "Ausloggen"}
-          </button>
-        </div>
-      )}
 
       <form
         onSubmit={mode === "register" ? handleRegister : handleLogin}

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode, useMemo, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import { mockUser } from "@/lib/mockData";
 import { getAvailableRankIcons, getBestRankIcon, RankIconOption } from "@/lib/rankTiers";
 import { PhotoVisibility } from "@/lib/mockUsers";
@@ -127,11 +128,15 @@ interface UserContextValue {
   // immer automatisch im Premium-Pass enthalten (siehe hasPremiumPass) –
   // blendet lokal die Demo-Werbebanner aus (siehe components/AdBanner.tsx).
   hasAdFreeSubscription: boolean;
-  // Platzhalter fürs echte Login-System: sobald es steht, ersetzt der echte
-  // Auth-Status das hier. Steuert nur, ob der "Registrieren"-Button in der
-  // Navbar angezeigt wird.
+  // Echter Login-Status, direkt aus der Supabase-Sitzung im Browser
+  // abgeleitet (siehe lib/supabaseClient.ts) – kein lokaler Platzhalter
+  // mehr. Steuert, ob der "Registrieren"-Button in der Navbar angezeigt
+  // wird, und bleibt auch nach einem Neuladen der Seite erhalten.
   isRegistered: boolean;
-  register: () => void;
+  // E-Mail-Adresse des eingeloggten Supabase-Kontos, oder null wenn niemand
+  // eingeloggt ist.
+  authEmail: string | null;
+  logout: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
@@ -230,9 +235,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Premium-Pass hat – kein separater Kauf, keine eigene Kündigung.
   const hasAdFreeSubscription = hasPremiumPass;
 
-  const [isRegistered, setIsRegistered] = useState(false);
-  function register() {
-    setIsRegistered(true);
+  // Echte Supabase-Sitzung: wird beim ersten Laden geprüft und danach live
+  // aktualisiert (Login, Logout, Ablauf der Sitzung – egal von welcher
+  // Seite aus das passiert).
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setAuthEmail(data.session?.user.email ?? null);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthEmail(session?.user.email ?? null);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+  const isRegistered = authEmail !== null;
+  async function logout() {
+    await supabase.auth.signOut();
   }
 
   const rankIconOptions = useMemo(() => getAvailableRankIcons(rangPunkte), [rangPunkte]);
@@ -600,7 +618,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setCustomFrameColors,
         hasAdFreeSubscription,
         isRegistered,
-        register,
+        authEmail,
+        logout,
       }}
     >
       {children}
