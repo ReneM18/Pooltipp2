@@ -246,12 +246,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // aktualisiert (Login, Logout, Ablauf der Sitzung – egal von welcher
   // Seite aus das passiert).
   const [authEmail, setAuthEmail] = useState<string | null>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setAuthEmail(data.session?.user.email ?? null);
+      setAuthUserId(data.session?.user.id ?? null);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setAuthEmail(session?.user.email ?? null);
+      setAuthUserId(session?.user.id ?? null);
     });
     return () => listener.subscription.unsubscribe();
   }, []);
@@ -259,6 +262,70 @@ export function UserProvider({ children }: { children: ReactNode }) {
   async function logout() {
     await supabase.auth.signOut();
   }
+
+  // Profil-Abgleich mit Supabase: Sobald eine echte Sitzung erkannt wird,
+  // wird die "profiles"-Zeile dieses Kontos geladen (oder einmalig angelegt,
+  // falls sie noch fehlt – z.B. bei Konten, die vor dieser Umstellung
+  // registriert wurden) und Name/Sterne von dort übernommen. profileLoaded
+  // verhindert, dass der Sync-Effekt weiter unten direkt danach versehentlich
+  // die frisch geladenen Werte wieder überschreibt, bevor sie angekommen sind.
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  useEffect(() => {
+    if (!authUserId) {
+      setProfileLoaded(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("display_name, free_stars")
+        .eq("id", authUserId)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error) {
+        console.warn("Profil konnte nicht geladen werden:", error.message);
+        setProfileLoaded(true);
+        return;
+      }
+
+      if (profile) {
+        setDisplayName(profile.display_name);
+        setStarsState((current) => ({ ...current, freeStars: profile.free_stars }));
+      } else {
+        // Kein Profil-Eintrag vorhanden (z.B. Konto von vor dieser
+        // Umstellung) -> jetzt einmalig mit den aktuellen, lokalen Werten
+        // anlegen.
+        await supabase.from("profiles").insert({
+          id: authUserId,
+          display_name: displayName,
+          free_stars: freeStars,
+        });
+      }
+      setProfileLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUserId]);
+
+  // Schreibt Name/Sterne automatisch in Supabase zurück, sobald sie sich
+  // ändern – deckt damit alle bestehenden Änderungsstellen (Tages-Bonus,
+  // Tipp-Auswertung, Einsatz, Streak-Boni, ...) ab, ohne dass jede einzeln
+  // um einen eigenen Datenbank-Aufruf ergänzt werden musste.
+  useEffect(() => {
+    if (!isRegistered || !authUserId || !profileLoaded) return;
+    supabase
+      .from("profiles")
+      .update({ display_name: displayName, free_stars: freeStars, updated_at: new Date().toISOString() })
+      .eq("id", authUserId)
+      .then(({ error }) => {
+        if (error) console.warn("Profil konnte nicht gespeichert werden:", error.message);
+      });
+  }, [displayName, freeStars, isRegistered, authUserId, profileLoaded]);
 
   const rankIconOptions = useMemo(() => getAvailableRankIcons(rangPunkte), [rangPunkte]);
   const [selectedRankIconId, setSelectedRankIconId] = useState<string | null>(null);
