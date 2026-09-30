@@ -40,30 +40,31 @@ export default function AdminPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-8 lg:max-w-6xl">
-      <h1 className="mb-1 font-display text-3xl font-bold text-ink">Admin-Bereich</h1>
-      <p className="mb-6 text-sm text-muted">
+      <h1 className="mb-1 font-display text-3xl font-bold text-ink sm:text-4xl">Admin-Bereich</h1>
+      <p className="mb-7 text-sm text-muted">
         Teams, Spiele, Turniere und News anlegen. Änderungen gelten nur für diese
         Browser-Sitzung, solange Firestore noch nicht angebunden ist.
       </p>
 
       {/* Klar getrennte Bereiche statt alles untereinander gestapelt – ein
           Klick auf einen Reiter zeigt nur noch genau diesen Bereich, auf
-          voller Breite. */}
-      <div className="mb-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          voller Breite. Bewusst groß und mit Zahl, damit auf einen Blick klar
+          ist, wo man ist und wie viel schon angelegt wurde. */}
+      <div className="mb-9 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex items-center justify-center gap-2 rounded-card border px-4 py-3.5 font-display text-sm font-semibold transition-colors ${
+            className={`flex flex-col items-center justify-center gap-1 rounded-card border px-4 py-5 font-display transition-colors ${
               tab === t.id
                 ? "border-gold bg-gold/15 text-gold"
                 : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
             }`}
           >
-            <span className="text-base">{t.icon}</span>
-            {t.label}
+            <span className="text-2xl">{t.icon}</span>
+            <span className="text-base font-semibold">{t.label}</span>
             <span
-              className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
+              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                 tab === t.id ? "bg-gold/20 text-gold" : "bg-surface-hover text-muted"
               }`}
             >
@@ -103,8 +104,8 @@ function NewsManager() {
 
   return (
     <section>
-      <h2 className="mb-3 font-display text-xl font-semibold text-ink">News-Ticker</h2>
-      <p className="mb-3 text-xs text-muted">
+      <h2 className="mb-1 font-display text-2xl font-semibold text-ink">News-Ticker</h2>
+      <p className="mb-4 text-sm text-muted">
         Die Headline läuft oben im Laufband durch. Tippt ein User sie an, öffnet sich der
         Artikeltext (falls vorhanden). Wählst du eine Sportart aus, wird deren Icon automatisch
         vor die Headline gesetzt.
@@ -112,24 +113,26 @@ function NewsManager() {
 
       <form
         onSubmit={handleSubmit}
-        className="mb-4 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4"
+        className="mb-6 flex flex-col gap-4 rounded-card border border-edge bg-surface p-5 sm:p-6"
       >
+        <h3 className="font-display text-base font-semibold text-ink">Neue Headline</h3>
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">
-            <label className="mb-1 block text-xs text-muted">Headline</label>
+            <label className="mb-1.5 block text-sm text-muted">Headline</label>
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="z. B. Bayern gewinnt Topspiel 3:1"
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-muted">Sportart (optional)</label>
+            <label className="mb-1.5 block text-sm text-muted">Sportart (optional)</label>
             <select
               value={sport}
               onChange={(e) => setSport(e.target.value as Sport | "")}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
             >
               <option value="">Allgemein (kein Icon)</option>
               {SPORTS.map((s) => (
@@ -142,7 +145,7 @@ function NewsManager() {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs text-muted">
+          <label className="mb-1.5 block text-sm text-muted">
             Artikeltext (optional – ohne bleibt die Headline beim Antippen ohne Detailansicht)
           </label>
           <textarea
@@ -150,30 +153,26 @@ function NewsManager() {
             onChange={(e) => setArticle(e.target.value)}
             rows={4}
             placeholder="Ausführlicher Text, der sich öffnet, wenn ein User auf die Headline tippt…"
-            className="w-full resize-y rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+            className="w-full resize-y rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
           />
         </div>
 
         <button
           type="submit"
-          className="self-start rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+          className="self-start rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
         >
           Veröffentlichen
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-card border border-edge bg-surface">
+      <div className="flex flex-col gap-3">
         {newsItems.length === 0 && (
-          <p className="p-4 text-sm text-muted">Noch keine News angelegt.</p>
+          <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted">
+            Noch keine News angelegt.
+          </p>
         )}
-        {newsItems.map((item, index) => (
-          <NewsItemRow
-            key={item.id}
-            item={item}
-            isLast={index === newsItems.length - 1}
-            onSave={updateNews}
-            onRemove={removeNews}
-          />
+        {newsItems.map((item) => (
+          <NewsItemRow key={item.id} item={item} onSave={updateNews} onRemove={removeNews} />
         ))}
       </div>
     </section>
@@ -182,12 +181,10 @@ function NewsManager() {
 
 function NewsItemRow({
   item,
-  isLast,
   onSave,
   onRemove,
 }: {
   item: NewsItem;
-  isLast: boolean;
   onSave: (id: string, text: string, sport: Sport | null, article: string | null) => void;
   onRemove: (id: string) => void;
 }) {
@@ -214,7 +211,7 @@ function NewsItemRow({
 
   if (editing) {
     return (
-      <div className={`flex flex-col gap-2 px-4 py-3 ${!isLast ? "border-b border-edge" : ""}`}>
+      <div className="flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:p-5">
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             value={text}
@@ -260,13 +257,9 @@ function NewsItemRow({
   }
 
   return (
-    <div
-      className={`flex items-center justify-between gap-3 px-4 py-3 ${
-        !isLast ? "border-b border-edge" : ""
-      }`}
-    >
+    <div className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 sm:p-5">
       <span className="flex items-center gap-2 text-sm text-ink">
-        {item.sport && <span>{sportIcon[item.sport]}</span>}
+        {item.sport && <span className="text-base">{sportIcon[item.sport]}</span>}
         {item.text}
         {item.article && (
           <span className="rounded-full bg-surface-hover px-2 py-0.5 text-[10px] font-semibold text-muted">
@@ -299,6 +292,18 @@ const sportIcon: Record<Sport, string> = {
   NFL: "🏈",
   NBA: "🏀",
   NHL: "🏒",
+};
+
+const matchStatusLabel: Record<MatchStatus, string> = {
+  upcoming: "Bevorstehend",
+  live: "Live",
+  finished: "Beendet",
+};
+
+const matchStatusClass: Record<MatchStatus, string> = {
+  upcoming: "border-edge bg-surface-hover text-muted",
+  live: "border-red-400/60 bg-red-400/10 text-red-300",
+  finished: "border-gold bg-gold/15 text-gold",
 };
 
 function PinGate({ onUnlock }: { onUnlock: () => void }) {
@@ -372,42 +377,44 @@ function TeamManager() {
 
   return (
     <section>
-      <h2 className="mb-3 font-display text-xl font-semibold text-ink">Teams</h2>
+      <h2 className="mb-4 font-display text-2xl font-semibold text-ink">Teams</h2>
 
       <form
         onSubmit={handleSubmit}
-        className="mb-4 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4"
+        className="mb-6 flex flex-col gap-5 rounded-card border border-edge bg-surface p-5 sm:p-6"
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <label className="mb-1 block text-xs text-muted">Teamname</label>
+        <h3 className="font-display text-base font-semibold text-ink">Neues Team anlegen</h3>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="sm:col-span-1">
+            <label className="mb-1.5 block text-sm text-muted">Teamname</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="z. B. Kansas City Chiefs"
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-muted">Sportart</label>
+            <label className="mb-1.5 block text-sm text-muted">Sportart</label>
             <select
               value={sport}
               onChange={(e) => setSport(e.target.value as Sport)}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
             >
               {SPORTS.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {sportIcon[s]} {s}
                 </option>
               ))}
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs text-muted">Land</label>
+            <label className="mb-1.5 block text-sm text-muted">Land</label>
             <select
               value={countryCode}
               onChange={(e) => setCountryCode(e.target.value)}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
             >
               {COUNTRIES.map((c) => (
                 <option key={c.code} value={c.code}>
@@ -418,7 +425,7 @@ function TeamManager() {
           </div>
         </div>
 
-        <label className="flex w-fit items-center gap-2 text-xs text-muted">
+        <label className="flex w-fit items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"
             checked={isNationalTeam}
@@ -428,35 +435,10 @@ function TeamManager() {
           Nationalmannschaft (Icon zeigt automatisch die Landesflagge statt Trikot/Helm)
         </label>
 
-        <div className="flex flex-wrap items-end gap-4">
-          {!isNationalTeam && (
-            <>
-              <div>
-                <label className="mb-1 block text-xs text-muted">
-                  {sport === "NFL" ? "Helmfarbe" : "Trikotfarbe"}
-                </label>
-                <input
-                  type="color"
-                  value={primaryColor}
-                  onChange={(e) => setPrimaryColor(e.target.value)}
-                  className="h-9 w-14 cursor-pointer rounded-lg border border-edge bg-pitch p-1"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-muted">
-                  {sport === "NFL" ? "Streifen-/Gitterfarbe" : "Kragen-/Saumfarbe"}
-                </label>
-                <input
-                  type="color"
-                  value={secondaryColor}
-                  onChange={(e) => setSecondaryColor(e.target.value)}
-                  className="h-9 w-14 cursor-pointer rounded-lg border border-edge bg-pitch p-1"
-                />
-              </div>
-            </>
-          )}
-
-          <div className="flex items-center gap-2 rounded-lg border border-edge bg-pitch px-3 py-2">
+        {/* Farben + große Live-Vorschau nebeneinander: man sieht sofort, wie
+            das Team-Wappen mit den gewählten Farben aussieht. */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-4 rounded-lg border border-edge bg-pitch px-5 py-4">
             <TeamBadge
               sport={sport}
               primaryColor={primaryColor}
@@ -464,18 +446,48 @@ function TeamManager() {
               jerseyStyle={jerseyStyle}
               isNationalTeam={isNationalTeam}
               countryCode={countryCode}
-              size={32}
+              size={56}
             />
-            <span className="text-xs text-muted">Vorschau</span>
+            <div>
+              <p className="text-sm font-semibold text-ink">{name.trim() || "Vorschau"}</p>
+              <p className="text-xs text-muted">So sieht das Wappen im Spiel aus</p>
+            </div>
           </div>
+
+          {!isNationalTeam && (
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <label className="mb-1.5 block text-sm text-muted">
+                  {sport === "NFL" ? "Helmfarbe" : "Trikotfarbe"}
+                </label>
+                <input
+                  type="color"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="h-11 w-20 cursor-pointer rounded-lg border border-edge bg-pitch p-1"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm text-muted">
+                  {sport === "NFL" ? "Streifen-/Gitterfarbe" : "Kragen-/Saumfarbe"}
+                </label>
+                <input
+                  type="color"
+                  value={secondaryColor}
+                  onChange={(e) => setSecondaryColor(e.target.value)}
+                  className="h-11 w-20 cursor-pointer rounded-lg border border-edge bg-pitch p-1"
+                />
+              </div>
+            </div>
+          )}
 
           {!isNationalTeam && sport === "Fußball" && (
             <div>
-              <label className="mb-1 block text-xs text-muted">Trikot-Stil</label>
+              <label className="mb-1.5 block text-sm text-muted">Trikot-Stil</label>
               <select
                 value={jerseyStyle}
                 onChange={(e) => setJerseyStyle(e.target.value as JerseyStyle)}
-                className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
               >
                 {JERSEY_STYLES.map((s) => (
                   <option key={s.value} value={s.value}>
@@ -485,28 +497,28 @@ function TeamManager() {
               </select>
             </div>
           )}
-
-          <button
-            type="submit"
-            className="ml-auto rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
-          >
-            Team anlegen
-          </button>
         </div>
+
+        <button
+          type="submit"
+          className="self-start rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
+        >
+          Team anlegen
+        </button>
       </form>
 
-      <div className="overflow-hidden rounded-card border border-edge bg-surface">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {teams.length === 0 && (
-          <p className="p-4 text-sm text-muted">Noch keine Teams angelegt.</p>
+          <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted sm:col-span-2">
+            Noch keine Teams angelegt.
+          </p>
         )}
-        {teams.map((team, index) => (
+        {teams.map((team) => (
           <div
             key={team.id}
-            className={`flex flex-wrap items-center justify-between gap-y-1.5 px-4 py-3 ${
-              index !== teams.length - 1 ? "border-b border-edge" : ""
-            }`}
+            className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4"
           >
-            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink">
+            <span className="flex min-w-0 items-center gap-3">
               <TeamBadge
                 sport={team.sport}
                 primaryColor={team.primaryColor}
@@ -514,13 +526,16 @@ function TeamManager() {
                 jerseyStyle={team.jerseyStyle}
                 isNationalTeam={team.isNationalTeam}
                 countryCode={team.countryCode}
-                size={28}
+                size={40}
               />
-              {!team.isNationalTeam && <span>{flagEmoji(team.countryCode)}</span>}
-              <span className="font-medium">{team.name}</span>
-              <span className="text-xs text-muted">
-                · {team.sport}
-                {team.isNationalTeam ? " · Nationalmannschaft" : ""}
+              <span className="min-w-0">
+                <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-ink">
+                  {!team.isNationalTeam && flagEmoji(team.countryCode)} {team.name}
+                </span>
+                <span className="text-xs text-muted">
+                  {team.sport}
+                  {team.isNationalTeam ? " · Nationalmannschaft" : ""}
+                </span>
               </span>
             </span>
             <button
@@ -530,7 +545,7 @@ function TeamManager() {
                   showToast(`✓ Team "${team.name}" entfernt.`, "info");
                 }
               }}
-              className="text-xs text-muted hover:text-ink"
+              className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-red-400"
             >
               Entfernen
             </button>
@@ -653,200 +668,294 @@ function MatchManager() {
     showToast(`✓ Spiel "${homeName} vs ${awayName}" angelegt.`, "success");
   }
 
+  const previewHome = teamsForSport.find((t) => t.id === homeTeamId);
+  const previewAway = teamsForSport.find((t) => t.id === awayTeamId);
+
   return (
     <section>
-      <h2 className="mb-3 font-display text-xl font-semibold text-ink">Spiele</h2>
+      <h2 className="mb-4 font-display text-2xl font-semibold text-ink">Spiele</h2>
 
       <form
         onSubmit={handleSubmit}
-        className="mb-4 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4"
+        className="mb-6 flex flex-col gap-6 rounded-card border border-edge bg-surface p-5 sm:p-6"
       >
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div>
-            <label className="mb-1 block text-xs text-muted">Sportart</label>
-            <select
-              value={sport}
-              onChange={(e) => {
-                setSport(e.target.value as Sport);
-                setHomeTeamId("");
-                setAwayTeamId("");
-              }}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-            >
-              {SPORTS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+        <h3 className="font-display text-base font-semibold text-ink">Neues Spiel anlegen</h3>
+
+        <div>
+          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted">Teams</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm text-muted">Sportart</label>
+              <select
+                value={sport}
+                onChange={(e) => {
+                  setSport(e.target.value as Sport);
+                  setHomeTeamId("");
+                  setAwayTeamId("");
+                }}
+                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+              >
+                {SPORTS.map((s) => (
+                  <option key={s} value={s}>
+                    {sportIcon[s]} {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm text-muted">Wettbewerb</label>
+              <input
+                value={competition}
+                onChange={(e) => setCompetition(e.target.value)}
+                placeholder="z. B. Bundesliga"
+                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm text-muted">Heimteam</label>
+              <select
+                value={homeTeamId}
+                onChange={(e) => setHomeTeamId(e.target.value)}
+                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+              >
+                <option value="">Auswählen…</option>
+                {teamsForSport.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {flagEmoji(t.countryCode)} {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm text-muted">Auswärtsteam</label>
+              <select
+                value={awayTeamId}
+                onChange={(e) => setAwayTeamId(e.target.value)}
+                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+              >
+                <option value="">Auswählen…</option>
+                {teamsForSport.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {flagEmoji(t.countryCode)} {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">Wettbewerb</label>
-            <input
-              value={competition}
-              onChange={(e) => setCompetition(e.target.value)}
-              placeholder="z. B. Bundesliga"
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">Spieltag (optional)</label>
-            <input
-              type="number"
-              value={matchday}
-              onChange={(e) => setMatchday(e.target.value)}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">Einsatz (Sterne, für alle User fest)</label>
-            <input
-              type="number"
-              min={1}
-              value={fixedStake}
-              onChange={(e) => setFixedStake(e.target.value)}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-            />
+
+          {/* Live-Vorschau: sobald beide Teams gewählt sind, sieht man sofort
+              die Trikot-/Helmfarben, statt sie sich aus dem Namen vorstellen
+              zu müssen. */}
+          {(previewHome || previewAway) && (
+            <div className="mt-3 flex items-center justify-center gap-4 rounded-lg border border-edge bg-pitch px-4 py-4">
+              <div className="flex flex-col items-center gap-1.5">
+                {previewHome ? (
+                  <TeamBadge
+                    sport={previewHome.sport}
+                    primaryColor={previewHome.primaryColor}
+                    secondaryColor={previewHome.secondaryColor}
+                    jerseyStyle={previewHome.jerseyStyle}
+                    isNationalTeam={previewHome.isNationalTeam}
+                    countryCode={previewHome.countryCode}
+                    size={48}
+                  />
+                ) : (
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-edge text-muted">
+                    ?
+                  </span>
+                )}
+                <span className="max-w-[9rem] truncate text-sm font-semibold text-ink">
+                  {previewHome?.name ?? "Heimteam"}
+                </span>
+              </div>
+              <span className="font-display text-sm font-bold text-muted">vs</span>
+              <div className="flex flex-col items-center gap-1.5">
+                {previewAway ? (
+                  <TeamBadge
+                    sport={previewAway.sport}
+                    primaryColor={previewAway.primaryColor}
+                    secondaryColor={previewAway.secondaryColor}
+                    jerseyStyle={previewAway.jerseyStyle}
+                    isNationalTeam={previewAway.isNationalTeam}
+                    countryCode={previewAway.countryCode}
+                    flip
+                    size={48}
+                  />
+                ) : (
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-edge text-muted">
+                    ?
+                  </span>
+                )}
+                <span className="max-w-[9rem] truncate text-sm font-semibold text-ink">
+                  {previewAway?.name ?? "Auswärtsteam"}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {teamsForSport.length < 2 && (
+            <p className="mt-2 text-sm text-muted">
+              Für {sport} brauchst du zuerst mindestens zwei Teams (siehe Tab "Teams").
+            </p>
+          )}
+        </div>
+
+        <div>
+          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted">Termine</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm text-muted">Anpfiff</label>
+              <input
+                type="datetime-local"
+                value={kickoff}
+                onChange={(e) => {
+                  setKickoff(e.target.value);
+                  // Vorschlag: Tippschluss = Anpfiff, falls noch nicht gesetzt
+                  if (!tipDeadline) setTipDeadline(e.target.value);
+                }}
+                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm text-muted">Tippschluss (ab dann kein Tipp mehr möglich)</label>
+              <input
+                type="datetime-local"
+                value={tipDeadline}
+                onChange={(e) => setTipDeadline(e.target.value)}
+                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div>
-            <label className="mb-1 block text-xs text-muted">Heimteam</label>
-            <select
-              value={homeTeamId}
-              onChange={(e) => setHomeTeamId(e.target.value)}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-            >
-              <option value="">Auswählen…</option>
-              {teamsForSport.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {flagEmoji(t.countryCode)} {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">Auswärtsteam</label>
-            <select
-              value={awayTeamId}
-              onChange={(e) => setAwayTeamId(e.target.value)}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-            >
-              <option value="">Auswählen…</option>
-              {teamsForSport.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {flagEmoji(t.countryCode)} {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">Anpfiff</label>
-            <input
-              type="datetime-local"
-              value={kickoff}
-              onChange={(e) => {
-                setKickoff(e.target.value);
-                // Vorschlag: Tippschluss = Anpfiff, falls noch nicht gesetzt
-                if (!tipDeadline) setTipDeadline(e.target.value);
-              }}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">Tippschluss (ab dann kein Tipp mehr möglich)</label>
-            <input
-              type="datetime-local"
-              value={tipDeadline}
-              onChange={(e) => setTipDeadline(e.target.value)}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">TV-Sender (optional)</label>
-            <input
-              value={tvChannel}
-              onChange={(e) => setTvChannelInput(e.target.value)}
-              placeholder="z. B. Sky, DAZN, ORF1"
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">Tipp-Art</label>
-            <select
-              value={tipMode}
-              onChange={(e) => setTipModeInput(e.target.value as TipMode)}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-            >
-              <option value="score">Ergebnis-Tipp (z. B. 2:1)</option>
-              <option value="1x2">1X2 (Heimsieg / Unentschieden / Auswärtssieg)</option>
-            </select>
+        <div>
+          <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted">Details</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm text-muted">Spieltag (optional)</label>
+              <input
+                type="number"
+                value={matchday}
+                onChange={(e) => setMatchday(e.target.value)}
+                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm text-muted">Einsatz (Sterne, für alle User fest)</label>
+              <input
+                type="number"
+                min={1}
+                value={fixedStake}
+                onChange={(e) => setFixedStake(e.target.value)}
+                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm text-muted">TV-Sender (optional)</label>
+              <input
+                value={tvChannel}
+                onChange={(e) => setTvChannelInput(e.target.value)}
+                placeholder="z. B. Sky, DAZN, ORF1"
+                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm text-muted">Tipp-Art</label>
+              <select
+                value={tipMode}
+                onChange={(e) => setTipModeInput(e.target.value as TipMode)}
+                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+              >
+                <option value="score">Ergebnis-Tipp (z. B. 2:1)</option>
+                <option value="1x2">1X2 (Heimsieg / Unentschieden / Auswärtssieg)</option>
+              </select>
+            </div>
           </div>
         </div>
-
-        {teamsForSport.length < 2 && (
-          <p className="text-xs text-muted">
-            Für {sport} brauchst du zuerst mindestens zwei Teams (siehe oben).
-          </p>
-        )}
 
         <button
           type="submit"
           disabled={teamsForSport.length < 2}
-          className="self-start rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:bg-edge disabled:text-muted"
+          className="self-start rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:bg-edge disabled:text-muted"
         >
           Spiel anlegen
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-card border border-edge bg-surface">
+      <div className="flex flex-col gap-4">
         {matches.length === 0 && (
-          <p className="p-4 text-sm text-muted">Noch keine Spiele angelegt.</p>
+          <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted">
+            Noch keine Spiele angelegt.
+          </p>
         )}
-        {matches.map((match, index) => {
+        {matches.map((match) => {
           const home = getTeam(match.homeTeamId);
           const away = getTeam(match.awayTeamId);
           return (
-            <div
-              key={match.id}
-              className={`flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
-                index !== matches.length - 1 ? "border-b border-edge" : ""
-              }`}
-            >
-              <span className="flex items-center gap-2 text-sm text-ink">
-                {home && (
-                  <TeamBadge
-                    sport={home.sport}
-                    primaryColor={home.primaryColor}
-                    secondaryColor={home.secondaryColor}
-                    jerseyStyle={home.jerseyStyle}
-                    isNationalTeam={home.isNationalTeam}
-                    countryCode={home.countryCode}
-                    size={22}
-                  />
-                )}
-                <span>
-                  {match.competition}: {home?.name ?? "?"} vs {away?.name ?? "?"}
+            <div key={match.id} className="rounded-card border border-edge bg-surface p-5 sm:p-6">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+                  <span className="text-base">{sportIcon[match.sport]}</span>
+                  <span className="font-semibold text-ink">
+                    {match.competition}
+                    {match.matchday ? ` · Spieltag ${match.matchday}` : ""}
+                  </span>
+                  <span>· {new Date(match.kickoff).toLocaleString("de-DE")}</span>
+                  <span>· ⭐ {match.fixedStake}</span>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${matchStatusClass[match.status]}`}
+                >
+                  {matchStatusLabel[match.status]}
                 </span>
-                {away && (
-                  <TeamBadge
-                    sport={away.sport}
-                    primaryColor={away.primaryColor}
-                    secondaryColor={away.secondaryColor}
-                    jerseyStyle={away.jerseyStyle}
-                    isNationalTeam={away.isNationalTeam}
-                    countryCode={away.countryCode}
-                    flip
-                    size={22}
-                  />
-                )}
-                <span className="text-xs text-muted">
-                  ({new Date(match.kickoff).toLocaleString("de-DE")}) · ⭐ {match.fixedStake}
-                </span>
-              </span>
+              </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="mb-5 flex items-center justify-center gap-4 sm:gap-6">
+                <div className="flex flex-1 flex-col items-center gap-1.5 sm:flex-row sm:justify-end sm:gap-3">
+                  {home && (
+                    <TeamBadge
+                      sport={home.sport}
+                      primaryColor={home.primaryColor}
+                      secondaryColor={home.secondaryColor}
+                      jerseyStyle={home.jerseyStyle}
+                      isNationalTeam={home.isNationalTeam}
+                      countryCode={home.countryCode}
+                      size={40}
+                    />
+                  )}
+                  <span className="max-w-[8rem] truncate text-center text-sm font-semibold text-ink sm:text-right">
+                    {home?.name ?? "?"}
+                  </span>
+                </div>
+
+                {match.status === "finished" || match.status === "live" ? (
+                  <span className="shrink-0 font-display text-xl font-bold text-ink">
+                    {match.liveHomeScore ?? 0}:{match.liveAwayScore ?? 0}
+                  </span>
+                ) : (
+                  <span className="shrink-0 font-display text-sm font-bold text-muted">vs</span>
+                )}
+
+                <div className="flex flex-1 flex-col items-center gap-1.5 sm:flex-row sm:justify-start sm:gap-3">
+                  {away && (
+                    <TeamBadge
+                      sport={away.sport}
+                      primaryColor={away.primaryColor}
+                      secondaryColor={away.secondaryColor}
+                      jerseyStyle={away.jerseyStyle}
+                      isNationalTeam={away.isNationalTeam}
+                      countryCode={away.countryCode}
+                      flip
+                      size={40}
+                    />
+                  )}
+                  <span className="max-w-[8rem] truncate text-center text-sm font-semibold text-ink sm:text-left">
+                    {away?.name ?? "?"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 border-t border-edge pt-4">
                 <MatchDetailsEditor match={match} teams={teams} onSave={updateMatchDetails} />
                 <TipModeEditor match={match} onSave={setTipMode} />
                 <LiveScoreEditor match={match} onUpdate={handleScoreUpdate} />
@@ -860,7 +969,7 @@ function MatchManager() {
                       showToast("✓ Spiel entfernt.", "info");
                     }
                   }}
-                  className="text-xs text-muted hover:text-ink"
+                  className="rounded-lg px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-red-400"
                 >
                   Entfernen
                 </button>
@@ -1403,8 +1512,8 @@ function TournamentManager() {
 
   return (
     <section>
-      <h2 className="mb-3 font-display text-xl font-semibold text-ink">Turniere</h2>
-      <p className="mb-3 text-xs text-muted">
+      <h2 className="mb-1 font-display text-2xl font-semibold text-ink">Turniere</h2>
+      <p className="mb-4 text-sm text-muted">
         Zeitlich begrenzter Sonder-Bereich (z. B. WM, EM), der eine Auswahl bestehender Spiele
         bündelt und eine eigene, öffentliche Mini-Rangliste zeigt. Spiele werden unten je Turnier
         einzeln zugeordnet.
@@ -1412,58 +1521,60 @@ function TournamentManager() {
 
       <form
         onSubmit={handleSubmit}
-        className="mb-4 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4"
+        className="mb-6 flex flex-col gap-4 rounded-card border border-edge bg-surface p-5 sm:p-6"
       >
+        <h3 className="font-display text-base font-semibold text-ink">Neues Turnier anlegen</h3>
+
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           <div className="sm:col-span-2">
-            <label className="mb-1 block text-xs text-muted">Name</label>
+            <label className="mb-1.5 block text-sm text-muted">Name</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="z. B. Weltmeisterschaft 2026"
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-muted">Icon (Emoji)</label>
+            <label className="mb-1.5 block text-sm text-muted">Icon (Emoji)</label>
             <input
               value={icon}
               onChange={(e) => setIcon(e.target.value)}
               placeholder="🏆"
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-muted">Start</label>
+            <label className="mb-1.5 block text-sm text-muted">Start</label>
             <input
               type="datetime-local"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
             />
           </div>
           <div className="sm:col-span-3">
-            <label className="mb-1 block text-xs text-muted">Beschreibung (optional)</label>
+            <label className="mb-1.5 block text-sm text-muted">Beschreibung (optional)</label>
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Kurzer Hinweis, worum es bei diesem Turnier geht"
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-muted">Ende</label>
+            <label className="mb-1.5 block text-sm text-muted">Ende</label>
             <input
               type="datetime-local"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
             />
           </div>
         </div>
         <button
           type="submit"
-          className="self-start rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+          className="self-start rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
         >
           Turnier anlegen
         </button>
@@ -1471,7 +1582,7 @@ function TournamentManager() {
 
       <div className="flex flex-col gap-3">
         {tournaments.length === 0 && (
-          <p className="rounded-card border border-dashed border-edge bg-surface p-4 text-center text-sm text-muted">
+          <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted">
             Noch keine Turniere angelegt.
           </p>
         )}
@@ -1543,7 +1654,7 @@ function TournamentRow({
   }
 
   return (
-    <div className="rounded-card border border-edge bg-surface p-4">
+    <div className="rounded-card border border-edge bg-surface p-4 sm:p-5">
       {editing ? (
         <div className="flex flex-col gap-2">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
@@ -1588,17 +1699,17 @@ function TournamentRow({
           </div>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="text-lg">{tournament.icon}</span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="text-3xl">{tournament.icon}</span>
             <div className="min-w-0">
-              <p className="truncate font-display text-sm font-semibold text-ink">{tournament.name}</p>
+              <p className="truncate font-display text-base font-semibold text-ink">{tournament.name}</p>
               {tournament.description && (
-                <p className="truncate text-xs text-muted">{tournament.description}</p>
+                <p className="truncate text-sm text-muted">{tournament.description}</p>
               )}
             </div>
             <span
-              className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${tournamentStatusClass[status]}`}
+              className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${tournamentStatusClass[status]}`}
             >
               {tournamentStatusLabel[status]}
             </span>
