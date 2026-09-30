@@ -549,6 +549,7 @@ function MatchManager() {
     removeMatch,
     getTeam,
     updateMatchScore,
+    updateMatchDetails,
     setSummaryVideo,
     setTvChannel,
     setTipMode,
@@ -846,6 +847,7 @@ function MatchManager() {
               </span>
 
               <div className="flex flex-wrap items-center gap-2">
+                <MatchDetailsEditor match={match} teams={teams} onSave={updateMatchDetails} />
                 <TipModeEditor match={match} onSave={setTipMode} />
                 <LiveScoreEditor match={match} onUpdate={handleScoreUpdate} />
                 <TvChannelEditor match={match} onSave={setTvChannel} />
@@ -868,6 +870,180 @@ function MatchManager() {
         })}
       </div>
     </section>
+  );
+}
+
+// Wandelt eine gespeicherte ISO-Zeit in das Format um, das
+// <input type="datetime-local"> erwartet (lokale Zeit im Browser, ohne
+// Zeitzone) – nötig, damit der Bearbeiten-Dialog mit dem bisherigen
+// Anpfiff/Tippschluss vorausgefüllt ist statt leer zu starten.
+function toLocalInputValue(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
+    d.getMinutes()
+  )}`;
+}
+
+// Bearbeiten der Stammdaten eines bereits angelegten Spiels – vorher ließ
+// sich ein Spiel nach dem Anlegen nur noch entfernen, nie mehr korrigieren
+// (z. B. falscher Termin, Tippschluss in der Vergangenheit, Tippfehler bei
+// den Teams).
+function MatchDetailsEditor({
+  match,
+  teams,
+  onSave,
+}: {
+  match: Match;
+  teams: Team[];
+  onSave: (
+    matchId: string,
+    updates: {
+      competition: string;
+      matchday?: number;
+      kickoff: string;
+      tipDeadline: string;
+      homeTeamId: string;
+      awayTeamId: string;
+      fixedStake: number;
+    }
+  ) => void;
+}) {
+  const { showToast } = useFeedback();
+  const [editing, setEditing] = useState(false);
+  const [competition, setCompetition] = useState(match.competition);
+  const [matchday, setMatchday] = useState(match.matchday ? String(match.matchday) : "");
+  const [kickoff, setKickoff] = useState(() => toLocalInputValue(match.kickoff));
+  const [tipDeadline, setTipDeadline] = useState(() => toLocalInputValue(match.tipDeadline));
+  const [homeTeamId, setHomeTeamId] = useState(match.homeTeamId);
+  const [awayTeamId, setAwayTeamId] = useState(match.awayTeamId);
+  const [fixedStake, setFixedStake] = useState(String(match.fixedStake));
+
+  const teamsForSport = teams.filter((t) => t.sport === match.sport);
+
+  function handleSave() {
+    if (!competition.trim() || !kickoff || !tipDeadline || !homeTeamId || !awayTeamId) return;
+    if (homeTeamId === awayTeamId) return;
+    const stakeValue = Number(fixedStake);
+    if (!stakeValue || stakeValue < 1) return;
+    if (!confirm("Spieldaten wirklich ändern?")) return;
+
+    onSave(match.id, {
+      competition: competition.trim(),
+      matchday: matchday ? Number(matchday) : undefined,
+      kickoff: new Date(kickoff).toISOString(),
+      tipDeadline: new Date(tipDeadline).toISOString(),
+      homeTeamId,
+      awayTeamId,
+      fixedStake: stakeValue,
+    });
+    setEditing(false);
+    showToast("✓ Spieldaten gespeichert.", "success");
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        onClick={() => setEditing((v) => !v)}
+        className="rounded-lg bg-surface-hover px-2 py-1 text-xs font-semibold text-ink transition-colors hover:text-gold"
+      >
+        Bearbeiten
+      </button>
+
+      {editing && (
+        <div className="w-full rounded-lg border border-edge bg-pitch p-3">
+          <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-xs text-muted">Wettbewerb</label>
+              <input
+                value={competition}
+                onChange={(e) => setCompetition(e.target.value)}
+                className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-muted">Spieltag (optional)</label>
+              <input
+                type="number"
+                value={matchday}
+                onChange={(e) => setMatchday(e.target.value)}
+                className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-muted">Einsatz (Sterne)</label>
+              <input
+                type="number"
+                min={1}
+                value={fixedStake}
+                onChange={(e) => setFixedStake(e.target.value)}
+                className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-muted">Heimteam</label>
+              <select
+                value={homeTeamId}
+                onChange={(e) => setHomeTeamId(e.target.value)}
+                className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+              >
+                {teamsForSport.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {flagEmoji(t.countryCode)} {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-muted">Auswärtsteam</label>
+              <select
+                value={awayTeamId}
+                onChange={(e) => setAwayTeamId(e.target.value)}
+                className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+              >
+                {teamsForSport.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {flagEmoji(t.countryCode)} {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-muted">Anpfiff</label>
+              <input
+                type="datetime-local"
+                value={kickoff}
+                onChange={(e) => setKickoff(e.target.value)}
+                className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-muted">Tippschluss</label>
+              <input
+                type="datetime-local"
+                value={tipDeadline}
+                onChange={(e) => setTipDeadline(e.target.value)}
+                className="w-full rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSave}
+              className="rounded-lg bg-action px-3 py-1 text-xs font-semibold text-pitch transition-colors hover:bg-action-hover"
+            >
+              Speichern
+            </button>
+            <button
+              onClick={() => setEditing(false)}
+              className="rounded-lg border border-edge px-3 py-1 text-xs text-muted transition-colors hover:text-ink"
+            >
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

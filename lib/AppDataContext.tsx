@@ -271,6 +271,22 @@ interface AppDataContextValue {
     }
   ) => void;
   updateMatchScore: (matchId: string, homeScore: number | null, awayScore: number | null, status: Match["status"]) => void;
+  // Nachträgliches Bearbeiten der Stammdaten eines bereits angelegten Spiels
+  // (Wettbewerb, Spieltag, Teams, Anpfiff, Tippschluss, Einsatz) – bisher
+  // konnte ein Spiel nur beim Anlegen einmalig gesetzt und danach nur noch
+  // entfernt werden, nicht mehr korrigiert.
+  updateMatchDetails: (
+    matchId: string,
+    updates: {
+      competition: string;
+      matchday?: number;
+      kickoff: string;
+      tipDeadline: string;
+      homeTeamId: string;
+      awayTeamId: string;
+      fixedStake: number;
+    }
+  ) => void;
   setSummaryVideo: (matchId: string, url: string) => void;
   setTvChannel: (matchId: string, channel: string) => void;
   setTipMode: (matchId: string, mode: TipMode) => void;
@@ -435,6 +451,21 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function updateMatchDetails(
+    matchId: string,
+    updates: {
+      competition: string;
+      matchday?: number;
+      kickoff: string;
+      tipDeadline: string;
+      homeTeamId: string;
+      awayTeamId: string;
+      fixedStake: number;
+    }
+  ) {
+    setMatches((current) => current.map((m) => (m.id === matchId ? { ...m, ...updates } : m)));
+  }
+
   function setSummaryVideo(matchId: string, url: string) {
     setMatches((current) =>
       current.map((m) => (m.id === matchId ? { ...m, summaryVideoUrl: url } : m))
@@ -581,6 +612,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         hydrateTips,
         markTipEvaluated,
         updateMatchScore,
+        updateMatchDetails,
         setSummaryVideo,
         setTvChannel,
         setTipMode,
