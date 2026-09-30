@@ -23,4 +23,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "");
+export const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "", {
+  auth: {
+    // Explizit statt nur auf die (identischen) Standardwerte zu vertrauen –
+    // damit ist zweifelsfrei klar, dass die Sitzung im Browser gespeichert
+    // und nach einem Neuladen automatisch wiederhergestellt werden soll.
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
