@@ -352,6 +352,9 @@ function TeamManager() {
   const { showToast } = useFeedback();
   const [name, setName] = useState("");
   const [sport, setSport] = useState<Sport>("Fußball");
+  // Team-Liste nach Sportart in Reitern statt alles gemischt untereinander –
+  // sonst verliert man bei mehreren Sportarten schnell den Überblick.
+  const [teamListTab, setTeamListTab] = useState<Sport>("Fußball");
   const [countryCode, setCountryCode] = useState(COUNTRIES[0].code);
   const [primaryColor, setPrimaryColor] = useState("#3FA66B");
   const [secondaryColor, setSecondaryColor] = useState("#FFFFFF");
@@ -507,50 +510,71 @@ function TeamManager() {
         </button>
       </form>
 
+      <div className="mb-4 flex flex-wrap gap-2.5">
+        {SPORTS.map((s) => {
+          const countForSport = teams.filter((t) => t.sport === s).length;
+          return (
+            <button
+              key={s}
+              onClick={() => setTeamListTab(s)}
+              className={`min-w-[9rem] rounded-full border px-5 py-3 text-base font-semibold transition-colors ${
+                teamListTab === s
+                  ? "border-gold bg-gold/15 text-gold"
+                  : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
+              }`}
+            >
+              {sportIcon[s]} {s} ({countForSport})
+            </button>
+          );
+        })}
+      </div>
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {teams.length === 0 && (
+        {teams.filter((t) => t.sport === teamListTab).length === 0 && (
           <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted sm:col-span-2">
-            Noch keine Teams angelegt.
+            Noch keine Teams für {teamListTab} angelegt.
           </p>
         )}
-        {teams.map((team) => (
-          <div
-            key={team.id}
-            className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4"
-          >
-            <span className="flex min-w-0 items-center gap-3">
-              <TeamBadge
-                sport={team.sport}
-                primaryColor={team.primaryColor}
-                secondaryColor={team.secondaryColor}
-                jerseyStyle={team.jerseyStyle}
-                isNationalTeam={team.isNationalTeam}
-                countryCode={team.countryCode}
-                size={40}
-              />
-              <span className="min-w-0">
-                <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-ink">
-                  {!team.isNationalTeam && flagEmoji(team.countryCode)} {team.name}
-                </span>
-                <span className="text-xs text-muted">
-                  {team.sport}
-                  {team.isNationalTeam ? " · Nationalmannschaft" : ""}
+        {teams
+          .filter((t) => t.sport === teamListTab)
+          .map((team) => (
+            <div
+              key={team.id}
+              className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4"
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <TeamBadge
+                  sport={team.sport}
+                  primaryColor={team.primaryColor}
+                  secondaryColor={team.secondaryColor}
+                  jerseyStyle={team.jerseyStyle}
+                  isNationalTeam={team.isNationalTeam}
+                  countryCode={team.countryCode}
+                  size={40}
+                />
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-ink">
+                    {!team.isNationalTeam && flagEmoji(team.countryCode)} {team.name}
+                  </span>
+                  <span className="text-xs text-muted">
+                    {team.sport}
+                    {team.isNationalTeam ? " · Nationalmannschaft" : ""}
+                  </span>
                 </span>
               </span>
-            </span>
-            <button
-              onClick={() => {
-                if (confirm(`Team "${team.name}" wirklich entfernen?`)) {
-                  removeTeam(team.id);
-                  showToast(`✓ Team "${team.name}" entfernt.`, "info");
-                }
-              }}
-              className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-red-400"
-            >
-              Entfernen
-            </button>
-          </div>
-        ))}
+              <button
+                onClick={() => {
+                  if (confirm(`Team "${team.name}" wirklich entfernen?`)) {
+                    removeTeam(team.id);
+                    showToast(`✓ Team "${team.name}" entfernt.`, "info");
+                  }
+                }}
+                className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-red-400"
+              >
+                Entfernen
+              </button>
+            </div>
+          ))}
       </div>
     </section>
   );
