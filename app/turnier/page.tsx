@@ -237,13 +237,17 @@ function TournamentCard({
 }
 
 function TournamentCountdown({ target, prefix }: { target: number; prefix: string }) {
-  const [remaining, setRemaining] = useState(() => target - Date.now());
+  // null statt sofort Date.now() zu verrechnen – vermeidet Hydration-Fehler
+  // (siehe components/Countdown.tsx).
+  const [remaining, setRemaining] = useState<number | null>(null);
 
   useEffect(() => {
+    setRemaining(target - Date.now());
     const interval = setInterval(() => setRemaining(target - Date.now()), 1000);
     return () => clearInterval(interval);
   }, [target]);
 
+  if (remaining === null) return <span className="opacity-0">&nbsp;</span>;
   if (remaining <= 0) return <span>gerade eben</span>;
   const totalMinutes = Math.floor(remaining / 60000);
   const days = Math.floor(totalMinutes / (60 * 24));

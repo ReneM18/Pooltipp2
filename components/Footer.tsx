@@ -37,7 +37,13 @@ export default function Footer() {
           ))}
         </nav>
 
-        <p className="mt-4 text-xs text-muted">© {new Date().getFullYear()} PoolTipp</p>
+        {/* suppressHydrationWarning: Jahr wird zur Bauzeit UND im Browser
+            berechnet – nur in der einen Sekunde um Silvester könnten die
+            beiden minimal auseinanderlaufen. Offizieller React-Standardweg
+            für genau diesen Fall, statt es künstlich zu verzögern. */}
+        <p className="mt-4 text-xs text-muted" suppressHydrationWarning>
+          © {new Date().getFullYear()} PoolTipp
+        </p>
       </div>
     </footer>
   );

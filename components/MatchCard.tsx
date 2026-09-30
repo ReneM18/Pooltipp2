@@ -86,9 +86,12 @@ export default function MatchCard({
   // umschaltet.
   const submittedRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
-  const [tippingClosed, setTippingClosed] = useState(
-    () => new Date(match.tipDeadline).getTime() <= Date.now()
-  );
+  // Startet mit "false" statt sofort mit Date.now() zu vergleichen – Server
+  // und Browser haben beim allerersten Rendern nie exakt dieselbe Uhrzeit,
+  // das würde sonst zu einem Hydration-Fehler führen (siehe
+  // components/Countdown.tsx). Der useEffect weiter unten korrigiert den
+  // echten Wert ohnehin binnen Sekundenbruchteilen nach dem Laden.
+  const [tippingClosed, setTippingClosed] = useState(false);
   // Vorwarnung in der letzten Minute vor Tippschluss, damit das Formular
   // nicht kommentarlos mitten beim Ausfüllen verschwindet.
   const [closingSoon, setClosingSoon] = useState(false);
@@ -131,6 +134,11 @@ export default function MatchCard({
 
   useEffect(() => {
     const deadline = new Date(match.tipDeadline).getTime();
+    // Sofortiger erster Check direkt nach dem Laden, statt die ganze
+    // Sekunde bis zum ersten Intervall-Tick zu warten.
+    const initialRemaining = deadline - Date.now();
+    setTippingClosed(initialRemaining <= 0);
+    setClosingSoon(initialRemaining > 0 && initialRemaining <= 60 * 1000);
     const interval = setInterval(() => {
       const remaining = deadline - Date.now();
       setTippingClosed(remaining <= 0);

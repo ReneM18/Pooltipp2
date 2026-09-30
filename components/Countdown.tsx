@@ -16,14 +16,28 @@ function formatRemaining(ms: number): string {
 
 export default function Countdown({ kickoff }: { kickoff: string }) {
   const target = new Date(kickoff).getTime();
-  const [remaining, setRemaining] = useState(() => target - Date.now());
+
+  // Startet bewusst bei "null" statt sofort mit Date.now() zu rechnen: Der
+  // Server (baut die Seite) und der Browser (zeigt sie an) haben nie exakt
+  // dieselbe Uhrzeit, dadurch würde der allererste Text unterschiedlich
+  // ausfallen -> React-Hydration-Fehler. Mit "null" ist der erste Render auf
+  // Server und Client garantiert identisch (leer), der echte Countdown
+  // startet einen Moment später, rein im Browser.
+  const [remaining, setRemaining] = useState<number | null>(null);
 
   useEffect(() => {
+    setRemaining(target - Date.now());
     const interval = setInterval(() => {
       setRemaining(target - Date.now());
     }, 1000);
     return () => clearInterval(interval);
   }, [target]);
+
+  if (remaining === null) {
+    // Platzhalter mit gleicher Höhe, damit sich beim Erscheinen des echten
+    // Textes kurz danach nichts im Layout verschiebt.
+    return <span className="inline-flex items-center gap-1 text-gold opacity-0">&nbsp;</span>;
+  }
 
   const closed = remaining <= 0;
   const soon = !closed && remaining <= 30 * 60 * 1000; // letzte 30 Minuten

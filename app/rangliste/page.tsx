@@ -182,13 +182,18 @@ const PODIUM_RING: Record<number, string> = {
 // deren Text ("schließt in…", "Tippannahme geschlossen") auf Tipp-Fristen
 // zugeschnitten ist, nicht auf einen Ranglisten-Reset.
 function WeeklyCountdown({ target }: { target: number }) {
-  const [remaining, setRemaining] = useState(() => target - Date.now());
+  // null statt sofort Date.now() zu verrechnen: vermeidet einen Hydration-
+  // Fehler, weil Server und Browser nie exakt dieselbe Uhrzeit haben (siehe
+  // components/Countdown.tsx für die ausführliche Erklärung).
+  const [remaining, setRemaining] = useState<number | null>(null);
 
   useEffect(() => {
+    setRemaining(target - Date.now());
     const interval = setInterval(() => setRemaining(target - Date.now()), 1000);
     return () => clearInterval(interval);
   }, [target]);
 
+  if (remaining === null) return <span className="opacity-0">&nbsp;</span>;
   if (remaining <= 0) return <span>wird gerade zurückgesetzt…</span>;
   const totalMinutes = Math.floor(remaining / 60000);
   const days = Math.floor(totalMinutes / (60 * 24));

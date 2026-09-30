@@ -144,7 +144,14 @@ const UserContext = createContext<UserContextValue | null>(null);
 export function UserProvider({ children }: { children: ReactNode }) {
   const { addActivity, myTips, markTipEvaluated, matches, myBonusAnswers, markBonusAnswerEvaluated } =
     useAppData();
-  const [userId] = useState(generateUserId);
+  // Startet leer statt sofort mit Math.random() zu würfeln: Server und
+  // Browser würden beim allerersten Rendern sonst unterschiedliche IDs
+  // erzeugen (Hydration-Fehler). Die echte ID wird gleich nach dem Laden,
+  // rein im Browser, einmalig vergeben.
+  const [userId, setUserId] = useState("");
+  useEffect(() => {
+    setUserId(generateUserId());
+  }, []);
   const [displayName, setDisplayName] = useState(mockUser.displayName);
   // Erstes Foto ist zu Demo-Zwecken mit einem Platzhalter-Avatar vorbefüllt,
   // damit man gleich sieht, wie ein echtes Foto im Profil aussieht – einfach
