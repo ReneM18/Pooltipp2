@@ -20,7 +20,12 @@ const config: Config = {
         muted: "#8B9890", // secondary text
       },
       fontFamily: {
-        display: ["var(--font-rajdhani)", "sans-serif"],
+        // "display" ist die Haupt-Schrift für Überschriften/Buttons/Menü in
+        // der ganzen App. "logo" ist bewusst separat und wird nur für den
+        // "PoolTipp"-Schriftzug in der Navbar verwendet, der unverändert
+        // bleiben soll.
+        display: ["var(--font-poppins)", "sans-serif"],
+        logo: ["var(--font-rajdhani)", "sans-serif"],
         body: ["var(--font-inter)", "sans-serif"],
       },
       borderRadius: {

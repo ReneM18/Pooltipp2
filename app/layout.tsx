@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Rajdhani, Inter } from "next/font/google";
+import { Rajdhani, Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "@/lib/UserContext";
 import { AppDataProvider } from "@/lib/AppDataContext";
@@ -9,10 +9,18 @@ import { TournamentProvider } from "@/lib/TournamentContext";
 import { FeedbackProvider } from "@/lib/FeedbackContext";
 import AppChrome from "@/components/AppChrome";
 
+// Rajdhani wird jetzt NUR noch fürs "PoolTipp"-Logo in der Navbar verwendet
+// (siehe font-logo in tailwind.config.ts) – überall sonst übernimmt Poppins.
 const rajdhani = Rajdhani({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
   variable: "--font-rajdhani",
+});
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-poppins",
 });
 
 const inter = Inter({
@@ -32,7 +40,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="de" className={`${rajdhani.variable} ${inter.variable}`}>
+    <html lang="de" className={`${rajdhani.variable} ${poppins.variable} ${inter.variable}`}>
       <body className="font-body min-h-screen bg-pitch text-ink antialiased">
         <AppDataProvider>
           <UserProvider>
