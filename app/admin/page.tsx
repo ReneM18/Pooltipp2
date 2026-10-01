@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import Link from "next/link";
 import { useAppData, NewsItem } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useDuels } from "@/lib/DuelsContext";
@@ -12,23 +13,31 @@ import { COUNTRIES, flagEmoji } from "@/lib/flags";
 import TeamBadge from "@/components/TeamBadge";
 import { useFeedback } from "@/lib/FeedbackContext";
 
-// Einfacher Zugriffsschutz fürs MVP – KEINE echte Sicherheit.
-// Sobald der richtige Login (Firebase Auth) steht, ersetzt der diese PIN
-// durch eine echte Rechteprüfung (z. B. "ist dieser User Admin?").
-const ADMIN_PIN = "1805";
-
 type AdminTab = "spiele" | "teams" | "turniere" | "news";
 
+// Zugang nur für den eingeloggten Admin-Account – geprüft über die
+// Datenbank-Funktion is_admin() (siehe isAdmin in lib/UserContext.tsx).
+// Das ist nur die Anzeige: das eigentliche Speichern von Spielen, Teams,
+// News und Turnieren erlaubt die Datenbank selbst ebenfalls nur dem Admin
+// (Row Level Security mit is_admin(), siehe supabase/social-features.sql).
 export default function AdminPage() {
-  const [unlocked, setUnlocked] = useState(false);
+  const { isAdmin, adminChecked, isRegistered } = useUser();
   // "Spiele" ist bewusst der Start-Tab: das wird im Alltag am häufigsten
   // gebraucht und soll sofort sichtbar sein, ohne erst scrollen zu müssen.
   const [tab, setTab] = useState<AdminTab>("spiele");
   const { teams, matches, newsItems } = useAppData();
   const { tournaments } = useTournaments();
 
-  if (!unlocked) {
-    return <PinGate onUnlock={() => setUnlocked(true)} />;
+  if (!adminChecked) {
+    return (
+      <main className="mx-auto max-w-sm px-5 py-24 text-center">
+        <p className="text-sm text-muted">Zugang wird geprüft…</p>
+      </main>
+    );
+  }
+
+  if (!isAdmin) {
+    return <NoAccess loggedIn={isRegistered} />;
   }
 
   const tabs: { id: AdminTab; label: string; icon: string; count: number }[] = [
@@ -42,8 +51,8 @@ export default function AdminPage() {
     <main className="mx-auto max-w-3xl px-5 py-8 lg:max-w-6xl">
       <h1 className="mb-1 font-display text-3xl font-bold text-ink sm:text-4xl">Admin-Bereich</h1>
       <p className="mb-7 text-sm text-muted">
-        Teams, Spiele, Turniere und News anlegen. Änderungen gelten nur für diese
-        Browser-Sitzung, solange Firestore noch nicht angebunden ist.
+        Teams, Spiele, Turniere und News anlegen. Änderungen werden gespeichert und
+        sind sofort für alle sichtbar.
       </p>
 
       {/* Klar getrennte Bereiche statt alles untereinander gestapelt – ein
@@ -306,43 +315,21 @@ const matchStatusClass: Record<MatchStatus, string> = {
   finished: "border-gold bg-gold/15 text-gold",
 };
 
-function PinGate({ onUnlock }: { onUnlock: () => void }) {
-  const [pin, setPin] = useState("");
-  const [error, setError] = useState(false);
-
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (pin === ADMIN_PIN) {
-      onUnlock();
-    } else {
-      setError(true);
-    }
-  }
-
+function NoAccess({ loggedIn }: { loggedIn: boolean }) {
   return (
     <main className="mx-auto flex max-w-sm flex-col items-center px-5 py-24 text-center">
-      <h1 className="mb-2 font-display text-2xl font-bold text-ink">Admin-Zugang</h1>
-      <p className="mb-6 text-sm text-muted">Bitte PIN eingeben.</p>
-      <form onSubmit={handleSubmit} className="w-full">
-        <input
-          type="password"
-          inputMode="numeric"
-          value={pin}
-          onChange={(e) => {
-            setPin(e.target.value);
-            setError(false);
-          }}
-          className="mb-3 w-full rounded-lg border border-edge bg-surface px-4 py-2.5 text-center font-display text-lg tracking-widest text-ink outline-none focus:border-gold"
-          autoFocus
-        />
-        {error && <p className="mb-3 text-sm text-red-400">Falsche PIN.</p>}
-        <button
-          type="submit"
-          className="w-full rounded-full bg-action py-2.5 font-display font-semibold text-pitch transition-colors hover:bg-action-hover"
-        >
-          Entsperren
-        </button>
-      </form>
+      <h1 className="mb-2 font-display text-2xl font-bold text-ink">Kein Zugriff</h1>
+      <p className="mb-6 text-sm text-muted">
+        {loggedIn
+          ? "Dieser Bereich ist nur für Admins."
+          : "Dieser Bereich ist nur für Admins. Bitte zuerst einloggen."}
+      </p>
+      <Link
+        href={loggedIn ? "/" : "/registrieren"}
+        className="w-full rounded-full bg-action py-2.5 font-display font-semibold text-pitch transition-colors hover:bg-action-hover"
+      >
+        {loggedIn ? "Zur Startseite" : "Zum Login"}
+      </Link>
     </main>
   );
 }

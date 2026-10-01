@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { mockLeaderboard, mockLeaderboardBySport, LeaderboardEntry } from "@/lib/mockLeaderboard";
 import { SPORTS, Sport } from "@/lib/types";
-import { getTierForPoints, RANK_COLORS, RANK_TITLES, SPORT_EMOJI, getIconForName } from "@/lib/rankTiers";
+import { getIconForPoints, getSportRankIcon, RankIconOption } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
-import { getCurrentWeekWindow, getSimulatedWeeklyEntries, sumWeeklyRangDelta } from "@/lib/weeklyLeaderboard";
+import { getCurrentWeekWindow, sumWeeklyRangDelta } from "@/lib/weeklyLeaderboard";
+import { GlobalPlayer, sumPoints, useGlobalLeaderboard } from "@/lib/globalLeaderboard";
 
 const sportIcon: Record<Sport, string> = {
   "Fußball": "⚽",
@@ -21,51 +21,98 @@ type ViewTab = "Gesamt" | "Spieltag" | Sport;
 
 const TABS: ViewTab[] = ["Gesamt", "Spieltag", ...SPORTS];
 
+// Ab so vielen Spielern wird nur die Spitze gezeigt (plus die eigene Zeile,
+// falls man weiter hinten steht), damit die Seite nicht endlos lang wird.
+const MAX_ROWS = 100;
+
+interface RowEntry {
+  id: string;
+  rank: number;
+  name: string;
+  points: number;
+  icon: RankIconOption | null;
+  isCurrentUser: boolean;
+}
+
 export default function RanglistePage() {
   const [tab, setTab] = useState<ViewTab>("Gesamt");
-  const { rangPunkte, displayName } = useUser();
+  const { rangPunkte, displayName, authUserId, profileLoaded } = useUser();
   const { myTips } = useAppData();
-
-  // Die "Gesamt"-Ansicht bleibt eine separate Mock-Zahl (kein sinnvoller
-  // Summenwert über Sportarten hinweg). In den Sport-Ansichten wird der
-  // eigene Eintrag live mit den PoolScore-Rangliste-Punkten aktualisiert und
-  // die Tabelle neu sortiert, damit man nach einer Auswertung sofort sieht,
-  // wo man jetzt steht.
-  const baseEntries: LeaderboardEntry[] =
-    tab === "Gesamt" || tab === "Spieltag" ? mockLeaderboard : mockLeaderboardBySport[tab];
 
   // Spieltags-Rangliste: nur die Rangpunkte-Änderung aus dieser Kalenderwoche
   // zählt, mit Countdown bis zum Reset – siehe lib/weeklyLeaderboard.ts.
-  const weekWindow = getCurrentWeekWindow();
-  const weeklyEntries: LeaderboardEntry[] =
-    tab === "Spieltag"
-      ? [
-          ...getSimulatedWeeklyEntries(weekWindow.start),
-          { name: displayName, points: sumWeeklyRangDelta(myTips, weekWindow) },
-        ]
-          .sort((a, b) => b.points - a.points)
-          .map((entry, index) => ({
-            rank: index + 1,
-            name: entry.name,
-            points: entry.points,
-            isCurrentUser: entry.name === displayName,
-          }))
-      : [];
+  // useMemo, damit das Zeitfenster nicht bei jedem Rendern neu entsteht und
+  // die Daten nicht ständig neu geladen werden.
+  const weekWindow = useMemo(() => getCurrentWeekWindow(), []);
+  const { players, weeklyByUser, loading, failed } = useGlobalLeaderboard(weekWindow);
 
-  const entries: LeaderboardEntry[] =
-    tab === "Gesamt"
-      ? baseEntries.map((entry) => (entry.isCurrentUser ? { ...entry, name: displayName } : entry))
-      : tab === "Spieltag"
-      ? weeklyEntries
-      : [...baseEntries]
-          // Beim eigenen Eintrag IMMER auch den aktuellen Anzeigenamen
-          // einsetzen (nicht nur die Punkte) – sonst zeigt die Rangliste nach
-          // einer Namensänderung im Profil weiter den alten Mock-Namen an.
-          .map((entry) =>
-            entry.isCurrentUser ? { ...entry, name: displayName, points: rangPunkte[tab] } : entry
-          )
-          .sort((a, b) => b.points - a.points)
-          .map((entry, index) => ({ ...entry, rank: index + 1 }));
+  // Echte Spieler aus der Datenbank. Die eigene Zeile wird mit den Live-
+  // Werten aus dem Browser überschrieben (Name + Punkte), damit man nach
+  // einer Auswertung oder Namensänderung sofort den aktuellen Stand sieht,
+  // auch bevor die Datenbank ihn zurückliefert.
+  const allPlayers: GlobalPlayer[] = useMemo(() => {
+    // Vor dem Laden des eigenen Profils sind Name/Punkte im Browser noch
+    // Startwerte – dann lieber den Datenbank-Stand zeigen.
+    if (!authUserId || !profileLoaded) return players;
+    const me: GlobalPlayer = {
+      id: authUserId,
+      name: displayName,
+      pointsBySport: { ...rangPunkte },
+      total: sumPoints(rangPunkte),
+    };
+    const others = players.filter((p) => p.id !== authUserId);
+    return [...others, me];
+  }, [players, authUserId, profileLoaded, displayName, rangPunkte]);
+
+  const ranked: RowEntry[] = useMemo(() => {
+    let rows: Omit<RowEntry, "rank">[];
+    if (tab === "Spieltag") {
+      rows = allPlayers
+        .filter((p) => weeklyByUser.has(p.id) || p.id === authUserId)
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          points: p.id === authUserId ? sumWeeklyRangDelta(myTips, weekWindow) : weeklyByUser.get(p.id) ?? 0,
+          icon: getIconForPoints(p.pointsBySport, `-${p.id}`),
+          isCurrentUser: p.id === authUserId,
+        }));
+    } else if (tab === "Gesamt") {
+      rows = allPlayers.map((p) => ({
+        id: p.id,
+        name: p.name,
+        points: p.total,
+        icon: getIconForPoints(p.pointsBySport, `-${p.id}`),
+        isCurrentUser: p.id === authUserId,
+      }));
+    } else {
+      const sport = tab;
+      rows = allPlayers.map((p) => ({
+        id: p.id,
+        name: p.name,
+        points: p.pointsBySport[sport],
+        icon: getSportRankIcon(sport, p.pointsBySport[sport], `-${p.id}`),
+        isCurrentUser: p.id === authUserId,
+      }));
+    }
+    // Gleichstand: alphabetisch, damit die Reihenfolge stabil bleibt.
+    // Gleiche Punkte bekommen den gleichen Platz (1, 2, 2, 4 …).
+    const sorted = rows.sort((a, b) => b.points - a.points || a.name.localeCompare(b.name, "de"));
+    let lastPoints: number | null = null;
+    let lastRank = 0;
+    return sorted.map((row, index) => {
+      const rank = row.points === lastPoints ? lastRank : index + 1;
+      lastPoints = row.points;
+      lastRank = rank;
+      return { ...row, rank };
+    });
+  }, [tab, allPlayers, weeklyByUser, authUserId, myTips, weekWindow]);
+
+  const entries: RowEntry[] = useMemo(() => {
+    if (ranked.length <= MAX_ROWS) return ranked;
+    const top = ranked.slice(0, MAX_ROWS);
+    const me = ranked.find((r) => r.isCurrentUser);
+    return me && !top.includes(me) ? [...top, me] : top;
+  }, [ranked]);
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-4xl px-5 py-8">
@@ -76,7 +123,9 @@ export default function RanglistePage() {
             Zählt nur Punkte dieser Woche · <WeeklyCountdown target={weekWindow.end.getTime()} />
           </p>
         ) : (
-          <p className="mt-0.5 text-xs text-muted">Wird jeden Monat zurückgesetzt.</p>
+          <p className="mt-0.5 text-xs text-muted">
+            {loading ? "Lädt…" : `${ranked.length} Spieler`}
+          </p>
         )}
       </div>
 
@@ -99,57 +148,155 @@ export default function RanglistePage() {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-card border border-edge bg-surface">
-        {entries.map((entry, index) => (
-          <div
-            key={entry.rank}
-            className={`flex items-center justify-between px-5 py-4 ${
-              index !== entries.length - 1 ? "border-b border-edge" : ""
-            } ${entry.isCurrentUser ? "bg-surface-hover" : podiumRowClass(entry.rank)}`}
-          >
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <RankNumber rank={entry.rank} />
-              <NameAvatar name={entry.name} rank={entry.rank} />
-              <RankBadge
-                option={
-                  tab === "Gesamt" || tab === "Spieltag"
-                    ? getIconForName(entry.name)
-                    : {
-                        id: `${tab}-${entry.rank}`,
-                        kind: "sport",
-                        sport: tab as Sport,
-                        label: `${tab} ${getTierForPoints(entry.points).rank} ${getTierForPoints(entry.points).sub}`,
-                        icon: SPORT_EMOJI[tab as Sport],
-                        points: entry.points,
-                        colorFrom: RANK_COLORS[getTierForPoints(entry.points).rank].from,
-                        colorTo: RANK_COLORS[getTierForPoints(entry.points).rank].to,
-                        colorText: RANK_COLORS[getTierForPoints(entry.points).rank].text,
-                        title: RANK_TITLES[getTierForPoints(entry.points).rank],
-                      }
-                }
-                size="sm"
-              />
-              {entry.isCurrentUser ? (
-                <span className="min-w-0 truncate font-display text-base font-semibold text-gold">
-                  {entry.name}
-                  <span className="ml-2 text-xs font-medium text-muted">(Du)</span>
+      {loading ? (
+        <LoadingRows />
+      ) : failed ? (
+        <EmptyState
+          title="Rangliste gerade nicht erreichbar"
+          text="Die Daten konnten nicht geladen werden. Bitte versuch es gleich noch einmal."
+        />
+      ) : entries.length === 0 ? (
+        tab === "Spieltag" ? (
+          <EmptyState
+            title="Diese Woche noch keine Punkte"
+            text="Sobald die ersten Tipps dieser Woche ausgewertet sind, erscheint hier die Wochen-Rangliste."
+            showTipLink
+          />
+        ) : (
+          <EmptyState
+            title="Noch keine Spieler in der Rangliste"
+            text="Registriere dich, gib deine ersten Tipps ab und sei der Erste ganz oben."
+            showRegisterLink={!authUserId}
+          />
+        )
+      ) : (
+        <>
+          <div className="overflow-hidden rounded-card border border-edge bg-surface">
+            {entries.map((entry, index) => (
+              <div
+                key={entry.id}
+                className={`flex items-center justify-between px-5 py-4 ${
+                  index !== entries.length - 1 ? "border-b border-edge" : ""
+                } ${entry.isCurrentUser ? "bg-surface-hover" : podiumRowClass(entry.rank)}`}
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <RankNumber rank={entry.rank} />
+                  <NameAvatar name={entry.name} rank={entry.rank} />
+                  <RankBadge option={entry.icon} size="sm" />
+                  {entry.isCurrentUser ? (
+                    <span className="min-w-0 truncate font-display text-base font-semibold text-gold">
+                      {entry.name}
+                      <span className="ml-2 text-xs font-medium text-muted">(Du)</span>
+                    </span>
+                  ) : (
+                    <Link
+                      href={`/spieler/${encodeURIComponent(entry.name)}`}
+                      className="min-w-0 truncate font-display text-base font-semibold text-ink transition-colors hover:text-gold"
+                    >
+                      {entry.name}
+                    </Link>
+                  )}
+                </div>
+                <span className="ml-2 shrink-0 font-display text-base font-semibold text-ink">
+                  {entry.points.toLocaleString("de-DE")}
                 </span>
-              ) : (
-                <Link
-                  href={`/spieler/${encodeURIComponent(entry.name)}`}
-                  className="min-w-0 truncate font-display text-base font-semibold text-ink transition-colors hover:text-gold"
-                >
-                  {entry.name}
-                </Link>
-              )}
-            </div>
-            <span className="ml-2 shrink-0 font-display text-base font-semibold text-ink">
-              {entry.points.toLocaleString("de-DE")}
-            </span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+          {tab !== "Spieltag" && ranked.length < 5 && <FewPlayersHint />}
+        </>
+      )}
     </main>
+  );
+}
+
+function LoadingRows() {
+  return (
+    <div className="overflow-hidden rounded-card border border-edge bg-surface" aria-busy="true">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className={`flex items-center gap-3 px-5 py-4 ${i !== 2 ? "border-b border-edge" : ""}`}>
+          <span className="h-7 w-7 animate-pulse rounded-full bg-surface-hover" />
+          <span className="h-9 w-9 animate-pulse rounded-full bg-surface-hover" />
+          <span className="h-4 w-32 animate-pulse rounded bg-surface-hover" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({
+  title,
+  text,
+  showRegisterLink,
+  showTipLink,
+}: {
+  title: string;
+  text: string;
+  showRegisterLink?: boolean;
+  showTipLink?: boolean;
+}) {
+  return (
+    <div className="rounded-card border border-edge bg-surface px-6 py-10 text-center">
+      <p className="mb-2 text-3xl" aria-hidden>
+        🏆
+      </p>
+      <h2 className="mb-1 font-display text-lg font-semibold text-ink">{title}</h2>
+      <p className="mx-auto mb-5 max-w-sm text-sm text-muted">{text}</p>
+      {showRegisterLink && (
+        <Link
+          href="/registrieren"
+          className="inline-block rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+        >
+          Jetzt registrieren
+        </Link>
+      )}
+      {showTipLink && (
+        <Link
+          href="/"
+          className="inline-block rounded-full border border-gold px-5 py-2 font-display text-sm font-semibold text-gold transition-colors hover:bg-gold hover:text-pitch"
+        >
+          Zu den Spielen
+        </Link>
+      )}
+    </div>
+  );
+}
+
+// Solange erst wenige Leute mitspielen, wirkt die Liste leer – ein kurzer
+// Hinweis mit Einladen-Knopf statt erfundener Mitspieler.
+function FewPlayersHint() {
+  const [copied, setCopied] = useState(false);
+
+  async function invite() {
+    const url = window.location.origin;
+    const text = "Tipp mit mir auf PoolTipp, mal sehen wer in der Rangliste vorne liegt!";
+    if ("share" in navigator) {
+      try {
+        await navigator.share({ title: "PoolTipp", text, url });
+        return;
+      } catch {
+        // abgebrochen oder nicht verfügbar -> Link kopieren
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(`${text} ${url}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Zwischenablage nicht verfügbar – ignorieren
+    }
+  }
+
+  return (
+    <div className="mt-4 flex flex-col items-center gap-3 rounded-card border border-dashed border-edge px-5 py-5 text-center sm:flex-row sm:justify-between sm:text-left">
+      <p className="text-sm text-muted">Noch ist hier wenig los. Lade Freunde ein, dann wird es spannend.</p>
+      <button
+        onClick={invite}
+        className="shrink-0 rounded-full border border-gold px-4 py-2 font-display text-sm font-semibold text-gold transition-colors hover:bg-gold hover:text-pitch"
+      >
+        {copied ? "Link kopiert ✓" : "Freunde einladen"}
+      </button>
+    </div>
   );
 }
 

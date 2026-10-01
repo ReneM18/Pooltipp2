@@ -144,6 +144,15 @@ interface UserContextValue {
   // eingeloggt. Wird für alles gebraucht, was wirklich einen echten Account
   // auf der Gegenseite braucht (z. B. Duelle gegen einen anderen User).
   authUserId: string | null;
+  // true, sobald das eigene Profil aus Supabase geladen ist (vorher sind
+  // Name/Punkte noch lokale Startwerte).
+  profileLoaded: boolean;
+  // true nur für den Admin-Account. Kommt direkt aus der Datenbank-Funktion
+  // is_admin() – dieselbe Prüfung, die auch das Speichern von Spielen,
+  // Teams, News und Turnieren absichert.
+  isAdmin: boolean;
+  // false, solange die Admin-Prüfung noch läuft.
+  adminChecked: boolean;
   logout: () => Promise<void>;
 }
 
@@ -276,18 +285,46 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Seite aus das passiert).
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setAuthEmail(data.session?.user.email ?? null);
       setAuthUserId(data.session?.user.id ?? null);
+      setSessionChecked(true);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setAuthEmail(session?.user.email ?? null);
       setAuthUserId(session?.user.id ?? null);
+      setSessionChecked(true);
     });
     return () => listener.subscription.unsubscribe();
   }, []);
   const isRegistered = authEmail !== null;
+
+  // Admin-Prüfung über die Datenbank (is_admin() in
+  // supabase/social-features.sql), statt einer PIN im Browser-Code.
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminCheckedFor, setAdminCheckedFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!authUserId) {
+      setIsAdmin(false);
+      return;
+    }
+    let cancelled = false;
+    supabase.rpc("is_admin").then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) console.warn("Admin-Prüfung fehlgeschlagen:", error.message);
+      setIsAdmin(!error && data === true);
+      setAdminCheckedFor(authUserId);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [authUserId]);
+  // Fertig geprüft: Sitzung bekannt und – falls eingeloggt – Admin-Abfrage
+  // für genau dieses Konto beantwortet.
+  const adminChecked = sessionChecked && (authUserId === null || adminCheckedFor === authUserId);
+  const isAdminNow = isAdmin && adminCheckedFor === authUserId && authUserId !== null;
   async function logout() {
     await supabase.auth.signOut();
   }
@@ -353,7 +390,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
           id: authUserId,
           display_name: displayName,
           free_stars: freeStars,
-          rang_punkte: rangPunkte,
+          // Neue Konten starten bei 0 Rangliste-Punkten, nicht mit den
+          // Demo-Werten, die vor dem Login angezeigt werden.
+          rang_punkte: Object.fromEntries(SPORTS.map((s) => [s, 0])),
           pass_xp: passXP,
           streak_count: streakState.count,
           last_tip_date: streakState.lastTipDate,
@@ -1001,6 +1040,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         isRegistered,
         authEmail,
         authUserId,
+        profileLoaded,
+        isAdmin: isAdminNow,
+        adminChecked,
         logout,
       }}
     >
