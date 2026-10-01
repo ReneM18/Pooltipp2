@@ -3,7 +3,6 @@
 import { useState } from "react";
 import MatchCard from "@/components/MatchCard";
 import AdBanner from "@/components/AdBanner";
-import HomeSidebar from "@/components/HomeSidebar";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
@@ -43,58 +42,48 @@ export default function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-5 sm:py-8">
-      {/* Ab lg: (Desktop) zusätzlich eine zweite Spalte rechts für Duelle/
-          Tipprunden/Turniere – sonst bleibt bei breiten Bildschirmen neben
-          der Tipp-Liste nur leerer Platz, und man muss für diese drei Sachen
-          extra wegklicken, statt sie direkt auf der Startseite zu sehen. */}
-      <div className="lg:grid lg:grid-cols-[1fr_300px] lg:items-start lg:gap-6">
-        <div>
-          {/* Kompakter Titel statt großer Headline + Untertitel – die
-              Sterne-Anzahl steht schon oben in der Navbar, das musste hier
-              nicht wiederholt werden. Spart Platz, bevor die eigentlichen
-              Spiele kommen. */}
-          <div className="mb-4 flex items-center gap-2.5">
-            <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">
-              Spieltag
-            </h1>
-            {streakCount > 0 && (
-              <span
-                title="Aufeinanderfolgende Tage mit mindestens einem Tipp"
-                className="flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 font-display text-xs font-bold text-gold"
-              >
-                🔥 {streakCount} {streakCount === 1 ? "Tag" : "Tage"} in Folge
-              </span>
-            )}
-          </div>
+      {/* Kompakter Titel statt großer Headline + Untertitel – die
+          Sterne-Anzahl steht schon oben in der Navbar, das musste hier
+          nicht wiederholt werden. Spart Platz, bevor die eigentlichen
+          Spiele kommen. */}
+      <div className="mb-4 flex items-center gap-2.5">
+        <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">
+          Spieltag
+        </h1>
+        {streakCount > 0 && (
+          <span
+            title="Aufeinanderfolgende Tage mit mindestens einem Tipp"
+            className="flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 font-display text-xs font-bold text-gold"
+          >
+            🔥 {streakCount} {streakCount === 1 ? "Tag" : "Tage"} in Folge
+          </span>
+        )}
+      </div>
 
-          <AdBanner />
+      <AdBanner />
 
-          <div className="mb-5 flex gap-2 border-b border-edge">
-            <TabButton
-              label="Offene Tipps"
-              count={offeneMatches.length}
-              active={tab === "offen"}
-              onClick={() => setTab("offen")}
-            />
-            <TabButton
-              label="Geschlossene Tipps"
-              count={geschlosseneMatches.length}
-              active={tab === "geschlossen"}
-              onClick={() => setTab("geschlossen")}
-            />
-          </div>
+      <div className="mb-5 flex gap-2 border-b border-edge">
+        <TabButton
+          label="Offene Tipps"
+          count={offeneMatches.length}
+          active={tab === "offen"}
+          onClick={() => setTab("offen")}
+        />
+        <TabButton
+          label="Geschlossene Tipps"
+          count={geschlosseneMatches.length}
+          active={tab === "geschlossen"}
+          onClick={() => setTab("geschlossen")}
+        />
+      </div>
 
-          {/* Innerhalb der (jetzt etwas schmaleren, weil die Seitenspalte
-              rechts Platz braucht) Hauptspalte bleibt die Zweispaltigkeit der
-              Spiel-Karten erhalten – passt bei max-w-6xl minus 300px Spalte
-              weiterhin bequem nebeneinander. */}
-          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-5">
-            {visibleMatches.length === 0 && (
-              <p className="py-8 text-center text-sm text-muted lg:col-span-2">
-                {tab === "offen" ? "Aktuell keine offenen Spiele." : "Noch keine beendeten Spiele."}
-              </p>
-            )}
-            {visibleMatches.map((match) => {
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-3 lg:items-start lg:gap-5">
+        {visibleMatches.length === 0 && (
+          <p className="py-8 text-center text-sm text-muted lg:col-span-3">
+            {tab === "offen" ? "Aktuell keine offenen Spiele." : "Noch keine beendeten Spiele."}
+          </p>
+        )}
+        {visibleMatches.map((match) => {
           const homeTeam = getTeam(match.homeTeamId);
           const awayTeam = getTeam(match.awayTeamId);
           if (!homeTeam || !awayTeam) return null;
@@ -126,13 +115,7 @@ export default function DashboardPage() {
               }
             />
           );
-            })}
-          </div>
-        </div>
-
-        <aside className="hidden lg:block">
-          <HomeSidebar />
-        </aside>
+        })}
       </div>
     </main>
   );
