@@ -359,6 +359,8 @@ interface AppDataContextValue {
   myBonusAnswers: SubmittedBonusAnswer[];
   submitBonusAnswer: (matchId: string, optionIndex: number) => void;
   markBonusAnswerEvaluated: (id: string, result: { correct: boolean; starsDelta: number }) => void;
+  // Übernimmt die in Supabase gespeicherten Bonus-Antworten (siehe UserContext).
+  hydrateBonusAnswers: (answers: SubmittedBonusAnswer[]) => void;
   newsItems: NewsItem[];
   addNews: (text: string, sport: Sport | null, article: string | null) => void;
   updateNews: (id: string, text: string, sport: Sport | null, article: string | null) => void;
@@ -416,10 +418,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   // Admin-Inhalte (Teams/Spiele/News) laden: beim ersten Laden aus Supabase
   // übernehmen (ersetzt die lokalen Demo-Daten komplett durch den echten,
-  // von allen Usern geteilten Stand) – schlägt das fehl (z. B. weil das
-  // SQL-Setup noch nicht ausgeführt wurde) bleiben die lokalen Demo-Daten
-  // als Rückfallebene stehen, statt dass die Seite leer bleibt.
-  const [contentLoaded, setContentLoaded] = useState(false);
+  // von allen Usern geteilten Stand – auch wenn eine Liste dort leer ist,
+  // sonst kämen gelöschte Demo-Einträge immer wieder zurück). Schlägt das
+  // Laden fehl, bleiben die Demo-Daten nur zur Anzeige stehen und werden
+  // NICHT zurückgeschrieben – sonst würde ein einziger Ladefehler beim Admin
+  // die echten Daten in der Datenbank mit dem Demo-Stand überschreiben.
+  const [loadedFromDb, setLoadedFromDb] = useState({ teams: false, matches: false, news: false });
+  // true erst, wenn die Spiele wirklich aus Supabase kommen (die Auswertung
+  // in UserContext darf nie mit Demo-Spielen rechnen).
+  const contentLoaded = loadedFromDb.matches;
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -429,22 +436,26 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         supabase.from("news").select("data"),
       ]);
       if (cancelled) return;
-      if (!teamsRes.error && teamsRes.data && teamsRes.data.length > 0) {
+      if (!teamsRes.error && teamsRes.data) {
         setTeams(teamsRes.data.map((row) => row.data as Team));
-      } else if (teamsRes.error) {
-        console.warn("Teams konnten nicht geladen werden:", teamsRes.error.message);
+      } else {
+        console.warn("Teams konnten nicht geladen werden:", teamsRes.error?.message);
       }
-      if (!matchesRes.error && matchesRes.data && matchesRes.data.length > 0) {
+      if (!matchesRes.error && matchesRes.data) {
         setMatches(matchesRes.data.map((row) => row.data as Match));
-      } else if (matchesRes.error) {
-        console.warn("Spiele konnten nicht geladen werden:", matchesRes.error.message);
+      } else {
+        console.warn("Spiele konnten nicht geladen werden:", matchesRes.error?.message);
       }
-      if (!newsRes.error && newsRes.data && newsRes.data.length > 0) {
+      if (!newsRes.error && newsRes.data) {
         setNewsItems(newsRes.data.map((row) => row.data as NewsItem));
-      } else if (newsRes.error) {
-        console.warn("News konnten nicht geladen werden:", newsRes.error.message);
+      } else {
+        console.warn("News konnten nicht geladen werden:", newsRes.error?.message);
       }
-      setContentLoaded(true);
+      setLoadedFromDb({
+        teams: !teamsRes.error && !!teamsRes.data,
+        matches: !matchesRes.error && !!matchesRes.data,
+        news: !newsRes.error && !!newsRes.data,
+      });
     })();
     return () => {
       cancelled = true;
@@ -459,7 +470,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // schreiben – bei anderen Usern schlägt das erwartungsgemäß fehl und wird
   // nur als Hinweis geloggt, ohne die Ansicht zu stören.
   useEffect(() => {
-    if (!contentLoaded) return;
+    if (!loadedFromDb.teams || teams.length === 0) return;
     supabase
       .from("teams")
       .upsert(
@@ -469,10 +480,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       .then(({ error }) => {
         if (error) console.warn("Teams konnten nicht gespeichert werden:", error.message);
       });
-  }, [teams, contentLoaded]);
+  }, [teams, loadedFromDb.teams]);
 
   useEffect(() => {
-    if (!contentLoaded) return;
+    if (!loadedFromDb.matches || matches.length === 0) return;
     supabase
       .from("matches")
       .upsert(
@@ -482,10 +493,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       .then(({ error }) => {
         if (error) console.warn("Spiele konnten nicht gespeichert werden:", error.message);
       });
-  }, [matches, contentLoaded]);
+  }, [matches, loadedFromDb.matches]);
 
   useEffect(() => {
-    if (!contentLoaded) return;
+    if (!loadedFromDb.news || newsItems.length === 0) return;
     supabase
       .from("news")
       .upsert(
@@ -495,7 +506,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       .then(({ error }) => {
         if (error) console.warn("News konnten nicht gespeichert werden:", error.message);
       });
-  }, [newsItems, contentLoaded]);
+  }, [newsItems, loadedFromDb.news]);
 
   // Kommentare & Feed laufen NICHT nach dem "ganzes Array synchronisieren"-
   // Muster wie oben, weil hier (anders als bei Teams/Spielen/News, die nur
@@ -847,6 +858,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  function hydrateBonusAnswers(answers: SubmittedBonusAnswer[]) {
+    setMyBonusAnswers((current) => {
+      const existingIds = new Set(current.map((a) => a.id));
+      const missing = answers.filter((a) => !existingIds.has(a.id));
+      if (missing.length === 0) return current;
+      return [...current, ...missing];
+    });
+  }
+
   function addNews(text: string, sport: Sport | null, article: string | null) {
     const id = `news-${Date.now()}`;
     setNewsItems((current) => [
@@ -992,6 +1012,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         myBonusAnswers,
         submitBonusAnswer,
         markBonusAnswerEvaluated,
+        hydrateBonusAnswers,
         newsItems,
         addNews,
         updateNews,

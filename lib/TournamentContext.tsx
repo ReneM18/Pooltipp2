@@ -53,18 +53,20 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const [loaded, setLoaded] = useState(false);
 
   // Beim ersten Laden aus Supabase übernehmen (ersetzt die lokalen
-  // Demo-Daten durch den echten, von allen Usern geteilten Stand). Schlägt
-  // das fehl, bleiben die lokalen Demo-Daten als Rückfallebene stehen.
+  // Demo-Daten durch den echten, von allen Usern geteilten Stand – auch wenn
+  // er leer ist). Schlägt das fehl, bleiben die Demo-Daten nur zur Anzeige
+  // stehen und werden nicht zurückgeschrieben (sonst würden sie beim Admin
+  // die echten Turniere in der Datenbank überschreiben).
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase.from("tournaments").select("data");
       if (cancelled) return;
-      if (error) {
-        console.warn("Turniere konnten nicht geladen werden:", error.message);
-      } else if (data && data.length > 0) {
-        setTournaments(data.map((row) => row.data as Tournament));
+      if (error || !data) {
+        console.warn("Turniere konnten nicht geladen werden:", error?.message);
+        return;
       }
+      setTournaments(data.map((row) => row.data as Tournament));
       setLoaded(true);
     })();
     return () => {
@@ -75,7 +77,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   // Schreibt den kompletten Turnier-Stand zurück, sobald sich etwas ändert
   // (nur der Admin-Account darf laut Datenbank-Regel wirklich schreiben).
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || tournaments.length === 0) return;
     supabase
       .from("tournaments")
       .upsert(

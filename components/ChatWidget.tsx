@@ -84,10 +84,20 @@ export default function ChatWidget() {
       .from("chat_messages")
       .insert({ id, user_id: authUserId, author_name: displayName, text })
       .then(({ error }) => {
-        if (error) console.warn("Nachricht konnte nicht gesendet werden:", error.message);
+        if (error) {
+          console.warn("Nachricht konnte nicht gesendet werden:", error.message);
+          setDraft(text);
+          return;
+        }
+        // Nach dem Speichern selbst anhängen, statt nur auf das Realtime-Abo
+        // zu warten (sonst sieht man die eigene Nachricht nicht, falls
+        // Realtime hakt). Der ID-Abgleich verhindert doppelte Zeilen.
+        setMessages((current) =>
+          current.some((m) => m.id === id)
+            ? current
+            : [...current, { id, author: displayName, text, isMe: true }]
+        );
       });
-    // Nicht extra lokal anhängen: die eigene Nachricht kommt über das
-    // Realtime-Abo oben sowieso sofort zurück, das vermeidet doppelte Zeilen.
   }
 
   return (
