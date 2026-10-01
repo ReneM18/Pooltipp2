@@ -306,6 +306,13 @@ interface AppDataContextValue {
     stake: number,
     authorName?: string
   ) => void;
+  // Korrigiert den eigenen, noch offenen Tipp zu einem Spiel bis zum
+  // Tippschluss. Ändert NUR das Ergebnis: der Einsatz ist schon bezahlt und
+  // bleibt gleich, es werden also keine Sterne abgezogen oder gutgeschrieben
+  // und der Tipp zählt nicht doppelt. Nach Anpfiff sperrt zusätzlich die
+  // Datenbank (Trigger freeze_tip_after_kickoff). Gibt false zurück, wenn
+  // nichts geändert werden durfte.
+  changeTip: (matchId: string, predictedHomeScore: number, predictedAwayScore: number) => boolean;
   // Übernimmt beim Login aus Supabase geladene Tipps in den lokalen State –
   // OHNE die Nebenwirkungen von submitTip (kein erneutes registerTip, kein
   // neuer Feed-Eintrag). Ergänzt nur Tipps, die lokal noch nicht bekannt
@@ -692,6 +699,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function changeTip(matchId: string, predictedHomeScore: number, predictedAwayScore: number) {
+    const match = matches.find((m) => m.id === matchId);
+    if (!match || match.status === "finished" || new Date(match.tipDeadline).getTime() <= Date.now()) return false;
+    const tip = [...myTips].reverse().find((t) => t.matchId === matchId);
+    if (!tip || tip.evaluated) return false;
+    setMyTips((current) =>
+      current.map((t) => (t.id === tip.id ? { ...t, predictedHomeScore, predictedAwayScore } : t))
+    );
+    return true;
+  }
+
   function hydrateTips(tips: SubmittedTip[]) {
     setMyTips((current) => {
       const existingIds = new Set(current.map((t) => t.id));
@@ -961,6 +979,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         tipsBySport,
         myTips,
         submitTip,
+        changeTip,
         hydrateTips,
         markTipEvaluated,
         updateMatchScore,

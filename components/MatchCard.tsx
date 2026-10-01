@@ -12,6 +12,7 @@ import { useFeedback } from "@/lib/FeedbackContext";
 import { xpForLevel } from "@/lib/seasonPass";
 import TeamBadge from "./TeamBadge";
 import Countdown from "./Countdown";
+import ScoreInput from "./ScoreInput";
 import { StarIcon, TvIcon, PlayIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
 
 const sportIcon: Record<string, string> = {
@@ -41,6 +42,9 @@ interface MatchCardProps {
   tipCount: number;
   myTip?: MyTip;
   onSubmitTip: (homeScore: number, awayScore: number) => void;
+  // Abgegebenen Tipp bis Tippschluss korrigieren. Ohne diese Funktion
+  // (z. B. auf Seiten ohne Speicher-Logik) gibt es keinen "Ändern"-Knopf.
+  onChangeTip?: (homeScore: number, awayScore: number) => void;
 }
 
 // NFL wird nur per 1X2 (Heimsieg / Unentschieden / Auswärtssieg) getippt,
@@ -74,6 +78,7 @@ export default function MatchCard({
   tipCount,
   myTip,
   onSubmitTip,
+  onChangeTip,
 }: MatchCardProps) {
   const isOneXTwo = match.tipMode === "1x2";
   const [homeScore, setHomeScore] = useState<number>(0);
@@ -86,6 +91,10 @@ export default function MatchCard({
   // umschaltet.
   const submittedRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
+  // Tipp wird gerade korrigiert: Formular wieder offen, mit dem alten Tipp
+  // vorausgefüllt. Der Einsatz ist schon bezahlt und wird nicht nochmal
+  // abgezogen.
+  const [changingTip, setChangingTip] = useState(false);
   // Startet mit "false" statt sofort mit Date.now() zu vergleichen – Server
   // und Browser haben beim allerersten Rendern nie exakt dieselbe Uhrzeit,
   // das würde sonst zu einem Hydration-Fehler führen (siehe
@@ -156,7 +165,19 @@ export default function MatchCard({
   });
 
   const hasTipped = !!myTip;
-  const showResultView = hasTipped || tippingClosed;
+  const canChangeTip = hasTipped && !tippingClosed && !myTip?.evaluated && !!onChangeTip;
+  const isChanging = changingTip && canChangeTip;
+  const showResultView = (hasTipped && !isChanging) || tippingClosed;
+
+  function startChangingTip() {
+    if (!myTip) return;
+    setHomeScore(myTip.predictedHomeScore);
+    setAwayScore(myTip.predictedAwayScore);
+    setNflPick(scoreToOneXTwo(myTip.predictedHomeScore, myTip.predictedAwayScore));
+    submittedRef.current = false;
+    setSubmitting(false);
+    setChangingTip(true);
+  }
 
   function handleSubmit() {
     if (submittedRef.current) return;
@@ -170,17 +191,21 @@ export default function MatchCard({
       submitBonusAnswer(match.id, bonusPick);
     }
 
-    if (isOneXTwo) {
-      if (!nflPick) {
-        submittedRef.current = false;
-        setSubmitting(false);
-        return;
-      }
-      const [h, a] = oneXTwoToScore(nflPick);
-      onSubmitTip(h, a);
+    if (isOneXTwo && !nflPick) {
+      submittedRef.current = false;
+      setSubmitting(false);
       return;
     }
-    onSubmitTip(homeScore, awayScore);
+    const [h, a] = isOneXTwo && nflPick ? oneXTwoToScore(nflPick) : [homeScore, awayScore];
+
+    if (isChanging) {
+      onChangeTip?.(h, a);
+      setChangingTip(false);
+      submittedRef.current = false;
+      setSubmitting(false);
+      return;
+    }
+    onSubmitTip(h, a);
   }
 
   return (
@@ -272,15 +297,17 @@ export default function MatchCard({
                 <ScoreInput
                   value={homeScore}
                   onChange={setHomeScore}
-                  disabled={false}
+                  max={20}
                   label={`Tor-Ergebnis ${homeTeam.name}`}
+                  className={scoreInputClass}
                 />
                 <span className="font-display text-xl text-muted">:</span>
                 <ScoreInput
                   value={awayScore}
                   onChange={setAwayScore}
-                  disabled={false}
+                  max={20}
                   label={`Tor-Ergebnis ${awayTeam.name}`}
+                  className={scoreInputClass}
                 />
               </div>
             )}
@@ -319,35 +346,59 @@ export default function MatchCard({
               </div>
             )}
 
-            <div className="mb-5 flex items-center justify-between rounded-lg border border-edge bg-pitch px-4 py-2.5">
-              <span className="text-sm text-muted">Einsatz für dieses Spiel</span>
-              <span className="flex items-center gap-1 font-display font-semibold text-gold">
-                <StarIcon className="h-4 w-4" />
-                {match.fixedStake.toLocaleString("de-DE")}
-              </span>
-            </div>
+            {isChanging ? (
+              <p className="mb-5 rounded-lg border border-edge bg-pitch px-4 py-2.5 text-center text-sm text-muted">
+                Einsatz schon bezahlt – beim Ändern werden keine Sterne abgezogen.
+              </p>
+            ) : (
+              <div className="mb-5 flex items-center justify-between rounded-lg border border-edge bg-pitch px-4 py-2.5">
+                <span className="text-sm text-muted">Einsatz für dieses Spiel</span>
+                <span className="flex items-center gap-1 font-display font-semibold text-gold">
+                  <StarIcon className="h-4 w-4" />
+                  {match.fixedStake.toLocaleString("de-DE")}
+                </span>
+              </div>
+            )}
 
             <button
               onClick={handleSubmit}
               disabled={submitting || (isOneXTwo && !nflPick)}
               className="w-full rounded-full bg-action py-2.5 font-display font-semibold tracking-wide text-base text-pitch shadow-[0_0_20px_rgba(63,166,107,0.35)] transition-all enabled:hover:bg-action-hover enabled:hover:shadow-[0_0_28px_rgba(63,166,107,0.5)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? "Wird gespeichert…" : "Tipp abgeben"}
+              {submitting ? "Wird gespeichert…" : isChanging ? "Änderung speichern" : "Tipp abgeben"}
             </button>
+            {isChanging && (
+              <button
+                onClick={() => setChangingTip(false)}
+                className="mt-2 w-full rounded-full py-2 text-sm font-semibold text-muted transition-colors hover:text-ink"
+              >
+                Abbrechen
+              </button>
+            )}
           </>
         )}
 
         {showResultView && (
           <div className="flex flex-col gap-3">
             {hasTipped && (
-              <div className="flex items-center justify-between rounded-lg border border-edge bg-pitch px-4 py-2.5">
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-pitch px-4 py-2.5">
                 <span className="text-sm text-muted">Dein Tipp</span>
-                <span className="font-display font-semibold text-ink">
-                  {isOneXTwo
-                    ? ONE_X_TWO_LABEL[
-                        scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore)
-                      ]
-                    : `${myTip!.predictedHomeScore} : ${myTip!.predictedAwayScore}`}
+                <span className="flex items-center gap-3">
+                  <span className="font-display font-semibold text-ink">
+                    {isOneXTwo
+                      ? ONE_X_TWO_LABEL[
+                          scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore)
+                        ]
+                      : `${myTip!.predictedHomeScore} : ${myTip!.predictedAwayScore}`}
+                  </span>
+                  {canChangeTip && (
+                    <button
+                      onClick={startChangingTip}
+                      className="shrink-0 rounded-full border border-edge px-3 py-1 text-xs font-semibold text-gold transition-colors hover:border-gold"
+                    >
+                      Ändern
+                    </button>
+                  )}
                 </span>
               </div>
             )}
@@ -625,29 +676,5 @@ function TeamLabel({ name }: { name: string }) {
   );
 }
 
-function ScoreInput({
-  value,
-  onChange,
-  disabled,
-  label,
-}: {
-  value: number;
-  onChange: (value: number) => void;
-  disabled: boolean;
-  label: string;
-}) {
-  return (
-    <input
-      type="number"
-      inputMode="numeric"
-      min={0}
-      max={20}
-      value={value}
-      disabled={disabled}
-      aria-label={label}
-      onChange={(e) => onChange(Math.min(20, Math.max(0, Number(e.target.value))))}
-      className="h-12 w-14 rounded-lg border border-edge bg-pitch text-center font-display text-xl font-semibold text-ink outline-none focus:border-gold disabled:opacity-60"
-    />
-  );
-}
-
+const scoreInputClass =
+  "h-12 w-14 rounded-lg border border-edge bg-pitch text-center font-display text-xl font-semibold text-ink outline-none focus:border-gold disabled:opacity-60";

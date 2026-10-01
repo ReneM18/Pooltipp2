@@ -8,6 +8,7 @@ import { LeagueMatch, LeagueTip, ScoringMode } from "@/lib/teamsTypes";
 import ShareLeagueButton from "@/components/ShareLeagueButton";
 import ShareResultCard from "@/components/ShareResultCard";
 import { TrashIcon } from "@/components/Icons";
+import ScoreInput from "@/components/ScoreInput";
 
 // Nur für die Anzeige der Punkte einzelner Tipps. Die Rangliste selbst
 // rechnet die Datenbank (league_leaderboard, gleiche Regeln).
@@ -557,24 +558,20 @@ function LeagueMatchCard({
         </p>
       ) : showTipForm ? (
         <div className="flex items-center gap-2">
-          <input
-            type="number"
-            min={0}
-            max={99}
+          <ScoreInput
             value={home}
-            onChange={(e) => setHome(Math.max(0, Number(e.target.value)))}
-            aria-label="Tore Heim"
-            className="h-9 w-12 rounded-lg border border-edge bg-pitch text-center text-sm text-ink outline-none focus:border-blue-400"
+            onChange={setHome}
+            max={99}
+            label="Tore Heim"
+            className="h-9 w-12 rounded-lg border border-edge bg-pitch text-center text-base text-ink outline-none focus:border-blue-400"
           />
           <span className="text-muted">:</span>
-          <input
-            type="number"
-            min={0}
-            max={99}
+          <ScoreInput
             value={away}
-            onChange={(e) => setAway(Math.max(0, Number(e.target.value)))}
-            aria-label="Tore Gast"
-            className="h-9 w-12 rounded-lg border border-edge bg-pitch text-center text-sm text-ink outline-none focus:border-blue-400"
+            onChange={setAway}
+            max={99}
+            label="Tore Gast"
+            className="h-9 w-12 rounded-lg border border-edge bg-pitch text-center text-base text-ink outline-none focus:border-blue-400"
           />
           <button
             onClick={handleTip}
@@ -638,24 +635,20 @@ function LeagueMatchCard({
       {isCreator && (
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-edge pt-3">
           <span className="text-xs text-muted">{finished ? "Endstand korrigieren:" : "Endstand eintragen:"}</span>
-          <input
-            type="number"
-            min={0}
-            max={99}
+          <ScoreInput
             value={finalHome}
-            onChange={(e) => setFinalHome(Math.max(0, Number(e.target.value)))}
-            aria-label="Endstand Heim"
-            className="h-8 w-11 rounded-lg border border-edge bg-pitch text-center text-xs text-ink outline-none focus:border-blue-400"
+            onChange={setFinalHome}
+            max={99}
+            label="Endstand Heim"
+            className="h-8 w-11 rounded-lg border border-edge bg-pitch text-center text-base text-ink outline-none focus:border-blue-400"
           />
           <span className="text-xs text-muted">:</span>
-          <input
-            type="number"
-            min={0}
-            max={99}
+          <ScoreInput
             value={finalAway}
-            onChange={(e) => setFinalAway(Math.max(0, Number(e.target.value)))}
-            aria-label="Endstand Gast"
-            className="h-8 w-11 rounded-lg border border-edge bg-pitch text-center text-xs text-ink outline-none focus:border-blue-400"
+            onChange={setFinalAway}
+            max={99}
+            label="Endstand Gast"
+            className="h-8 w-11 rounded-lg border border-edge bg-pitch text-center text-base text-ink outline-none focus:border-blue-400"
           />
           <button
             onClick={() => {
