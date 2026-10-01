@@ -74,7 +74,7 @@ export default function LeagueDetailPage() {
 
   if (!league) {
     return (
-      <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-16 text-center">
+      <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-16 text-center">
         <p className="text-sm text-muted">Tipprunde nicht gefunden.</p>
       </main>
     );
@@ -101,7 +101,7 @@ export default function LeagueDetailPage() {
   const leaderboard = Object.entries(scores).sort((a, b) => b[1] - a[1]);
 
   return (
-    <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
+    <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <div className="mb-6">
         {editingLeague ? (
           <EditLeagueForm

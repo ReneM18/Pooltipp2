@@ -116,7 +116,7 @@ export default function ProfilPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
+    <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       {/* Level 8 Premium: Profil-Hintergrundbanner in den Saison-Farben
           (SEASON_THEME) – nur ein Farbverlauf, kein neues Bild pro Saison nötig. */}
       <div

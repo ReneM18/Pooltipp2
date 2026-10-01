@@ -48,7 +48,7 @@ export default function TeamsHubPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
+    <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <div className="mb-6">
         <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Private Tipp-Runden</h1>
         <p className="mt-0.5 text-xs text-muted">

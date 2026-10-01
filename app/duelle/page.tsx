@@ -64,7 +64,7 @@ export default function DuellePage() {
 
   if (!authUserId) {
     return (
-      <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
+      <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
         <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Kopf-an-Kopf-Duelle</h1>
         <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted">
           Melde dich an, um andere User herauszufordern.
@@ -74,7 +74,7 @@ export default function DuellePage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
+    <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <h1 className="mb-1 font-display text-xl font-bold text-ink sm:text-2xl">Kopf-an-Kopf-Duelle</h1>
       <p className="mb-6 text-xs text-muted">
         Fordere einen registrierten Mitspieler direkt mit Sterne-Einsatz heraus – wer beim Spiel besser

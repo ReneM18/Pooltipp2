@@ -26,7 +26,7 @@ export default function SpielerProfilPage() {
   const photosVisible = isSelf || isFriend || profile.photoVisibility === "public";
 
   return (
-    <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
+    <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <button
         onClick={() => router.back()}
         className="mb-5 flex items-center gap-1 text-sm text-muted hover:text-ink"

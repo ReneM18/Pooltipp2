@@ -11,7 +11,7 @@ export default function Navbar() {
 
   return (
     <header className="border-b border-edge bg-pitch/95 backdrop-blur">
-      <div className="mx-auto flex max-w-3xl lg:max-w-5xl items-center justify-between gap-2 px-4 py-3 sm:px-5 sm:py-4">
+      <div className="mx-auto flex max-w-3xl lg:max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:px-5 sm:py-4">
         <Link
           href="/"
           className="font-logo text-2xl font-bold tracking-wide text-ink transition-opacity hover:opacity-80 sm:text-3xl"

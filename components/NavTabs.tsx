@@ -34,7 +34,7 @@ export default function NavTabs() {
           mehr nötig (der Seiteninhalt ist ab lg: ohnehin breiter, siehe
           max-w-5xl unten, dadurch passt alles in eine Zeile), dafür mehr
           Abstand zwischen den Punkten statt der mobil-engen Reiter. */}
-      <div className="mx-auto flex max-w-3xl lg:max-w-5xl items-stretch gap-0.5 overflow-x-auto overflow-y-hidden px-2 touch-pan-x overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-x-visible lg:gap-1 lg:px-6">
+      <div className="mx-auto flex max-w-3xl lg:max-w-6xl items-stretch gap-0.5 overflow-x-auto overflow-y-hidden px-2 touch-pan-x overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-x-visible lg:gap-1 lg:px-6">
         {tabs.map((tab) => {
           const isActive = pathname === tab.href;
           return (

@@ -42,7 +42,7 @@ export default function TurnierPage() {
   const finished = withStatus.filter((t) => t.status === "beendet");
 
   return (
-    <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
+    <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <h1 className="mb-1 font-display text-xl font-bold text-ink sm:text-2xl">Turniere</h1>
       <p className="mb-6 text-xs text-muted">
         Zeitlich begrenzte Sonder-Turniere (z. B. große Meisterschaften) mit eigener, öffentlicher
