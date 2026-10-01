@@ -408,9 +408,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setDisplayName(profile.display_name);
         lastSyncedStarsRef.current = profile.free_stars;
         setStarsState((current) => ({ ...current, freeStars: profile.free_stars }));
-        if (profile.rang_punkte) {
-          setRangPunkte((current) => ({ ...current, ...(profile.rang_punkte as Record<Sport, number>) }));
-        }
+        // Echte Konten starten bei 0: fehlt eine Sportart im gespeicherten
+        // Profil, darf dort NICHT der Demo-Wert (z. B. 980) stehen bleiben –
+        // der Sync-Effekt unten würde ihn sonst als echte Punkte speichern.
+        setRangPunkte({
+          ...(Object.fromEntries(SPORTS.map((s) => [s, 0])) as Record<Sport, number>),
+          ...((profile.rang_punkte as Partial<Record<Sport, number>> | null) ?? {}),
+        });
         if (typeof profile.pass_xp === "number") setPassXP(profile.pass_xp);
         setStreakState((current) => ({
           ...current,
