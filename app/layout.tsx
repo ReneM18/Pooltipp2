@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Rajdhani, Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "@/lib/UserContext";
@@ -32,6 +32,12 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "PoolTipp",
   description: "Das Social-Tippspiel für echte Sportfans.",
+};
+
+// Icons kommen automatisch aus app/icon.png, app/apple-icon.png und
+// app/favicon.ico (Next.js-Dateikonvention), das Manifest aus app/manifest.ts.
+export const viewport: Viewport = {
+  themeColor: "#0D1512",
 };
 
 export default function RootLayout({
