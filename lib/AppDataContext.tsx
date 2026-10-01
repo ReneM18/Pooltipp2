@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Match, Sport, Team, TipMode } from "./types";
 import { TipResultTier } from "./poolScore";
@@ -385,17 +385,10 @@ const AppDataContext = createContext<AppDataContextValue | null>(null);
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const [teams, setTeams] = useState<Team[]>(initialTeams);
   const [matches, setMatches] = useState<Match[]>(initialMatches);
-  const [tipCounts, setTipCounts] = useState<Record<string, number>>({
-    "match-1": 128,
-    "match-2": 94,
-    "match-3": 61,
-  });
-  const [tipsBySport, setTipsBySport] = useState<Record<Sport, number>>({
-    "Fußball": 0,
-    NFL: 0,
-    NBA: 0,
-    NHL: 0,
-  });
+  // "X getippt" auf jeder Spielkarte: Anzahl ALLER abgegebenen Tipps pro
+  // Spiel (alle Spieler), geladen aus der Datenbank – früher feste
+  // Demo-Zahlen, die nur im eigenen Browser hochgezählt wurden.
+  const [tipCounts, setTipCounts] = useState<Record<string, number>>({});
   const [myTips, setMyTips] = useState<SubmittedTip[]>([]);
   const [myBonusAnswers, setMyBonusAnswers] = useState<SubmittedBonusAnswer[]>([]);
   const [newsItems, setNewsItems] = useState<NewsItem[]>(initialNews);
@@ -415,6 +408,44 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     });
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  // Tipp-Zähler aller Spieler laden: beim Start, wenn die Seite wieder in
+  // den Vordergrund kommt, und jede Minute. Gelesen wird nur die Spalte
+  // match_id, seitenweise (Supabase liefert höchstens 1000 Zeilen am Stück).
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTipCounts() {
+      const counts: Record<string, number> = {};
+      const pageSize = 1000;
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from("tips")
+          .select("match_id")
+          .order("id")
+          .range(from, from + pageSize - 1);
+        if (error || !data) {
+          if (error) console.warn("Tipp-Zähler konnten nicht geladen werden:", error.message);
+          return;
+        }
+        for (const row of data as { match_id: string }[]) {
+          counts[row.match_id] = (counts[row.match_id] ?? 0) + 1;
+        }
+        if (data.length < pageSize) break;
+      }
+      if (!cancelled) setTipCounts(counts);
+    }
+    loadTipCounts();
+    const interval = window.setInterval(loadTipCounts, 60_000);
+    function onVisible() {
+      if (document.visibilityState === "visible") loadTipCounts();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [authUserId]);
 
   // Admin-Inhalte (Teams/Spiele/News) laden: beim ersten Laden aus Supabase
   // übernehmen (ersetzt die lokalen Demo-Daten komplett durch den echten,
@@ -669,13 +700,22 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return teams.find((t) => t.id === id);
   }
 
+  // Sofort sichtbar +1 beim eigenen Tipp; der nächste Abgleich mit der
+  // Datenbank (siehe loadTipCounts) liefert dann wieder den echten Stand.
   function registerTip(matchId: string) {
     setTipCounts((current) => ({ ...current, [matchId]: (current[matchId] ?? 0) + 1 }));
-    const match = matches.find((m) => m.id === matchId);
-    if (match) {
-      setTipsBySport((current) => ({ ...current, [match.sport]: current[match.sport] + 1 }));
-    }
   }
+
+  // Eigene Tipps pro Sportart (Seite "Fortschritt") – aus den eigenen
+  // Tipps berechnet, damit die Zahl auch nach dem Neuladen stimmt.
+  const tipsBySport = useMemo(() => {
+    const counts: Record<Sport, number> = { "Fußball": 0, NFL: 0, NBA: 0, NHL: 0 };
+    for (const tip of myTips) {
+      const match = matches.find((m) => m.id === tip.matchId);
+      if (match) counts[match.sport] = (counts[match.sport] ?? 0) + 1;
+    }
+    return counts;
+  }, [myTips, matches]);
 
   function submitTip(
     matchId: string,
