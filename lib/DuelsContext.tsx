@@ -1,167 +1,231 @@
 "use client";
 
-// Kopf-an-Kopf-Duelle: 1-gegen-1 mit Sterne-Einsatz gegen einen Freund.
-// Läuft aktuell als SIMULATION, weil es (noch) kein Backend gibt – der
-// Freund tippt nicht wirklich mit, sein Tipp wird deterministisch simuliert
-// (gleiches mulberry32-Muster wie simulateOpponents in lib/poolScore.ts) und
-// von Anfang an klar als solcher angezeigt. Nur der eigene Sterne-Einsatz
-// und -Gewinn sind echt (laufen über spendStars/creditStars aus UserContext).
+// Kopf-an-Kopf-Duelle: 1-gegen-1 mit Sterne-Einsatz gegen einen ECHTEN,
+// registrierten User (vorher war der Gegner nur simuliert, weil es kein
+// Backend gab). Ablauf: Herausfordern (Einsatz ist sofort weg) -> Gegner
+// nimmt an (eigener Einsatz ist jetzt auch weg) oder lehnt ab (Einsatz kommt
+// zurück) -> sobald der Admin das Spiel beendet, wertet eine SQL-Funktion in
+// Supabase (resolve_duels_for_match, siehe supabase/social-features.sql)
+// alle offenen Duelle dieses Spiels anhand der echten, normal abgegebenen
+// Tipps beider Seiten aus und schreibt Sterne auf BEIDEN Konten gut. Das
+// muss serverseitig passieren, weil aus dem Browser der einen Person heraus
+// nie das Sterne-Guthaben der anderen Person verändert werden darf.
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { supabase } from "./supabaseClient";
 import { useAppData } from "./AppDataContext";
 import { useUser } from "./UserContext";
-import { classifyTip, TIER_ORDER } from "./poolScore";
-import { Duel } from "./duelTypes";
+import { Duel, DuelStatus } from "./duelTypes";
 
-function hashString(input: string): number {
-  let h = 0;
-  for (let i = 0; i < input.length; i++) {
-    h = (Math.imul(h, 31) + input.charCodeAt(i)) | 0;
-  }
-  return h >>> 0;
-}
-
-function mulberry32(seed: number): () => number {
-  let state = seed;
-  return function () {
-    state |= 0;
-    state = (state + 0x6d2b79f5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+interface CreateDuelResult {
+  ok: boolean;
+  error?: string;
 }
 
 interface DuelsContextValue {
   duels: Duel[];
-  // Gibt zurück, wie viele Sterne tatsächlich eingesetzt wurden (0 = Duell
-  // konnte nicht erstellt werden, z. B. weil kein Guthaben mehr da war).
-  createDuel: (opponentName: string, matchId: string, stake: number) => number;
+  // Herausforderungen, auf die DU antworten musst (an dich gerichtet, noch
+  // offen) – getrennt von "duels" herausgefiltert, damit die Seite sie
+  // prominent als Einladungen anzeigen kann.
+  pendingForMe: Duel[];
+  createDuel: (opponentName: string, matchId: string, stake: number) => Promise<CreateDuelResult>;
+  acceptDuel: (duelId: string) => Promise<CreateDuelResult>;
+  declineDuel: (duelId: string) => Promise<CreateDuelResult>;
   resolveDuelsForMatch: (matchId: string, actualHome: number, actualAway: number) => void;
 }
 
 const DuelsContext = createContext<DuelsContextValue | null>(null);
 
+function mapRow(row: Record<string, unknown>): Duel {
+  return {
+    id: row.id as string,
+    challengerId: row.challenger_id as string,
+    challengerName: row.challenger_name as string,
+    opponentId: row.opponent_id as string,
+    opponentName: row.opponent_name as string,
+    matchId: row.match_id as string,
+    stake: row.stake as number,
+    status: row.status as DuelStatus,
+    createdAt: row.created_at as string,
+    myTier: (row.my_tier as Duel["myTier"]) ?? undefined,
+    opponentTier: (row.opponent_tier as Duel["opponentTier"]) ?? undefined,
+    result: (row.result as Duel["result"]) ?? undefined,
+    starsCredited: (row.stars_credited as number | null) ?? undefined,
+    resolvedAt: (row.resolved_at as string | null) ?? undefined,
+  };
+}
+
 export function DuelsProvider({ children }: { children: ReactNode }) {
-  const { matches, getTeam, addActivity, myTips } = useAppData();
-  const { displayName, spendStars, creditStars } = useUser();
+  const { matches, addActivity } = useAppData();
+  const { displayName, authUserId, spendStars, creditStars } = useUser();
   const [duels, setDuels] = useState<Duel[]>([]);
 
-  function createDuel(opponentName: string, matchId: string, stake: number): number {
-    const match = matches.find((m) => m.id === matchId);
-    if (!match) return 0;
-    if (new Date(match.tipDeadline).getTime() <= Date.now()) return 0;
-    if (!opponentName.trim() || opponentName === displayName) return 0;
-    if (stake < 1) return 0;
-
-    const actualStake = spendStars(stake);
-    if (actualStake <= 0) return 0;
-
-    const rng = mulberry32(hashString(`duel:${matchId}:${opponentName}:${displayName}`));
-    let opponentPredictedHome: number;
-    let opponentPredictedAway: number;
-    let opponentPickLabel: string;
-
-    if (match.tipMode === "1x2") {
-      const r = rng();
-      const pick: "1" | "X" | "2" = r < 0.4 ? "1" : r < 0.55 ? "X" : "2";
-      if (pick === "1") {
-        opponentPredictedHome = 1;
-        opponentPredictedAway = 0;
-        opponentPickLabel = "Heimsieg (1)";
-      } else if (pick === "2") {
-        opponentPredictedHome = 0;
-        opponentPredictedAway = 1;
-        opponentPickLabel = "Auswärtssieg (2)";
-      } else {
-        opponentPredictedHome = 0;
-        opponentPredictedAway = 0;
-        opponentPickLabel = "Unentschieden (X)";
+  // Läd alle Duelle, an denen der aktuelle Account beteiligt ist (egal ob
+  // als Herausforderer oder Gegner), und hält sie per Realtime aktuell –
+  // wichtig, damit z. B. eine Annahme/Ablehnung sofort im Browser der
+  // GEGENSEITE auftaucht, ohne dass die Seite neu geladen werden muss.
+  useEffect(() => {
+    if (!authUserId) {
+      setDuels([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("duels")
+        .select("*")
+        .or(`challenger_id.eq.${authUserId},opponent_id.eq.${authUserId}`)
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        console.warn("Duelle konnten nicht geladen werden:", error.message);
+        return;
       }
-    } else {
-      opponentPredictedHome = Math.floor(rng() * 4);
-      opponentPredictedAway = Math.floor(rng() * 4);
-      opponentPickLabel = `${opponentPredictedHome}:${opponentPredictedAway}`;
+      if (data) setDuels(data.map(mapRow));
+    })();
+
+    const channel = supabase
+      .channel(`duels_live_${authUserId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "duels" }, (payload) => {
+        const row = (payload.new ?? payload.old) as Record<string, unknown> | null;
+        if (!row) return;
+        if (row.challenger_id !== authUserId && row.opponent_id !== authUserId) return;
+
+        if (payload.eventType === "DELETE") {
+          setDuels((current) => current.filter((d) => d.id !== row.id));
+          return;
+        }
+        const mapped = mapRow(row);
+        setDuels((current) => {
+          const exists = current.some((d) => d.id === mapped.id);
+          return exists ? current.map((d) => (d.id === mapped.id ? mapped : d)) : [mapped, ...current];
+        });
+      })
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [authUserId]);
+
+  const pendingForMe = duels.filter((d) => d.status === "pending" && d.opponentId === authUserId);
+
+  async function createDuel(opponentName: string, matchId: string, stake: number): Promise<CreateDuelResult> {
+    if (!authUserId) return { ok: false, error: "Du musst eingeloggt sein, um jemanden herauszufordern." };
+    const match = matches.find((m) => m.id === matchId);
+    if (!match) return { ok: false, error: "Spiel nicht gefunden." };
+    if (new Date(match.tipDeadline).getTime() <= Date.now()) {
+      return { ok: false, error: "Tippschluss für dieses Spiel ist schon vorbei." };
+    }
+    const trimmedName = opponentName.trim();
+    if (!trimmedName || trimmedName.toLowerCase() === displayName.toLowerCase()) {
+      return { ok: false, error: "Gib den Anzeigenamen eines anderen registrierten Users ein." };
+    }
+    if (stake < 1) return { ok: false, error: "Gib einen gültigen Einsatz ein." };
+
+    const { data: opponentProfile, error: lookupError } = await supabase
+      .from("profiles")
+      .select("id, display_name")
+      .ilike("display_name", trimmedName)
+      .limit(1)
+      .maybeSingle();
+    if (lookupError) return { ok: false, error: "Suche fehlgeschlagen, versuch es nochmal." };
+    if (!opponentProfile) {
+      return { ok: false, error: `Kein registrierter User namens „${trimmedName}“ gefunden.` };
+    }
+    if (opponentProfile.id === authUserId) {
+      return { ok: false, error: "Du kannst dich nicht selbst herausfordern." };
     }
 
-    const duel: Duel = {
-      id: `duel-${Date.now()}`,
-      opponentName,
-      matchId,
-      stake: actualStake,
-      status: "offen",
-      createdAt: new Date().toISOString(),
-      opponentPredictedHome,
-      opponentPredictedAway,
-      opponentPickLabel,
-    };
-    setDuels((current) => [duel, ...current]);
+    const actualStake = spendStars(stake);
+    if (actualStake <= 0) return { ok: false, error: "Nicht genug Sterne für diesen Einsatz." };
 
-    const home = getTeam(match.homeTeamId);
-    const away = getTeam(match.awayTeamId);
-    addActivity(
-      "⚔️",
-      `Du hast ${opponentName} zum Duell herausgefordert (${actualStake} Sterne) bei ${home?.name ?? "?"} vs ${away?.name ?? "?"}.`
-    );
-    return actualStake;
+    const id = `duel-${Date.now()}`;
+    const { error: insertError } = await supabase.from("duels").insert({
+      id,
+      challenger_id: authUserId,
+      challenger_name: displayName,
+      opponent_id: opponentProfile.id,
+      opponent_name: opponentProfile.display_name,
+      match_id: matchId,
+      stake: actualStake,
+      status: "pending",
+    });
+    if (insertError) {
+      // Einsatz war schon weg, aber das Duell kam nie an -> zurückbuchen.
+      creditStars(actualStake);
+      return { ok: false, error: "Duell konnte nicht gespeichert werden, versuch es nochmal." };
+    }
+
+    setDuels((current) => [
+      {
+        id,
+        challengerId: authUserId,
+        challengerName: displayName,
+        opponentId: opponentProfile.id,
+        opponentName: opponentProfile.display_name,
+        matchId,
+        stake: actualStake,
+        status: "pending",
+        createdAt: new Date().toISOString(),
+      },
+      ...current,
+    ]);
+
+    addActivity("⚔️", `Du hast ${opponentProfile.display_name} zum Duell herausgefordert (${actualStake} Sterne).`);
+    return { ok: true };
   }
 
-  // Wird beim Beenden eines Spiels aufgerufen (siehe app/admin/page.tsx). Nur
-  // OFFENE Duelle werden verarbeitet, ein zweiter Aufruf (z. B. bei einer
-  // späteren Endstand-Korrektur) rührt bereits ausgewertete Duelle nicht an.
+  async function acceptDuel(duelId: string): Promise<CreateDuelResult> {
+    const duel = duels.find((d) => d.id === duelId);
+    if (!duel || !authUserId) return { ok: false, error: "Duell nicht gefunden." };
+    if (duel.opponentId !== authUserId) return { ok: false, error: "Nur der Herausgeforderte kann annehmen." };
+    if (duel.status !== "pending") return { ok: false, error: "Duell ist nicht mehr offen." };
+
+    const actualStake = spendStars(duel.stake);
+    if (actualStake < duel.stake) {
+      if (actualStake > 0) creditStars(actualStake);
+      return { ok: false, error: "Nicht genug Sterne, um diesen Einsatz anzunehmen." };
+    }
+
+    const { error } = await supabase.from("duels").update({ status: "offen" }).eq("id", duelId);
+    if (error) {
+      creditStars(actualStake);
+      return { ok: false, error: "Annahme konnte nicht gespeichert werden, versuch es nochmal." };
+    }
+
+    setDuels((current) => current.map((d) => (d.id === duelId ? { ...d, status: "offen" } : d)));
+    addActivity("⚔️", `Du hast die Herausforderung von ${duel.challengerName} angenommen (${duel.stake} Sterne).`);
+    return { ok: true };
+  }
+
+  async function declineDuel(duelId: string): Promise<CreateDuelResult> {
+    const duel = duels.find((d) => d.id === duelId);
+    if (!duel) return { ok: false, error: "Duell nicht gefunden." };
+    const { error } = await supabase.rpc("decline_duel", { p_duel_id: duelId });
+    if (error) return { ok: false, error: "Ablehnen fehlgeschlagen, versuch es nochmal." };
+    setDuels((current) => current.map((d) => (d.id === duelId ? { ...d, status: "abgelehnt" } : d)));
+    addActivity("🚫", `Du hast die Herausforderung von ${duel.challengerName} abgelehnt.`);
+    return { ok: true };
+  }
+
+  // Wird beim Beenden eines Spiels aufgerufen (siehe app/admin/page.tsx).
+  // Läuft serverseitig über eine SQL-Funktion statt lokal zu rechnen, weil
+  // dabei ggf. Sterne auf dem Konto der GEGENSEITE gutgeschrieben werden
+  // müssen – das darf aus diesem Browser heraus nicht direkt passieren.
   function resolveDuelsForMatch(matchId: string, actualHome: number, actualAway: number) {
-    const relevant = duels.filter((d) => d.matchId === matchId && d.status === "offen");
-    if (relevant.length === 0) return;
-
-    // Ohne eigenen Tipp zu diesem Spiel lässt sich kein Duell auswerten –
-    // bleibt offen, bis doch noch getippt wird (Endstand ändert sich ja nicht
-    // mehr rückwirkend in diesem MVP).
-    const myTip = myTips.find((t) => t.matchId === matchId);
-    if (!myTip) return;
-
-    const match = matches.find((m) => m.id === matchId);
-    const home = match ? getTeam(match.homeTeamId) : undefined;
-    const away = match ? getTeam(match.awayTeamId) : undefined;
-    const myTier = classifyTip(myTip.predictedHomeScore, myTip.predictedAwayScore, actualHome, actualAway);
-    const myOrder = TIER_ORDER[myTier];
-
-    let totalCredited = 0;
-    const updates = relevant.map((duel) => {
-      const opponentTier = classifyTip(duel.opponentPredictedHome, duel.opponentPredictedAway, actualHome, actualAway);
-      const oppOrder = TIER_ORDER[opponentTier];
-
-      let result: Duel["result"];
-      let starsCredited: number;
-      if (myOrder > oppOrder) {
-        result = "gewonnen";
-        starsCredited = duel.stake * 2;
-      } else if (myOrder < oppOrder) {
-        result = "verloren";
-        starsCredited = 0;
-      } else {
-        result = "unentschieden";
-        starsCredited = duel.stake;
-      }
-      totalCredited += starsCredited;
-
-      addActivity(
-        result === "gewonnen" ? "🏆" : result === "verloren" ? "⚔️" : "🤝",
-        result === "gewonnen"
-          ? `Duell gegen ${duel.opponentName} gewonnen – +${starsCredited - duel.stake} Sterne (${home?.name ?? "?"} vs ${away?.name ?? "?"}).`
-          : result === "verloren"
-          ? `Duell gegen ${duel.opponentName} verloren – ${duel.stake} Sterne weg (${home?.name ?? "?"} vs ${away?.name ?? "?"}).`
-          : `Duell gegen ${duel.opponentName} unentschieden – Einsatz zurück (${home?.name ?? "?"} vs ${away?.name ?? "?"}).`
-      );
-
-      return { ...duel, status: "ausgewertet" as const, myTier, opponentTier, result, starsCredited };
-    });
-
-    setDuels((current) => current.map((d) => updates.find((u) => u.id === d.id) ?? d));
-    if (totalCredited > 0) creditStars(totalCredited);
+    supabase
+      .rpc("resolve_duels_for_match", { p_match_id: matchId, p_actual_home: actualHome, p_actual_away: actualAway })
+      .then(({ error }) => {
+        if (error) console.warn("Duelle konnten nicht ausgewertet werden:", error.message);
+      });
   }
 
   return (
-    <DuelsContext.Provider value={{ duels, createDuel, resolveDuelsForMatch }}>
+    <DuelsContext.Provider
+      value={{ duels, pendingForMe, createDuel, acceptDuel, declineDuel, resolveDuelsForMatch }}
+    >
       {children}
     </DuelsContext.Provider>
   );

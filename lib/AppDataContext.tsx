@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { supabase } from "@/lib/supabaseClient";
 import { Match, Sport, Team, TipMode } from "./types";
 import { TipResultTier } from "./poolScore";
 
@@ -46,6 +47,11 @@ export interface Comment {
   text: string;
   createdAt: string;
   likedBy: string[];
+  // Echte Nutzer-ID (Supabase auth.users.id), falls der Kommentar von einem
+  // registrierten Account stammt – bisher nicht für Rechte-Prüfungen
+  // genutzt (die laufen weiter über den Anzeigenamen wie zuvor), aber schon
+  // mitgespeichert für später.
+  userId?: string | null;
 }
 
 export interface ActivityItem {
@@ -333,6 +339,202 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [comments, setComments] = useState<Comment[]>(initialComments);
   const [activity, setActivity] = useState<ActivityItem[]>(initialActivity);
 
+  // Eigene, schlanke Session-Erkennung statt useUser() zu importieren – würde
+  // einen Kreis ergeben, weil UserContext seinerseits useAppData() braucht
+  // (AppDataProvider steht im Baum oberhalb von UserProvider). Wird nur
+  // gebraucht, um Kommentare/Feed-Einträge mit der echten User-ID zu
+  // speichern, nicht für Anzeige-Zwecke.
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setAuthUserId(data.session?.user.id ?? null));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUserId(session?.user.id ?? null);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  // Admin-Inhalte (Teams/Spiele/News) laden: beim ersten Laden aus Supabase
+  // übernehmen (ersetzt die lokalen Demo-Daten komplett durch den echten,
+  // von allen Usern geteilten Stand) – schlägt das fehl (z. B. weil das
+  // SQL-Setup noch nicht ausgeführt wurde) bleiben die lokalen Demo-Daten
+  // als Rückfallebene stehen, statt dass die Seite leer bleibt.
+  const [contentLoaded, setContentLoaded] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [teamsRes, matchesRes, newsRes] = await Promise.all([
+        supabase.from("teams").select("data"),
+        supabase.from("matches").select("data"),
+        supabase.from("news").select("data"),
+      ]);
+      if (cancelled) return;
+      if (!teamsRes.error && teamsRes.data && teamsRes.data.length > 0) {
+        setTeams(teamsRes.data.map((row) => row.data as Team));
+      } else if (teamsRes.error) {
+        console.warn("Teams konnten nicht geladen werden:", teamsRes.error.message);
+      }
+      if (!matchesRes.error && matchesRes.data && matchesRes.data.length > 0) {
+        setMatches(matchesRes.data.map((row) => row.data as Match));
+      } else if (matchesRes.error) {
+        console.warn("Spiele konnten nicht geladen werden:", matchesRes.error.message);
+      }
+      if (!newsRes.error && newsRes.data && newsRes.data.length > 0) {
+        setNewsItems(newsRes.data.map((row) => row.data as NewsItem));
+      } else if (newsRes.error) {
+        console.warn("News konnten nicht geladen werden:", newsRes.error.message);
+      }
+      setContentLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Schreibt Teams/Spiele/News automatisch zurück nach Supabase, sobald sich
+  // etwas ändert (Admin legt an/bearbeitet/entfernt) – ein einziger
+  // Sync-Punkt pro Sammlung statt in jeder einzelnen Änderungs-Funktion
+  // (addTeam, updateMatchDetails, ...) einen eigenen Datenbank-Aufruf zu
+  // brauchen. Nur der Admin-Account darf laut Datenbank-Regeln wirklich
+  // schreiben – bei anderen Usern schlägt das erwartungsgemäß fehl und wird
+  // nur als Hinweis geloggt, ohne die Ansicht zu stören.
+  useEffect(() => {
+    if (!contentLoaded) return;
+    supabase
+      .from("teams")
+      .upsert(
+        teams.map((t) => ({ id: t.id, data: t, updated_at: new Date().toISOString() })),
+        { onConflict: "id" }
+      )
+      .then(({ error }) => {
+        if (error) console.warn("Teams konnten nicht gespeichert werden:", error.message);
+      });
+  }, [teams, contentLoaded]);
+
+  useEffect(() => {
+    if (!contentLoaded) return;
+    supabase
+      .from("matches")
+      .upsert(
+        matches.map((m) => ({ id: m.id, data: m, updated_at: new Date().toISOString() })),
+        { onConflict: "id" }
+      )
+      .then(({ error }) => {
+        if (error) console.warn("Spiele konnten nicht gespeichert werden:", error.message);
+      });
+  }, [matches, contentLoaded]);
+
+  useEffect(() => {
+    if (!contentLoaded) return;
+    supabase
+      .from("news")
+      .upsert(
+        newsItems.map((n) => ({ id: n.id, data: n, updated_at: new Date().toISOString() })),
+        { onConflict: "id" }
+      )
+      .then(({ error }) => {
+        if (error) console.warn("News konnten nicht gespeichert werden:", error.message);
+      });
+  }, [newsItems, contentLoaded]);
+
+  // Kommentare & Feed laufen NICHT nach dem "ganzes Array synchronisieren"-
+  // Muster wie oben, weil hier (anders als bei Teams/Spielen/News, die nur
+  // der Admin ändert) viele verschiedene echte User gleichzeitig eigene
+  // Zeilen hinzufügen – jede Aktion schreibt direkt ihre eigene neue/
+  // geänderte Zeile (siehe addComment/toggleCommentLike/removeComment/
+  // addActivity unten). Beim Laden wird einmalig der komplette, von allen
+  // geteilte Stand übernommen; danach halten Supabase-Realtime-Abos beide
+  // Listen live aktuell, auch wenn ANDERE User etwas hinzufügen.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [commentsRes, activityRes] = await Promise.all([
+        supabase.from("match_comments").select("*").order("created_at", { ascending: true }),
+        supabase.from("activity_feed").select("*").order("created_at", { ascending: false }).limit(300),
+      ]);
+      if (cancelled) return;
+      if (!commentsRes.error && commentsRes.data) {
+        setComments(
+          commentsRes.data.map((row) => ({
+            id: row.id,
+            matchId: row.match_id,
+            author: row.author_name,
+            text: row.text,
+            createdAt: row.created_at,
+            likedBy: (row.liked_by as string[]) ?? [],
+            userId: row.user_id,
+          }))
+        );
+      }
+      if (!activityRes.error && activityRes.data) {
+        setActivity(
+          activityRes.data.map((row) => ({
+            id: row.id,
+            icon: row.icon,
+            text: row.text,
+            createdAt: row.created_at,
+          }))
+        );
+      }
+    })();
+
+    const commentsChannel = supabase
+      .channel("match_comments_live")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "match_comments" }, (payload) => {
+        const row = payload.new as {
+          id: string;
+          match_id: string;
+          author_name: string;
+          text: string;
+          created_at: string;
+          liked_by: string[];
+          user_id: string | null;
+        };
+        setComments((current) =>
+          current.some((c) => c.id === row.id)
+            ? current
+            : [
+                ...current,
+                {
+                  id: row.id,
+                  matchId: row.match_id,
+                  author: row.author_name,
+                  text: row.text,
+                  createdAt: row.created_at,
+                  likedBy: row.liked_by ?? [],
+                  userId: row.user_id,
+                },
+              ]
+        );
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "match_comments" }, (payload) => {
+        const row = payload.new as { id: string; liked_by: string[] };
+        setComments((current) => current.map((c) => (c.id === row.id ? { ...c, likedBy: row.liked_by ?? [] } : c)));
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "match_comments" }, (payload) => {
+        const row = payload.old as { id: string };
+        setComments((current) => current.filter((c) => c.id !== row.id));
+      })
+      .subscribe();
+
+    const activityChannel = supabase
+      .channel("activity_feed_live")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity_feed" }, (payload) => {
+        const row = payload.new as { id: string; icon: string; text: string; created_at: string };
+        setActivity((current) =>
+          current.some((a) => a.id === row.id)
+            ? current
+            : [{ id: row.id, icon: row.icon, text: row.text, createdAt: row.created_at }, ...current]
+        );
+      })
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(commentsChannel);
+      supabase.removeChannel(activityChannel);
+    };
+  }, []);
+
   function addTeam(team: Omit<Team, "id">) {
     const id = `team-${Date.now()}`;
     setTeams((current) => [...current, { ...team, id }]);
@@ -340,6 +542,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   function removeTeam(id: string) {
     setTeams((current) => current.filter((t) => t.id !== id));
+    // Der Sync-Effekt oben schreibt nur die verbleibende Liste zurück
+    // (upsert) – löscht aber keine Zeilen, die lokal entfernt wurden. Ohne
+    // dieses explizite delete würde das Team in Supabase (und damit bei
+    // allen anderen Usern) einfach liegen bleiben.
+    supabase
+      .from("teams")
+      .delete()
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) console.warn("Team konnte nicht gelöscht werden:", error.message);
+      });
   }
 
   function addMatch(match: Omit<Match, "id">) {
@@ -349,6 +562,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   function removeMatch(id: string) {
     setMatches((current) => current.filter((m) => m.id !== id));
+    supabase
+      .from("matches")
+      .delete()
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) console.warn("Spiel konnte nicht gelöscht werden:", error.message);
+      });
   }
 
   function getTeam(id: string) {
@@ -546,6 +766,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   function removeNews(id: string) {
     setNewsItems((current) => current.filter((n) => n.id !== id));
+    supabase
+      .from("news")
+      .delete()
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) console.warn("News konnte nicht gelöscht werden:", error.message);
+      });
   }
 
   function getCommentsForMatch(matchId: string) {
@@ -555,10 +782,26 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   function addComment(matchId: string, author: string, text: string) {
     if (!text.trim()) return;
     const id = `comment-${Date.now()}`;
+    const createdAt = new Date().toISOString();
     setComments((current) => [
       ...current,
-      { id, matchId, author, text: text.trim(), createdAt: new Date().toISOString(), likedBy: [] },
+      { id, matchId, author, text: text.trim(), createdAt, likedBy: [], userId: authUserId },
     ]);
+    if (authUserId) {
+      supabase
+        .from("match_comments")
+        .insert({
+          id,
+          match_id: matchId,
+          user_id: authUserId,
+          author_name: author,
+          text: text.trim(),
+          created_at: createdAt,
+        })
+        .then(({ error }) => {
+          if (error) console.warn("Kommentar konnte nicht gespeichert werden:", error.message);
+        });
+    }
     const match = matches.find((m) => m.id === matchId);
     const home = match ? getTeam(match.homeTeamId) : undefined;
     const away = match ? getTeam(match.awayTeamId) : undefined;
@@ -572,26 +815,43 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   function removeComment(id: string) {
     setComments((current) => current.filter((c) => c.id !== id));
+    supabase
+      .from("match_comments")
+      .delete()
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) console.warn("Kommentar konnte nicht gelöscht werden:", error.message);
+      });
   }
 
   function toggleCommentLike(id: string, name: string) {
-    setComments((current) =>
-      current.map((c) =>
-        c.id === id
-          ? {
-              ...c,
-              likedBy: c.likedBy.includes(name)
-                ? c.likedBy.filter((n) => n !== name)
-                : [...c.likedBy, name],
-            }
-          : c
-      )
-    );
+    const target = comments.find((c) => c.id === id);
+    if (!target) return;
+    const nextLikedBy = target.likedBy.includes(name)
+      ? target.likedBy.filter((n) => n !== name)
+      : [...target.likedBy, name];
+    setComments((current) => current.map((c) => (c.id === id ? { ...c, likedBy: nextLikedBy } : c)));
+    supabase
+      .from("match_comments")
+      .update({ liked_by: nextLikedBy })
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) console.warn("Like konnte nicht gespeichert werden:", error.message);
+      });
   }
 
   function addActivity(icon: string, text: string) {
     const id = `activity-${Date.now()}-${Math.round(Math.random() * 1000)}`;
-    setActivity((current) => [{ id, icon, text, createdAt: new Date().toISOString() }, ...current]);
+    const createdAt = new Date().toISOString();
+    setActivity((current) => [{ id, icon, text, createdAt }, ...current]);
+    if (authUserId) {
+      supabase
+        .from("activity_feed")
+        .insert({ id, user_id: authUserId, icon, text, created_at: createdAt })
+        .then(({ error }) => {
+          if (error) console.warn("Feed-Eintrag konnte nicht gespeichert werden:", error.message);
+        });
+    }
   }
 
   return (

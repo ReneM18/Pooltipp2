@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useEffect, useRef, FormEvent } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
+import { supabase } from "@/lib/supabaseClient";
 import { getMockRankIconForName } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
 
@@ -13,25 +14,80 @@ interface ChatMessage {
   isMe: boolean;
 }
 
-const initialMessages: ChatMessage[] = [
-  { id: "m1", author: "Marco T.", text: "Wer tippt heute auf Bayern?", isMe: false },
-  { id: "m2", author: "Sabine K.", text: "Ich setz alles auf ein 2:1 😄", isMe: false },
-];
-
 export default function ChatWidget() {
-  const { displayName } = useUser();
+  const { displayName, authUserId } = useUser();
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Lädt die letzten Nachrichten einmalig und hält sie danach per Supabase
+  // Realtime live aktuell – so kommen auch Nachrichten von ANDEREN Usern an,
+  // ohne dass die Seite neu geladen werden muss.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .order("created_at", { ascending: true })
+        .limit(100);
+      if (cancelled) return;
+      if (error) {
+        console.warn("Chat konnte nicht geladen werden:", error.message);
+        return;
+      }
+      if (data) {
+        setMessages(
+          data.map((row) => ({
+            id: row.id,
+            author: row.author_name,
+            text: row.text,
+            isMe: row.user_id === authUserId,
+          }))
+        );
+      }
+    })();
+
+    const channel = supabase
+      .channel("chat_messages_live")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages" }, (payload) => {
+        const row = payload.new as { id: string; author_name: string; text: string; user_id: string | null };
+        setMessages((current) =>
+          current.some((m) => m.id === row.id)
+            ? current
+            : [...current, { id: row.id, author: row.author_name, text: row.text, isMe: row.user_id === authUserId }]
+        );
+      })
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUserId]);
+
+  useEffect(() => {
+    if (open && listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+  }, [open, messages.length]);
 
   function handleSend(e: FormEvent) {
     e.preventDefault();
-    if (!draft.trim()) return;
-    setMessages((current) => [
-      ...current,
-      { id: `me-${Date.now()}`, author: displayName, text: draft.trim(), isMe: true },
-    ]);
+    if (!draft.trim() || !authUserId) return;
+    const id = `chat-${Date.now()}`;
+    const text = draft.trim();
     setDraft("");
+    supabase
+      .from("chat_messages")
+      .insert({ id, user_id: authUserId, author_name: displayName, text })
+      .then(({ error }) => {
+        if (error) console.warn("Nachricht konnte nicht gesendet werden:", error.message);
+      });
+    // Nicht extra lokal anhängen: die eigene Nachricht kommt über das
+    // Realtime-Abo oben sowieso sofort zurück, das vermeidet doppelte Zeilen.
   }
 
   return (
@@ -45,19 +101,16 @@ export default function ChatWidget() {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-3">
-            <p className="mb-3 text-center text-xs text-muted">
-              Live-Chat mit anderen Usern kommt mit der Backend-Anbindung. Bis dahin: eine
-              Vorschau der Oberfläche.
-            </p>
+          <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-3">
+            {messages.length === 0 && (
+              <p className="mb-3 text-center text-xs text-muted">Noch keine Nachrichten – schreib die erste!</p>
+            )}
             <div className="flex flex-col gap-2">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
                   className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
-                    msg.isMe
-                      ? "ml-auto bg-action text-pitch"
-                      : "bg-surface-hover text-ink"
+                    msg.isMe ? "ml-auto bg-action text-pitch" : "bg-surface-hover text-ink"
                   }`}
                 >
                   {!msg.isMe && (
@@ -79,13 +132,15 @@ export default function ChatWidget() {
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="Nachricht schreiben…"
-              className="flex-1 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+              placeholder={authUserId ? "Nachricht schreiben…" : "Melde dich an, um zu schreiben"}
+              disabled={!authUserId}
+              className="flex-1 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold disabled:opacity-50"
             />
             <button
               type="submit"
+              disabled={!authUserId}
               aria-label="Nachricht senden"
-              className="rounded-lg bg-action px-3 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+              className="rounded-lg bg-action px-3 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover disabled:opacity-50"
             >
               ➤
             </button>

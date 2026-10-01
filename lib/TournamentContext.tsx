@@ -1,12 +1,15 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { supabase } from "./supabaseClient";
 import { Tournament } from "./tournamentTypes";
 import { useAppData } from "./AppDataContext";
 
 // Demo-Turnier, das die aktuell angelegten Spiele bündelt, damit der
 // Turnier-Bereich nach dem ersten Deploy nicht komplett leer ist. Admin kann
-// es jederzeit bearbeiten oder löschen wie jedes andere Turnier auch.
+// es jederzeit bearbeiten oder löschen wie jedes andere Turnier auch. Läuft
+// (wie Teams/Spiele/News) über Supabase: für alle User sichtbar, nur vom
+// Admin-Account änderbar (siehe supabase/social-features.sql).
 const demoTournamentId = "tournament-demo";
 const initialTournaments: Tournament[] = [
   {
@@ -47,6 +50,42 @@ const TournamentContext = createContext<TournamentContextValue | null>(null);
 export function TournamentProvider({ children }: { children: ReactNode }) {
   const { addActivity } = useAppData();
   const [tournaments, setTournaments] = useState<Tournament[]>(initialTournaments);
+  const [loaded, setLoaded] = useState(false);
+
+  // Beim ersten Laden aus Supabase übernehmen (ersetzt die lokalen
+  // Demo-Daten durch den echten, von allen Usern geteilten Stand). Schlägt
+  // das fehl, bleiben die lokalen Demo-Daten als Rückfallebene stehen.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.from("tournaments").select("data");
+      if (cancelled) return;
+      if (error) {
+        console.warn("Turniere konnten nicht geladen werden:", error.message);
+      } else if (data && data.length > 0) {
+        setTournaments(data.map((row) => row.data as Tournament));
+      }
+      setLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Schreibt den kompletten Turnier-Stand zurück, sobald sich etwas ändert
+  // (nur der Admin-Account darf laut Datenbank-Regel wirklich schreiben).
+  useEffect(() => {
+    if (!loaded) return;
+    supabase
+      .from("tournaments")
+      .upsert(
+        tournaments.map((t) => ({ id: t.id, data: t, updated_at: new Date().toISOString() })),
+        { onConflict: "id" }
+      )
+      .then(({ error }) => {
+        if (error) console.warn("Turniere konnten nicht gespeichert werden:", error.message);
+      });
+  }, [tournaments, loaded]);
 
   function createTournament(
     name: string,
@@ -89,6 +128,13 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
 
   function removeTournament(id: string) {
     setTournaments((current) => current.filter((t) => t.id !== id));
+    supabase
+      .from("tournaments")
+      .delete()
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) console.warn("Turnier konnte nicht gelöscht werden:", error.message);
+      });
   }
 
   return (

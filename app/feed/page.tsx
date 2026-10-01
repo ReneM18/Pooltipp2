@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import { useAppData, ActivityItem } from "@/lib/AppDataContext";
-import { getCommunityTipsForMatch } from "@/lib/communityTips";
 
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -58,54 +56,12 @@ function ActivityText({ text }: { text: string }) {
 }
 
 export default function FeedPage() {
-  const { activity, matches, getTeam } = useAppData();
+  const { activity } = useAppData();
   const groups = groupByDay(activity);
-
-  // Was die Community bei den nächsten Spielen tippt – macht andere User als
-  // echte Inhalte im Feed sichtbar, nicht nur die eigene Aktivität.
-  const upcomingMatches = [...matches]
-    .filter((m) => m.status !== "finished")
-    .sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime())
-    .slice(0, 3);
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-5xl px-5 py-8">
       <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Feed</h1>
-
-      {upcomingMatches.length > 0 && (
-        <section className="mb-6">
-          <h2 className="mb-2.5 px-1 font-display text-xs font-bold uppercase tracking-wider text-muted">
-            Was die Community tippt
-          </h2>
-          <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-2.5">
-            {upcomingMatches.flatMap((match) => {
-              const home = getTeam(match.homeTeamId);
-              const away = getTeam(match.awayTeamId);
-              if (!home || !away) return [];
-              return getCommunityTipsForMatch(match).map((tip, i) => (
-                <div
-                  key={`${match.id}-${i}`}
-                  className="flex items-center gap-3 rounded-card border border-gold/20 bg-gold/5 px-4 py-3"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold/15 font-display text-xs font-semibold text-gold">
-                    {tip.name.slice(0, 1).toUpperCase()}
-                  </span>
-                  <p className="text-sm text-ink">
-                    <Link
-                      href={`/spieler/${encodeURIComponent(tip.name)}`}
-                      className="font-semibold text-gold hover:opacity-80"
-                    >
-                      {tip.name}
-                    </Link>{" "}
-                    tippt <span className="font-semibold">{tip.predictionLabel}</span> bei {home.name} vs{" "}
-                    {away.name}
-                  </p>
-                </div>
-              ));
-            })}
-          </div>
-        </section>
-      )}
 
       {activity.length === 0 && (
         <p className="rounded-card border border-dashed border-edge bg-surface p-8 text-center text-sm text-muted">

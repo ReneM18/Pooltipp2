@@ -136,6 +136,11 @@ interface UserContextValue {
   // E-Mail-Adresse des eingeloggten Supabase-Kontos, oder null wenn niemand
   // eingeloggt ist.
   authEmail: string | null;
+  // Echte, stabile Supabase-Nutzer-ID (anders als "userId" oben, das nur
+  // eine zufällige Sitzungs-ID ohne Konto-Bezug ist) – null, solange nicht
+  // eingeloggt. Wird für alles gebraucht, was wirklich einen echten Account
+  // auf der Gegenseite braucht (z. B. Duelle gegen einen anderen User).
+  authUserId: string | null;
   logout: () => Promise<void>;
 }
 
@@ -286,7 +291,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     (async () => {
       const { data: profile, error } = await supabase
         .from("profiles")
-        .select("display_name, free_stars")
+        .select(
+          "display_name, free_stars, rang_punkte, pass_xp, streak_count, last_tip_date, claimed_milestones, last_claimed_at"
+        )
         .eq("id", authUserId)
         .maybeSingle();
 
@@ -301,6 +308,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (profile) {
         setDisplayName(profile.display_name);
         setStarsState((current) => ({ ...current, freeStars: profile.free_stars }));
+        if (profile.rang_punkte) {
+          setRangPunkte((current) => ({ ...current, ...(profile.rang_punkte as Record<Sport, number>) }));
+        }
+        if (typeof profile.pass_xp === "number") setPassXP(profile.pass_xp);
+        setStreakState((current) => ({
+          ...current,
+          count: profile.streak_count ?? current.count,
+          lastTipDate: profile.last_tip_date ?? current.lastTipDate,
+          claimedMilestones: (profile.claimed_milestones as number[] | null) ?? current.claimedMilestones,
+        }));
+        setLastClaimedAt(profile.last_claimed_at ?? null);
       } else {
         // Kein Profil-Eintrag vorhanden (z.B. Konto von vor dieser
         // Umstellung) -> jetzt einmalig mit den aktuellen, lokalen Werten
@@ -309,6 +327,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
           id: authUserId,
           display_name: displayName,
           free_stars: freeStars,
+          rang_punkte: rangPunkte,
+          pass_xp: passXP,
+          streak_count: streakState.count,
+          last_tip_date: streakState.lastTipDate,
+          claimed_milestones: streakState.claimedMilestones,
+          last_claimed_at: lastClaimedAt,
         });
       }
       setProfileLoaded(true);
@@ -327,12 +351,32 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (!isRegistered || !authUserId || !profileLoaded) return;
     supabase
       .from("profiles")
-      .update({ display_name: displayName, free_stars: freeStars, updated_at: new Date().toISOString() })
+      .update({
+        display_name: displayName,
+        free_stars: freeStars,
+        rang_punkte: rangPunkte,
+        pass_xp: passXP,
+        streak_count: streakState.count,
+        last_tip_date: streakState.lastTipDate,
+        claimed_milestones: streakState.claimedMilestones,
+        last_claimed_at: lastClaimedAt,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", authUserId)
       .then(({ error }) => {
         if (error) console.warn("Profil konnte nicht gespeichert werden:", error.message);
       });
-  }, [displayName, freeStars, isRegistered, authUserId, profileLoaded]);
+  }, [
+    displayName,
+    freeStars,
+    rangPunkte,
+    passXP,
+    streakState,
+    lastClaimedAt,
+    isRegistered,
+    authUserId,
+    profileLoaded,
+  ]);
 
   // Tipp-Abgleich mit Supabase (gleiches Muster wie oben beim Profil): Sobald
   // eine echte Sitzung erkannt wird, werden die bisher abgegebenen Tipps
@@ -782,6 +826,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         hasAdFreeSubscription,
         isRegistered,
         authEmail,
+        authUserId,
         logout,
       }}
     >

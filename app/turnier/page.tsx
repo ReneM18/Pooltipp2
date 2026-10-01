@@ -6,11 +6,7 @@ import { useTournaments } from "@/lib/TournamentContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { Tournament, TournamentStatus } from "@/lib/tournamentTypes";
-import {
-  getTournamentStatus,
-  getSimulatedTournamentEntries,
-  sumTournamentRangDelta,
-} from "@/lib/tournamentLeaderboard";
+import { getTournamentStatus, useTournamentStandings } from "@/lib/tournamentLeaderboard";
 import { Sport } from "@/lib/types";
 
 const sportIcon: Record<Sport, string> = {
@@ -34,7 +30,7 @@ const statusClass: Record<TournamentStatus, string> = {
 
 export default function TurnierPage() {
   const { tournaments } = useTournaments();
-  const { matches, getTeam, myTips } = useAppData();
+  const { matches, getTeam } = useAppData();
   const { displayName } = useUser();
 
   const withStatus = tournaments
@@ -65,7 +61,6 @@ export default function TurnierPage() {
           entries={active}
           matches={matches}
           getTeam={getTeam}
-          myTips={myTips}
           displayName={displayName}
         />
       )}
@@ -75,7 +70,6 @@ export default function TurnierPage() {
           entries={upcoming}
           matches={matches}
           getTeam={getTeam}
-          myTips={myTips}
           displayName={displayName}
         />
       )}
@@ -85,7 +79,6 @@ export default function TurnierPage() {
           entries={finished}
           matches={matches}
           getTeam={getTeam}
-          myTips={myTips}
           displayName={displayName}
         />
       )}
@@ -98,14 +91,12 @@ function TournamentSection({
   entries,
   matches,
   getTeam,
-  myTips,
   displayName,
 }: {
   title: string;
   entries: { tournament: Tournament; status: TournamentStatus }[];
   matches: ReturnType<typeof useAppData>["matches"];
   getTeam: ReturnType<typeof useAppData>["getTeam"];
-  myTips: ReturnType<typeof useAppData>["myTips"];
   displayName: string;
 }) {
   return (
@@ -119,7 +110,6 @@ function TournamentSection({
             status={status}
             matches={matches}
             getTeam={getTeam}
-            myTips={myTips}
             displayName={displayName}
           />
         ))}
@@ -133,20 +123,20 @@ function TournamentCard({
   status,
   matches,
   getTeam,
-  myTips,
   displayName,
 }: {
   tournament: Tournament;
   status: TournamentStatus;
   matches: ReturnType<typeof useAppData>["matches"];
   getTeam: ReturnType<typeof useAppData>["getTeam"];
-  myTips: ReturnType<typeof useAppData>["myTips"];
   displayName: string;
 }) {
   const tournamentMatches = matches.filter((m) => tournament.matchIds.includes(m.id));
 
-  const myPoints = sumTournamentRangDelta(myTips, tournament.matchIds);
-  const leaderboard = [...getSimulatedTournamentEntries(tournament), { name: displayName, points: myPoints }]
+  // Echte Turnier-Rangliste aus den tatsächlichen, ausgewerteten Tipps ALLER
+  // registrierten User zu den Spielen dieses Turniers (nicht mehr simuliert).
+  const { entries: standings } = useTournamentStandings(tournament.matchIds);
+  const leaderboard = [...standings]
     .sort((a, b) => b.points - a.points)
     .map((entry, index) => ({ rank: index + 1, ...entry, isCurrentUser: entry.name === displayName }));
 
@@ -215,6 +205,9 @@ function TournamentCard({
         <div>
           <p className="mb-1.5 text-xs font-semibold text-muted">Turnier-Rangliste</p>
           <div className="flex flex-col gap-1">
+            {leaderboard.length === 0 && (
+              <p className="text-xs text-muted">Noch keine ausgewerteten Tipps zu diesem Turnier.</p>
+            )}
             {leaderboard.slice(0, 5).map((entry) => (
               <div
                 key={entry.name}
