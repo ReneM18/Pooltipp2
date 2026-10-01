@@ -13,6 +13,7 @@ import { DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
 import TeamBadge from "@/components/TeamBadge";
 import { useFeedback } from "@/lib/FeedbackContext";
+import ScoreInput from "@/components/ScoreInput";
 
 type AdminTab = "spiele" | "teams" | "turniere" | "news";
 
@@ -1546,19 +1547,19 @@ function LiveScoreEditor({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <input
-        type="number"
-        min={0}
+      <ScoreInput
         value={homeScore}
-        onChange={(e) => setHomeScore(Number(e.target.value))}
+        onChange={setHomeScore}
+        max={999}
+        label="Tore Heim"
         className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2.5 text-center text-base text-ink outline-none focus:border-gold"
       />
       <span className="text-base text-muted">:</span>
-      <input
-        type="number"
-        min={0}
+      <ScoreInput
         value={awayScore}
-        onChange={(e) => setAwayScore(Number(e.target.value))}
+        onChange={setAwayScore}
+        max={999}
+        label="Tore Gast"
         className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2.5 text-center text-base text-ink outline-none focus:border-gold"
       />
       <button

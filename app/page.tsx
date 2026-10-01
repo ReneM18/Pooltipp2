@@ -9,7 +9,7 @@ import { useFeedback } from "@/lib/FeedbackContext";
 
 export default function DashboardPage() {
   const { spendStars, recordTipSubmitted, streakCount, displayName } = useUser();
-  const { matches, getTeam, tipCounts, submitTip, myTips } = useAppData();
+  const { matches, getTeam, tipCounts, submitTip, changeTip, myTips } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [tab, setTab] = useState<"offen" | "geschlossen">("offen");
 
@@ -30,6 +30,15 @@ export default function DashboardPage() {
         ? "✓ Tipp gespeichert – mit reduziertem Einsatz (Sterne-Guthaben oder Tages-Limit erreicht)."
         : "✓ Tipp gespeichert – viel Glück!"
     );
+  }
+
+  function handleChangeTip(matchId: string, homeScore: number, awayScore: number) {
+    // Kein spendStars: der Einsatz wurde schon bei der Abgabe bezahlt.
+    if (changeTip(matchId, homeScore, awayScore)) {
+      showToast("✓ Tipp geändert – Einsatz bleibt gleich, keine Sterne abgezogen.");
+    } else {
+      showToast("Tippschluss – der Tipp kann nicht mehr geändert werden.", "info");
+    }
   }
 
   // Das Spiel mit dem nächsten Anpfiff steht immer ganz oben.
@@ -118,6 +127,7 @@ export default function DashboardPage() {
               onSubmitTip={(homeScore, awayScore) =>
                 handleSubmitTip(match.id, match.fixedStake, homeScore, awayScore)
               }
+              onChangeTip={(homeScore, awayScore) => handleChangeTip(match.id, homeScore, awayScore)}
             />
           );
         })}
