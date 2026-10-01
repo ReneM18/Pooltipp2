@@ -428,14 +428,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
         // Umstellung) -> jetzt einmalig mit den aktuellen, lokalen Werten
         // anlegen.
         lastSyncedStarsRef.current = freeStars;
+        setRangPunkte(Object.fromEntries(SPORTS.map((s) => [s, 0])) as Record<Sport, number>);
+        setPassXP(0);
         await supabase.from("profiles").insert({
           id: authUserId,
           display_name: displayName,
           free_stars: freeStars,
-          // Neue Konten starten bei 0 Rangliste-Punkten, nicht mit den
-          // Demo-Werten, die vor dem Login angezeigt werden.
+          // Neue Konten starten bei 0 Rangliste-Punkten und 0 Pass-XP, nicht
+          // mit den Demo-Werten, die vor dem Login angezeigt werden.
           rang_punkte: Object.fromEntries(SPORTS.map((s) => [s, 0])),
-          pass_xp: passXP,
+          pass_xp: 0,
           streak_count: streakState.count,
           last_tip_date: streakState.lastTipDate,
           claimed_milestones: streakState.claimedMilestones,
