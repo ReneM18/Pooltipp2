@@ -18,6 +18,11 @@ const tabs = [
 
 export default function NavTabs() {
   const pathname = usePathname();
+  // Auf der Startseite gibt es ab Desktop-Breite (lg:) bereits die neue
+  // Seitenspalte rechts mit Duelle/Tipprunden/Turniere (siehe HomeSidebar.tsx)
+  // – die drei Pillen hier würden dort doppelt auftauchen. Am Handy (ohne
+  // Seitenspalte) und auf allen anderen Seiten bleiben sie unverändert.
+  const hideShortcutsOnDesktop = pathname === "/";
 
   return (
     <nav className="relative border-b border-edge bg-pitch">
@@ -58,24 +63,28 @@ export default function NavTabs() {
             Desktop-Leiste. lg:flex-wrap oben ist nur ein Sicherheitsnetz,
             falls ein Fenster doch mal knapper ist; normalerweise passt ab
             lg: alles in eine Zeile. */}
-        <div className="my-2 ml-auto flex shrink-0 items-center gap-1.5 lg:gap-2">
+        <div
+          className={`my-2 ml-auto flex shrink-0 items-center gap-1.5 lg:gap-2 ${
+            hideShortcutsOnDesktop ? "lg:hidden" : ""
+          }`}
+        >
           <Link
             href="/duelle"
-            className="flex shrink-0 items-center rounded-full bg-gold px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:opacity-90 lg:px-3.5 lg:py-1.5 lg:text-sm"
+            className="flex shrink-0 items-center gap-1 rounded-full bg-gold px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:opacity-90 lg:px-3.5 lg:py-1.5 lg:text-sm"
           >
-            Duelle
+            <span aria-hidden>⚔️</span> Duelle
           </Link>
           <Link
             href="/teams"
-            className="flex shrink-0 items-center rounded-full bg-blue-500 px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:bg-blue-400 lg:px-3.5 lg:py-1.5 lg:text-sm"
+            className="flex shrink-0 items-center gap-1 rounded-full bg-blue-500 px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:bg-blue-400 lg:px-3.5 lg:py-1.5 lg:text-sm"
           >
-            Tipprunden
+            <span aria-hidden>👥</span> Tipprunden
           </Link>
           <Link
             href="/turnier"
-            className="flex shrink-0 items-center rounded-full bg-violet-500 px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:bg-violet-400 lg:px-3.5 lg:py-1.5 lg:text-sm"
+            className="flex shrink-0 items-center gap-1 rounded-full bg-violet-500 px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:bg-violet-400 lg:px-3.5 lg:py-1.5 lg:text-sm"
           >
-            Turniere
+            <span aria-hidden>🏆</span> Turniere
           </Link>
         </div>
       </div>
