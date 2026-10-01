@@ -6,6 +6,7 @@ import FitText from "@/components/FitText";
 import { SPORTS, Sport } from "@/lib/types";
 import { getIconForPoints, getSportRankIcon, RankIconOption } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
+import ClubLeaderboard from "@/components/ClubLeaderboard";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { getCurrentWeekWindow, sumWeeklyRangDelta } from "@/lib/weeklyLeaderboard";
@@ -18,9 +19,9 @@ const sportIcon: Record<Sport, string> = {
   NHL: "🏒",
 };
 
-type ViewTab = "Gesamt" | "Spieltag" | Sport;
+type ViewTab = "Gesamt" | "Spieltag" | "Vereine" | Sport;
 
-const TABS: ViewTab[] = ["Gesamt", "Spieltag", ...SPORTS];
+const TABS: ViewTab[] = ["Gesamt", "Spieltag", ...SPORTS, "Vereine"];
 
 // Ab so vielen Spielern wird nur die Spitze gezeigt (plus die eigene Zeile,
 // falls man weiter hinten steht), damit die Seite nicht endlos lang wird.
@@ -85,6 +86,8 @@ export default function RanglistePage() {
         icon: getIconForPoints(p.pointsBySport, `-${p.id}`),
         isCurrentUser: p.id === authUserId,
       }));
+    } else if (tab === "Vereine") {
+      rows = [];
     } else {
       const sport = tab;
       rows = allPlayers.map((p) => ({
@@ -123,6 +126,8 @@ export default function RanglistePage() {
           <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
             Zählt nur Punkte dieser Woche · <WeeklyCountdown target={weekWindow.end.getTime()} />
           </p>
+        ) : tab === "Vereine" ? (
+          <p className="mt-0.5 text-xs text-muted">Herzensvereine im Vergleich, eine Tabelle pro Sportart</p>
         ) : (
           <p className="mt-0.5 text-xs text-muted">
             {loading ? "Lädt…" : failed ? "\u00a0" : `${ranked.length} Spieler`}
@@ -143,13 +148,16 @@ export default function RanglistePage() {
             }`}
           >
             {t === "Spieltag" && <span aria-hidden>⏱️</span>}
-            {t !== "Gesamt" && t !== "Spieltag" && <span>{sportIcon[t as Sport]}</span>}
+            {t === "Vereine" && <span aria-hidden>🛡️</span>}
+            {t !== "Gesamt" && t !== "Spieltag" && t !== "Vereine" && <span>{sportIcon[t as Sport]}</span>}
             {t}
           </button>
         ))}
       </div>
 
-      {loading ? (
+      {tab === "Vereine" ? (
+        <ClubLeaderboard />
+      ) : loading ? (
         <LoadingRows />
       ) : failed ? (
         <EmptyState

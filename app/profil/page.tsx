@@ -9,6 +9,7 @@ import RankBadge from "@/components/RankBadge";
 import RankProgress from "@/components/RankProgress";
 import SeasonFrame from "@/components/SeasonFrame";
 import RankMeaningBadge from "@/components/RankMeaningBadge";
+import FavoriteClubs from "@/components/FavoriteClubs";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { Sport } from "@/lib/types";
 import { SEASON_THEME } from "@/lib/seasonTheme";
@@ -406,6 +407,8 @@ export default function ProfilPage() {
           </div>
         </section>
       )}
+
+      <FavoriteClubs />
 
       <section className="mb-8">
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Werbefrei</h2>
