@@ -11,7 +11,7 @@ import RankMeaningBadge from "@/components/RankMeaningBadge";
 export default function SpielerProfilPage() {
   const params = useParams();
   const router = useRouter();
-  const { displayName, friends, pendingRequests, sendFriendRequest, photos: myPhotos } = useUser();
+  const { displayName, friends, pendingRequests, photos: myPhotos } = useUser();
 
   const name = decodeURIComponent(
     Array.isArray(params.name) ? params.name[0] : params.name ?? ""
@@ -71,14 +71,15 @@ export default function SpielerProfilPage() {
                 : "Freundschaftsanfrage senden, um private Fotos freizuschalten."}
             </p>
           </div>
-          {!isFriend && (
-            <button
-              onClick={() => sendFriendRequest(name)}
-              disabled={isPending}
-              className="shrink-0 rounded-full bg-action px-4 py-2 font-display text-sm font-semibold text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50"
+          {!isFriend && !isPending && (
+            // Namen sind nicht eindeutig – die Anfrage läuft über die Suche
+            // auf der Freunde-Seite, dort steht zu jedem Namen die Nummer.
+            <Link
+              href={`/freunde?suche=${encodeURIComponent(name)}`}
+              className="shrink-0 rounded-full bg-action px-4 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
             >
-              {isPending ? "Ausstehend…" : "Anfrage senden"}
-            </button>
+              Anfrage senden
+            </Link>
           )}
           {isFriend && (
             <Link
