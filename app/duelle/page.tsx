@@ -22,6 +22,15 @@ export default function DuellePage() {
 
   const [opponent, setOpponent] = useState("");
   const [matchId, setMatchId] = useState(openMatches[0]?.id ?? "");
+  // Beim ersten Anzeigen stehen evtl. noch die eingebauten Demo-Spiele im
+  // State; sobald die echten Spiele aus Supabase da sind, muss die Auswahl
+  // nachziehen – sonst zeigt die Liste ein echtes Spiel an, verschickt aber
+  // die ID eines Demo-Spiels ("Spiel nicht gefunden").
+  const openMatchIds = openMatches.map((m) => m.id).join(",");
+  useEffect(() => {
+    const ids = openMatchIds ? openMatchIds.split(",") : [];
+    if (!ids.includes(matchId)) setMatchId(ids[0] ?? "");
+  }, [openMatchIds, matchId]);
   const [stake, setStake] = useState("20");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
