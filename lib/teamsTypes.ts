@@ -1,19 +1,17 @@
 export type ScoringMode = "ergebnis" | "dreiweg";
 
+// Private Tipprunde. Liegt in Supabase (Tabelle "leagues", siehe
+// supabase/tipprunden.sql) und ist nur für ihre Mitglieder sichtbar.
 export interface League {
   id: string;
   name: string;
   description: string;
   code: string; // Einladungs-Code zum Beitreten
   scoringMode: ScoringMode;
-  members: string[];
-  // "creator" ist nur der Anzeige-Name (Nutzer können ihn jederzeit ändern).
-  // Für Rechte-Prüfungen (Bearbeiten/Löschen) zählt allein creatorId – eine
-  // pro Sitzung feste, nicht änderbare ID (siehe UserContext.userId). Sonst
-  // könnte sich theoretisch jemand einfach in "Alex" umbenennen und hätte
-  // Gründer-Rechte in der Demo-Tipprunde.
-  creator: string;
+  // Echte Supabase-Nutzer-ID des Gründers. Nur er darf die Runde bearbeiten,
+  // Spiele anlegen und Endstände eintragen (auch in der Datenbank geprüft).
   creatorId: string;
+  memberCount: number;
 }
 
 export interface LeagueMatch {
@@ -30,7 +28,18 @@ export interface LeagueTip {
   id: string;
   leagueId: string;
   matchId: string;
-  author: string;
+  userId: string;
   predictedHomeScore: number;
   predictedAwayScore: number;
+}
+
+// Ein Mitglied samt Liga-Punkten – die Datenbank (league_leaderboard)
+// rechnet die Punkte, damit sie niemand im Browser fälschen kann.
+export interface LeagueMember {
+  userId: string;
+  displayName: string;
+  points: number;
+  exactTips: number;
+  scoredTips: number;
+  isCreator: boolean;
 }
