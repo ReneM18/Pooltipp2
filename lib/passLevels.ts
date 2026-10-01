@@ -44,7 +44,7 @@ export const PASS_LEVELS: PassLevel[] = [
     level: 1,
     xpRequired: 0,
     reward: "Willkommens-Banner",
-    rewardWhere: "erscheint oben in deinem Profil",
+    rewardWhere: "oben in deinem Profil, bis du Level 2 erreichst",
     icon: "🎉",
     premiumReward: `Start-Glow im Saison-Design „${SEASON_THEME.name}"`,
     premiumIcon: SEASON_THEME.icon,

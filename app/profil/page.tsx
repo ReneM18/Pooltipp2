@@ -136,8 +136,11 @@ export default function ProfilPage() {
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
-      {/* Saison-Pass Level 1: Willkommens-Banner für angemeldete Spieler */}
-      {isRegistered && authUserId && <WelcomeBanner userId={authUserId} name={displayName} />}
+      {/* Saison-Pass Level 1: Willkommens-Banner für angemeldete Spieler –
+          nur solange sie noch auf Level 1 sind, ab Level 2 verschwindet er. */}
+      {isRegistered && authUserId && passXP < xpForLevel(2) && (
+        <WelcomeBanner userId={authUserId} name={displayName} />
+      )}
 
       {/* Level 8 Premium: Profil-Hintergrundbanner in den Saison-Farben
           (SEASON_THEME) – nur ein Farbverlauf, kein neues Bild pro Saison nötig. */}

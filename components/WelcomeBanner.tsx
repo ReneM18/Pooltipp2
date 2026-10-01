@@ -7,7 +7,8 @@ import { SEASON_THEME } from "@/lib/seasonTheme";
 
 // Saison-Pass Level 1 (kostenlose Spur, siehe lib/passLevels.ts): der
 // "Willkommens-Banner". Level 1 braucht 0 XP, also hat ihn jeder angemeldete
-// Spieler sofort. Er steht oben im Profil, bis man ihn mit dem X wegklickt.
+// Spieler sofort. Er steht oben im Profil, bis man Level 2 erreicht (siehe
+// app/profil/page.tsx) oder ihn vorher mit dem X wegklickt.
 // Das Wegklicken merkt sich nur der Browser (localStorage pro Nutzer-ID) –
 // bewusst ohne Datenbank-Spalte, damit kein SQL nötig ist. Auf einem neuen
 // Gerät erscheint er also einmal wieder, was für einen Gruß unkritisch ist.
