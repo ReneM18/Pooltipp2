@@ -50,14 +50,14 @@ export default function DashboardPage() {
           kommen. Am Handy (zu schmal für eine Zeile) fällt sie automatisch
           darunter. */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2.5">
+        <div className="flex shrink-0 items-center gap-2.5">
           <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">
             Spieltag
           </h1>
           {streakCount > 0 && (
             <span
               title="Aufeinanderfolgende Tage mit mindestens einem Tipp"
-              className="flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 font-display text-xs font-bold text-gold"
+              className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 font-display text-xs font-bold text-gold"
             >
               🔥 {streakCount} {streakCount === 1 ? "Tag" : "Tage"} in Folge
             </span>

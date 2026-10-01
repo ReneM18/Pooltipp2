@@ -540,7 +540,7 @@ function TeamManager() {
                   size={40}
                 />
                 <span className="min-w-0">
-                  <span className="flex items-center gap-1.5 truncate text-sm font-semibold text-ink">
+                  <span className="block text-sm font-semibold leading-tight text-ink">
                     {!team.isNationalTeam && flagEmoji(team.countryCode)} {team.name}
                   </span>
                   <span className="text-xs text-muted">
@@ -765,7 +765,7 @@ function MatchManager() {
                     ?
                   </span>
                 )}
-                <span className="max-w-[9rem] truncate text-sm font-semibold text-ink">
+                <span className="max-w-[9rem] text-center text-sm font-semibold leading-tight text-ink">
                   {previewHome?.name ?? "Heimteam"}
                 </span>
               </div>
@@ -787,7 +787,7 @@ function MatchManager() {
                     ?
                   </span>
                 )}
-                <span className="max-w-[9rem] truncate text-sm font-semibold text-ink">
+                <span className="max-w-[9rem] text-center text-sm font-semibold leading-tight text-ink">
                   {previewAway?.name ?? "Auswärtsteam"}
                 </span>
               </div>
@@ -889,7 +889,7 @@ function MatchManager() {
             <div className="mb-4 flex gap-2.5">
               <button
                 onClick={() => setMatchListTab("bevorstehend")}
-                className={`min-w-[11rem] rounded-full border px-5 py-3 text-base font-semibold transition-colors ${
+                className={`flex-1 rounded-full border px-4 py-3 text-base font-semibold sm:min-w-[11rem] sm:flex-none sm:px-5 transition-colors ${
                   matchListTab === "bevorstehend"
                     ? "border-gold bg-gold/15 text-gold"
                     : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
@@ -899,7 +899,7 @@ function MatchManager() {
               </button>
               <button
                 onClick={() => setMatchListTab("beendet")}
-                className={`min-w-[11rem] rounded-full border px-5 py-3 text-base font-semibold transition-colors ${
+                className={`flex-1 rounded-full border px-4 py-3 text-base font-semibold sm:min-w-[11rem] sm:flex-none sm:px-5 transition-colors ${
                   matchListTab === "beendet"
                     ? "border-gold bg-gold/15 text-gold"
                     : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
@@ -952,7 +952,7 @@ function MatchManager() {
                       size={40}
                     />
                   )}
-                  <span className="max-w-[8rem] truncate text-center text-sm font-semibold text-ink sm:text-right">
+                  <span className="max-w-[8rem] text-center text-sm font-semibold leading-tight text-ink sm:text-right">
                     {home?.name ?? "?"}
                   </span>
                 </div>
@@ -978,7 +978,7 @@ function MatchManager() {
                       size={40}
                     />
                   )}
-                  <span className="max-w-[8rem] truncate text-center text-sm font-semibold text-ink sm:text-left">
+                  <span className="max-w-[8rem] text-center text-sm font-semibold leading-tight text-ink sm:text-left">
                     {away?.name ?? "?"}
                   </span>
                 </div>

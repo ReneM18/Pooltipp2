@@ -244,7 +244,7 @@ export default function ProfilPage() {
                 der Balken zeigt, wie viele Punkte dir bis zur nächsten Stufe fehlen.
               </p>
 
-              <div className="mb-3 flex gap-2">
+              <div className="mb-3 flex flex-wrap gap-2">
                 {sportProgressOptions.map((o) => (
                   <button
                     key={o.sport}

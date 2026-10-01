@@ -3,17 +3,19 @@
 import { useEffect, useState } from "react";
 
 function formatRemaining(ms: number): string {
-  if (ms <= 0) return "Tippannahme geschlossen";
+  // Kurz gehalten, damit daneben am Handy der Wettbewerb (z. B. "Bundesliga")
+  // noch ganz lesbar bleibt.
+  if (ms <= 0) return "Tipps geschlossen";
   const totalSeconds = Math.floor(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
   // Ab einem Tag in Tagen statt "172h", damit es lesbar bleibt.
-  if (hours >= 24) return `schließt in ${Math.floor(hours / 24)} Tg. ${hours % 24} Std.`;
-  if (hours > 0) return `schließt in ${hours} Std. ${minutes} Min.`;
-  if (minutes > 0) return `schließt in ${minutes} Min. ${seconds} Sek.`;
-  return `schließt in ${seconds} Sek.`;
+  if (hours >= 24) return `noch ${Math.floor(hours / 24)} Tg. ${hours % 24} Std.`;
+  if (hours > 0) return `noch ${hours} Std. ${minutes} Min.`;
+  if (minutes > 0) return `noch ${minutes} Min. ${seconds} Sek.`;
+  return `noch ${seconds} Sek.`;
 }
 
 export default function Countdown({ kickoff }: { kickoff: string }) {

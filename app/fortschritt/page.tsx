@@ -120,8 +120,8 @@ export default function FortschrittPage() {
             : undefined
         }
       >
-        <div className="mb-3 flex items-center justify-between">
-          <span className="font-display text-lg font-bold text-ink">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <span className="whitespace-nowrap font-display text-lg font-bold text-ink">
             Level {currentLevel.level} <span className="text-gold">{currentLevel.icon}</span>
           </span>
           <span className="text-sm text-muted">
@@ -290,7 +290,7 @@ export default function FortschrittPage() {
             return (
               <div
                 key={lvl.level}
-                className={`flex items-center gap-4 rounded-card border p-4 transition-colors ${
+                className={`flex flex-wrap items-center gap-x-4 gap-y-3 rounded-card border p-4 transition-colors sm:flex-nowrap ${
                   isPayout && unlocked
                     ? "border-gold bg-gold/10"
                     : isCurrent
@@ -307,9 +307,9 @@ export default function FortschrittPage() {
                 >
                   {unlocked ? lvl.icon : "🔒"}
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-display text-sm font-semibold text-ink">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-x-2">
+                    <span className="whitespace-nowrap font-display text-sm font-semibold text-ink">
                       Level {lvl.level}
                     </span>
                     {unlocked && <span className="text-xs font-semibold text-action">✓ Freigeschaltet</span>}
@@ -326,7 +326,7 @@ export default function FortschrittPage() {
 
                 {lvl.premiumReward && (
                   <div
-                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${
+                    className={`order-last flex w-full items-center gap-2 rounded-lg border px-3 py-2 sm:order-none sm:w-56 sm:shrink-0 ${
                       hasPremiumPass && unlocked
                         ? "border-gold/60 bg-gold/10"
                         : "border-edge bg-pitch opacity-60"
@@ -337,12 +337,14 @@ export default function FortschrittPage() {
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-gold">
                         Premium
                       </p>
-                      <p className="max-w-[9rem] text-xs text-muted">{lvl.premiumReward}</p>
+                      <p className="text-xs text-muted">{lvl.premiumReward}</p>
                     </div>
                   </div>
                 )}
 
-                <span className="text-xs text-muted">{lvl.xpRequired.toLocaleString("de-DE")} P</span>
+                <span className="shrink-0 whitespace-nowrap text-right text-xs text-muted sm:w-14">
+                  {lvl.xpRequired.toLocaleString("de-DE")} P
+                </span>
               </div>
             );
           })}
