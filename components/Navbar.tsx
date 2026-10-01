@@ -50,7 +50,7 @@ export default function Navbar() {
               href="/registrieren"
               className="hidden rounded-full border border-gold px-3 py-1.5 font-display text-sm font-semibold text-gold transition-colors hover:bg-gold hover:text-pitch md:block"
             >
-              Registrieren
+              Einloggen
             </Link>
           )}
 
