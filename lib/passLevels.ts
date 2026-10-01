@@ -7,6 +7,8 @@ export interface PassLevel {
   icon: string;
   /** Sterne-Auszahlung statt Item – aktuell nur auf der kostenlosen Spur. */
   starsReward?: number;
+  /** Kurzer Hinweis, wo man die Belohnung sieht (z. B. "oben in deinem Profil"). */
+  rewardWhere?: string;
 
   // Premium-Spur (freigeschaltet durch Kauf, siehe PREMIUM_PASS_PRICE): zusätzliche
   // Belohnung auf demselben Level, kommt zur kostenlosen Belohnung oben drauf.
@@ -42,6 +44,7 @@ export const PASS_LEVELS: PassLevel[] = [
     level: 1,
     xpRequired: 0,
     reward: "Willkommens-Banner",
+    rewardWhere: "oben in deinem Profil, bis du Level 2 erreichst",
     icon: "🎉",
     premiumReward: `Start-Glow im Saison-Design „${SEASON_THEME.name}"`,
     premiumIcon: SEASON_THEME.icon,
