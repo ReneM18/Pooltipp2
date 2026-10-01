@@ -9,7 +9,8 @@ import { useTournaments } from "@/lib/TournamentContext";
 import { Tournament } from "@/lib/tournamentTypes";
 import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
 import { Sport, SPORTS, JerseyStyle, JERSEY_STYLES, Match, MatchStatus, TipMode, Team } from "@/lib/types";
-import { COUNTRIES, flagEmoji } from "@/lib/flags";
+import { DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
+import CountryPicker from "@/components/CountryPicker";
 import TeamBadge from "@/components/TeamBadge";
 import { useFeedback } from "@/lib/FeedbackContext";
 
@@ -342,7 +343,7 @@ function TeamManager() {
   // Team-Liste nach Sportart in Reitern statt alles gemischt untereinander –
   // sonst verliert man bei mehreren Sportarten schnell den Überblick.
   const [teamListTab, setTeamListTab] = useState<Sport>("Fußball");
-  const [countryCode, setCountryCode] = useState(COUNTRIES[0].code);
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_CODE);
   const [primaryColor, setPrimaryColor] = useState("#3FA66B");
   const [secondaryColor, setSecondaryColor] = useState("#FFFFFF");
   const [jerseyStyle, setJerseyStyle] = useState<JerseyStyle>("solid");
@@ -401,17 +402,7 @@ function TeamManager() {
           </div>
           <div>
             <label className="mb-1.5 block text-sm text-muted">Land</label>
-            <select
-              value={countryCode}
-              onChange={(e) => setCountryCode(e.target.value)}
-              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
-            >
-              {COUNTRIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {flagEmoji(c.code)} {c.name}
-                </option>
-              ))}
-            </select>
+            <CountryPicker value={countryCode} onChange={setCountryCode} />
           </div>
         </div>
 
