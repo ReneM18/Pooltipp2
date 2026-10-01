@@ -25,6 +25,7 @@ const sportIcon: Record<string, string> = {
 export default function ProfilPage() {
   const {
     displayName,
+    userNumber,
     setDisplayName,
     freeStars,
     passXP,
@@ -190,6 +191,7 @@ export default function ProfilPage() {
               </span>
             )}
           </h1>
+          {userNumber !== null && <p className="text-xs font-semibold text-gold">Nummer #{userNumber}</p>}
           <p className="text-sm text-muted">
             {currentRank ? `Aktuell Platz ${currentRank} in der Rangliste` : "Noch nicht platziert"}
           </p>

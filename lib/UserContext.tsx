@@ -44,6 +44,33 @@ function generateUserId(): string {
   return `u_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+export type FriendRelation = "friend" | "outgoing" | "incoming" | "none";
+
+export interface FriendEntry {
+  id: string;
+  name: string;
+  number: number;
+  relation: Exclude<FriendRelation, "none">;
+}
+
+export interface PlayerSearchResult {
+  id: string;
+  name: string;
+  number: number;
+  relation: FriendRelation;
+}
+
+// Fehlermeldungen der Freundes-Funktionen in einfache Sätze übersetzen.
+function friendlyFriendsError(error: { code?: string; message?: string } | null | undefined): string {
+  const message = error?.message ?? "";
+  // Funktion/Tabelle fehlt: supabase/freunde.sql wurde noch nicht ausgeführt.
+  if (error?.code === "PGRST202" || error?.code === "42883" || error?.code === "42P01" || /does not exist|Could not find/i.test(message)) {
+    return "Freunde sind noch nicht eingerichtet (Datenbank-Skript freunde.sql fehlt noch).";
+  }
+  if (/einloggen|Spieler gibt es nicht|nicht selbst/.test(message)) return message;
+  return "Das hat gerade nicht geklappt. Bitte versuch es gleich noch einmal.";
+}
+
 interface UserContextValue {
   // Stabile Sitzungs-ID, unabhängig vom (änderbaren) Anzeigenamen.
   userId: string;
@@ -101,14 +128,24 @@ interface UserContextValue {
   // Anzahl aufeinanderfolgender Tage mit mindestens einem abgegebenen Tipp
   // (siehe STREAK_MILESTONES in lib/poolScore.ts für die Sterne-Boni).
   streakCount: number;
+  // Eigene Nutzernummer (z. B. 1001) – damit andere einen in der
+  // Freundesliste finden. null, solange nicht eingeloggt oder noch nicht
+  // geladen (bzw. supabase/freunde.sql noch nicht ausgeführt).
+  userNumber: number | null;
+  // Echte Freunde und offene Anfragen aus der Datenbank
+  // (supabase/freunde.sql).
+  friendEntries: FriendEntry[];
+  // Nur die Namen der bestätigten Freunde bzw. der eigenen offenen Anfragen
+  // – für Seiten, die nur nach dem Namen fragen (z. B. Spieler-Profil).
   friends: string[];
-  addFriend: (name: string) => void;
-  removeFriend: (name: string) => void;
   pendingRequests: string[];
-  // Gibt false zurück, wenn der Name die (leichte) Validierung nicht besteht
-  // (zu kurz/lang oder der eigene Name) – die aufrufende Seite kann das dann
-  // als Fehlermeldung anzeigen.
-  sendFriendRequest: (name: string) => boolean;
+  friendsLoaded: boolean;
+  friendsError: string | null;
+  refreshFriends: () => Promise<void>;
+  searchPlayers: (query: string) => Promise<{ results: PlayerSearchResult[]; error: string | null }>;
+  sendFriendRequest: (otherId: string) => Promise<string | null>;
+  respondFriendRequest: (otherId: string, accept: boolean) => Promise<string | null>;
+  removeFriend: (otherId: string) => Promise<string | null>;
   // Eigene hochgeladene Fotos, global verfügbar (z. B. auch auf der
   // öffentlichen Spieler-Profilseite sichtbar, nicht nur im eigenen Profil).
   photos: (string | null)[];
@@ -261,8 +298,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
     lastTipDate: null as string | null,
     claimedMilestones: [] as number[],
   });
-  const [friends, setFriends] = useState<string[]>(["Sabine K.", "Marco T."]);
-  const [pendingRequests, setPendingRequests] = useState<string[]>([]);
   const [photoVisibility, setPhotoVisibility] = useState<PhotoVisibility>("friends");
   const [hasPremiumPass, setHasPremiumPass] = useState(false);
 
@@ -1047,35 +1082,122 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  function addFriend(name: string) {
-    setFriends((current) => (current.includes(name) ? current : [...current, name]));
+  // Nutzernummer getrennt vom restlichen Profil laden: fehlt die Spalte noch
+  // (freunde.sql nicht ausgeführt), darf das das Profil nicht kaputt machen.
+  const [userNumber, setUserNumber] = useState<number | null>(null);
+  useEffect(() => {
+    setUserNumber(null);
+    if (!authUserId || !profileLoaded) return;
+    let cancelled = false;
+    supabase
+      .from("profiles")
+      .select("user_number")
+      .eq("id", authUserId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.warn("Nutzernummer konnte nicht geladen werden:", error.message);
+          return;
+        }
+        if (data && typeof data.user_number === "number") setUserNumber(data.user_number);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authUserId, profileLoaded]);
+
+  // Echte Freunde aus der Datenbank (Funktion my_friends in
+  // supabase/freunde.sql) – live aktualisiert, sobald jemand eine Anfrage
+  // schickt, annimmt oder einen entfernt.
+  const [friendEntries, setFriendEntries] = useState<FriendEntry[]>([]);
+  const [friendsLoaded, setFriendsLoaded] = useState(false);
+  const [friendsError, setFriendsError] = useState<string | null>(null);
+  const friendsRequestRef = useRef(0);
+
+  async function refreshFriends() {
+    if (!authUserId) return;
+    const requestId = ++friendsRequestRef.current;
+    const { data, error } = await supabase.rpc("my_friends");
+    if (requestId !== friendsRequestRef.current) return;
+    if (error) {
+      console.warn("Freunde konnten nicht geladen werden:", error.message);
+      setFriendsError(friendlyFriendsError(error));
+    } else {
+      setFriendsError(null);
+      setFriendEntries(
+        ((data ?? []) as { other_id: string; display_name: string; user_number: number; relation: FriendEntry["relation"] }[]).map(
+          (row) => ({ id: row.other_id, name: row.display_name, number: row.user_number, relation: row.relation })
+        )
+      );
+    }
+    setFriendsLoaded(true);
   }
 
-  function removeFriend(name: string) {
-    setFriends((current) => current.filter((f) => f !== name));
-    setPendingRequests((current) => current.filter((n) => n !== name));
+  useEffect(() => {
+    friendsRequestRef.current++;
+    setFriendEntries([]);
+    setFriendsError(null);
+    setFriendsLoaded(false);
+    if (!authUserId) return;
+    refreshFriends();
+    const channel = supabase
+      .channel(`friendships-${authUserId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, () => {
+        refreshFriends();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUserId]);
+
+  const friends = useMemo(
+    () => friendEntries.filter((f) => f.relation === "friend").map((f) => f.name),
+    [friendEntries]
+  );
+  const pendingRequests = useMemo(
+    () => friendEntries.filter((f) => f.relation === "outgoing").map((f) => f.name),
+    [friendEntries]
+  );
+
+  async function searchPlayers(query: string): Promise<{ results: PlayerSearchResult[]; error: string | null }> {
+    if (!authUserId) return { results: [], error: "Bitte zuerst einloggen." };
+    const { data, error } = await supabase.rpc("search_players", { p_query: query });
+    if (error) return { results: [], error: friendlyFriendsError(error) };
+    return {
+      results: ((data ?? []) as { id: string; display_name: string; user_number: number; relation: FriendRelation }[]).map(
+        (row) => ({ id: row.id, name: row.display_name, number: row.user_number, relation: row.relation })
+      ),
+      error: null,
+    };
   }
 
-  // Da es (noch) keine echten Gegenüber-Accounts gibt, simuliert das die
-  // Annahme der Freundschaftsanfrage nach kurzer Zeit – erst danach werden
-  // z. B. private Fotos des anderen Users sichtbar.
-  // Leichte Validierung (ohne echte Nutzerliste ist mehr nicht sinnvoll
-  // möglich): Name muss eine plausible Länge haben und darf nicht der
-  // eigene Name sein. Gibt zurück, ob die Anfrage angenommen wurde, damit
-  // die aufrufende Seite bei Ablehnung eine Fehlermeldung zeigen kann.
-  function sendFriendRequest(name: string): boolean {
-    const trimmed = name.trim();
-    if (trimmed.length < 2 || trimmed.length > 30) return false;
-    if (trimmed.toLowerCase() === displayName.toLowerCase()) return false;
-    if (friends.includes(trimmed) || pendingRequests.includes(trimmed)) return false;
+  // Gibt null zurück, wenn es geklappt hat, sonst eine Fehlermeldung.
+  async function sendFriendRequest(otherId: string): Promise<string | null> {
+    const { data, error } = await supabase.rpc("send_friend_request", { p_other: otherId });
+    if (error) return friendlyFriendsError(error);
+    const other = friendEntries.find((f) => f.id === otherId);
+    if (data === "friend" && other) addActivity("🤝", `Du bist jetzt mit ${other.name} befreundet.`);
+    await refreshFriends();
+    return null;
+  }
 
-    setPendingRequests((current) => [...current, trimmed]);
-    setTimeout(() => {
-      setFriends((current) => (current.includes(trimmed) ? current : [...current, trimmed]));
-      setPendingRequests((current) => current.filter((n) => n !== trimmed));
-      addActivity("🤝", `Du bist jetzt mit ${trimmed} befreundet.`);
-    }, 2500);
-    return true;
+  async function respondFriendRequest(otherId: string, accept: boolean): Promise<string | null> {
+    const { error } = await supabase.rpc("respond_friend_request", { p_other: otherId, p_accept: accept });
+    if (error) return friendlyFriendsError(error);
+    const other = friendEntries.find((f) => f.id === otherId);
+    if (accept && other) addActivity("🤝", `Du bist jetzt mit ${other.name} befreundet.`);
+    await refreshFriends();
+    return null;
+  }
+
+  async function removeFriend(otherId: string): Promise<string | null> {
+    const { error } = await supabase.rpc("remove_friend", { p_other: otherId });
+    if (error) return friendlyFriendsError(error);
+    await refreshFriends();
+    return null;
   }
 
   // Eigene hochgeladene Fotos – global im UserContext statt nur lokal auf
@@ -1122,11 +1244,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
         tipsSubmitted,
         recordTipSubmitted,
         streakCount: streakState.count,
+        userNumber,
+        friendEntries,
         friends,
-        addFriend,
-        removeFriend,
         pendingRequests,
+        friendsLoaded,
+        friendsError,
+        refreshFriends,
+        searchPlayers,
         sendFriendRequest,
+        respondFriendRequest,
+        removeFriend,
         photoVisibility,
         setPhotoVisibility,
         rankIconOptions,
