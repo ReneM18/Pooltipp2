@@ -288,6 +288,7 @@ interface AppDataContextValue {
   teams: Team[];
   matches: Match[];
   addTeam: (team: Omit<Team, "id">) => void;
+  updateTeam: (id: string, changes: Omit<Team, "id">) => void;
   removeTeam: (id: string) => void;
   addMatch: (match: Omit<Match, "id">) => void;
   removeMatch: (id: string) => void;
@@ -606,6 +607,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   function addTeam(team: Omit<Team, "id">) {
     const id = `team-${Date.now()}`;
     setTeams((current) => [...current, { ...team, id }]);
+  }
+
+  // Spiele speichern nur die Team-ID, darum erscheinen Änderungen (Name,
+  // Flagge, Farben) automatisch auch bei allen bestehenden Spielen. Das
+  // Speichern in Supabase übernimmt der Sync-Effekt oben (upsert).
+  function updateTeam(id: string, changes: Omit<Team, "id">) {
+    setTeams((current) => current.map((t) => (t.id === id ? { ...changes, id } : t)));
   }
 
   function removeTeam(id: string) {
@@ -943,6 +951,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         teams,
         matches,
         addTeam,
+        updateTeam,
         removeTeam,
         addMatch,
         removeMatch,
