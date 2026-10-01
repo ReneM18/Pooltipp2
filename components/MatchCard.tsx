@@ -184,24 +184,24 @@ export default function MatchCard({
   }
 
   return (
-    <div className="overflow-hidden rounded-card border border-edge bg-surface">
-      {/* Sport-Banner */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-surface-hover to-surface px-5 py-2.5">
-        <span className="flex items-center gap-2 text-sm font-semibold text-ink">
-          <span className="text-lg">{sportIcon[match.sport] ?? ""}</span>
-          {!homeTeam.isNationalTeam && <span>{flagEmoji(homeTeam.countryCode)}</span>}
-          <span>
-            {match.competition}
-            {match.matchday ? ` · Spieltag ${match.matchday}` : ""}
-          </span>
+    <div className="flex h-full flex-col overflow-hidden rounded-card border border-edge bg-surface">
+      {/* Sport-Banner – immer genau eine Zeile (Spieltag steht unten bei der
+          Anstoßzeit), damit alle Karten gleich hohe Köpfe haben. */}
+      <div className="flex items-center justify-between gap-3 bg-gradient-to-r from-surface-hover to-surface px-5 py-2.5">
+        <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-ink">
+          <span className="shrink-0 text-lg">{sportIcon[match.sport] ?? ""}</span>
+          {!homeTeam.isNationalTeam && <span className="shrink-0">{flagEmoji(homeTeam.countryCode)}</span>}
+          <span className="truncate">{match.competition}</span>
         </span>
-        <span className="text-xs font-medium">
+        <span className="shrink-0 whitespace-nowrap text-xs font-medium">
           <Countdown kickoff={match.tipDeadline} />
         </span>
       </div>
 
-      <div className="p-5">
-        <div className="mb-1 flex items-center justify-center gap-2 text-center text-xs text-muted">
+      <div className="flex flex-1 flex-col p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xs text-muted">
+          {match.matchday ? <span className="font-semibold text-ink/80">Spieltag {match.matchday}</span> : null}
+          {match.matchday ? <span aria-hidden>·</span> : null}
           <span>{kickoffLabel}</span>
           {match.tvChannel && (
             <span className="flex items-center gap-1 rounded-full border border-edge bg-pitch px-2 py-0.5 text-[11px] font-semibold text-ink">
@@ -211,8 +211,11 @@ export default function MatchCard({
           )}
         </div>
 
-        <div className="mb-5 flex items-center justify-center gap-2 sm:gap-4">
-          <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+        {/* Teams: Wappen über dem Namen, Namen dürfen umbrechen statt
+            abgeschnitten zu werden. Zwei gleich breite Spalten + "vs" in der
+            Mitte, Platz für zwei Zeilen reserviert -> alle Karten gleich hoch. */}
+        <div className="mb-5 grid grid-cols-[1fr_auto_1fr] items-start gap-2 sm:gap-3">
+          <div className="flex min-w-0 flex-col items-center gap-1.5">
             <TeamBadge
               sport={match.sport}
               primaryColor={homeTeam.primaryColor}
@@ -220,12 +223,12 @@ export default function MatchCard({
               jerseyStyle={homeTeam.jerseyStyle}
               isNationalTeam={homeTeam.isNationalTeam}
               countryCode={homeTeam.countryCode}
-              size={26}
+              size={34}
             />
-            <TeamLabel name={homeTeam.name} align="right" />
+            <TeamLabel name={homeTeam.name} />
           </div>
-          <span className="font-display text-xs text-muted sm:text-sm">vs</span>
-          <div className="flex min-w-0 flex-row-reverse items-center gap-1.5 sm:gap-2">
+          <span className="pt-2 font-display text-xs text-muted sm:text-sm">vs</span>
+          <div className="flex min-w-0 flex-col items-center gap-1.5">
             <TeamBadge
               sport={match.sport}
               primaryColor={awayTeam.primaryColor}
@@ -234,9 +237,9 @@ export default function MatchCard({
               isNationalTeam={awayTeam.isNationalTeam}
               countryCode={awayTeam.countryCode}
               flip
-              size={26}
+              size={34}
             />
-            <TeamLabel name={awayTeam.name} align="left" />
+            <TeamLabel name={awayTeam.name} />
           </div>
         </div>
 
@@ -379,7 +382,7 @@ export default function MatchCard({
           </div>
         )}
 
-        <div className="mt-3 flex items-center justify-between text-xs text-muted">
+        <div className="mt-auto flex items-center justify-between pt-3 text-xs text-muted">
           <span className="flex items-center gap-1">
             <PeopleIcon className="h-3.5 w-3.5" />
             {tipCount.toLocaleString("de-DE")} getippt
@@ -589,13 +592,9 @@ function ResultBox({ match, homeTeam, awayTeam }: { match: Match; homeTeam: Team
   );
 }
 
-function TeamLabel({ name, align }: { name: string; align: "left" | "right" }) {
+function TeamLabel({ name }: { name: string }) {
   return (
-    <span
-      className={`min-w-0 truncate font-display text-sm font-semibold text-ink sm:text-lg ${
-        align === "right" ? "text-right" : "text-left"
-      }`}
-    >
+    <span className="flex min-h-[2.5em] w-full items-start justify-center break-words text-center font-display text-base font-semibold leading-tight text-ink [hyphens:auto] sm:text-lg">
       {name}
     </span>
   );
