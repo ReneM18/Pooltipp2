@@ -9,9 +9,11 @@ function formatRemaining(ms: number): string {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
-  if (hours > 0) return `schließt in ${hours}h ${minutes}m`;
-  if (minutes > 0) return `schließt in ${minutes}m ${seconds}s`;
-  return `schließt in ${seconds}s`;
+  // Ab einem Tag in Tagen statt "172h", damit es lesbar bleibt.
+  if (hours >= 24) return `schließt in ${Math.floor(hours / 24)} Tg. ${hours % 24} Std.`;
+  if (hours > 0) return `schließt in ${hours} Std. ${minutes} Min.`;
+  if (minutes > 0) return `schließt in ${minutes} Min. ${seconds} Sek.`;
+  return `schließt in ${seconds} Sek.`;
 }
 
 export default function Countdown({ kickoff }: { kickoff: string }) {
