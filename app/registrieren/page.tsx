@@ -11,11 +11,13 @@ export default function RegistrierenPage() {
   // isRegistered/authEmail/logout kommen jetzt direkt aus der echten
   // Supabase-Sitzung (siehe lib/UserContext.tsx) – gelten dadurch in der
   // ganzen App einheitlich, nicht nur auf dieser Seite.
-  const { isRegistered, authEmail, logout, displayName } = useUser();
+  const { isRegistered, authEmail, logout } = useUser();
   const { showToast, celebrate } = useFeedback();
 
   const [mode, setMode] = useState<"register" | "login">("register");
-  const [name, setName] = useState(displayName);
+  // Leer starten: Neue Besucher sollen ihren eigenen Namen eintippen, statt
+  // einen vorausgefüllten Demo-Namen zu übernehmen.
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -137,6 +139,7 @@ export default function RegistrierenPage() {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
+              placeholder="Wie sollen dich andere sehen?"
               required
               className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
             />
