@@ -17,6 +17,37 @@ body {
   overflow-x: clip;
 }
 
+/* Ältere iPhones (Safari vor Version 16) kennen "clip" noch nicht – dort
+   greift das Sicherheitsnetz oben gar nicht. Fallback NUR auf body: dessen
+   overflow wird an das Browserfenster weitergereicht, html bleibt
+   "visible", dadurch bleibt die sticky Kopfleiste intakt. */
+@supports not (overflow-x: clip) {
+  body {
+    overflow-x: hidden;
+  }
+}
+
+html {
+  /* Verhindert das Hineinzoomen per Doppeltipp (z. B. schnelles Tippen auf
+     Knöpfe am iPhone), Zoomen mit zwei Fingern bleibt erlaubt. */
+  touch-action: manipulation;
+}
+
+/* iPhone-Safari zoomt automatisch in die Seite, sobald man in ein Eingabe-
+   feld mit weniger als 16px Schrift tippt – und zoomt danach nicht mehr
+   heraus. Die Seite "schwimmt" dann bei jeder Fingerbewegung seitlich hin
+   und her. Auf Touch-Geräten bekommen kleine Eingabefelder daher 16px. */
+@media (pointer: coarse) {
+  input.text-xs,
+  input.text-sm,
+  textarea.text-xs,
+  textarea.text-sm,
+  select.text-xs,
+  select.text-sm {
+    font-size: 16px;
+  }
+}
+
 body {
   background-color: #0d1512;
   background-image: radial-gradient(circle at 20% 0%, rgba(232, 179, 76, 0.06), transparent 40%),

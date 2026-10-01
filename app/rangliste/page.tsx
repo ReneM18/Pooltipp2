@@ -262,7 +262,7 @@ function EmptyState({
       <p className="mx-auto mb-5 max-w-sm text-sm text-muted">{text}</p>
       {showRegisterLink && (
         <Link
-          href="/registrieren"
+          href="/registrieren?modus=registrieren"
           className="inline-block rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
         >
           Jetzt registrieren
