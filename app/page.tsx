@@ -44,23 +44,28 @@ export default function DashboardPage() {
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-5 sm:py-8">
       {/* Kompakter Titel statt großer Headline + Untertitel – die
           Sterne-Anzahl steht schon oben in der Navbar, das musste hier
-          nicht wiederholt werden. Spart Platz, bevor die eigentlichen
-          Spiele kommen. */}
-      <div className="mb-4 flex items-center gap-2.5">
-        <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">
-          Spieltag
-        </h1>
-        {streakCount > 0 && (
-          <span
-            title="Aufeinanderfolgende Tage mit mindestens einem Tipp"
-            className="flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 font-display text-xs font-bold text-gold"
-          >
-            🔥 {streakCount} {streakCount === 1 ? "Tag" : "Tage"} in Folge
-          </span>
-        )}
-      </div>
+          nicht wiederholt werden. Die Werbe-Platzhalterzeile steht jetzt in
+          derselben Zeile rechts daneben statt in einer eigenen Zeile darunter
+          – spart eine ganze Zeile Höhe, bevor die eigentlichen Spiele
+          kommen. Am Handy (zu schmal für eine Zeile) fällt sie automatisch
+          darunter. */}
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2.5">
+          <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">
+            Spieltag
+          </h1>
+          {streakCount > 0 && (
+            <span
+              title="Aufeinanderfolgende Tage mit mindestens einem Tipp"
+              className="flex items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 font-display text-xs font-bold text-gold"
+            >
+              🔥 {streakCount} {streakCount === 1 ? "Tag" : "Tage"} in Folge
+            </span>
+          )}
+        </div>
 
-      <AdBanner />
+        <AdBanner />
+      </div>
 
       <div className="mb-5 flex gap-2 border-b border-edge">
         <TabButton

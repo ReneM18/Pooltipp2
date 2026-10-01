@@ -16,7 +16,7 @@ export default function AdBanner() {
   if (hasAdFreeSubscription) return null;
 
   return (
-    <div className="mb-5 flex flex-col items-start gap-3 rounded-card border border-dashed border-edge bg-surface/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col items-start gap-3 rounded-card border border-dashed border-edge bg-surface/60 px-4 py-2.5 sm:flex-row sm:items-center sm:gap-4">
       <div className="flex items-center gap-3">
         <span className="shrink-0 rounded bg-surface-hover px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
           Anzeige
