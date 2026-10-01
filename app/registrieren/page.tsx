@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent } from "react";
+import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { supabase } from "@/lib/supabaseClient";
+import { readPendingInvite } from "@/lib/leagueInvite";
 
 export default function RegistrierenPage() {
   // isRegistered/authEmail/logout kommen jetzt direkt aus der echten
@@ -19,6 +21,12 @@ export default function RegistrierenPage() {
   const [submitting, setSubmitting] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [result, setResult] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  // Kam man über einen Tipprunden-Einladungslink hierher, geht es nach dem
+  // Einloggen direkt zurück zum Beitreten.
+  const [pendingInvite, setPendingInvite] = useState<string | null>(null);
+  useEffect(() => {
+    setPendingInvite(readPendingInvite());
+  }, []);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -88,6 +96,14 @@ export default function RegistrierenPage() {
         <p className="mt-2 text-sm text-muted">
           Angemeldet als <span className="font-semibold text-ink">{authEmail}</span>
         </p>
+        {pendingInvite && (
+          <Link
+            href={`/teams?code=${encodeURIComponent(pendingInvite)}`}
+            className="mt-6 block rounded-full bg-blue-500 px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
+          >
+            Weiter zur Tipprunde
+          </Link>
+        )}
         <button
           type="button"
           onClick={handleLogout}

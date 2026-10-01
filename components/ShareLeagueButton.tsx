@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { inviteLink } from "@/lib/leagueInvite";
 
 interface ShareLeagueButtonProps {
   leagueName: string;
@@ -10,7 +11,9 @@ interface ShareLeagueButtonProps {
 export default function ShareLeagueButton({ leagueName, code }: ShareLeagueButtonProps) {
   const [copied, setCopied] = useState(false);
 
-  const text = `⚽ Tritt meiner PoolTipp-Tipprunde "${leagueName}" bei!\n\nCode: ${code}\n\nRunter mit der PoolTipp-App, "Private Tipprunden" → "Beitreten" → Code eingeben.`;
+  // Link direkt zum Beitreten (füllt den Code automatisch aus) plus der Code
+  // selbst, falls jemand lieber in der App eintippt.
+  const text = `⚽ Tritt meiner PoolTipp-Tipprunde "${leagueName}" bei!\n\n${inviteLink(code)}\n\nOder in PoolTipp unter "Tipprunden" → "Mit Code beitreten" den Code ${code} eingeben.`;
 
   async function handleShare() {
     if (typeof navigator !== "undefined" && "share" in navigator) {
@@ -42,7 +45,7 @@ export default function ShareLeagueButton({ leagueName, code }: ShareLeagueButto
         className="flex items-center gap-1.5 rounded-full bg-blue-500 px-3.5 py-1.5 font-display text-xs font-semibold text-pitch transition-colors hover:bg-blue-400"
       >
         <ShareIcon className="h-3.5 w-3.5" />
-        Liga-Code teilen
+        Einladen
       </button>
       <button
         onClick={handleCopy}
