@@ -38,11 +38,11 @@ export default function FreundePage() {
             if (error) setError(false);
           }}
           placeholder="Name eingeben…"
-          className="flex-1 rounded-lg border border-edge bg-surface px-4 py-2.5 text-sm text-ink outline-none focus:border-gold"
+          className="min-w-0 flex-1 rounded-lg border border-edge bg-surface px-4 py-2.5 text-sm text-ink outline-none focus:border-gold"
         />
         <button
           type="submit"
-          className="rounded-full bg-action px-5 py-2.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+          className="shrink-0 whitespace-nowrap rounded-full bg-action px-4 py-2.5 font-display text-sm font-semibold text-pitch sm:px-5 transition-colors hover:bg-action-hover"
         >
           Anfrage senden
         </button>

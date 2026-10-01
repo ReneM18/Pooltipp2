@@ -187,7 +187,7 @@ export default function MatchCard({
     <div className="flex h-full flex-col overflow-hidden rounded-card border border-edge bg-surface">
       {/* Sport-Banner – immer genau eine Zeile (Spieltag steht unten bei der
           Anstoßzeit), damit alle Karten gleich hohe Köpfe haben. */}
-      <div className="flex items-center justify-between gap-3 bg-gradient-to-r from-surface-hover to-surface px-5 py-2.5">
+      <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-surface-hover to-surface px-4 py-2.5 sm:gap-3 sm:px-5">
         <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-ink">
           <span className="shrink-0 text-lg">{sportIcon[match.sport] ?? ""}</span>
           {!homeTeam.isNationalTeam && <span className="shrink-0">{flagEmoji(homeTeam.countryCode)}</span>}
@@ -428,7 +428,7 @@ export default function MatchCard({
                           })}
                         </span>
                       </div>
-                      <p className="mb-1.5 text-sm text-ink">{comment.text}</p>
+                      <p className="mb-1.5 text-sm text-ink [overflow-wrap:anywhere]">{comment.text}</p>
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => toggleCommentLike(comment.id, displayName)}

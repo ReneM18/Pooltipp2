@@ -184,7 +184,7 @@ function TournamentCard({
                 const home = getTeam(match.homeTeamId);
                 const away = getTeam(match.awayTeamId);
                 return (
-                  <p key={match.id} className="truncate text-xs text-ink">
+                  <p key={match.id} className="text-xs leading-snug text-ink">
                     {sportIcon[match.sport]} {home?.name ?? "?"} vs {away?.name ?? "?"}
                     {match.status === "finished" && (
                       <span className="text-muted">
@@ -215,7 +215,7 @@ function TournamentCard({
                   entry.isCurrentUser ? "bg-gold/10 text-gold" : "text-ink"
                 }`}
               >
-                <span className="truncate">
+                <span className="min-w-0 pr-2 leading-snug">
                   {entry.rank}. {entry.name}
                   {entry.isCurrentUser && <span className="ml-1 text-muted">(Du)</span>}
                 </span>

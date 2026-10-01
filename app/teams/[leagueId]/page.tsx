@@ -240,11 +240,11 @@ export default function LeagueDetailPage() {
             {members.map((member, i) => (
               <div
                 key={member.userId}
-                className={`flex items-center justify-between px-5 py-3 ${
+                className={`flex items-center justify-between gap-3 px-4 py-3 sm:px-5 ${
                   i !== members.length - 1 ? "border-b border-edge" : ""
                 } ${member.userId === authUserId ? "bg-surface-hover" : ""}`}
               >
-                <span className="text-sm text-ink">
+                <span className="min-w-0 text-sm text-ink">
                   {i + 1}. {member.displayName}{" "}
                   {member.userId === authUserId && <span className="text-muted">(Du)</span>}
                   {member.exactTips > 0 && (
@@ -253,7 +253,9 @@ export default function LeagueDetailPage() {
                     </span>
                   )}
                 </span>
-                <span className="font-display font-semibold text-blue-400">{member.points} Liga-Pkt</span>
+                <span className="shrink-0 whitespace-nowrap font-display font-semibold text-blue-400">
+                  {member.points} Liga-Pkt
+                </span>
               </div>
             ))}
           </div>
@@ -501,8 +503,10 @@ function LeagueMatchCard({
 
   return (
     <div className="rounded-card border border-edge bg-surface p-4">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="font-display text-sm font-semibold text-ink">{match.title}</span>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <span className="min-w-0 basis-full font-display text-sm font-semibold text-ink sm:basis-auto sm:flex-1">
+          {match.title}
+        </span>
         <div className="flex shrink-0 items-center gap-2">
           <span className="text-xs text-muted">
             {new Date(match.kickoff).toLocaleString("de-DE", {
@@ -536,17 +540,19 @@ function LeagueMatchCard({
       </div>
 
       {finished ? (
-        <p className="text-sm text-ink">
-          Endstand: <span className="font-semibold">{match.finalHomeScore} : {match.finalAwayScore}</span>
+        <p className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-ink">
+          <span>
+            Endstand: <span className="font-semibold">{match.finalHomeScore} : {match.finalAwayScore}</span>
+          </span>
           {myTip ? (
-            <span className="ml-3 text-muted">
+            <span className="text-muted">
               Dein Tipp: {myTip.predictedHomeScore}:{myTip.predictedAwayScore}
               {myPoints !== null && (
-                <span className="ml-1 font-semibold text-blue-400">+{myPoints} Liga-Pkt</span>
+                <span className="ml-1 whitespace-nowrap font-semibold text-blue-400">+{myPoints} Liga-Pkt</span>
               )}
             </span>
           ) : (
-            <span className="ml-3 text-muted">Kein Tipp abgegeben</span>
+            <span className="text-muted">Kein Tipp abgegeben</span>
           )}
         </p>
       ) : showTipForm ? (

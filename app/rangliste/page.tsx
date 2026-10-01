@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import FitText from "@/components/FitText";
 import { SPORTS, Sport } from "@/lib/types";
 import { getIconForPoints, getSportRankIcon, RankIconOption } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
@@ -177,25 +178,28 @@ export default function RanglistePage() {
             {entries.map((entry, index) => (
               <div
                 key={entry.id}
-                className={`flex items-center justify-between px-5 py-4 ${
+                className={`flex items-center justify-between px-3 py-4 sm:px-5 ${
                   index !== entries.length - 1 ? "border-b border-edge" : ""
                 } ${entry.isCurrentUser ? "bg-surface-hover" : podiumRowClass(entry.rank)}`}
               >
-                <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
                   <RankNumber rank={entry.rank} />
                   <NameAvatar name={entry.name} rank={entry.rank} />
                   <RankBadge option={entry.icon} size="sm" />
                   {entry.isCurrentUser ? (
-                    <span className="min-w-0 truncate font-display text-base font-semibold text-gold">
-                      {entry.name}
-                      <span className="ml-2 text-xs font-medium text-muted">(Du)</span>
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                      <FitText
+                        text={entry.name}
+                        className="font-display text-base font-semibold leading-tight text-gold"
+                      />
+                      <span className="shrink-0 text-xs font-medium text-muted">(Du)</span>
                     </span>
                   ) : (
                     <Link
                       href={`/spieler/${encodeURIComponent(entry.name)}`}
-                      className="min-w-0 truncate font-display text-base font-semibold text-ink transition-colors hover:text-gold"
+                      className="min-w-0 flex-1 font-display text-base font-semibold leading-tight text-ink transition-colors hover:text-gold"
                     >
-                      {entry.name}
+                      <FitText text={entry.name} />
                     </Link>
                   )}
                 </div>
@@ -341,7 +345,7 @@ const PODIUM_RING: Record<number, string> = {
 
 // Countdown bis zum wöchentlichen Reset der Spieltags-Rangliste (Montag
 // 00:00). Eigene, kleine Komponente statt components/Countdown.tsx, weil
-// deren Text ("schließt in…", "Tippannahme geschlossen") auf Tipp-Fristen
+// deren Text ("noch 3 Std. …", "Tipps geschlossen") auf Tipp-Fristen
 // zugeschnitten ist, nicht auf einen Ranglisten-Reset.
 function WeeklyCountdown({ target }: { target: number }) {
   // null statt sofort Date.now() zu verrechnen: vermeidet einen Hydration-

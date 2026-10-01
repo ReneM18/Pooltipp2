@@ -9,6 +9,7 @@ import {
   StandingRow,
 } from "@/lib/sportsApi";
 import AdBanner from "@/components/AdBanner";
+import FitText from "@/components/FitText";
 
 const LEAGUES = Object.keys(LEAGUE_IDS);
 
@@ -93,13 +94,14 @@ export default function MatchcenterPage() {
 
       {!loading && !error && view === "tabelle" && (
         <div className="overflow-hidden rounded-card border border-edge bg-surface">
-          <div className="grid grid-cols-[2rem_1fr_2.5rem_2.5rem_2.5rem_2.5rem_3rem] gap-2 border-b border-edge px-4 py-2 text-xs text-muted">
+          <div className={`${TABLE_GRID} border-b border-edge py-2 text-xs text-muted`}>
             <span>#</span>
             <span>Team</span>
             <span className="text-center">Sp</span>
-            <span className="text-center">S</span>
-            <span className="text-center">U</span>
-            <span className="text-center">N</span>
+            <span className="text-center sm:hidden">S-U-N</span>
+            <span className="hidden text-center sm:block">S</span>
+            <span className="hidden text-center sm:block">U</span>
+            <span className="hidden text-center sm:block">N</span>
             <span className="text-right">Pkt</span>
           </div>
           {(standings ?? []).length === 0 && (
@@ -108,14 +110,17 @@ export default function MatchcenterPage() {
           {(standings ?? []).map((row) => (
             <div
               key={row.rank}
-              className="grid grid-cols-[2rem_1fr_2.5rem_2.5rem_2.5rem_2.5rem_3rem] gap-2 border-b border-edge px-4 py-2.5 text-sm last:border-0"
+              className={`${TABLE_GRID} items-center border-b border-edge py-2.5 text-sm last:border-0`}
             >
               <span className="text-muted">{row.rank}</span>
-              <span className="min-w-0 truncate text-ink">{row.teamName}</span>
+              <FitText text={row.teamName} className="leading-tight text-ink" />
               <span className="text-center text-muted">{row.played}</span>
-              <span className="text-center text-muted">{row.win}</span>
-              <span className="text-center text-muted">{row.draw}</span>
-              <span className="text-center text-muted">{row.loss}</span>
+              <span className="whitespace-nowrap text-center text-xs text-muted sm:hidden">
+                {row.win}-{row.draw}-{row.loss}
+              </span>
+              <span className="hidden text-center text-muted sm:block">{row.win}</span>
+              <span className="hidden text-center text-muted sm:block">{row.draw}</span>
+              <span className="hidden text-center text-muted sm:block">{row.loss}</span>
               <span className="text-right font-semibold text-ink">{row.points}</span>
             </div>
           ))}
@@ -128,17 +133,14 @@ export default function MatchcenterPage() {
             <p className="py-8 text-center text-sm text-muted lg:col-span-2">Keine Ergebnisse verfügbar.</p>
           )}
           {(results ?? []).map((r) => (
-            <div
-              key={r.id}
-              className="flex items-center justify-between rounded-card border border-edge bg-surface px-4 py-3"
-            >
-              <span className="min-w-0 flex-1 truncate pr-2 text-sm text-ink">
-                {r.homeTeam} vs {r.awayTeam}
-              </span>
-              <span className="shrink-0 font-display font-semibold text-ink">
-                {r.homeScore} : {r.awayScore}
-              </span>
-              <span className="ml-2 shrink-0 text-xs text-muted">{r.date}</span>
+            <div key={r.id} className="rounded-card border border-edge bg-surface px-4 py-3">
+              <p className="mb-1.5 text-xs text-muted">{formatDate(r.date)}</p>
+              <div className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 text-sm">
+                <FitText text={r.homeTeam} className="leading-tight text-ink" />
+                <span className="font-display font-semibold text-ink">{r.homeScore}</span>
+                <FitText text={r.awayTeam} className="leading-tight text-ink" />
+                <span className="font-display font-semibold text-ink">{r.awayScore}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -152,6 +154,17 @@ export default function MatchcenterPage() {
       </p>
     </main>
   );
+}
+
+// Am Handy werden Siege/Unentschieden/Niederlagen zu einer Spalte "S-U-N"
+// zusammengefasst, damit für den Teamnamen genug Platz bleibt.
+const TABLE_GRID =
+  "grid grid-cols-[1.25rem_1fr_1.5rem_3.25rem_1.75rem] gap-2 px-3 sm:grid-cols-[2rem_1fr_2.5rem_2.5rem_2.5rem_2.5rem_3rem] sm:px-4";
+
+// "2026-09-27" -> "27.09.2026"
+function formatDate(iso: string): string {
+  const [y, m, d] = (iso ?? "").split("-");
+  return y && m && d ? `${d}.${m}.${y}` : iso;
 }
 
 function SubTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
