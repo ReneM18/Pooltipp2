@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { mockUser } from "@/lib/mockData";
 import { getAvailableRankIcons, getBestRankIcon, RankIconOption } from "@/lib/rankTiers";
 import { PhotoVisibility } from "@/lib/mockUsers";
-import { useAppData } from "@/lib/AppDataContext";
+import { useAppData, SubmittedBonusAnswer } from "@/lib/AppDataContext";
 import { Sport, SPORTS } from "@/lib/types";
 import { mockLeaderboardBySport } from "@/lib/mockLeaderboard";
 import {
@@ -167,6 +167,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     matches,
     myBonusAnswers,
     markBonusAnswerEvaluated,
+    hydrateBonusAnswers,
     contentLoaded,
   } = useAppData();
   // Startet leer statt sofort mit Math.random() zu würfeln: Server und
@@ -249,7 +250,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  const [tipsSubmitted, setTipsSubmitted] = useState(0);
+  // Aus den (in Supabase gespeicherten) eigenen Tipps abgeleitet statt als
+  // eigener Zähler – der stand nach jedem Neuladen wieder auf 0.
+  const tipsSubmitted = myTips.length;
   // Ein Objekt statt getrennter useStates (gleiches Muster wie starsState),
   // damit recordTipSubmitted bei schnell aufeinanderfolgenden Tipps immer
   // mit einem konsistenten Stand rechnet.
@@ -343,11 +346,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const lastSyncedStarsRef = useRef<number | null>(null);
   const starsRequestRef = useRef(0);
   useEffect(() => {
-    if (!authUserId) {
-      lastSyncedStarsRef.current = null;
-      setProfileLoaded(false);
-      return;
-    }
+    lastSyncedStarsRef.current = null;
+    setProfileLoaded(false);
+    if (!authUserId) return;
     let cancelled = false;
     (async () => {
       const { data: profile, error } = await supabase
@@ -361,8 +362,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
 
       if (error) {
+        // Bewusst NICHT profileLoaded setzen: sonst würde der Sync-Effekt
+        // unten die Demo-Werte (Name, Rangpunkte, XP) über das echte Profil
+        // in der Datenbank schreiben. Nach dem nächsten Neuladen klappt es.
         console.warn("Profil konnte nicht geladen werden:", error.message);
-        setProfileLoaded(true);
         return;
       }
 
@@ -605,6 +608,92 @@ export function UserProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rankIconOptions]);
 
+  // Weitere Profil-Einstellungen (Fotos, Foto-Sichtbarkeit, Rang-Icon,
+  // Rahmenfarben, Bonusfrage-Antworten, Tages-Einsatz) in einer eigenen
+  // Tabelle "profile_extras", die nur der Besitzer selbst lesen darf (siehe
+  // supabase/profil-extras.sql). Fehlt die Tabelle noch, bleibt alles wie
+  // bisher nur im Browser – Profil, Sterne und Tipps speichern trotzdem.
+  const [extrasLoaded, setExtrasLoaded] = useState(false);
+  useEffect(() => {
+    setExtrasLoaded(false);
+    if (!authUserId) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("profile_extras")
+        .select("photos, photo_visibility, rank_icon_id, frame_colors, bonus_answers, stake_state")
+        .eq("id", authUserId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        console.warn("Profil-Einstellungen konnten nicht geladen werden:", error.message);
+        return;
+      }
+      if (data) {
+        if (Array.isArray(data.photos)) setPhotos(data.photos as (string | null)[]);
+        if (data.photo_visibility) setPhotoVisibility(data.photo_visibility as PhotoVisibility);
+        if (data.rank_icon_id) setSelectedRankIconId(data.rank_icon_id);
+        if (data.frame_colors) setCustomFrameColorsState(data.frame_colors as { from: string; to: string });
+        if (Array.isArray(data.bonus_answers)) hydrateBonusAnswers(data.bonus_answers as SubmittedBonusAnswer[]);
+        const stake = data.stake_state as {
+          stakedToday?: number;
+          stakeBudgetDay?: string | null;
+          rescueBonusUsed?: boolean;
+        } | null;
+        if (stake) {
+          setStarsState((current) => ({
+            ...current,
+            stakedToday: stake.stakedToday ?? current.stakedToday,
+            stakeBudgetDay: stake.stakeBudgetDay ?? current.stakeBudgetDay,
+            rescueBonusUsed: stake.rescueBonusUsed ?? current.rescueBonusUsed,
+          }));
+        }
+      }
+      setExtrasLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUserId]);
+
+  useEffect(() => {
+    if (!authUserId || !extrasLoaded) return;
+    supabase
+      .from("profile_extras")
+      .upsert(
+        {
+          id: authUserId,
+          photos,
+          photo_visibility: photoVisibility,
+          rank_icon_id: selectedRankIconId,
+          frame_colors: customFrameColors,
+          bonus_answers: myBonusAnswers,
+          stake_state: {
+            stakedToday: starsState.stakedToday,
+            stakeBudgetDay: starsState.stakeBudgetDay,
+            rescueBonusUsed: starsState.rescueBonusUsed,
+          },
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      )
+      .then(({ error }) => {
+        if (error) console.warn("Profil-Einstellungen konnten nicht gespeichert werden:", error.message);
+      });
+  }, [
+    authUserId,
+    extrasLoaded,
+    photos,
+    photoVisibility,
+    selectedRankIconId,
+    customFrameColors,
+    myBonusAnswers,
+    starsState.stakedToday,
+    starsState.stakeBudgetDay,
+    starsState.rescueBonusUsed,
+  ]);
+
   const activeRankIcon =
     rankIconOptions.find((o) => o.id === selectedRankIconId) ?? getBestRankIcon(rankIconOptions);
 
@@ -812,6 +901,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const handledEvaluationsRef = useRef(new Set<string>());
   useEffect(() => {
     if (!authUserId || !profileLoaded || !tipsLoaded || !contentLoaded) return;
+    // Bonusfragen: sobald der Admin die richtige Antwort gesetzt hat, wertet
+    // jeder Spieler seine eigene (gespeicherte) Antwort selbst aus – vorher
+    // passierte das nur im Browser des Admins.
+    if (extrasLoaded) {
+      for (const match of matches) {
+        if (match.bonusQuestion && match.bonusQuestion.correctOptionIndex !== null) {
+          evaluateBonusAnswerForCurrentUser(match.id);
+        }
+      }
+    }
     for (const match of matches) {
       if (match.status !== "finished" || match.liveHomeScore === null || match.liveAwayScore === null) continue;
       const actualHome = match.liveHomeScore;
@@ -843,7 +942,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
     // evaluate*/correct* lesen bewusst den aktuellen Render-Stand.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matches, myTips, authUserId, profileLoaded, tipsLoaded, contentLoaded]);
+  }, [matches, myTips, myBonusAnswers, authUserId, profileLoaded, tipsLoaded, contentLoaded, extrasLoaded]);
 
   // Verhindert doppelte Auswertung, wenn dasselbe Konto gleichzeitig in zwei
   // Browsern/Geräten offen ist: Nur wer den Tipp in Supabase als erster von
@@ -877,12 +976,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return false;
   }
 
+  // Merkt sich bereits ausgewertete Bonus-Antworten, damit der Admin-Klick
+  // und die automatische Auswertung unten nie doppelt Sterne gutschreiben.
+  const handledBonusAnswersRef = useRef(new Set<string>());
   function evaluateBonusAnswerForCurrentUser(matchId: string) {
     const answer = [...myBonusAnswers].reverse().find((a) => a.matchId === matchId && !a.evaluated);
-    if (!answer) return;
+    if (!answer || handledBonusAnswersRef.current.has(answer.id)) return;
 
     const match = matches.find((m) => m.id === matchId);
     if (!match?.bonusQuestion || match.bonusQuestion.correctOptionIndex === null) return;
+    handledBonusAnswersRef.current.add(answer.id);
 
     const correct = answer.optionIndex === match.bonusQuestion.correctOptionIndex;
     const starsDelta = correct ? match.bonusQuestion.bonusStars : 0;
@@ -902,8 +1005,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }
 
   function recordTipSubmitted() {
-    setTipsSubmitted((current) => current + 1);
-
     // Tipp-Streak fortschreiben: derselbe Kalendertag zählt nur einmal, der
     // Folgetag verlängert die Serie, ein übersprungener Tag setzt sie zurück
     // auf 1. Meilenstein-Bonus wird außerhalb des Updaters vergeben (addActivity

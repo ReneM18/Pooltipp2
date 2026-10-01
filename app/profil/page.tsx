@@ -109,11 +109,25 @@ export default function ProfilPage() {
   function handlePhotoChange(index: number, e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPhoto(index, reader.result as string);
+    // Vor dem Speichern verkleinern (max. 600 px, JPEG): ein Handyfoto hat
+    // sonst mehrere MB und wäre zu groß für die Datenbank.
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 600 / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      setPhoto(index, canvas.toDataURL("image/jpeg", 0.8));
     };
-    reader.readAsDataURL(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      showToast("Dieses Bild konnte nicht geöffnet werden.", "info");
+    };
+    img.src = url;
+    e.target.value = "";
   }
 
   return (
@@ -342,8 +356,7 @@ export default function ProfilPage() {
           ))}
         </div>
         <p className="mt-2 text-xs text-muted">
-          Fotos werden aktuell nur lokal in deinem Browser angezeigt (noch keine dauerhafte
-          Speicherung ohne Backend).
+          Fotos werden in deinem Konto gespeichert, sobald du eingeloggt bist.
         </p>
       </section>
 
