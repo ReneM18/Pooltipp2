@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useRef, FormEvent } from "react";
 import Link from "next/link";
 import { useAppData, NewsItem } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
@@ -336,7 +336,7 @@ function NoAccess({ loggedIn }: { loggedIn: boolean }) {
 }
 
 function TeamManager() {
-  const { teams, addTeam, removeTeam } = useAppData();
+  const { teams, addTeam, updateTeam, removeTeam } = useAppData();
   const { showToast } = useFeedback();
   const [name, setName] = useState("");
   const [sport, setSport] = useState<Sport>("Fußball");
@@ -348,12 +348,38 @@ function TeamManager() {
   const [secondaryColor, setSecondaryColor] = useState("#FFFFFF");
   const [jerseyStyle, setJerseyStyle] = useState<JerseyStyle>("solid");
   const [isNationalTeam, setIsNationalTeam] = useState(false);
+  // Gesetzt, solange ein bestehendes Team bearbeitet wird: dasselbe Formular
+  // wie beim Anlegen, nur mit den Werten des Teams vorausgefüllt.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  function resetForm() {
+    setEditingId(null);
+    setName("");
+    setSport("Fußball");
+    setCountryCode(DEFAULT_COUNTRY_CODE);
+    setPrimaryColor("#3FA66B");
+    setSecondaryColor("#FFFFFF");
+    setJerseyStyle("solid");
+    setIsNationalTeam(false);
+  }
+
+  function startEdit(team: Team) {
+    setEditingId(team.id);
+    setName(team.name);
+    setSport(team.sport);
+    setCountryCode(team.countryCode);
+    setPrimaryColor(team.primaryColor);
+    setSecondaryColor(team.secondaryColor);
+    setJerseyStyle(team.jerseyStyle ?? "solid");
+    setIsNationalTeam(team.isNationalTeam ?? false);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    if (!confirm(`Team "${name.trim()}" anlegen?`)) return;
-    addTeam({
+    const data = {
       name: name.trim(),
       sport,
       countryCode,
@@ -361,7 +387,17 @@ function TeamManager() {
       secondaryColor,
       jerseyStyle,
       isNationalTeam,
-    });
+    };
+    if (editingId) {
+      if (!confirm(`Änderungen an "${name.trim()}" speichern?`)) return;
+      updateTeam(editingId, data);
+      setTeamListTab(sport);
+      resetForm();
+      showToast(`✓ Team "${data.name}" gespeichert.`, "success");
+      return;
+    }
+    if (!confirm(`Team "${name.trim()}" anlegen?`)) return;
+    addTeam(data);
     setName("");
     showToast(`✓ Team "${name.trim()}" angelegt.`, "success");
   }
@@ -371,10 +407,15 @@ function TeamManager() {
       <h2 className="mb-4 font-display text-2xl font-semibold text-ink">Teams</h2>
 
       <form
+        ref={formRef}
         onSubmit={handleSubmit}
-        className="mb-6 flex flex-col gap-5 rounded-card border border-edge bg-surface p-5 sm:p-6"
+        className={`mb-6 flex scroll-mt-40 flex-col gap-5 rounded-card border bg-surface p-5 sm:p-6 ${
+          editingId ? "border-gold" : "border-edge"
+        }`}
       >
-        <h3 className="font-display text-base font-semibold text-ink">Neues Team anlegen</h3>
+        <h3 className="font-display text-base font-semibold text-ink">
+          {editingId ? "Team bearbeiten" : "Neues Team anlegen"}
+        </h3>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="sm:col-span-1">
@@ -480,12 +521,23 @@ function TeamManager() {
           )}
         </div>
 
-        <button
-          type="submit"
-          className="self-start rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
-        >
-          Team anlegen
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="submit"
+            className="rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
+          >
+            {editingId ? "Änderungen speichern" : "Team anlegen"}
+          </button>
+          {editingId && (
+            <button
+              type="button"
+              onClick={resetForm}
+              className="rounded-full border border-edge px-6 py-3 font-display text-base font-semibold text-muted transition-colors hover:text-ink"
+            >
+              Abbrechen
+            </button>
+          )}
+        </div>
       </form>
 
       <div className="mb-4 flex flex-wrap gap-2.5">
@@ -540,17 +592,26 @@ function TeamManager() {
                   </span>
                 </span>
               </span>
-              <button
-                onClick={() => {
-                  if (confirm(`Team "${team.name}" wirklich entfernen?`)) {
-                    removeTeam(team.id);
-                    showToast(`✓ Team "${team.name}" entfernt.`, "info");
-                  }
-                }}
-                className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-red-400"
-              >
-                Entfernen
-              </button>
+              <span className="flex shrink-0 flex-col items-end gap-1">
+                <button
+                  onClick={() => startEdit(team)}
+                  className="rounded-lg px-2 py-1 text-xs font-semibold text-gold transition-colors hover:text-ink"
+                >
+                  Bearbeiten
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Team "${team.name}" wirklich entfernen?`)) {
+                      removeTeam(team.id);
+                      if (editingId === team.id) resetForm();
+                      showToast(`✓ Team "${team.name}" entfernt.`, "info");
+                    }
+                  }}
+                  className="rounded-lg px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-red-400"
+                >
+                  Entfernen
+                </button>
+              </span>
             </div>
           ))}
       </div>
