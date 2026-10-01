@@ -592,9 +592,34 @@ function ResultBox({ match, homeTeam, awayTeam }: { match: Match; homeTeam: Team
   );
 }
 
+// Teamnamen brechen nur an Leerzeichen um, nie mitten im Wort (kein
+// "Le-/verkusen"). Passt ein langes Einzelwort wie "Mönchengladbach" nicht in
+// die Spalte, wird die Schrift schrittweise verkleinert, bis es passt.
 function TeamLabel({ name }: { name: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      el.style.fontSize = "";
+      let size = parseFloat(getComputedStyle(el).fontSize);
+      while (el.scrollWidth > el.clientWidth && size > 11) {
+        size -= 0.5;
+        el.style.fontSize = `${size}px`;
+      }
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(el.parentElement ?? el);
+    return () => observer.disconnect();
+  }, [name]);
+
   return (
-    <span className="flex min-h-[2.5em] w-full items-start justify-center break-words text-center font-display text-base font-semibold leading-tight text-ink [hyphens:auto] sm:text-lg">
+    <span
+      ref={ref}
+      className="flex min-h-[2.5em] w-full items-start justify-center text-center font-display text-base font-semibold leading-tight text-ink [hyphens:manual] [overflow-wrap:normal] sm:text-lg"
+    >
       {name}
     </span>
   );
