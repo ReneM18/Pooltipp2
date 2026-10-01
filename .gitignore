@@ -1,0 +1,24 @@
+# Abhängigkeiten (werden mit "npm install" neu erzeugt)
+node_modules/
+
+# Next.js-Build
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Geheime Schlüssel / lokale Einstellungen
+.env*
+!.env.example
+
+# Vercel
+.vercel/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Systemdateien (macOS / Windows)
+.DS_Store
+Thumbs.db

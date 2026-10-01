@@ -356,8 +356,7 @@ export default function ProfilPage() {
           <StatCard label="Tipp-Streak" value={`🔥 ${streakCount.toLocaleString("de-DE")}`} accent="gold" />
         </div>
         <p className="mt-3 text-xs text-muted">
-          Genauere Statistiken (Trefferquote, Tipp-Verlauf) kommen, sobald Tipps dauerhaft in
-          Firestore gespeichert werden.
+          Genauere Statistiken (Trefferquote, Tipp-Verlauf) folgen in einem späteren Update.
         </p>
       </section>
 
