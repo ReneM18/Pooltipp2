@@ -595,11 +595,7 @@ function MatchManager() {
     setBonusQuestion,
     setBonusQuestionAnswer,
   } = useAppData();
-  const {
-    evaluateMatchForCurrentUser,
-    correctMatchEvaluationForCurrentUser,
-    evaluateBonusAnswerForCurrentUser,
-  } = useUser();
+  const { evaluateBonusAnswerForCurrentUser } = useUser();
   const { resolveDuelsForMatch } = useDuels();
   const { showToast } = useFeedback();
 
@@ -608,14 +604,11 @@ function MatchManager() {
     evaluateBonusAnswerForCurrentUser(matchId);
   }
 
-  // Sobald ein Spiel hier auf "Beendet" gesetzt wird, löst das direkt die
-  // PoolScore-Auswertung des eigenen Tipps aus (Rangliste-Punkte, Sterne,
-  // Prozent-Vergleich) – siehe UserContext.evaluateMatchForCurrentUser.
-  // War das Spiel schon vorher "Beendet" und der Endstand wird jetzt nur
-  // NACHTRÄGLICH korrigiert (z. B. Tippfehler beim ersten Eintragen), läuft
-  // stattdessen die Korrektur-Variante: die macht die alte Punkte-/
-  // Sterne-Gutschrift rückgängig, bevor sie die neue anwendet – sonst bliebe
-  // entweder der falsche Stand stehen oder es würde doppelt gutgeschrieben.
+  // Die PoolScore-Auswertung der Tipps (auch Korrekturen nach einem
+  // geänderten Endstand) passiert nicht mehr hier, sondern bei JEDEM Spieler
+  // selbst, sobald er das beendete Spiel sieht – siehe die automatische
+  // Auswertung in lib/UserContext.tsx. Vorher wurde hier nur der eigene Tipp
+  // des Admins ausgewertet, alle anderen blieben für immer offen.
   function handleScoreUpdate(
     matchId: string,
     homeScore: number | null,
@@ -623,16 +616,8 @@ function MatchManager() {
     status: MatchStatus
   ) {
     const match = matches.find((m) => m.id === matchId);
-    const wasFinished = match?.status === "finished";
-    const scoreChanged =
-      homeScore !== match?.liveHomeScore || awayScore !== match?.liveAwayScore;
     updateMatchScore(matchId, homeScore, awayScore, status);
     if (status === "finished" && match && homeScore !== null && awayScore !== null) {
-      if (!wasFinished) {
-        evaluateMatchForCurrentUser(matchId, match.sport, homeScore, awayScore);
-      } else if (scoreChanged) {
-        correctMatchEvaluationForCurrentUser(matchId, match.sport, homeScore, awayScore);
-      }
       // Löst auch offene Kopf-an-Kopf-Duelle zu diesem Spiel aus – tut
       // nichts, wenn es keine gibt oder sie schon ausgewertet sind.
       resolveDuelsForMatch(matchId, homeScore, awayScore);

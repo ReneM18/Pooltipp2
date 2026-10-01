@@ -105,7 +105,8 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
     };
     setTournaments((current) => [...current, tournament]);
-    addActivity(icon || "🏆", `Neues Turnier gestartet: ${name}.`);
+    const startText = `Neues Turnier gestartet: ${name}.`;
+    addActivity(icon || "🏆", startText, { author: "PoolTipp", text: startText });
     return tournament;
   }
 

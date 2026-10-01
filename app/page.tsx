@@ -8,7 +8,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 
 export default function DashboardPage() {
-  const { spendStars, recordTipSubmitted, streakCount } = useUser();
+  const { spendStars, recordTipSubmitted, streakCount, displayName } = useUser();
   const { matches, getTeam, tipCounts, submitTip, myTips } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [tab, setTab] = useState<"offen" | "geschlossen">("offen");
@@ -23,7 +23,7 @@ export default function DashboardPage() {
     // gespeichert und bei der Auswertung berücksichtigt wird.
     const actualStake = spendStars(stake);
     recordTipSubmitted();
-    submitTip(matchId, homeScore, awayScore, actualStake);
+    submitTip(matchId, homeScore, awayScore, actualStake, displayName);
     celebrate();
     showToast(
       actualStake < stake

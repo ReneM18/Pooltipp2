@@ -20,6 +20,18 @@ export interface SubmittedTip {
   starsDelta?: number;
   beatPercent?: number;
   narration?: string;
+  // Endstand, mit dem dieser Tipp ausgewertet wurde – so merkt jeder
+  // Spieler beim nächsten Laden selbst, wenn der Admin den Endstand später
+  // korrigiert hat, und die Auswertung wird für ihn nachgezogen.
+  evaluatedHomeScore?: number;
+  evaluatedAwayScore?: number;
+}
+
+// Feed-Eintrag, den auch ANDERE User sehen dürfen – in dritter Person
+// ("Rene hat …") statt "Du hast …", das nur für einen selbst stimmt.
+export interface SharedActivity {
+  author: string;
+  text: string;
 }
 
 export interface NewsItem {
@@ -247,6 +259,31 @@ const initialActivity: ActivityItem[] = [
   { id: "activity-5", icon: "⭐", text: "Über 500.000 Sterne stecken diesen Spieltag im Tipp-Topf.", createdAt: "2026-09-18T09:00:00+02:00" },
 ];
 
+interface ActivityRow {
+  id: string;
+  user_id: string | null;
+  author_name: string | null;
+  icon: string;
+  text: string;
+  created_at: string;
+}
+
+// Wandelt eine Feed-Zeile aus Supabase in einen Anzeige-Eintrag für den
+// aktuellen User um – oder null, wenn er ihn nicht sehen soll (private
+// Meldung eines anderen Users). Eigene öffentliche Einträge stehen in der
+// Datenbank in dritter Person ("Rene hat …") und werden für einen selbst
+// wieder zu "Du hast …".
+function activityRowToItem(row: ActivityRow, me: string | null): ActivityItem | null {
+  let text = row.text;
+  if (row.user_id && row.user_id === me) {
+    const prefix = row.author_name ? `${row.author_name} hat ` : null;
+    if (prefix && text.startsWith(prefix)) text = `Du hast ${text.slice(prefix.length)}`;
+  } else if (row.user_id && !row.author_name) {
+    return null;
+  }
+  return { id: row.id, icon: row.icon, text, createdAt: row.created_at };
+}
+
 interface AppDataContextValue {
   teams: Team[];
   matches: Match[];
@@ -259,7 +296,15 @@ interface AppDataContextValue {
   registerTip: (matchId: string) => void;
   tipsBySport: Record<Sport, number>;
   myTips: SubmittedTip[];
-  submitTip: (matchId: string, predictedHomeScore: number, predictedAwayScore: number, stake: number) => void;
+  // authorName: eigener Anzeigename, nur für den öffentlichen Feed-Eintrag
+  // ("Rene hat beim Spiel … getippt").
+  submitTip: (
+    matchId: string,
+    predictedHomeScore: number,
+    predictedAwayScore: number,
+    stake: number,
+    authorName?: string
+  ) => void;
   // Übernimmt beim Login aus Supabase geladene Tipps in den lokalen State –
   // OHNE die Nebenwirkungen von submitTip (kein erneutes registerTip, kein
   // neuer Feed-Eintrag). Ergänzt nur Tipps, die lokal noch nicht bekannt
@@ -274,6 +319,8 @@ interface AppDataContextValue {
       starsDelta: number;
       beatPercent: number;
       narration: string;
+      actualHome?: number;
+      actualAway?: number;
     }
   ) => void;
   updateMatchScore: (matchId: string, homeScore: number | null, awayScore: number | null, status: Match["status"]) => void;
@@ -314,7 +361,13 @@ interface AppDataContextValue {
   removeComment: (id: string) => void;
   toggleCommentLike: (id: string, name: string) => void;
   activity: ActivityItem[];
-  addActivity: (icon: string, text: string) => void;
+  // text: so wie man es selbst liest ("Du hast …"). shared: optional die
+  // Fassung für alle anderen ("Rene hat …"). Ohne shared bleibt der Eintrag
+  // privat und taucht nur im eigenen Feed auf.
+  addActivity: (icon: string, text: string, shared?: SharedActivity) => void;
+  // true, sobald Spiele/Teams/News aus Supabase geladen sind (vorher stehen
+  // nur die eingebauten Demo-Daten im State).
+  contentLoaded: boolean;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -447,10 +500,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [commentsRes, activityRes] = await Promise.all([
-        supabase.from("match_comments").select("*").order("created_at", { ascending: true }),
-        supabase.from("activity_feed").select("*").order("created_at", { ascending: false }).limit(300),
-      ]);
+      const commentsRes = await supabase.from("match_comments").select("*").order("created_at", { ascending: true });
       if (cancelled) return;
       if (!commentsRes.error && commentsRes.data) {
         setComments(
@@ -462,16 +512,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             createdAt: row.created_at,
             likedBy: (row.liked_by as string[]) ?? [],
             userId: row.user_id,
-          }))
-        );
-      }
-      if (!activityRes.error && activityRes.data) {
-        setActivity(
-          activityRes.data.map((row) => ({
-            id: row.id,
-            icon: row.icon,
-            text: row.text,
-            createdAt: row.created_at,
           }))
         );
       }
@@ -516,24 +556,52 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       })
       .subscribe();
 
-    const activityChannel = supabase
-      .channel("activity_feed_live")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity_feed" }, (payload) => {
-        const row = payload.new as { id: string; icon: string; text: string; created_at: string };
-        setActivity((current) =>
-          current.some((a) => a.id === row.id)
-            ? current
-            : [{ id: row.id, icon: row.icon, text: row.text, createdAt: row.created_at }, ...current]
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(commentsChannel);
+    };
+  }, []);
+
+  // Feed: eigene Einträge sieht man immer, fremde nur, wenn sie für alle
+  // gedacht sind (author_name gesetzt, Text in dritter Person) – private
+  // Meldungen wie "Du hast …" oder "Deine Sterne …" bleiben beim Besitzer.
+  // Hängt an authUserId, weil erst mit der Sitzung klar ist, was "eigen" ist.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const visibleFilter = authUserId
+        ? `user_id.is.null,author_name.not.is.null,user_id.eq.${authUserId}`
+        : "user_id.is.null,author_name.not.is.null";
+      const { data, error } = await supabase
+        .from("activity_feed")
+        .select("*")
+        .or(visibleFilter)
+        .order("created_at", { ascending: false })
+        .limit(300);
+      if (cancelled) return;
+      if (!error && data) {
+        setActivity(
+          data
+            .map((row) => activityRowToItem(row as ActivityRow, authUserId))
+            .filter((item): item is ActivityItem => item !== null)
         );
+      }
+    })();
+
+    const activityChannel = supabase
+      .channel(`activity_feed_live_${authUserId ?? "gast"}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity_feed" }, (payload) => {
+        const item = activityRowToItem(payload.new as ActivityRow, authUserId);
+        if (!item) return;
+        setActivity((current) => (current.some((a) => a.id === item.id) ? current : [item, ...current]));
       })
       .subscribe();
 
     return () => {
       cancelled = true;
-      supabase.removeChannel(commentsChannel);
       supabase.removeChannel(activityChannel);
     };
-  }, []);
+  }, [authUserId]);
 
   function addTeam(team: Omit<Team, "id">) {
     const id = `team-${Date.now()}`;
@@ -587,7 +655,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     matchId: string,
     predictedHomeScore: number,
     predictedAwayScore: number,
-    stake: number
+    stake: number,
+    authorName?: string
   ) {
     registerTip(matchId);
     setMyTips((current) => [
@@ -606,9 +675,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const home = getTeam(match.homeTeamId);
       const away = getTeam(match.awayTeamId);
       const sportIcon: Record<Sport, string> = { "Fußball": "⚽", NFL: "🏈", NBA: "🏀", NHL: "🏒" };
+      const matchLabel = `${home?.name ?? "?"} vs. ${away?.name ?? "?"}`;
       addActivity(
         sportIcon[match.sport],
-        `Du hast beim Spiel ${home?.name ?? "?"} vs. ${away?.name ?? "?"} getippt.`
+        `Du hast beim Spiel ${matchLabel} getippt.`,
+        authorName ? { author: authorName, text: `${authorName} hat beim Spiel ${matchLabel} getippt.` } : undefined
       );
     }
   }
@@ -630,6 +701,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       starsDelta: number;
       beatPercent: number;
       narration: string;
+      actualHome?: number;
+      actualAway?: number;
     }
   ) {
     setMyTips((current) =>
@@ -643,6 +716,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
               starsDelta: result.starsDelta,
               beatPercent: result.beatPercent,
               narration: result.narration,
+              evaluatedHomeScore: result.actualHome,
+              evaluatedAwayScore: result.actualAway,
             }
           : t
       )
@@ -664,10 +739,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (status === "finished" && previous && previous.status !== "finished") {
       const home = getTeam(previous.homeTeamId);
       const away = getTeam(previous.awayTeamId);
-      addActivity(
-        "🏁",
-        `Endstand: ${home?.name ?? "?"} ${homeScore ?? 0}:${awayScore ?? 0} ${away?.name ?? "?"}.`
-      );
+      const endText = `Endstand: ${home?.name ?? "?"} ${homeScore ?? 0}:${awayScore ?? 0} ${away?.name ?? "?"}.`;
+      addActivity("🏁", endText, { author: "PoolTipp", text: endText });
     }
   }
 
@@ -755,7 +828,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       ...current,
     ]);
     const sportIcon: Record<Sport, string> = { "Fußball": "⚽", NFL: "🏈", NBA: "🏀", NHL: "🏒" };
-    addActivity(sport ? sportIcon[sport] : "📰", `Neue Schlagzeile: „${text}“`);
+    const newsText = `Neue Schlagzeile: „${text}“`;
+    addActivity(sport ? sportIcon[sport] : "📰", newsText, { author: "PoolTipp", text: newsText });
   }
 
   function updateNews(id: string, text: string, sport: Sport | null, article: string | null) {
@@ -805,12 +879,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const match = matches.find((m) => m.id === matchId);
     const home = match ? getTeam(match.homeTeamId) : undefined;
     const away = match ? getTeam(match.awayTeamId) : undefined;
-    addActivity(
-      "💬",
-      match
-        ? `${author} hat einen Kommentar zu ${home?.name ?? "?"} vs. ${away?.name ?? "?"} geschrieben.`
-        : `${author} hat einen Kommentar geschrieben.`
-    );
+    const whereText = match ? ` zu ${home?.name ?? "?"} vs. ${away?.name ?? "?"}` : "";
+    addActivity("💬", `Du hast einen Kommentar${whereText} geschrieben.`, {
+      author,
+      text: `${author} hat einen Kommentar${whereText} geschrieben.`,
+    });
   }
 
   function removeComment(id: string) {
@@ -840,14 +913,24 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       });
   }
 
-  function addActivity(icon: string, text: string) {
+  function addActivity(icon: string, text: string, shared?: SharedActivity) {
     const id = `activity-${Date.now()}-${Math.round(Math.random() * 1000)}`;
     const createdAt = new Date().toISOString();
     setActivity((current) => [{ id, icon, text, createdAt }, ...current]);
     if (authUserId) {
+      // Gespeichert wird für öffentliche Einträge die Fassung in dritter
+      // Person samt Autor, für private Einträge der Text ohne Autor (den
+      // bekommen andere User dann gar nicht erst angezeigt).
       supabase
         .from("activity_feed")
-        .insert({ id, user_id: authUserId, icon, text, created_at: createdAt })
+        .insert({
+          id,
+          user_id: authUserId,
+          author_name: shared?.author ?? null,
+          icon,
+          text: shared?.text ?? text,
+          created_at: createdAt,
+        })
         .then(({ error }) => {
           if (error) console.warn("Feed-Eintrag konnte nicht gespeichert werden:", error.message);
         });
@@ -892,6 +975,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         toggleCommentLike,
         activity,
         addActivity,
+        contentLoaded,
       }}
     >
       {children}

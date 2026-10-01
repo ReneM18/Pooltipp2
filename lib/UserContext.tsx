@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode, useMemo, useEffect } from "react";
+import { createContext, useContext, useState, ReactNode, useMemo, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { mockUser } from "@/lib/mockData";
 import { getAvailableRankIcons, getBestRankIcon, RankIconOption } from "@/lib/rankTiers";
@@ -67,6 +67,9 @@ interface UserContextValue {
   // Bewusst öffentlich statt nur intern, damit auch DuelsContext Gewinne
   // gutschreiben kann, ohne den internen starsState-Setter zu kennen.
   creditStars: (amount: number) => void;
+  // Holt den echten Sterne-Stand aus Supabase, z. B. nachdem die Datenbank
+  // selbst Sterne gutgeschrieben hat (Duell gewonnen, Duell abgelehnt).
+  refreshStars: () => void;
   // Sterne, die heute schon eingesetzt wurden bzw. noch bis zum Tages-Limit
   // eingesetzt werden können – unabhängig davon, wie viele Spiele heute
   // angeboten werden (siehe DAILY_STAKE_BUDGET).
@@ -155,6 +158,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     matches,
     myBonusAnswers,
     markBonusAnswerEvaluated,
+    contentLoaded,
   } = useAppData();
   // Startet leer statt sofort mit Math.random() zu würfeln: Server und
   // Browser würden beim allerersten Rendern sonst unterschiedliche IDs
@@ -177,7 +181,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // aktuellen Stand – mit getrennten useStates könnte ein sehr schneller
   // zweiter Aufruf (bevor React neu gerendert hat) noch mit veralteten
   // Werten rechnen und das Tages-Limit falsch fortschreiben.
-  const [starsState, setStarsState] = useState({
+  const [starsState, setStarsStateRaw] = useState({
     freeStars: mockUser.freeStars,
     // Tages-Einsatz-Limit: unabhängig von der Anzahl heutiger Spiele, damit
     // ein Tag mit vielen Spielen das Guthaben nicht schneller leert als ein
@@ -188,6 +192,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
     rescueBonusUsed: false,
   });
   const { freeStars, stakedToday, stakeBudgetDay } = starsState;
+  // Spiegel des Sterne-States, der SOFORT (nicht erst beim nächsten Rendern)
+  // aktuell ist. Alle Änderungen laufen über setStarsState unten, das den
+  // neuen Stand direkt hier ausrechnet. Vorher hing spendStars() davon ab,
+  // dass React den Updater sofort ausführt – das tut React aber nicht immer;
+  // dann meldete spendStars "0 Sterne abgezogen", obwohl kurz danach doch
+  // abgezogen wurde (z. B. Duell annehmen: Sterne weg, Duell aber nicht
+  // angenommen).
+  const starsStateRef = useRef(starsState);
+  function setStarsState(update: (current: typeof starsState) => typeof starsState) {
+    const next = update(starsStateRef.current);
+    starsStateRef.current = next;
+    setStarsStateRaw(next);
+  }
 
   const [passXP, setPassXP] = useState(mockUser.passXP);
   const [rangPunkte, setRangPunkte] = useState<Record<Sport, number>>(initialRangPunkte);
@@ -282,8 +299,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // verhindert, dass der Sync-Effekt weiter unten direkt danach versehentlich
   // die frisch geladenen Werte wieder überschreibt, bevor sie angekommen sind.
   const [profileLoaded, setProfileLoaded] = useState(false);
+  // Letzter Sterne-Stand, der mit Supabase abgeglichen ist. Gespeichert wird
+  // nur noch die Differenz dazu (siehe Sterne-Sync weiter unten), nie mehr
+  // ein fester Wert – sonst würden Gutschriften, die die Datenbank selbst
+  // gebucht hat (Duell-Gewinn, abgelehntes Duell), wieder überschrieben.
+  const lastSyncedStarsRef = useRef<number | null>(null);
+  const starsRequestRef = useRef(0);
   useEffect(() => {
     if (!authUserId) {
+      lastSyncedStarsRef.current = null;
       setProfileLoaded(false);
       return;
     }
@@ -307,6 +331,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       if (profile) {
         setDisplayName(profile.display_name);
+        lastSyncedStarsRef.current = profile.free_stars;
         setStarsState((current) => ({ ...current, freeStars: profile.free_stars }));
         if (profile.rang_punkte) {
           setRangPunkte((current) => ({ ...current, ...(profile.rang_punkte as Record<Sport, number>) }));
@@ -323,6 +348,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         // Kein Profil-Eintrag vorhanden (z.B. Konto von vor dieser
         // Umstellung) -> jetzt einmalig mit den aktuellen, lokalen Werten
         // anlegen.
+        lastSyncedStarsRef.current = freeStars;
         await supabase.from("profiles").insert({
           id: authUserId,
           display_name: displayName,
@@ -353,7 +379,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
       .from("profiles")
       .update({
         display_name: displayName,
-        free_stars: freeStars,
         rang_punkte: rangPunkte,
         pass_xp: passXP,
         streak_count: streakState.count,
@@ -368,7 +393,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
       });
   }, [
     displayName,
-    freeStars,
     rangPunkte,
     passXP,
     streakState,
@@ -377,6 +401,56 @@ export function UserProvider({ children }: { children: ReactNode }) {
     authUserId,
     profileLoaded,
   ]);
+
+  // Sterne-Sync: schickt nur die Änderung seit dem letzten Abgleich an
+  // Supabase (add_stars, siehe supabase/fixes-features40.sql). Die Antwort
+  // ist der echte Stand in der Datenbank – weicht er ab (weil die Datenbank
+  // inzwischen selbst etwas gutgeschrieben hat), wird er übernommen.
+  useEffect(() => {
+    if (!isRegistered || !authUserId || !profileLoaded) return;
+    const last = lastSyncedStarsRef.current;
+    if (last === null || freeStars === last) return;
+    const delta = freeStars - last;
+    lastSyncedStarsRef.current = freeStars;
+    const requestId = ++starsRequestRef.current;
+    const localStars = freeStars;
+    supabase.rpc("add_stars", { p_delta: delta }).then(({ data, error }) => {
+      if (error) {
+        // Fallback, solange das SQL-Skript noch nicht ausgeführt wurde:
+        // alter Weg mit festem Wert.
+        supabase
+          .from("profiles")
+          .update({ free_stars: localStars, updated_at: new Date().toISOString() })
+          .eq("id", authUserId)
+          .then(({ error: updateError }) => {
+            if (updateError) console.warn("Sterne konnten nicht gespeichert werden:", updateError.message);
+          });
+        return;
+      }
+      // Nur die Antwort auf die jüngste Anfrage zählt – ältere Antworten
+      // kennen spätere Änderungen noch nicht.
+      if (requestId !== starsRequestRef.current || typeof data !== "number") return;
+      if (data !== localStars) {
+        lastSyncedStarsRef.current = data;
+        setStarsState((current) => ({ ...current, freeStars: data }));
+      }
+    });
+  }, [freeStars, isRegistered, authUserId, profileLoaded]);
+
+  function refreshStars() {
+    if (!authUserId) return;
+    const requestId = ++starsRequestRef.current;
+    supabase
+      .from("profiles")
+      .select("free_stars")
+      .eq("id", authUserId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error || !data || requestId !== starsRequestRef.current) return;
+        lastSyncedStarsRef.current = data.free_stars;
+        setStarsState((current) => ({ ...current, freeStars: data.free_stars }));
+      });
+  }
 
   // Tipp-Abgleich mit Supabase (gleiches Muster wie oben beim Profil): Sobald
   // eine echte Sitzung erkannt wird, werden die bisher abgegebenen Tipps
@@ -419,6 +493,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
             starsDelta: row.stars_delta ?? undefined,
             beatPercent: row.beat_percent ?? undefined,
             narration: row.narration ?? undefined,
+            evaluatedHomeScore: row.evaluated_home_score ?? undefined,
+            evaluatedAwayScore: row.evaluated_away_score ?? undefined,
           }))
         );
       }
@@ -451,12 +527,30 @@ export function UserProvider({ children }: { children: ReactNode }) {
       stars_delta: t.starsDelta ?? null,
       beat_percent: t.beatPercent ?? null,
       narration: t.narration ?? null,
+      evaluated_home_score: t.evaluatedHomeScore ?? null,
+      evaluated_away_score: t.evaluatedAwayScore ?? null,
     }));
     supabase
       .from("tips")
       .upsert(rows, { onConflict: "id" })
       .then(({ error }) => {
-        if (error) console.warn("Tipps konnten nicht gespeichert werden:", error.message);
+        if (!error) return;
+        // Spalten evaluated_home/away_score gibt es erst nach
+        // supabase/fixes-features40.sql – bis dahin ohne sie speichern.
+        if (error.code === "PGRST204") {
+          const legacyRows = rows.map(
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            ({ evaluated_home_score, evaluated_away_score, ...rest }) => rest
+          );
+          supabase
+            .from("tips")
+            .upsert(legacyRows, { onConflict: "id" })
+            .then(({ error: legacyError }) => {
+              if (legacyError) console.warn("Tipps konnten nicht gespeichert werden:", legacyError.message);
+            });
+          return;
+        }
+        console.warn("Tipps konnten nicht gespeichert werden:", error.message);
       });
   }, [myTips, isRegistered, authUserId, tipsLoaded]);
 
@@ -476,13 +570,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
     rankIconOptions.find((o) => o.id === selectedRankIconId) ?? getBestRankIcon(rankIconOptions);
 
   function spendStars(amount: number): number {
-    // Ein einziger setStarsState-Aufruf mit funktionalem Update: der
-    // Updater sieht IMMER den zuletzt tatsächlich übernommenen Stand, auch
-    // wenn spendStars zweimal sehr schnell hintereinander aufgerufen wird
-    // (React reiht solche Updates auf und wendet sie garantiert nacheinander
-    // auf den jeweils aktuellsten Stand an – anders als bei separaten
-    // useStates, wo jeder Aufruf mit einem eigenen, ggf. veralteten
-    // Zwischenstand rechnen würde).
+    // setStarsState rechnet sofort mit dem aktuellsten Stand (siehe
+    // starsStateRef) – auch wenn spendStars zweimal sehr schnell
+    // hintereinander aufgerufen wird. Dadurch sind "actual" und
+    // "rescueBonusGranted" direkt nach dem Aufruf verlässlich gesetzt.
     let actual = 0;
     let rescueBonusGranted = false;
 
@@ -598,6 +689,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       starsDelta: result.starsNet,
       beatPercent: result.beatPercent,
       narration,
+      actualHome,
+      actualAway,
     });
 
     addActivity(SPORT_ICON[sport], narration);
@@ -642,7 +735,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }));
     setStarsState((current) => ({
       ...current,
-      freeStars: Math.max(0, current.freeStars - oldStarsDelta + result.starsCredit),
+      // starsDelta ist der NETTO-Wert (Gutschrift minus Einsatz) – also auch
+      // netto korrigieren. Vorher wurde die neue BRUTTO-Gutschrift addiert,
+      // wodurch jede Korrektur den Einsatz ein zweites Mal gutschrieb.
+      freeStars: Math.max(0, current.freeStars - oldStarsDelta + result.starsNet),
     }));
 
     const deltaLabel = result.rangDelta >= 0 ? `+${result.rangDelta}` : `${result.rangDelta}`;
@@ -660,9 +756,86 @@ export function UserProvider({ children }: { children: ReactNode }) {
       starsDelta: result.starsNet,
       beatPercent: result.beatPercent,
       narration,
+      actualHome,
+      actualAway,
     });
 
     addActivity(SPORT_ICON[sport], narration);
+  }
+
+  // Automatische Auswertung für JEDEN Spieler (nicht nur für den Admin, der
+  // das Spiel beendet): Sobald ein Spiel mit Endstand "beendet" ist, wertet
+  // jeder Browser beim Laden die eigenen, noch offenen Tipps dazu aus. Hat
+  // der Admin den Endstand später korrigiert, wird die Auswertung
+  // entsprechend nachgezogen. Läuft erst, wenn Profil, Tipps und Spiele aus
+  // Supabase geladen sind – sonst würde mit Demo-Daten oder einem veralteten
+  // Sterne-Stand gerechnet.
+  const handledEvaluationsRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!authUserId || !profileLoaded || !tipsLoaded || !contentLoaded) return;
+    for (const match of matches) {
+      if (match.status !== "finished" || match.liveHomeScore === null || match.liveAwayScore === null) continue;
+      const actualHome = match.liveHomeScore;
+      const actualAway = match.liveAwayScore;
+      const openTip = [...myTips].reverse().find((t) => t.matchId === match.id && !t.evaluated);
+
+      if (openTip) {
+        const key = `${openTip.id}:${actualHome}:${actualAway}`;
+        if (handledEvaluationsRef.current.has(key)) continue;
+        handledEvaluationsRef.current.add(key);
+        claimTipForEvaluation(openTip.id).then((claimed) => {
+          if (claimed) evaluateMatchForCurrentUser(match.id, match.sport, actualHome, actualAway);
+        });
+        continue;
+      }
+
+      const evaluatedTip = [...myTips].reverse().find((t) => t.matchId === match.id && t.evaluated);
+      if (
+        evaluatedTip &&
+        evaluatedTip.evaluatedHomeScore !== undefined &&
+        evaluatedTip.evaluatedAwayScore !== undefined &&
+        (evaluatedTip.evaluatedHomeScore !== actualHome || evaluatedTip.evaluatedAwayScore !== actualAway)
+      ) {
+        const key = `${evaluatedTip.id}:${actualHome}:${actualAway}`;
+        if (handledEvaluationsRef.current.has(key)) continue;
+        handledEvaluationsRef.current.add(key);
+        correctMatchEvaluationForCurrentUser(match.id, match.sport, actualHome, actualAway);
+      }
+    }
+    // evaluate*/correct* lesen bewusst den aktuellen Render-Stand.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches, myTips, authUserId, profileLoaded, tipsLoaded, contentLoaded]);
+
+  // Verhindert doppelte Auswertung, wenn dasselbe Konto gleichzeitig in zwei
+  // Browsern/Geräten offen ist: Nur wer den Tipp in Supabase als erster von
+  // "offen" auf "ausgewertet" umstellt, wertet ihn aus.
+  async function claimTipForEvaluation(tipId: string): Promise<boolean> {
+    const { data, error } = await supabase
+      .from("tips")
+      .update({ evaluated: true })
+      .eq("id", tipId)
+      .eq("evaluated", false)
+      .select("id");
+    if (error) return true;
+    if (data && data.length > 0) return true;
+    // Nichts umgestellt: entweder war ein anderes Gerät schneller, oder der
+    // Tipp ist (noch) gar nicht in Supabase angekommen – dann lokal auswerten.
+    const { data: existing } = await supabase.from("tips").select("*").eq("id", tipId).maybeSingle();
+    if (!existing) return true;
+    // Das andere Gerät hat schon ausgewertet: Ergebnis hier übernehmen, damit
+    // dieser Browser den Tipp nicht später als "offen" zurückschreibt.
+    if (existing.result_tier) {
+      markTipEvaluated(tipId, {
+        tier: existing.result_tier,
+        rangDelta: existing.rang_delta ?? 0,
+        starsDelta: existing.stars_delta ?? 0,
+        beatPercent: existing.beat_percent ?? 0,
+        narration: existing.narration ?? "",
+        actualHome: existing.evaluated_home_score ?? undefined,
+        actualAway: existing.evaluated_away_score ?? undefined,
+      });
+    }
+    return false;
   }
 
   function evaluateBonusAnswerForCurrentUser(matchId: string) {
@@ -800,6 +973,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         claimDailyBonus,
         spendStars,
         creditStars,
+        refreshStars,
         stakeBudgetRemainingToday,
         isLowOnStars,
         evaluateMatchForCurrentUser,

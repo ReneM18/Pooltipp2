@@ -36,6 +36,11 @@ interface DuelsContextValue {
 
 const DuelsContext = createContext<DuelsContextValue | null>(null);
 
+// Supabase meldet so, dass eine SQL-Funktion (noch) nicht existiert.
+function isMissingFunction(error: { code?: string; message?: string }) {
+  return error.code === "PGRST202" || error.code === "42883";
+}
+
 function mapRow(row: Record<string, unknown>): Duel {
   return {
     id: row.id as string,
@@ -57,7 +62,7 @@ function mapRow(row: Record<string, unknown>): Duel {
 
 export function DuelsProvider({ children }: { children: ReactNode }) {
   const { matches, addActivity } = useAppData();
-  const { displayName, authUserId, spendStars, creditStars } = useUser();
+  const { displayName, authUserId, spendStars, creditStars, refreshStars } = useUser();
   const [duels, setDuels] = useState<Duel[]>([]);
 
   // Läd alle Duelle, an denen der aktuelle Account beteiligt ist (egal ob
@@ -96,6 +101,12 @@ export function DuelsProvider({ children }: { children: ReactNode }) {
           return;
         }
         const mapped = mapRow(row);
+        // Abgelehnt, verfallen oder ausgewertet: Die Datenbank hat dabei
+        // Sterne gutgeschrieben (Rückzahlung bzw. Gewinn) – den echten Stand
+        // holen, damit er sofort sichtbar ist.
+        if (mapped.status === "abgelehnt" || mapped.status === "verfallen" || mapped.status === "ausgewertet") {
+          refreshStars();
+        }
         setDuels((current) => {
           const exists = current.some((d) => d.id === mapped.id);
           return exists ? current.map((d) => (d.id === mapped.id ? mapped : d)) : [mapped, ...current];
@@ -173,7 +184,10 @@ export function DuelsProvider({ children }: { children: ReactNode }) {
       ...current,
     ]);
 
-    addActivity("⚔️", `Du hast ${opponentProfile.display_name} zum Duell herausgefordert (${actualStake} Sterne).`);
+    addActivity("⚔️", `Du hast ${opponentProfile.display_name} zum Duell herausgefordert (${actualStake} Sterne).`, {
+      author: displayName,
+      text: `${displayName} hat ${opponentProfile.display_name} zum Duell herausgefordert (${actualStake} Sterne).`,
+    });
     return { ok: true };
   }
 
@@ -189,14 +203,24 @@ export function DuelsProvider({ children }: { children: ReactNode }) {
       return { ok: false, error: "Nicht genug Sterne, um diesen Einsatz anzunehmen." };
     }
 
-    const { error } = await supabase.from("duels").update({ status: "offen" }).eq("id", duelId);
+    // Annehmen über die SQL-Funktion accept_duel (supabase/fixes-features40.sql),
+    // weil die Duell-Zeile seitdem nicht mehr direkt geändert werden darf.
+    // Fällt auf das alte direkte Update zurück, solange das Skript noch nicht
+    // ausgeführt wurde.
+    let { error } = await supabase.rpc("accept_duel", { p_duel_id: duelId });
+    if (error && isMissingFunction(error)) {
+      ({ error } = await supabase.from("duels").update({ status: "offen" }).eq("id", duelId));
+    }
     if (error) {
       creditStars(actualStake);
       return { ok: false, error: "Annahme konnte nicht gespeichert werden, versuch es nochmal." };
     }
 
     setDuels((current) => current.map((d) => (d.id === duelId ? { ...d, status: "offen" } : d)));
-    addActivity("⚔️", `Du hast die Herausforderung von ${duel.challengerName} angenommen (${duel.stake} Sterne).`);
+    addActivity("⚔️", `Du hast die Herausforderung von ${duel.challengerName} angenommen (${duel.stake} Sterne).`, {
+      author: displayName,
+      text: `${displayName} hat die Herausforderung von ${duel.challengerName} angenommen (${duel.stake} Sterne).`,
+    });
     return { ok: true };
   }
 
