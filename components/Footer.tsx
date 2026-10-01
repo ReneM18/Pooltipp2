@@ -10,10 +10,16 @@ const LEGAL_LINKS: { href: string; label: string }[] = [
 
 export default function Footer() {
   return (
-    <footer className="mt-10 border-t border-edge bg-surface/40">
-      <div className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
-        <h2 className="mb-2 font-display text-base font-bold text-ink">Über PoolTipp</h2>
-        <p className="text-sm leading-relaxed text-muted">
+    // Ab Tablet-/Desktop-Breite (sm) kompakter: kleinere Schrift, weniger
+    // Abstand, Rechtslinks und © in einer Zeile – damit der Footer neben den
+    // Spielen nicht so viel Platz einnimmt. Am Handy bleibt die gut lesbare
+    // größere Schrift.
+    <footer className="mt-10 border-t border-edge bg-surface/40 sm:mt-6">
+      <div className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8 sm:py-4">
+        <h2 className="mb-2 font-display text-base font-bold text-ink sm:mb-1 sm:text-sm">
+          Über PoolTipp
+        </h2>
+        <p className="text-sm leading-relaxed text-muted sm:text-xs sm:leading-normal">
           PoolTipp ist das kostenlose Social-Tippspiel für echte Sportfans: Tippe live vor jedem
           Spiel deiner Lieblingsligen (Fußball, NFL, NBA, NHL) das Ergebnis. Dein Einsatz zählt –
           exakt getroffen bringt Sterne-Bonus obendrauf, bei der Tendenz gibt's den Einsatz zurück,
@@ -25,25 +31,27 @@ export default function Footer() {
           nie um echtes Geld.
         </p>
 
-        <nav className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-edge pt-4">
-          {LEGAL_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-[11px] text-muted underline-offset-2 transition-colors hover:text-ink hover:underline"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+        <div className="mt-5 flex flex-col gap-4 border-t border-edge pt-4 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:pt-3">
+          <nav className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {LEGAL_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-[11px] text-muted underline-offset-2 transition-colors hover:text-ink hover:underline"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
 
-        {/* suppressHydrationWarning: Jahr wird zur Bauzeit UND im Browser
-            berechnet – nur in der einen Sekunde um Silvester könnten die
-            beiden minimal auseinanderlaufen. Offizieller React-Standardweg
-            für genau diesen Fall, statt es künstlich zu verzögern. */}
-        <p className="mt-4 text-xs text-muted" suppressHydrationWarning>
-          © {new Date().getFullYear()} PoolTipp
-        </p>
+          {/* suppressHydrationWarning: Jahr wird zur Bauzeit UND im Browser
+              berechnet – nur in der einen Sekunde um Silvester könnten die
+              beiden minimal auseinanderlaufen. Offizieller React-Standardweg
+              für genau diesen Fall, statt es künstlich zu verzögern. */}
+          <p className="shrink-0 text-xs text-muted sm:text-[11px]" suppressHydrationWarning>
+            © {new Date().getFullYear()} PoolTipp
+          </p>
+        </div>
       </div>
     </footer>
   );
