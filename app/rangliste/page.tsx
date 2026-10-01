@@ -44,7 +44,7 @@ export default function RanglistePage() {
   // useMemo, damit das Zeitfenster nicht bei jedem Rendern neu entsteht und
   // die Daten nicht ständig neu geladen werden.
   const weekWindow = useMemo(() => getCurrentWeekWindow(), []);
-  const { players, weeklyByUser, loading, failed } = useGlobalLeaderboard(weekWindow);
+  const { players, weeklyByUser, loading, failed, error, retry } = useGlobalLeaderboard(weekWindow);
 
   // Echte Spieler aus der Datenbank. Die eigene Zeile wird mit den Live-
   // Werten aus dem Browser überschrieben (Name + Punkte), damit man nach
@@ -124,7 +124,7 @@ export default function RanglistePage() {
           </p>
         ) : (
           <p className="mt-0.5 text-xs text-muted">
-            {loading ? "Lädt…" : `${ranked.length} Spieler`}
+            {loading ? "Lädt…" : failed ? "\u00a0" : `${ranked.length} Spieler`}
           </p>
         )}
       </div>
@@ -154,6 +154,8 @@ export default function RanglistePage() {
         <EmptyState
           title="Rangliste gerade nicht erreichbar"
           text="Die Daten konnten nicht geladen werden. Bitte versuch es gleich noch einmal."
+          detail={error ?? undefined}
+          onRetry={retry}
         />
       ) : entries.length === 0 ? (
         tab === "Spieltag" ? (
@@ -229,11 +231,15 @@ function EmptyState({
   text,
   showRegisterLink,
   showTipLink,
+  detail,
+  onRetry,
 }: {
   title: string;
   text: string;
   showRegisterLink?: boolean;
   showTipLink?: boolean;
+  detail?: string;
+  onRetry?: () => void;
 }) {
   return (
     <div className="rounded-card border border-edge bg-surface px-6 py-10 text-center">
@@ -258,6 +264,15 @@ function EmptyState({
           Zu den Spielen
         </Link>
       )}
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="inline-block rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+        >
+          Nochmal versuchen
+        </button>
+      )}
+      {detail && <p className="mx-auto mt-4 max-w-sm break-words text-[11px] text-muted/70">Technische Info: {detail}</p>}
     </div>
   );
 }

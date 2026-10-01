@@ -41,15 +41,20 @@ export function useGlobalLeaderboard(weekWindow: WeekWindow) {
   // Rangpunkte-Änderung dieser Woche je Spieler-ID (nur Spieler mit Tipps).
   const [weeklyByUser, setWeeklyByUser] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
+  // Fehlermeldung der Datenbank (null = alles ok) – wird klein auf der Seite
+  // angezeigt, damit man bei Problemen sieht, woran es liegt.
+  const [error, setError] = useState<string | null>(null);
+  // Hochzählen lädt die Rangliste neu ("Nochmal versuchen"-Knopf).
+  const [attempt, setAttempt] = useState(0);
   const weekStart = weekWindow.start.toISOString();
   const weekEnd = weekWindow.end.toISOString();
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     (async () => {
-      const [profilesRes, tipsRes] = await Promise.all([
-        supabase.from("profiles").select("id, display_name, rang_punkte"),
+      const [profilesResult, tipsRes] = await Promise.all([
+        loadProfiles(() => cancelled),
         supabase
           .from("tips")
           .select("user_id, rang_delta")
@@ -59,15 +64,17 @@ export function useGlobalLeaderboard(weekWindow: WeekWindow) {
       ]);
       if (cancelled) return;
 
-      if (profilesRes.error || !profilesRes.data) {
-        console.warn("Rangliste konnte nicht geladen werden:", profilesRes.error?.message);
-        setFailed(true);
+      if ("error" in profilesResult) {
+        console.warn("Rangliste konnte nicht geladen werden:", profilesResult.error);
+        setError(profilesResult.error);
+        setPlayers([]);
         setLoading(false);
         return;
       }
 
+      setError(null);
       setPlayers(
-        (profilesRes.data as ProfileRow[]).map((row) => {
+        profilesResult.rows.map((row) => {
           const pointsBySport = toPointsBySport(row.rang_punkte);
           return {
             id: row.id,
@@ -92,7 +99,40 @@ export function useGlobalLeaderboard(weekWindow: WeekWindow) {
     return () => {
       cancelled = true;
     };
-  }, [weekStart, weekEnd]);
+  }, [weekStart, weekEnd, attempt]);
 
-  return { players, weeklyByUser, loading, failed };
+  return {
+    players,
+    weeklyByUser,
+    loading,
+    failed: error !== null,
+    error,
+    retry: () => setAttempt((n) => n + 1),
+  };
+}
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Lädt alle Profile. Robust gegen zwei Fehlerarten:
+ * - kurzer Verbindungsfehler (z. B. direkt nach dem Seitenaufruf, während
+ *   die Login-Sitzung noch aufgefrischt wird) -> bis zu 3 Versuche;
+ * - fehlende Spalte (z. B. rang_punkte noch nicht angelegt) -> zweiter
+ *   Versuch mit "*", dann zählen fehlende Punkte einfach als 0.
+ */
+async function loadProfiles(isCancelled: () => boolean): Promise<{ rows: ProfileRow[] } | { error: string }> {
+  let lastError = "Unbekannter Fehler";
+  for (let tryNo = 0; tryNo < 3; tryNo++) {
+    if (tryNo > 0) await wait(600 * tryNo);
+    if (isCancelled()) return { error: "abgebrochen" };
+
+    const res = await supabase.from("profiles").select("id, display_name, rang_punkte");
+    if (!res.error && res.data) return { rows: res.data as ProfileRow[] };
+    lastError = res.error?.message ?? "Keine Daten";
+
+    const fallback = await supabase.from("profiles").select("*");
+    if (!fallback.error && fallback.data) return { rows: fallback.data as ProfileRow[] };
+    lastError = `${lastError} / ${fallback.error?.message ?? "Keine Daten"}`;
+  }
+  return { error: lastError };
 }
