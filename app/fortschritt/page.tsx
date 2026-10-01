@@ -316,6 +316,7 @@ export default function FortschrittPage() {
                   </div>
                   <p className="text-sm text-muted">
                     {lvl.reward}
+                    {lvl.rewardWhere && <span className="ml-1 text-gold">· {lvl.rewardWhere}</span>}
                     {isPayout && (
                       <span className="ml-1 text-gold">
                         · wandert direkt in dein Sterne-Guthaben für den Shop

@@ -10,6 +10,8 @@ import RankProgress from "@/components/RankProgress";
 import SeasonFrame from "@/components/SeasonFrame";
 import RankMeaningBadge from "@/components/RankMeaningBadge";
 import FavoriteClubs from "@/components/FavoriteClubs";
+import WelcomeBanner from "@/components/WelcomeBanner";
+import FitText from "@/components/FitText";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { Sport } from "@/lib/types";
 import { SEASON_THEME } from "@/lib/seasonTheme";
@@ -44,6 +46,7 @@ export default function ProfilPage() {
     hasPremiumPass,
     isRegistered,
     authEmail,
+    authUserId,
     logout,
   } = useUser();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -133,6 +136,9 @@ export default function ProfilPage() {
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
+      {/* Saison-Pass Level 1: Willkommens-Banner für angemeldete Spieler */}
+      {isRegistered && authUserId && <WelcomeBanner userId={authUserId} name={displayName} />}
+
       {/* Level 8 Premium: Profil-Hintergrundbanner in den Saison-Farben
           (SEASON_THEME) – nur ein Farbverlauf, kein neues Bild pro Saison nötig. */}
       <div
@@ -181,9 +187,10 @@ export default function ProfilPage() {
             </span>
           )}
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-ink">
-            {displayName}
+            {/* Lange Einzelwort-Namen schrumpfen statt rechts abgeschnitten zu werden. */}
+            <FitText text={displayName} minPx={14} />
             {/* Level 3 Premium: Saison-Icon neben dem Namen */}
             {hasLevelPremium(3) && (
               <span className="text-lg" title={`Saison-Icon (${SEASON_THEME.name})`}>
