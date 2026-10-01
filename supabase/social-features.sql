@@ -11,8 +11,8 @@
 -- komplette Skript einfügen -> "Run". Kann gefahrlos mehrfach ausgeführt
 -- werden (alles ist "if not exists" / "or replace" / "drop policy if exists").
 --
--- WICHTIG: Der Admin-Bereich ist bisher nur per PIN geschützt (nur im
--- Browser, keine echte Sicherheit). Damit das Anlegen/Bearbeiten von
+-- WICHTIG: Der Admin-Bereich ist nur für den Admin-Account sichtbar (die App
+-- fragt dafür is_admin() unten ab). Damit das Anlegen/Bearbeiten von
 -- Spielen/Teams/News auch in der Datenbank nur dir erlaubt ist, prüft dieses
 -- Skript zusätzlich deine Login-E-Mail. Falls deine PoolTipp-Registrierung
 -- (auf /registrieren) NICHT mit rene.cr7@gmx.at läuft, trag unten bei

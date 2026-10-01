@@ -242,3 +242,48 @@ export function getMockRankIconForName(name: string): RankIconOption {
     title: RANK_TITLES[tier.rank],
   };
 }
+
+/** Rang-Icon für eine Sportart und einen echten Punktestand. */
+export function getSportRankIcon(sport: Sport, points: number, idSuffix = ""): RankIconOption {
+  const tier = getTierForPoints(points);
+  const colors = RANK_COLORS[tier.rank];
+  return {
+    id: `sport-${sport}${idSuffix}`,
+    kind: "sport",
+    sport,
+    label: `${sport} ${tierLabel(tier)}`,
+    icon: SPORT_EMOJI[sport],
+    points,
+    colorFrom: colors.from,
+    colorTo: colors.to,
+    colorText: colors.text,
+    title: RANK_TITLES[tier.rank],
+  };
+}
+
+/**
+ * Für die echte GESAMT-Rangliste: gleiche Logik wie getIconForName, aber mit
+ * den echten Punkten eines Spielers. Punkte in allen Sportarten -> Elite-Icon,
+ * sonst das Icon der stärksten Sportart, ganz ohne Punkte -> kein Icon.
+ */
+export function getIconForPoints(
+  pointsBySport: Partial<Record<Sport, number>>,
+  idSuffix = ""
+): RankIconOption | null {
+  const sports = Object.keys(SPORT_EMOJI) as Sport[];
+  const withPoints = sports.filter((s) => (pointsBySport[s] ?? 0) > 0);
+  if (withPoints.length === 0) return null;
+  if (withPoints.length === sports.length) {
+    return {
+      id: `elite${idSuffix}`,
+      kind: "elite",
+      label: "Sport-Allrounder (Elite)",
+      icon: ELITE_ICON,
+      colorFrom: ELITE_COLORS.from,
+      colorTo: ELITE_COLORS.to,
+      colorText: ELITE_COLORS.text,
+    };
+  }
+  const best = withPoints.reduce((a, b) => ((pointsBySport[b] ?? 0) > (pointsBySport[a] ?? 0) ? b : a));
+  return getSportRankIcon(best, pointsBySport[best] ?? 0, idSuffix);
+}

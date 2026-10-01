@@ -7,7 +7,7 @@ import SeasonFrame from "@/components/SeasonFrame";
 import { StarIcon, TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
 
 export default function Navbar() {
-  const { displayName, freeStars, passXP, activeRankIcon, isRegistered, isLowOnStars, photos } = useUser();
+  const { displayName, freeStars, passXP, activeRankIcon, isRegistered, isLowOnStars, photos, isAdmin } = useUser();
 
   return (
     <header className="border-b border-edge bg-pitch/95 backdrop-blur">
@@ -33,13 +33,17 @@ export default function Navbar() {
             <CartIcon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
           </Link>
 
-          <Link
-            href="/admin"
-            title="Admin-Bereich"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-edge bg-surface text-muted transition-colors hover:border-gold hover:text-gold sm:h-9 sm:w-9"
-          >
-            <GearIcon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
-          </Link>
+          {/* Admin-Knopf nur für den Admin-Account (Prüfung über die
+              Datenbank, siehe isAdmin in lib/UserContext.tsx). */}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              title="Admin-Bereich"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-edge bg-surface text-muted transition-colors hover:border-gold hover:text-gold sm:h-9 sm:w-9"
+            >
+              <GearIcon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+            </Link>
+          )}
 
           {!isRegistered && (
             <Link
