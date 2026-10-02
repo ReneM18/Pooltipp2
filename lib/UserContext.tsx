@@ -27,6 +27,7 @@ import {
   RESCUE_BONUS_STARS,
   LOW_STARS_THRESHOLD,
   STREAK_MILESTONES,
+  stakeBudgetAfterRefund,
 } from "@/lib/poolScore";
 
 const SPORT_ICON: Record<Sport, string> = { "Fußball": "⚽", NFL: "🏈", NBA: "🏀", NHL: "🏒" };
@@ -214,6 +215,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     myTips,
     hydrateTips,
     markTipEvaluated,
+    markTipRefunded,
     matches,
     myBonusAnswers,
     markBonusAnswerEvaluated,
@@ -250,6 +252,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     stakedToday: 0,
     stakeBudgetDay: null as string | null,
     rescueBonusUsed: false,
+    // Tipps abgesagter Spiele, deren Einsatz schon wieder aus dem
+    // Tages-Limit herausgerechnet wurde (siehe stakeBudgetAfterRefund).
+    refundedTipIds: [] as string[],
   });
   const { freeStars, stakedToday, stakeBudgetDay } = starsState;
   // Spiegel des Sterne-States, der SOFORT (nicht erst beim nächsten Rendern)
@@ -638,6 +643,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
             narration: row.narration ?? undefined,
             evaluatedHomeScore: row.evaluated_home_score ?? undefined,
             evaluatedAwayScore: row.evaluated_away_score ?? undefined,
+            refunded: !!row.refunded_at,
           }))
         );
       }
@@ -740,6 +746,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           stakedToday?: number;
           stakeBudgetDay?: string | null;
           rescueBonusUsed?: boolean;
+          refundedTipIds?: string[];
         } | null;
         if (stake) {
           setStarsState((current) => ({
@@ -747,6 +754,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
             stakedToday: stake.stakedToday ?? current.stakedToday,
             stakeBudgetDay: stake.stakeBudgetDay ?? current.stakeBudgetDay,
             rescueBonusUsed: stake.rescueBonusUsed ?? current.rescueBonusUsed,
+            refundedTipIds: Array.isArray(stake.refundedTipIds) ? stake.refundedTipIds : current.refundedTipIds,
           }));
         }
       }
@@ -774,6 +782,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
             stakedToday: starsState.stakedToday,
             stakeBudgetDay: starsState.stakeBudgetDay,
             rescueBonusUsed: starsState.rescueBonusUsed,
+            refundedTipIds: starsState.refundedTipIds,
           },
           updated_at: new Date().toISOString(),
         },
@@ -793,6 +802,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     starsState.stakedToday,
     starsState.stakeBudgetDay,
     starsState.rescueBonusUsed,
+    starsState.refundedTipIds,
   ]);
 
   const activeRankIcon =
@@ -826,6 +836,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       return {
+        ...current,
         freeStars: nextFreeStars,
         stakedToday: alreadyStakedToday + actual,
         stakeBudgetDay: isNewBudgetDay ? now : current.stakeBudgetDay,
@@ -1023,6 +1034,42 @@ export function UserProvider({ children }: { children: ReactNode }) {
     // evaluate*/correct* lesen bewusst den aktuellen Render-Stand.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches, myTips, myBonusAnswers, authUserId, profileLoaded, tipsLoaded, contentLoaded, extrasLoaded]);
+
+  // Abgesagte Spiele: Die Datenbank hat den Einsatz schon zurückgebucht
+  // (supabase/spiel-absagen.sql). Ist das Spiel hier als abgesagt bekannt,
+  // der eigene Tipp aber noch nicht, einmal nachsehen und übernehmen.
+  const checkedRefundsRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!authUserId || !tipsLoaded || !contentLoaded) return;
+    for (const match of matches) {
+      if (match.status !== "cancelled") continue;
+      const tip = [...myTips].reverse().find((t) => t.matchId === match.id && !t.refunded);
+      if (!tip || checkedRefundsRef.current.has(tip.id)) continue;
+      checkedRefundsRef.current.add(tip.id);
+      supabase
+        .from("tips")
+        .select("refunded_at, narration")
+        .eq("id", tip.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (!data?.refunded_at) return;
+          markTipRefunded(tip.id, data.narration ?? `Spiel abgesagt – ${tip.stake} Sterne zurück.`);
+          refreshStars();
+        });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matches, myTips, authUserId, tipsLoaded, contentLoaded]);
+
+  // Erstatteter Einsatz zählt nicht mehr gegen das Tages-Limit.
+  useEffect(() => {
+    if (!extrasLoaded) return;
+    const nowIso = new Date().toISOString();
+    for (const tip of myTips) {
+      if (!tip.refunded || starsState.refundedTipIds.includes(tip.id)) continue;
+      setStarsState((current) => stakeBudgetAfterRefund(current, tip, nowIso));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myTips, extrasLoaded, starsState.refundedTipIds]);
 
   // Verhindert doppelte Auswertung, wenn dasselbe Konto gleichzeitig in zwei
   // Browsern/Geräten offen ist: Nur wer den Tipp in Supabase als erster von

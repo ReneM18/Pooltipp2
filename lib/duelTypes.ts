@@ -7,7 +7,8 @@ import { TipResultTier } from "./poolScore";
 // "verfallen" = Gegner hat nie reagiert, das Spiel ist inzwischen beendet -
 //               Einsatz ging an den Herausforderer zurück.
 // "ausgewertet" = Spiel ist vorbei, Ergebnis steht fest.
-export type DuelStatus = "pending" | "offen" | "abgelehnt" | "verfallen" | "ausgewertet";
+// "abgesagt" = Spiel wurde abgesagt, alle Einsätze gingen zurück.
+export type DuelStatus = "pending" | "offen" | "abgelehnt" | "verfallen" | "ausgewertet" | "abgesagt";
 export type DuelResult = "challenger" | "opponent" | "unentschieden";
 
 // Kopf-an-Kopf-Duell zwischen zwei ECHTEN, registrierten Konten (seit der

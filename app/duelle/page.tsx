@@ -17,7 +17,7 @@ export default function DuellePage() {
   const { showToast, celebrate } = useFeedback();
 
   const openMatches = [...matches]
-    .filter((m) => new Date(m.tipDeadline).getTime() > Date.now())
+    .filter((m) => m.status !== "cancelled" && new Date(m.tipDeadline).getTime() > Date.now())
     .sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime());
 
   const [opponent, setOpponent] = useState("");
@@ -259,6 +259,7 @@ function DuelRow({ duel, home, away }: { duel: Duel; home?: Team; away?: Team })
     abgelehnt: "Abgelehnt",
     verfallen: "Verfallen (keine Antwort)",
     ausgewertet: "",
+    abgesagt: "Spiel abgesagt – Einsatz zurück",
   };
 
   return (

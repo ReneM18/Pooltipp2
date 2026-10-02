@@ -21,7 +21,9 @@ export interface Team {
   isNationalTeam?: boolean; // Nationalmannschaft -> Icon zeigt die Landesflagge statt Trikot/Helm
 }
 
-export type MatchStatus = "upcoming" | "live" | "finished";
+// "cancelled" = vom Admin abgesagt: alle Einsätze gingen zurück, das Spiel
+// wird nicht gewertet (siehe supabase/spiel-absagen.sql).
+export type MatchStatus = "upcoming" | "live" | "finished" | "cancelled";
 
 // "score" = User tippt das genaue Ergebnis (z. B. 2:1).
 // "1x2" = User tippt nur Heimsieg / Unentschieden / Auswärtssieg.

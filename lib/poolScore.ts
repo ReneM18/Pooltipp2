@@ -155,6 +155,27 @@ export const REFERENCE_STAKE = 20;
  * Entspricht ca. 5 Einsätzen zum Referenz-Einsatz.
  */
 export const DAILY_STAKE_BUDGET = REFERENCE_STAKE * 5;
+
+/**
+ * Abgesagtes Spiel: Der erstattete Einsatz zählt nicht mehr gegen das
+ * Tages-Limit – aber nur, wenn der Tipp heute abgegeben wurde (an einem
+ * anderen Tag lief das Limit ohnehin schon neu an). Jeder Tipp wird nur
+ * einmal berücksichtigt (refundedTipIds), auch nach Neuladen.
+ */
+export function stakeBudgetAfterRefund<
+  S extends { stakedToday: number; stakeBudgetDay: string | null; refundedTipIds: string[] }
+>(state: S, tip: { id: string; stake: number; submittedAt: string }, nowIso: string): S {
+  if (state.refundedTipIds.includes(tip.id)) return state;
+  const sameDay = (a: string, b: string) => new Date(a).toDateString() === new Date(b).toDateString();
+  const countsToday =
+    state.stakeBudgetDay !== null && sameDay(state.stakeBudgetDay, nowIso) && sameDay(tip.submittedAt, nowIso);
+  return {
+    ...state,
+    stakedToday: countsToday ? Math.max(0, state.stakedToday - tip.stake) : state.stakedToday,
+    // Nur die letzten 100 merken, damit die Liste nicht endlos wächst.
+    refundedTipIds: [...state.refundedTipIds, tip.id].slice(-100),
+  };
+}
 /**
  * Sterne, die ein User einmalig geschenkt bekommt, wenn sein Guthaben auf 0
  * fällt – bewusst genau ein Referenz-Einsatz, damit man danach garantiert

@@ -92,7 +92,7 @@ export default function FortschrittPage() {
   // Sportart, ermittelt aus echten myTips-Daten (nicht simuliert).
   const hitRateBySport: Partial<Record<string, { exakt: number; total: number }>> = {};
   for (const tip of myTips) {
-    if (!tip.evaluated) continue;
+    if (!tip.evaluated || tip.refunded) continue;
     const sport = matches.find((m) => m.id === tip.matchId)?.sport;
     if (!sport) continue;
     const entry = hitRateBySport[sport] ?? { exakt: 0, total: 0 };

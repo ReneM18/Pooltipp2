@@ -101,10 +101,15 @@ export function DuelsProvider({ children }: { children: ReactNode }) {
           return;
         }
         const mapped = mapRow(row);
-        // Abgelehnt, verfallen oder ausgewertet: Die Datenbank hat dabei
-        // Sterne gutgeschrieben (Rückzahlung bzw. Gewinn) – den echten Stand
-        // holen, damit er sofort sichtbar ist.
-        if (mapped.status === "abgelehnt" || mapped.status === "verfallen" || mapped.status === "ausgewertet") {
+        // Abgelehnt, verfallen, ausgewertet oder abgesagt: Die Datenbank hat
+        // dabei Sterne gutgeschrieben (Rückzahlung bzw. Gewinn) – den echten
+        // Stand holen, damit er sofort sichtbar ist.
+        if (
+          mapped.status === "abgelehnt" ||
+          mapped.status === "verfallen" ||
+          mapped.status === "ausgewertet" ||
+          mapped.status === "abgesagt"
+        ) {
           refreshStars();
         }
         setDuels((current) => {

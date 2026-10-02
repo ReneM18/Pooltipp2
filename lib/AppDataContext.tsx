@@ -33,6 +33,9 @@ export interface SubmittedTip {
   // korrigiert hat, und die Auswertung wird für ihn nachgezogen.
   evaluatedHomeScore?: number;
   evaluatedAwayScore?: number;
+  // Spiel wurde abgesagt: Einsatz kam zurück, keine Wertung (evaluated ist
+  // dann ebenfalls true, damit der Tipp nie mehr ausgewertet wird).
+  refunded?: boolean;
 }
 
 // Feed-Eintrag, den auch ANDERE User sehen dürfen – in dritter Person
@@ -307,6 +310,12 @@ interface AppDataContextValue {
   removeCompetition: (id: string) => void;
   addMatch: (match: Omit<Match, "id">) => void;
   removeMatch: (id: string) => void;
+  // Spiel absagen (nur Admin): Die Datenbank erstattet alle offenen
+  // Einsätze (Tipps + Duelle) und markiert das Spiel als abgesagt.
+  cancelMatch: (id: string) => Promise<{ ok: true; refundedTips: number } | { ok: false; error: string }>;
+  // Eigenen Tipp lokal als "abgesagt, Einsatz zurück" markieren, nachdem die
+  // Datenbank ihn erstattet hat.
+  markTipRefunded: (tipId: string, narration: string) => void;
   getTeam: (id: string) => Team | undefined;
   tipCounts: Record<string, number>;
   registerTip: (matchId: string) => void;
@@ -771,6 +780,53 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       });
   }
 
+  async function cancelMatch(
+    id: string
+  ): Promise<{ ok: true; refundedTips: number } | { ok: false; error: string }> {
+    const { data, error } = await supabase.rpc("cancel_match", { p_match_id: id });
+    if (error) {
+      // Fehlt die Funktion noch (supabase/spiel-absagen.sql nicht
+      // ausgeführt), bleibt das Spiel bewusst unverändert – sonst wäre es
+      // abgesagt, ohne dass jemand seinen Einsatz zurückbekommt.
+      return {
+        ok: false,
+        error:
+          error.code === "PGRST202"
+            ? "Absagen ist noch nicht eingerichtet – bitte zuerst spiel-absagen.sql in Supabase ausführen."
+            : error.message,
+      };
+    }
+    // Lokal genauso setzen wie in der Datenbank, damit der nächste
+    // Spiele-Abgleich aus diesem Tab das Spiel nicht wieder öffnet.
+    setMatches((current) => current.map((m) => (m.id === id ? { ...m, status: "cancelled" } : m)));
+    const match = matches.find((m) => m.id === id);
+    if (match) {
+      const home = getTeam(match.homeTeamId);
+      const away = getTeam(match.awayTeamId);
+      const text = `Abgesagt: ${home?.name ?? "?"} vs. ${away?.name ?? "?"} – alle Einsätze gehen zurück.`;
+      addActivity("🚫", text, { author: "PoolTipp", text });
+    }
+    return { ok: true, refundedTips: typeof data === "number" ? data : 0 };
+  }
+
+  function markTipRefunded(tipId: string, narration: string) {
+    setMyTips((current) =>
+      current.map((t) =>
+        t.id === tipId
+          ? {
+              ...t,
+              evaluated: true,
+              refunded: true,
+              resultTier: undefined,
+              rangDelta: 0,
+              starsDelta: 0,
+              narration,
+            }
+          : t
+      )
+    );
+  }
+
   function getTeam(id: string) {
     return teams.find((t) => t.id === id);
   }
@@ -827,7 +883,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   function changeTip(matchId: string, predictedHomeScore: number, predictedAwayScore: number) {
     const match = matches.find((m) => m.id === matchId);
-    if (!match || match.status === "finished" || new Date(match.tipDeadline).getTime() <= Date.now()) return false;
+    if (
+      !match ||
+      match.status === "finished" ||
+      match.status === "cancelled" ||
+      new Date(match.tipDeadline).getTime() <= Date.now()
+    )
+      return false;
     const tip = [...myTips].reverse().find((t) => t.matchId === matchId);
     if (!tip || tip.evaluated) return false;
     setMyTips((current) =>
@@ -1110,6 +1172,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         removeCompetition,
         addMatch,
         removeMatch,
+        cancelMatch,
+        markTipRefunded,
         getTeam,
         tipCounts,
         registerTip,

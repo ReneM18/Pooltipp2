@@ -45,8 +45,10 @@ export default function DashboardPage() {
   const byKickoffAsc = (a: (typeof matches)[number], b: (typeof matches)[number]) =>
     new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
 
-  const offeneMatches = matches.filter((m) => m.status !== "finished").sort(byKickoffAsc);
-  const geschlosseneMatches = matches.filter((m) => m.status === "finished").sort(byKickoffAsc);
+  // Abgesagte Spiele stehen bei den geschlossenen (nicht mehr tippbar).
+  const isClosed = (m: (typeof matches)[number]) => m.status === "finished" || m.status === "cancelled";
+  const offeneMatches = matches.filter((m) => !isClosed(m)).sort(byKickoffAsc);
+  const geschlosseneMatches = matches.filter(isClosed).sort(byKickoffAsc);
   const visibleMatches = tab === "offen" ? offeneMatches : geschlosseneMatches;
 
   return (
@@ -120,6 +122,8 @@ export default function DashboardPage() {
                       rangDelta: tip.rangDelta,
                       starsDelta: tip.starsDelta,
                       narration: tip.narration,
+                      stake: tip.stake,
+                      refunded: tip.refunded,
                     }
                   : undefined
               }
