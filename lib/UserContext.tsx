@@ -18,7 +18,6 @@ import {
 } from "@/lib/seasons";
 import {
   evaluatePoolScore,
-  TIER_ORDER,
   daysBetween,
   applyInactivityDecay,
   INACTIVITY_GRACE_DAYS,
@@ -870,14 +869,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const match = matches.find((m) => m.id === matchId);
 
     const result = evaluatePoolScore({
-      matchId,
-      sport,
       predictedHome: tip.predictedHomeScore,
       predictedAway: tip.predictedAwayScore,
       actualHome,
       actualAway,
       stake: tip.stake,
-      myRangPunkte: rangPunkte[sport],
       isOneXTwo: match?.tipMode === "1x2",
     });
 
@@ -890,34 +886,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
       freeStars: Math.max(0, current.freeStars + result.starsCredit),
     }));
 
-    const namedBeaten = result.opponents.filter(
-      (o) => !o.name.startsWith("Mitspieler #") && TIER_ORDER[o.tier] < TIER_ORDER[result.tier]
-    );
-    const namedBetter = result.opponents.filter(
-      (o) => !o.name.startsWith("Mitspieler #") && TIER_ORDER[o.tier] > TIER_ORDER[result.tier]
-    );
     const deltaLabel = result.rangDelta >= 0 ? `+${result.rangDelta}` : `${result.rangDelta}`;
-
-    let narration: string;
-    if (result.tier === "exakt") {
-      const victim = namedBeaten[0];
-      narration = victim
-        ? `🎯 Exakt getroffen! Du hast ${victim.name} ausgestochen – ${deltaLabel} Rangpunkte.`
-        : `🎯 Exakt getroffen! ${deltaLabel} Rangpunkte.`;
-    } else if (result.tier === "tendenz") {
-      narration = `👍 Tendenz richtig erkannt – ${deltaLabel} Rangpunkte.`;
-    } else {
-      const winner = namedBetter[0];
-      narration = winner
-        ? `😬 Daneben getippt – ${winner.name} hat sich gegen dich durchgesetzt (${deltaLabel} Rangpunkte).`
+    const narration =
+      result.tier === "exakt"
+        ? `🎯 Exakt getroffen! ${deltaLabel} Rangpunkte.`
+        : result.tier === "tendenz"
+        ? `👍 Tendenz richtig erkannt – ${deltaLabel} Rangpunkte.`
         : `😬 Daneben getippt (${deltaLabel} Rangpunkte).`;
-    }
 
     markTipEvaluated(tip.id, {
       tier: result.tier,
       rangDelta: result.rangDelta,
       starsDelta: result.starsNet,
-      beatPercent: result.beatPercent,
       narration,
       actualHome,
       actualAway,
@@ -946,16 +926,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const oldStarsDelta = tip.starsDelta ?? 0;
 
     const result = evaluatePoolScore({
-      matchId,
-      sport,
       predictedHome: tip.predictedHomeScore,
       predictedAway: tip.predictedAwayScore,
       actualHome,
       actualAway,
       stake: tip.stake,
-      // Rangpunkte-Stand VOR der ursprünglichen (jetzt zu korrigierenden)
-      // Auswertung, als Basis für den Außenseiter-Bonus/-Malus.
-      myRangPunkte: rangPunkte[sport] - oldRangDelta,
       isOneXTwo: match?.tipMode === "1x2",
     });
 
@@ -984,7 +959,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
       tier: result.tier,
       rangDelta: result.rangDelta,
       starsDelta: result.starsNet,
-      beatPercent: result.beatPercent,
       narration,
       actualHome,
       actualAway,
@@ -1069,7 +1043,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
         tier: existing.result_tier,
         rangDelta: existing.rang_delta ?? 0,
         starsDelta: existing.stars_delta ?? 0,
-        beatPercent: existing.beat_percent ?? 0,
         narration: existing.narration ?? "",
         actualHome: existing.evaluated_home_score ?? undefined,
         actualAway: existing.evaluated_away_score ?? undefined,

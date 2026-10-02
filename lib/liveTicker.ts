@@ -2,8 +2,8 @@
 // eines statischen "LIVE"-Badges mit Spielstand zeigt die App ein paar
 // Ereignis-Zeilen (Tor/Karte), die zum aktuellen Stand passen. Es gibt
 // (noch) keinen echten Event-Feed – die Minuten werden deterministisch aus
-// der Match-ID berechnet (gleiches mulberry32-Muster wie simulateOpponents
-// in lib/poolScore.ts), damit dieselbe Kombination aus Spiel + Spielstand
+// der Match-ID berechnet (mulberry32-Zufallsgenerator,
+// deterministisch), damit dieselbe Kombination aus Spiel + Spielstand
 // immer dieselben Ereignisse liefert statt bei jedem Re-Render zu wechseln.
 
 export type TickerEventType = "tor" | "gelb" | "rot";

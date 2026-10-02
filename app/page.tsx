@@ -119,7 +119,6 @@ export default function DashboardPage() {
                       resultTier: tip.resultTier,
                       rangDelta: tip.rangDelta,
                       starsDelta: tip.starsDelta,
-                      beatPercent: tip.beatPercent,
                       narration: tip.narration,
                     }
                   : undefined
