@@ -3,7 +3,7 @@
 // würden – macht andere User als echte Inhalte sichtbar, nicht nur als
 // generische "hat getippt"-Zeile. Da es keine echten fremden Tipps gibt
 // (kein Backend), werden diese deterministisch pro Spiel+Name simuliert
-// (gleiches mulberry32-Muster wie simulateOpponents in lib/poolScore.ts).
+// (mulberry32-Zufallsgenerator, deterministisch).
 
 import { Match } from "./types";
 import { mockLeaderboardBySport } from "./mockLeaderboard";

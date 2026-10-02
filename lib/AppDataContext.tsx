@@ -325,7 +325,6 @@ interface AppDataContextValue {
       tier: TipResultTier;
       rangDelta: number;
       starsDelta: number;
-      beatPercent: number;
       narration: string;
       actualHome?: number;
       actualAway?: number;
@@ -776,7 +775,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       tier: TipResultTier;
       rangDelta: number;
       starsDelta: number;
-      beatPercent: number;
       narration: string;
       actualHome?: number;
       actualAway?: number;
@@ -791,7 +789,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
               resultTier: result.tier,
               rangDelta: result.rangDelta,
               starsDelta: result.starsDelta,
-              beatPercent: result.beatPercent,
               narration: result.narration,
               evaluatedHomeScore: result.actualHome,
               evaluatedAwayScore: result.actualAway,

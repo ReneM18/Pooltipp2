@@ -3,8 +3,8 @@
 // Zeit), als Gegenstück zur nie endenden Gesamt-Rangliste – schafft
 // kurzfristige Dringlichkeit statt eines Ziels, das sich erst nach Monaten
 // bewegt. Da es kein echtes Backend gibt, werden die Werte der anderen
-// Mitspieler deterministisch pro Woche simuliert (gleiches mulberry32-
-// Muster wie simulateOpponents in lib/poolScore.ts) – bei echten Konten
+// Mitspieler deterministisch pro Woche simuliert (mulberry32-
+// Zufallsgenerator) – bei echten Konten
 // stünden hier reale Wochenwerte.
 
 import { mockLeaderboard } from "./mockLeaderboard";

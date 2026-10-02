@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, FormEvent } from "react";
 import Link from "next/link";
 import { Match, Team } from "@/lib/types";
-import { TipResultTier } from "@/lib/poolScore";
+import { TipResultTier, compareWithOthers } from "@/lib/poolScore";
+import { MatchTipper, useMatchTips } from "@/lib/matchTips";
 import { flagEmoji } from "@/lib/flags";
 import { generateTickerEvents } from "@/lib/liveTicker";
 import { useAppData } from "@/lib/AppDataContext";
@@ -33,7 +34,6 @@ interface MyTip {
   resultTier?: TipResultTier;
   rangDelta?: number;
   starsDelta?: number;
-  beatPercent?: number;
   narration?: string;
 }
 
@@ -113,6 +113,8 @@ export default function MatchCard({
   const { displayName, hasPremiumPass, passXP, passHonors, authUserId } = useUser();
   const { showToast, celebrate } = useFeedback();
   const [commentsOpen, setCommentsOpen] = useState(false);
+  // Liste "Wer hat getippt?" unter der Karte (Klick auf "X getippt").
+  const [tippersOpen, setTippersOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
   const commentSubmittedRef = useRef(false);
   const matchComments = getCommentsForMatch(match.id);
@@ -177,6 +179,32 @@ export default function MatchCard({
   const canChangeTip = hasTipped && !tippingClosed && !myTip?.evaluated && !!onChangeTip;
   const isChanging = changingTip && canChangeTip;
   const showResultView = (hasTipped && !isChanging) || tippingClosed;
+  // Echte Tipps aller Spieler: für die Liste und für den Vergleich nach der
+  // Auswertung. Fremde Tipps (die Zahlen) erst nach Tippschluss zeigen.
+  const { tippers, failed: tippersFailed } = useMatchTips(
+    match.id,
+    tippersOpen || !!myTip?.evaluated,
+    tipCount
+  );
+  const finalScore =
+    match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null
+      ? { home: match.liveHomeScore, away: match.liveAwayScore }
+      : null;
+  const comparison =
+    myTip?.evaluated && myTip.resultTier && finalScore && tippers
+      ? compareWithOthers(
+          myTip.resultTier,
+          tippers
+            .filter((t) => t.userId !== authUserId)
+            .map((t) => ({ predictedHome: t.predictedHome, predictedAway: t.predictedAway })),
+          finalScore.home,
+          finalScore.away
+        )
+      : null;
+
+  function formatTip(home: number, away: number) {
+    return isOneXTwo ? ONE_X_TWO_LABEL[scoreToOneXTwo(home, away)] : `${home} : ${away}`;
+  }
 
   function startChangingTip() {
     if (!myTip) return;
@@ -412,7 +440,7 @@ export default function MatchCard({
               </div>
             )}
 
-            {hasTipped && myTip?.evaluated && <PoolScoreResultBox myTip={myTip!} />}
+            {hasTipped && myTip?.evaluated && <PoolScoreResultBox myTip={myTip!} comparison={comparison} />}
 
             {match.bonusQuestion && myBonusAnswer && (
               <div
@@ -443,10 +471,21 @@ export default function MatchCard({
         )}
 
         <div className="mt-auto flex items-center justify-between pt-3 text-xs text-muted">
-          <span className="flex items-center gap-1">
-            <PeopleIcon className="h-3.5 w-3.5" />
-            {tipCount.toLocaleString("de-DE")} getippt
-          </span>
+          {tipCount > 0 ? (
+            <button
+              onClick={() => setTippersOpen((current) => !current)}
+              aria-expanded={tippersOpen}
+              className="flex items-center gap-1 font-semibold text-muted transition-colors hover:text-ink"
+            >
+              <PeopleIcon className="h-3.5 w-3.5" />
+              {tipCount.toLocaleString("de-DE")} getippt
+              <span aria-hidden className="text-[10px]">{tippersOpen ? "▲" : "▼"}</span>
+            </button>
+          ) : (
+            <span className="flex items-center gap-1">
+              <PeopleIcon className="h-3.5 w-3.5" />0 getippt
+            </span>
+          )}
           <div className="flex items-center gap-3">
             <button
               onClick={() => setCommentsOpen((current) => !current)}
@@ -458,6 +497,16 @@ export default function MatchCard({
             {hasTipped && <span className="font-semibold text-action">✓ Getippt</span>}
           </div>
         </div>
+
+        {tippersOpen && tipCount > 0 && (
+          <TippersList
+            tippers={tippers}
+            failed={tippersFailed}
+            authUserId={authUserId}
+            showTips={tippingClosed}
+            formatTip={formatTip}
+          />
+        )}
 
         {commentsOpen && (
           <div className="mt-3 border-t border-edge pt-3">
@@ -559,7 +608,66 @@ const TIER_BOX_CLASS: Record<TipResultTier, string> = {
   falsch: "border-edge bg-pitch",
 };
 
-function PoolScoreResultBox({ myTip }: { myTip: MyTip }) {
+function TippersList({
+  tippers,
+  failed,
+  authUserId,
+  showTips,
+  formatTip,
+}: {
+  tippers: MatchTipper[] | null;
+  failed: boolean;
+  authUserId: string | null;
+  showTips: boolean;
+  formatTip: (home: number, away: number) => string;
+}) {
+  return (
+    <div className="mt-3 border-t border-edge pt-3">
+      <p className="mb-2 text-xs font-semibold text-ink">Wer hat getippt?</p>
+      {tippers === null ? (
+        <p className="text-xs text-muted">{failed ? "Konnte nicht geladen werden." : "Wird geladen…"}</p>
+      ) : (
+        <>
+          <ul className="flex max-h-64 flex-col gap-1.5 overflow-y-auto pr-1">
+            {tippers.map((t) => (
+              <li
+                key={t.userId}
+                className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-pitch px-3 py-2"
+              >
+                <span className="min-w-0 text-sm">
+                  <Link
+                    href={`/spieler/${encodeURIComponent(t.name)}`}
+                    className="font-semibold text-gold [overflow-wrap:anywhere] hover:opacity-80"
+                  >
+                    {t.name}
+                  </Link>
+                  {t.userNumber !== null && <span className="ml-1.5 text-xs text-muted">#{t.userNumber}</span>}
+                  {t.userId === authUserId && <span className="ml-1.5 text-xs text-muted">(du)</span>}
+                </span>
+                {showTips && (
+                  <span className="shrink-0 font-display text-sm font-semibold text-ink">
+                    {formatTip(t.predictedHome, t.predictedAway)}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+          {!showTips && (
+            <p className="mt-2 text-[11px] text-muted">Die Tipps der anderen siehst du ab Tippschluss.</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function PoolScoreResultBox({
+  myTip,
+  comparison,
+}: {
+  myTip: MyTip;
+  comparison: { beaten: number; tied: number; ahead: number; total: number } | null;
+}) {
   const tier = myTip.resultTier ?? "falsch";
   const rangDelta = myTip.rangDelta ?? 0;
   const starsDelta = myTip.starsDelta ?? 0;
@@ -581,9 +689,17 @@ function PoolScoreResultBox({ myTip }: { myTip: MyTip }) {
           {starsDelta >= 0 ? "+" : ""}
           {starsDelta} Sterne
         </span>
-        {typeof myTip.beatPercent === "number" && (
-          <span>Du hast dich gegen {myTip.beatPercent}% der Mitspieler durchgesetzt.</span>
-        )}
+        {comparison &&
+          (comparison.total === 0 ? (
+            <span>Außer dir hat niemand getippt.</span>
+          ) : (
+            <span>
+              Besser als {comparison.beaten} von {comparison.total}{" "}
+              {comparison.total === 1 ? "Mitspieler" : "Mitspielern"} (
+              {Math.round((comparison.beaten / comparison.total) * 100)} %)
+              {comparison.tied > 0 ? `, gleich gut wie ${comparison.tied}` : ""}.
+            </span>
+          ))}
       </div>
     </div>
   );
