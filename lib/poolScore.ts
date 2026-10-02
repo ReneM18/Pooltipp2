@@ -24,14 +24,21 @@ export const TIER_ORDER: Record<TipResultTier, number> = {
   exakt: 2,
 };
 
-/** Bestimmt, ob ein Tipp exakt, in der Tendenz oder falsch war. */
+/**
+ * Bestimmt, ob ein Tipp exakt, in der Tendenz oder falsch war.
+ *
+ * Bei 1X2-Spielen gibt es kein "exakt": Der Tipp wird intern als 1:0, 0:0
+ * oder 0:1 gespeichert. Endet das Spiel zufällig genau so, wäre er sonst
+ * "exakt" und brächte mehr als ein anderer richtiger 1X2-Tipp.
+ */
 export function classifyTip(
   predictedHome: number,
   predictedAway: number,
   actualHome: number,
-  actualAway: number
+  actualAway: number,
+  isOneXTwo = false
 ): TipResultTier {
-  if (predictedHome === actualHome && predictedAway === actualAway) return "exakt";
+  if (!isOneXTwo && predictedHome === actualHome && predictedAway === actualAway) return "exakt";
   const predictedDiff = Math.sign(predictedHome - predictedAway);
   const actualDiff = Math.sign(actualHome - actualAway);
   if (predictedDiff === actualDiff) return "tendenz";
@@ -57,16 +64,15 @@ export const RANG_BASE_POINTS: Record<TipResultTier, number> = {
  *   - Tendenz (bei Ergebnis-Tipps): Einsatz zurück (Null-Ergebnis für die Sterne)
  *     – ist hier bewusst neutral, weil "Exakt" bei diesem Tipp-Modus noch
  *     erreichbar gewesen wäre.
- *   - Tendenz bei 1X2-Tipps: Bei diesem Tipp-Modus IST "richtig geraten"
+ *   - Richtig bei 1X2-Tipps: Bei diesem Tipp-Modus IST "richtig geraten"
  *     bereits das bestmögliche Ergebnis (ein exaktes Ergebnis kann man hier
- *     gar nicht abgeben) – deshalb gibt's hier einen echten, kleineren Bonus
- *     statt nur des Einsatzes zurück, sonst würde sich 1X2-Mittippen mit
- *     Einsatz nie lohnen.
+ *     gar nicht abgeben) – deshalb gibt's wie bei "Exakt" Einsatz zurück
+ *     + 50% Bonus. Gewinn und Verlust sind damit gleich groß.
  *   - Falsch: nur 50% des Einsatzes gehen verloren, die Hälfte kommt zurück.
  */
 export function starsDeltaForTier(tier: TipResultTier, stake: number, isOneXTwo = false): number {
   if (tier === "exakt") return Math.round(stake * 1.5);
-  if (tier === "tendenz") return Math.round(stake * (isOneXTwo ? 1.25 : 1));
+  if (tier === "tendenz") return Math.round(stake * (isOneXTwo ? 1.5 : 1));
   return Math.round(stake * 0.5);
 }
 
@@ -88,9 +94,10 @@ export function evaluatePoolScore(params: {
   stake: number;
   isOneXTwo?: boolean;
 }): PoolScoreResult {
-  const tier = classifyTip(params.predictedHome, params.predictedAway, params.actualHome, params.actualAway);
+  const isOneXTwo = params.isOneXTwo ?? false;
+  const tier = classifyTip(params.predictedHome, params.predictedAway, params.actualHome, params.actualAway, isOneXTwo);
   const rangDelta = RANG_BASE_POINTS[tier];
-  const starsCredit = starsDeltaForTier(tier, params.stake, params.isOneXTwo ?? false);
+  const starsCredit = starsDeltaForTier(tier, params.stake, isOneXTwo);
   const starsNet = starsCredit - params.stake;
   return { tier, rangDelta, starsCredit, starsNet };
 }
@@ -103,14 +110,15 @@ export function compareWithOthers(
   myTier: TipResultTier,
   otherTips: { predictedHome: number; predictedAway: number }[],
   actualHome: number,
-  actualAway: number
+  actualAway: number,
+  isOneXTwo = false
 ): { beaten: number; tied: number; ahead: number; total: number } {
   const myOrder = TIER_ORDER[myTier];
   let beaten = 0;
   let tied = 0;
   let ahead = 0;
   for (const t of otherTips) {
-    const order = TIER_ORDER[classifyTip(t.predictedHome, t.predictedAway, actualHome, actualAway)];
+    const order = TIER_ORDER[classifyTip(t.predictedHome, t.predictedAway, actualHome, actualAway, isOneXTwo)];
     if (order < myOrder) beaten++;
     else if (order === myOrder) tied++;
     else ahead++;

@@ -891,7 +891,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       result.tier === "exakt"
         ? `🎯 Exakt getroffen! ${deltaLabel} Rangpunkte.`
         : result.tier === "tendenz"
-        ? `👍 Tendenz richtig erkannt – ${deltaLabel} Rangpunkte.`
+        ? match?.tipMode === "1x2"
+          ? `👍 Richtig getippt – ${deltaLabel} Rangpunkte.`
+          : `👍 Tendenz richtig erkannt – ${deltaLabel} Rangpunkte.`
         : `😬 Daneben getippt (${deltaLabel} Rangpunkte).`;
 
     markTipEvaluated(tip.id, {
@@ -951,7 +953,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       result.tier === "exakt"
         ? "jetzt exakt getroffen"
         : result.tier === "tendenz"
-        ? "jetzt Tendenz richtig"
+        ? match?.tipMode === "1x2"
+          ? "jetzt richtig"
+          : "jetzt Tendenz richtig"
         : "jetzt daneben";
     const narration = `🔧 Ein Admin hat den Endstand korrigiert – dein Tipp gilt ${tierText} (${deltaLabel} Rangpunkte).`;
 
