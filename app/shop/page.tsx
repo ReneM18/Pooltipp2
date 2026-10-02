@@ -19,7 +19,7 @@ function ShopComingSoon() {
       <p className="mt-2 text-sm text-muted">Hier gibt es später Joker für deine Tipps.</p>
       <Link
         href="/"
-        className="mt-6 inline-block rounded-full bg-action-hover px-5 py-2.5 font-display text-base font-semibold text-pitch transition-colors hover:bg-[#6BD497]"
+        className="mt-6 inline-block rounded-full bg-action-hover px-5 py-2.5 font-display text-base font-semibold text-pitch transition-all hover:brightness-110"
       >
         Zu den Spielen
       </Link>

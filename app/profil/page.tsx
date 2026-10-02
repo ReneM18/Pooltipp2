@@ -18,6 +18,7 @@ import { Sport } from "@/lib/types";
 import { SEASON_THEME } from "@/lib/seasonTheme";
 import { CURRENT_SEASON } from "@/lib/seasons";
 import { xpForLevel } from "@/lib/seasonPass";
+import { useSeasonDesign } from "@/lib/seasonDesign";
 
 const sportIcon: Record<string, string> = {
   "Fußball": "⚽",
@@ -81,6 +82,7 @@ export default function ProfilPage() {
   // Premium-Pass-Stufen (siehe lib/passLevels.ts): true, sobald die Premium-Spur
   // gekauft UND das jeweilige Level per Pass-XP erreicht ist.
   const hasLevelPremium = (level: number) => hasPremiumPass && passXP >= xpForLevel(level);
+  const seasonDesign = useSeasonDesign();
   const playedEarlierSeason = passClaims.some((c) => !c.startsWith(`${CURRENT_SEASON.theme.id}:`));
 
   const evaluatedTips = myTips.filter((t) => t.evaluated && !t.refunded);
@@ -507,6 +509,34 @@ export default function ProfilPage() {
             {saved ? "Gespeichert ✓" : "Speichern"}
           </button>
         </form>
+        {/* Saison-Design: alle bekommen es automatisch, hier abschaltbar
+            (gilt pro Gerät, siehe lib/seasons/design.ts). */}
+        {seasonDesign.available && (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-ink">Saison-Design</p>
+              <p className="text-xs text-muted">
+                Farben und Deko der Saison „{seasonDesign.seasonName}“ in der ganzen App.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={seasonDesign.enabled}
+              aria-label="Saison-Design an oder aus"
+              onClick={() => seasonDesign.setEnabled(!seasonDesign.enabled)}
+              className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 font-display text-sm font-semibold transition-colors ${
+                seasonDesign.enabled ? "border-action bg-action text-pitch" : "border-edge bg-pitch text-muted"
+              }`}
+            >
+              <span
+                className={`h-3 w-3 rounded-full ${seasonDesign.enabled ? "bg-pitch" : "bg-muted"}`}
+                aria-hidden
+              />
+              {seasonDesign.enabled ? "An" : "Aus"}
+            </button>
+          </div>
+        )}
         <p className="mt-2 text-xs text-muted">
           Weitere Einstellungen (Benachrichtigungen, Passwort, Konto löschen) folgen noch.
         </p>

@@ -182,7 +182,7 @@ export default function RegistrierenPage() {
             den Spielen, "Ausloggen" nur noch als kleiner Zweit-Knopf. */}
         <Link
           href="/"
-          className="mt-6 block rounded-full bg-action-hover px-5 py-2.5 font-display text-base font-semibold text-pitch transition-colors hover:bg-[#6BD497]"
+          className="mt-6 block rounded-full bg-action-hover px-5 py-2.5 font-display text-base font-semibold text-pitch transition-all hover:brightness-110"
         >
           Los geht&apos;s zu den Spielen
         </Link>

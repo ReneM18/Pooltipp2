@@ -22,6 +22,27 @@ const theme: SeasonTheme = {
 
 export const HERBST_2026: SeasonData = {
   theme,
+  // Saison-Design Herbst (von Rene am 02.10.2026 ausgesucht): warmes
+  // Dunkelbraun, Knöpfe orange, kräftige Laub-Deko, Nachrichtenstreifen orange.
+  design: {
+    colors: {
+      pitch: "#140E0A",
+      surface: "#231912",
+      surfaceHover: "#2E2117",
+      edge: "#3D2B1E",
+      gold: "#ECB548",
+      goldDim: "#523C1E",
+      action: "#E2793A",
+      actionHover: "#F0904F",
+      ink: "#F6F0E6",
+      muted: "#AA9A8B",
+      ticker: "#E2793A",
+    },
+    glow: ["rgba(226, 121, 58, 0.10)", "rgba(181, 69, 43, 0.09)"],
+    decoColors: ["#E2793A", "#B5452B", "#ECB548"],
+    heroFrom: "#7A3414",
+    heroTo: "#6A2616",
+  },
   // Astronomischer Herbst. Der Wechsel passiert automatisch nach Datum,
   // siehe lib/seasons/schedule.ts.
   startsOn: "2026-09-23",

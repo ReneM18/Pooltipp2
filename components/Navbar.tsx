@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import RankBadge from "@/components/RankBadge";
 import SeasonFrame from "@/components/SeasonFrame";
+import SeasonDeco from "@/components/SeasonDeco";
 import { useMyOverallRank } from "@/lib/myOverallRank";
 import { SHOP_ENABLED } from "@/lib/mockShopItems";
 import { StarIcon, TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
@@ -36,8 +37,9 @@ export default function Navbar() {
           : "Zur Rangliste";
 
   return (
-    <header className="border-b border-edge bg-pitch/95 backdrop-blur">
-      <div className="mx-auto flex max-w-3xl lg:max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:px-5 sm:py-4">
+    <header className="relative border-b border-edge bg-pitch/95 backdrop-blur">
+      <SeasonDeco />
+      <div className="relative mx-auto flex max-w-3xl lg:max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:px-5 sm:py-4">
         <Link
           href="/"
           className="font-logo text-2xl font-bold tracking-wide text-ink transition-opacity hover:opacity-80 sm:text-3xl"

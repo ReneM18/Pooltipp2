@@ -8,6 +8,7 @@ import { DuelsProvider } from "@/lib/DuelsContext";
 import { TournamentProvider } from "@/lib/TournamentContext";
 import { FeedbackProvider } from "@/lib/FeedbackContext";
 import AppChrome from "@/components/AppChrome";
+import { seasonDesignBootScript } from "@/lib/seasons/design";
 
 // Rajdhani wird jetzt NUR noch fürs "PoolTipp"-Logo in der Navbar verwendet
 // (siehe font-logo in tailwind.config.ts) – überall sonst übernimmt Poppins.
@@ -46,7 +47,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="de" className={`${rajdhani.variable} ${poppins.variable} ${inter.variable}`}>
+    <html
+      lang="de"
+      className={`${rajdhani.variable} ${poppins.variable} ${inter.variable}`}
+      // Das Saison-Design setzt seine Farben schon vor React an <html>.
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: seasonDesignBootScript() }} />
+      </head>
       <body className="font-body min-h-screen bg-pitch text-ink antialiased">
         <AppDataProvider>
           <UserProvider>
