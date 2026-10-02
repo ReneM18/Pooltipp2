@@ -66,4 +66,17 @@ select pg_temp.check((start_pass_season('winter-2026', :'heute'::date))->>'reset
 select pg_temp.check((select pass_xp from profiles where id=auth.uid())=0, 'XP 0 trotz Sperre');
 reset role;
 
--- 9) Zwei Geräte gleichzeitig -> siehe Shell-Test
+-- 9) Saison-Spalten kann der Browser nicht selbst setzen (Reset umgehen)
+update profiles set pass_season_id='herbst-2026', pass_season_start='2026-09-23', pass_xp=4000 where id='00000000-0000-0000-0000-00000000000b';
+grant update on public.profiles to authenticated;
+set role authenticated;
+set test.uid = '00000000-0000-0000-0000-00000000000b';
+select pg_temp.check(current_pass_season_id() = 'herbst-2026', 'current_pass_season_id = eigene Saison');
+update profiles set pass_season_id = 'winter-2026', pass_season_start = :'heute'::date where id = auth.uid();
+select pg_temp.check((select pass_season_id from profiles where id=auth.uid())='herbst-2026', 'Browser kann Saison nicht vorstellen');
+select pg_temp.check((start_pass_season('winter-2026', :'heute'::date))->>'reset' = 'true', 'Reset trotzdem');
+select pg_temp.check(current_pass_season_id() = 'winter-2026', 'current_pass_season_id nach Wechsel');
+set test.uid = '00000000-0000-0000-0000-00000000000d';
+insert into profiles(id, display_name, pass_season_id) values ('00000000-0000-0000-0000-00000000000d','Dora','winter-2026');
+reset role;
+select pg_temp.check((select pass_season_id is null from profiles where id='00000000-0000-0000-0000-00000000000d'), 'Neues Profil kann Saison nicht selbst setzen');

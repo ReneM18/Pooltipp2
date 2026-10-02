@@ -15,6 +15,7 @@ create table public.profiles (
 alter table public.profiles enable row level security;
 create policy "lesen" on public.profiles for select using (true);
 create policy "eigenes" on public.profiles for update using (auth.uid() = id);
+create policy "eigenes anlegen" on public.profiles for insert with check (auth.uid() = id);
 grant select, insert, update on public.profiles to authenticated;
 -- Spieler A: hat Herbst-XP und Abzeichen, B: hat XP, C: neuer Spieler (nach Migration angelegt)
 insert into public.profiles(id, display_name, pass_xp, claimed_milestones) values

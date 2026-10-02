@@ -76,3 +76,47 @@ $$;
 
 revoke execute on function public.start_pass_season(text, date) from public, anon;
 grant execute on function public.start_pass_season(text, date) to authenticated;
+
+-- 4) Saison-Spalten vor dem Browser schützen: sonst könnte jemand vor dem
+--    Wechsel schon "winter-2026" eintragen und so seine Herbst-XP in den
+--    Winter mitnehmen. Ändern darf sie nur start_pass_season() (läuft als
+--    Datenbank-Besitzer) und der SQL Editor.
+create or replace function public.protect_pass_season_columns()
+returns trigger
+language plpgsql
+as $$
+begin
+  if current_user in ('authenticated', 'anon') then
+    if tg_op = 'INSERT' then
+      new.pass_season_id := null;
+      new.pass_season_start := null;
+    else
+      new.pass_season_id := old.pass_season_id;
+      new.pass_season_start := old.pass_season_start;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_pass_season_columns on public.profiles;
+create trigger protect_pass_season_columns
+  before insert or update on public.profiles
+  for each row execute function public.protect_pass_season_columns();
+
+-- 5) Zu welcher Saison gehören die XP des eingeloggten Spielers? Wird von der
+--    serverseitigen Saison-Pass-Auswertung (claim_pass_rewards) benutzt, damit
+--    Level immer in der Saison eingetragen werden, zu der die XP gehören.
+create or replace function public.current_pass_season_id()
+returns text
+language sql
+stable
+security definer set search_path = public
+as $$
+  select coalesce(
+    (select pass_season_id from public.profiles where id = auth.uid()),
+    'herbst-2026'
+  );
+$$;
+
+grant execute on function public.current_pass_season_id() to authenticated;
