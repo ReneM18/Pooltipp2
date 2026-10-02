@@ -7,12 +7,18 @@ import type { SeasonDesign } from "./types";
 // ============================================================================
 // Die Farben stehen in der Saison-Datei (z. B. herbst2026.ts → design). Die
 // App-Farben (tailwind.config.ts) sind CSS-Variablen; hier werden sie mit den
-// Saison-Farben überschrieben. Jeder Spieler bekommt das Design automatisch
-// (alle sind mindestens auf Level 1). Abschalten kann man es im Profil – das
-// merkt sich der Browser (pro Gerät), deshalb ist kein SQL nötig.
-// Schalter: lib/seasonDesign.ts (useSeasonDesign).
+// Saison-Farben überschrieben. Ein Spieler bekommt das Design automatisch,
+// sobald er im Saison-Pass das Level design.unlockLevel erreicht; Gäste und
+// Spieler darunter sehen das normale Grün. Abschalten kann man es im Profil.
+// Beides merkt sich der Browser (pro Gerät), deshalb ist kein SQL nötig.
+// Freischalten + Schalter: lib/seasonDesign.ts, components/SeasonDesignGate.tsx.
 
 export const SEASON_DESIGN_STORAGE_KEY = "pooltipp_saison_design";
+/** Saison-id, deren Design auf diesem Gerät freigeschaltet ist (Level
+ *  erreicht). Setzt components/SeasonDesignGate.tsx nach dem Laden des
+ *  Profils; das Skript unten liest es, damit das Design ab dem zweiten
+ *  Seitenaufruf ohne grünes Aufblitzen erscheint. */
+export const SEASON_DESIGN_UNLOCK_KEY = "pooltipp_saison_design_frei";
 
 function rgbTriplet(hex: string): string {
   const n = parseInt(hex.replace("#", ""), 16);
@@ -45,7 +51,8 @@ export function seasonDesignVars(design: SeasonDesign): Record<string, string> {
  * Kleines Skript, das im <head> läuft, BEVOR die Seite gezeichnet wird – so
  * blitzt beim Laden nicht kurz das grüne Design auf. Es sucht die laufende
  * Saison nach derselben Regel wie lib/seasons/schedule.ts (spätester Start,
- * der heute in Österreich schon erreicht ist) und setzt deren Farben.
+ * der heute in Österreich schon erreicht ist) und setzt deren Farben – aber
+ * nur, wenn das Design dieser Saison auf diesem Gerät freigeschaltet ist.
  */
 export function seasonDesignBootScript(): string {
   const seasons = playableSeasons(SEASON_FILES).map((s) => ({
@@ -53,7 +60,7 @@ export function seasonDesignBootScript(): string {
     s: s.startsOn,
     v: s.design ? seasonDesignVars(s.design) : null,
   }));
-  return `(function(){try{var S=${JSON.stringify(seasons)};var t=new Date().toLocaleDateString("sv-SE",{timeZone:"Europe/Vienna"});var c=S[0];for(var i=0;i<S.length;i++){if(S[i].s<=t)c=S[i];}if(!c||!c.v)return;var off=false;try{off=localStorage.getItem(${JSON.stringify(
+  return `(function(){try{var S=${JSON.stringify(seasons)};var t=new Date().toLocaleDateString("sv-SE",{timeZone:"Europe/Vienna"});var c=S[0];for(var i=0;i<S.length;i++){if(S[i].s<=t)c=S[i];}if(!c||!c.v)return;var off=true;try{off=localStorage.getItem(${JSON.stringify(
     SEASON_DESIGN_STORAGE_KEY
-  )})==="aus";}catch(e){}if(off)return;var h=document.documentElement;for(var k in c.v)h.style.setProperty(k,c.v[k]);h.setAttribute("data-season-design",c.id);}catch(e){}})();`;
+  )})==="aus"||localStorage.getItem(${JSON.stringify(SEASON_DESIGN_UNLOCK_KEY)})!==c.id;}catch(e){}if(off)return;var h=document.documentElement;for(var k in c.v)h.style.setProperty(k,c.v[k]);h.setAttribute("data-season-design",c.id);}catch(e){}})();`;
 }
