@@ -52,6 +52,13 @@ export interface SeasonEmote {
 
 export interface SeasonData {
   theme: SeasonTheme;
+  /** Erster Tag der Saison, Format "JJJJ-MM-TT" (österreichische Zeit). */
+  startsOn: string;
+  /** Letzter Tag der Saison (einschließlich), Format "JJJJ-MM-TT". */
+  endsOn: string;
+  /** true = Entwurf: wird nie aktiv und nirgends angezeigt, bis Rene die
+   *  Inhalte festgelegt und diese Zeile entfernt hat. */
+  draft?: boolean;
   levels: PassLevel[];
   /** Emote-Paket, das mit dem Level der Art "emotes" freigeschaltet wird. */
   emotes: SeasonEmote[];

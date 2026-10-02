@@ -16,6 +16,7 @@ import PassHonorTags from "@/components/PassHonors";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { Sport } from "@/lib/types";
 import { SEASON_THEME } from "@/lib/seasonTheme";
+import { CURRENT_SEASON } from "@/lib/seasons";
 import { xpForLevel } from "@/lib/seasonPass";
 
 const sportIcon: Record<string, string> = {
@@ -32,6 +33,7 @@ export default function ProfilPage() {
     setDisplayName,
     freeStars,
     passXP,
+    passClaims,
     passHonors,
     tipsSubmitted,
     rankIconOptions,
@@ -76,6 +78,7 @@ export default function ProfilPage() {
   // Premium-Pass-Stufen (siehe lib/passLevels.ts): true, sobald die Premium-Spur
   // gekauft UND das jeweilige Level per Pass-XP erreicht ist.
   const hasLevelPremium = (level: number) => hasPremiumPass && passXP >= xpForLevel(level);
+  const playedEarlierSeason = passClaims.some((c) => !c.startsWith(`${CURRENT_SEASON.theme.id}:`));
 
   const evaluatedTips = myTips.filter((t) => t.evaluated && !t.refunded);
   const exaktCount = evaluatedTips.filter((t) => t.resultTier === "exakt").length;
@@ -139,8 +142,10 @@ export default function ProfilPage() {
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       {/* Saison-Pass Level 1: Willkommens-Banner für angemeldete Spieler –
-          nur solange sie noch auf Level 1 sind, ab Level 2 verschwindet er. */}
-      {isRegistered && authUserId && passXP < xpForLevel(2) && (
+          nur solange sie noch auf Level 1 sind, ab Level 2 verschwindet er.
+          Wer schon in einer früheren Saison gespielt hat, ist nicht neu und
+          bekommt ihn nach dem Saisonwechsel (XP wieder 0) nicht noch einmal. */}
+      {isRegistered && authUserId && passXP < xpForLevel(2) && !playedEarlierSeason && (
         <WelcomeBanner userId={authUserId} name={displayName} />
       )}
 

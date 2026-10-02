@@ -10,6 +10,7 @@ import { Sport, SPORTS } from "@/lib/types";
 import { mockLeaderboardBySport } from "@/lib/mockLeaderboard";
 import {
   CURRENT_SEASON,
+  seasonChangedSinceLoad,
   getPassHonors,
   passClaimKey,
   reachedLevels,
@@ -208,6 +209,23 @@ interface UserContextValue {
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
+
+// Saisonwechsel (supabase/saisonwechsel.sql): Gehören die gespeicherten
+// Saison-XP noch zu einer früheren Saison, setzt die Datenbank sie hier
+// einmalig auf 0. Titel/Abzeichen (claimed_milestones) bleiben. Antwort: die
+// gültigen Saison-XP – oder null, falls das SQL noch nicht ausgeführt wurde
+// (dann bleibt alles wie bisher).
+async function startPassSeason(): Promise<number | null> {
+  const { data, error } = await supabase.rpc("start_pass_season", {
+    p_season_id: CURRENT_SEASON.theme.id,
+    p_starts_on: CURRENT_SEASON.startsOn,
+  });
+  if (error) {
+    console.warn("Saisonwechsel nicht geprüft:", error.message);
+    return null;
+  }
+  return typeof data?.pass_xp === "number" ? data.pass_xp : null;
+}
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const {
@@ -435,7 +453,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
           ...(Object.fromEntries(SPORTS.map((s) => [s, 0])) as Record<Sport, number>),
           ...((profile.rang_punkte as Partial<Record<Sport, number>> | null) ?? {}),
         });
-        if (typeof profile.pass_xp === "number") setPassXP(profile.pass_xp);
         setStreakState((current) => ({
           ...current,
           count: profile.streak_count ?? current.count,
@@ -446,6 +463,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }));
         setPassClaims(splitClaimedMilestones(profile.claimed_milestones).pass);
         setLastClaimedAt(profile.last_claimed_at ?? null);
+        const seasonXP = await startPassSeason();
+        if (cancelled) return;
+        if (seasonXP !== null) setPassXP(seasonXP);
+        else if (typeof profile.pass_xp === "number") setPassXP(profile.pass_xp);
       } else {
         // Kein Profil-Eintrag vorhanden (z.B. Konto von vor dieser
         // Umstellung) -> jetzt einmalig mit den aktuellen, lokalen Werten
@@ -467,6 +488,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
           claimed_milestones: streakState.claimedMilestones,
           last_claimed_at: lastClaimedAt,
         });
+        await startPassSeason();
+        if (cancelled) return;
       }
       setProfileLoaded(true);
     })();
@@ -475,6 +498,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUserId]);
+
+  // Tab über einen Saisonwechsel hinweg offen gelassen: beim Zurückkehren
+  // neu laden, damit die neue Saison (und der XP-Neustart) greift und keine
+  // alten XP in die neue Saison geschrieben werden.
+  useEffect(() => {
+    function checkSeason() {
+      if (document.visibilityState === "visible" && seasonChangedSinceLoad()) window.location.reload();
+    }
+    document.addEventListener("visibilitychange", checkSeason);
+    window.addEventListener("focus", checkSeason);
+    return () => {
+      document.removeEventListener("visibilitychange", checkSeason);
+      window.removeEventListener("focus", checkSeason);
+    };
+  }, []);
 
   // Schreibt Name/Sterne automatisch in Supabase zurück, sobald sie sich
   // ändern – deckt damit alle bestehenden Änderungsstellen (Tages-Bonus,

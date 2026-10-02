@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { PassHonors, getPassHonors, splitClaimedMilestones } from "@/lib/seasons";
+import { PassHonors, getPassHonors, splitClaimedMilestones, CURRENT_SEASON } from "@/lib/seasons";
 
 // Titel und Abzeichen aus dem Saison-Pass (Belohnungsarten "title" und
 // "badge"). size "sm" für den Chat neben dem Namen, "md" fürs Profil.
@@ -49,6 +49,20 @@ export default function PassHonorTags({
 // geladene Werte werden für die ganze Sitzung gemerkt.
 // ----------------------------------------------------------------------------
 const honorsCache = new Map<string, PassHonors>();
+
+type HonorRow = { id: string; pass_xp: unknown; claimed_milestones: unknown; pass_season_id?: string | null };
+
+// pass_season_id gibt es erst nach supabase/saisonwechsel.sql – bis dahin
+// ohne diese Spalte laden.
+async function loadHonorRows(ids: string[]): Promise<HonorRow[] | null> {
+  const withSeason = await supabase
+    .from("profiles")
+    .select("id, pass_xp, claimed_milestones, pass_season_id")
+    .in("id", ids);
+  if (!withSeason.error) return withSeason.data as HonorRow[];
+  const without = await supabase.from("profiles").select("id, pass_xp, claimed_milestones").in("id", ids);
+  return without.error ? null : (without.data as HonorRow[]);
+}
 const requested = new Set<string>();
 
 export function useOtherPlayersHonors(userIds: (string | null | undefined)[]): Record<string, PassHonors> {
@@ -61,26 +75,25 @@ export function useOtherPlayersHonors(userIds: (string | null | undefined)[]): R
     if (missing.length === 0) return;
     missing.forEach((id) => requested.add(id));
     let cancelled = false;
-    supabase
-      .from("profiles")
-      .select("id, pass_xp, claimed_milestones")
-      .in("id", missing)
-      .then(({ data, error }) => {
-        if (error || !data) {
-          missing.forEach((id) => requested.delete(id));
-          return;
-        }
-        for (const row of data) {
-          honorsCache.set(
-            row.id,
-            getPassHonors(
-              typeof row.pass_xp === "number" ? row.pass_xp : null,
-              splitClaimedMilestones(row.claimed_milestones).pass
-            )
-          );
-        }
-        if (!cancelled) forceUpdate((n) => n + 1);
-      });
+    loadHonorRows(missing).then((data) => {
+      if (!data) {
+        missing.forEach((id) => requested.delete(id));
+        return;
+      }
+      for (const row of data) {
+        // XP aus einer früheren Saison zählen nicht für die laufende (der
+        // Spieler war seit dem Saisonwechsel noch nicht da). Was er damals
+        // erreicht hat, steht ohnehin in claimed_milestones.
+        const xpCounts =
+          typeof row.pass_xp === "number" &&
+          (row.pass_season_id === undefined || row.pass_season_id === CURRENT_SEASON.theme.id);
+        honorsCache.set(
+          row.id,
+          getPassHonors(xpCounts ? (row.pass_xp as number) : null, splitClaimedMilestones(row.claimed_milestones).pass)
+        );
+      }
+      if (!cancelled) forceUpdate((n) => n + 1);
+    });
     return () => {
       cancelled = true;
     };

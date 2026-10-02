@@ -1,31 +1,31 @@
 import type { SeasonData, SeasonTheme } from "./types";
 
 // ============================================================================
-// Saison "Herbst 2026" – die erste Saison des Saison-Passes.
+// Saison "Winter 2026/27" – ENTWURF, noch nicht aktiv.
 // ============================================================================
-// Nur Daten, kein Code: für die nächste Saison gibt es schon den Entwurf
-// lib/seasons/winter2026.ts. Welche Saison gerade läuft, ergibt sich
-// automatisch aus startsOn/endsOn. Die id NIE nachträglich ändern – sie steht in der
-// Datenbank bei jedem, der schon Level erreicht hat.
+// Vorlage mit denselben 10 Stufen-Typen wie der Herbst. Alles, was mit
+// "OFFEN" markiert ist, entscheidet Rene noch (Titel, Abzeichen, Sticker,
+// Farben). Solange "draft: true" unten steht, wird diese Saison nie aktiv und
+// nirgends angezeigt – der Herbst läuft dann über den 20.12. hinaus weiter.
 //
-// Grundsatz: anfangs sparsam. Sterne gibt es nur einmal (Level 10, klein),
-// Titel und Abzeichen sind Ehre, kein Geld. Das Beste kommt später.
+// Aktivieren: Lücken füllen, 12 Sticker eintragen, "draft: true" löschen.
+// Die id "winter-2026" danach NIE mehr ändern (steht dann in der Datenbank).
 
 const theme: SeasonTheme = {
-  id: "herbst-2026",
-  name: "Herbst 2026",
-  year: "2026",
-  icon: "🍂",
-  colorFrom: "#E8893A",
-  colorTo: "#B5452B",
+  id: "winter-2026",
+  name: "Winter 2026/27",
+  year: "2026/27",
+  icon: "❄️", // OFFEN
+  colorFrom: "#7FB3E0", // OFFEN
+  colorTo: "#3B5B8C", // OFFEN
 };
 
-export const HERBST_2026: SeasonData = {
+export const WINTER_2026: SeasonData = {
   theme,
-  // Astronomischer Herbst. Der Wechsel passiert automatisch nach Datum,
-  // siehe lib/seasons/schedule.ts.
-  startsOn: "2026-09-23",
-  endsOn: "2026-12-20",
+  // Astronomischer Winter.
+  startsOn: "2026-12-21",
+  endsOn: "2027-03-19",
+  draft: true,
   levels: [
     {
       level: 1,
@@ -41,9 +41,9 @@ export const HERBST_2026: SeasonData = {
       level: 2,
       xpRequired: 200,
       kind: "emotes",
-      reward: "Emote-Paket „Herbst“ (12 Sticker)",
+      reward: "Emote-Paket „Winter“ (OFFEN: 12 Sticker)",
       rewardWhere: "im Community-Chat und bei Spiel-Kommentaren über den 🙂-Knopf",
-      icon: "🍂",
+      icon: "❄️",
       premiumReward: `Animierter Rahmen „Neon-Pulse" ums Profilbild`,
       premiumIcon: "🌟",
     },
@@ -61,10 +61,10 @@ export const HERBST_2026: SeasonData = {
       level: 4,
       xpRequired: 900,
       kind: "title",
-      label: "Herbstläufer",
-      reward: "Titel „Herbstläufer“",
+      label: "OFFEN (Titel 1)",
+      reward: "Titel „OFFEN (Titel 1)“",
       rewardWhere: "in deinem Profil und neben deinem Namen im Chat",
-      icon: "🏃",
+      icon: "❔",
       premiumReward: "Sieges-Animation bei gewonnenen Duellen",
       premiumIcon: "🏅",
     },
@@ -82,10 +82,10 @@ export const HERBST_2026: SeasonData = {
       level: 6,
       xpRequired: 2000,
       kind: "title",
-      label: "Laubjäger",
-      reward: "Titel „Laubjäger“",
-      rewardWhere: "in deinem Profil und im Chat (ersetzt Herbstläufer)",
-      icon: "🍁",
+      label: "OFFEN (Titel 2)",
+      reward: "Titel „OFFEN (Titel 2)“",
+      rewardWhere: "in deinem Profil und im Chat (ersetzt Titel 1)",
+      icon: "❔",
       premiumReward: "Große goldene Sternenexplosion bei exaktem Tipp",
       premiumIcon: "💥",
     },
@@ -104,10 +104,10 @@ export const HERBST_2026: SeasonData = {
       level: 8,
       xpRequired: 3500,
       kind: "title",
-      label: "Nebeltipper",
-      reward: "Titel „Nebeltipper“",
-      rewardWhere: "in deinem Profil und im Chat (ersetzt Laubjäger)",
-      icon: "🌫️",
+      label: "OFFEN (Titel 3)",
+      reward: "Titel „OFFEN (Titel 3)“",
+      rewardWhere: "in deinem Profil und im Chat (ersetzt Titel 2)",
+      icon: "❔",
       premiumReward: "Animiertes Kronen-Icon + Profil-Hintergrundbanner",
       premiumIcon: "👑",
     },
@@ -125,27 +125,15 @@ export const HERBST_2026: SeasonData = {
       level: 10,
       xpRequired: 6000,
       kind: "badge",
-      label: "Herbstmeister 2026",
-      reward: "Abzeichen „Herbstmeister 2026“ + 50 Sterne",
+      label: "OFFEN (Abzeichen, z. B. Wintermeister 2026/27)",
+      reward: "Abzeichen „OFFEN“ + OFFEN Sterne",
       rewardWhere: "Abzeichen für immer im Profil und im Chat, Sterne sofort aufs Konto",
-      icon: "🏅",
-      starsReward: 50,
+      icon: "❔",
+      // starsReward: OFFEN (Herbst: 50)
       premiumReward: `Titel „Champion ${theme.year}" + Abschluss-Feuerwerk`,
       premiumIcon: "🎆",
     },
   ],
-  emotes: [
-    { id: "herbst26-blatt", label: "Herbstblatt", emoji: "🍂" },
-    { id: "herbst26-kuerbis", label: "Kürbis", emoji: "🎃" },
-    { id: "herbst26-pilz", label: "Pilz", emoji: "🍄" },
-    { id: "herbst26-kastanie", label: "Kastanie", emoji: "🌰" },
-    { id: "herbst26-regen", label: "Regenspiel", emoji: "☔" },
-    { id: "herbst26-tee", label: "Tasse Tee", emoji: "🍵" },
-    { id: "herbst26-laubball", label: "Fußball im Laub", emoji: "⚽", accent: "🍂" },
-    { id: "herbst26-pokal", label: "Pokal mit Herbstkranz", emoji: "🏆", accent: "🍁" },
-    { id: "herbst26-jubel", label: "Torjubel mit Schal", emoji: "🙌", accent: "🧣" },
-    { id: "herbst26-daumen", label: "Daumen hoch mit Handschuh", emoji: "👍", accent: "🧤" },
-    { id: "herbst26-gaensehaut", label: "Gänsehaut (knappes Spiel)", emoji: "😬", accent: "🍃" },
-    { id: "herbst26-sturm", label: "Sturm (Überraschung!)", emoji: "🌪️" },
-  ],
+  // OFFEN: 12 Sticker, ids mit "winter26-" beginnen lassen.
+  emotes: [],
 };
