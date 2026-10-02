@@ -32,7 +32,7 @@ export type TipMode = "score" | "1x2";
 // Optionale Zusatzfrage neben dem Ergebnis-Tipp (z. B. "Wer schießt das
 // erste Tor?"). correctOptionIndex ist null, solange der Admin die richtige
 // Antwort noch nicht gesetzt hat – erst dann werden abgegebene Antworten
-// ausgewertet (siehe UserContext.evaluateBonusAnswerForCurrentUser).
+// ausgewertet (von der Datenbank, siehe supabase/auswertung-server.sql).
 export interface BonusQuestion {
   question: string;
   options: string[]; // 2–4 Antwortoptionen

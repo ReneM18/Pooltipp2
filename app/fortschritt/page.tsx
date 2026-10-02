@@ -66,8 +66,16 @@ export default function FortschrittPage() {
     setCountdown(seasonCountdownText(CURRENT_SEASON, new Date()));
   }, []);
 
-  function handleClaimDailyBonus() {
-    claimDailyBonus();
+  async function handleClaimDailyBonus() {
+    const { claimed, error } = await claimDailyBonus();
+    if (error) {
+      showToast(error, "info");
+      return;
+    }
+    if (!claimed) {
+      showToast("Den Bonus hast du heute schon abgeholt – morgen gibt's den nächsten.", "info");
+      return;
+    }
     celebrate();
     showToast("🎁 Täglicher Bonus abgeholt: +8 Sterne, +100 Pass-XP!", "gold");
   }

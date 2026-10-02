@@ -8,8 +8,8 @@ import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 
 export default function DashboardPage() {
-  const { spendStars, recordTipSubmitted, streakCount, displayName } = useUser();
-  const { matches, getTeam, tipCounts, submitTip, changeTip, myTips } = useAppData();
+  const { placeTip, streakCount } = useUser();
+  const { matches, getTeam, tipCounts, changeTip, myTips } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [tab, setTab] = useState<"offen" | "geschlossen">("offen");
 
@@ -17,23 +17,24 @@ export default function DashboardPage() {
     return [...myTips].reverse().find((t) => t.matchId === matchId);
   }
 
-  function handleSubmitTip(matchId: string, stake: number, homeScore: number, awayScore: number) {
-    // Sicherheitsnetz: spendStars zieht nie mehr ab, als vorhanden ist – der
-    // tatsächlich abgezogene (ggf. reduzierte) Betrag ist der Einsatz, der
-    // gespeichert und bei der Auswertung berücksichtigt wird.
-    const actualStake = spendStars(stake);
-    recordTipSubmitted();
-    submitTip(matchId, homeScore, awayScore, actualStake, displayName);
+  async function handleSubmitTip(matchId: string, stake: number, homeScore: number, awayScore: number) {
+    // Den Einsatz zieht die Datenbank ab – nie mehr als Guthaben und
+    // Tages-Limit. Der gespeicherte (ggf. reduzierte) Einsatz kommt zurück.
+    const saved = await placeTip(matchId, homeScore, awayScore);
+    if (!saved) {
+      showToast("Tipp konnte nicht gespeichert werden – Tippschluss erreicht oder schon getippt.", "info");
+      return;
+    }
     celebrate();
     showToast(
-      actualStake < stake
+      saved.stake < stake
         ? "✓ Tipp gespeichert – mit reduziertem Einsatz (Sterne-Guthaben oder Tages-Limit erreicht)."
         : "✓ Tipp gespeichert – viel Glück!"
     );
   }
 
   function handleChangeTip(matchId: string, homeScore: number, awayScore: number) {
-    // Kein spendStars: der Einsatz wurde schon bei der Abgabe bezahlt.
+    // Kein neuer Einsatz: der wurde schon bei der Abgabe bezahlt.
     if (changeTip(matchId, homeScore, awayScore)) {
       showToast("✓ Tipp geändert – Einsatz bleibt gleich, keine Sterne abgezogen.");
     } else {

@@ -20,8 +20,8 @@ export interface SubmittedTip {
   predictedAwayScore: number;
   stake: number;
   submittedAt: string;
-  // PoolScore-Auswertung – erst gesetzt, sobald das Spiel beendet und
-  // ausgewertet wurde (siehe markTipEvaluated / UserContext.evaluateMatchForCurrentUser).
+  // PoolScore-Auswertung – setzt die Datenbank, sobald der Admin den
+  // Endstand speichert (supabase/auswertung-server.sql).
   evaluated?: boolean;
   resultTier?: TipResultTier;
   rangDelta?: number;
@@ -36,6 +36,40 @@ export interface SubmittedTip {
   // Spiel wurde abgesagt: Einsatz kam zurück, keine Wertung (evaluated ist
   // dann ebenfalls true, damit der Tipp nie mehr ausgewertet wird).
   refunded?: boolean;
+}
+
+// Zeile aus der Tabelle "tips" -> Tipp im Browser.
+export function tipFromRow(row: Record<string, unknown>): SubmittedTip {
+  return {
+    id: row.id as string,
+    matchId: row.match_id as string,
+    predictedHomeScore: row.predicted_home_score as number,
+    predictedAwayScore: row.predicted_away_score as number,
+    stake: row.stake as number,
+    submittedAt: row.submitted_at as string,
+    evaluated: (row.evaluated as boolean | null) ?? false,
+    resultTier: (row.result_tier as TipResultTier | null) ?? undefined,
+    rangDelta: (row.rang_delta as number | null) ?? undefined,
+    starsDelta: (row.stars_delta as number | null) ?? undefined,
+    beatPercent: (row.beat_percent as number | null) ?? undefined,
+    narration: (row.narration as string | null) ?? undefined,
+    evaluatedHomeScore: (row.evaluated_home_score as number | null) ?? undefined,
+    evaluatedAwayScore: (row.evaluated_away_score as number | null) ?? undefined,
+    refunded: !!row.refunded_at,
+  };
+}
+
+// Zeile aus der Tabelle "bonus_answers" -> Bonus-Antwort im Browser.
+export function bonusAnswerFromRow(row: Record<string, unknown>): SubmittedBonusAnswer {
+  return {
+    id: row.id as string,
+    matchId: row.match_id as string,
+    optionIndex: row.option_index as number,
+    submittedAt: row.submitted_at as string,
+    evaluated: (row.evaluated as boolean | null) ?? false,
+    correct: (row.correct as boolean | null) ?? undefined,
+    starsDelta: (row.stars_delta as number | null) ?? undefined,
+  };
 }
 
 // Feed-Eintrag, den auch ANDERE User sehen dürfen – in dritter Person
@@ -313,23 +347,23 @@ interface AppDataContextValue {
   // Spiel absagen (nur Admin): Die Datenbank erstattet alle offenen
   // Einsätze (Tipps + Duelle) und markiert das Spiel als abgesagt.
   cancelMatch: (id: string) => Promise<{ ok: true; refundedTips: number } | { ok: false; error: string }>;
-  // Eigenen Tipp lokal als "abgesagt, Einsatz zurück" markieren, nachdem die
-  // Datenbank ihn erstattet hat.
-  markTipRefunded: (tipId: string, narration: string) => void;
   getTeam: (id: string) => Team | undefined;
   tipCounts: Record<string, number>;
   registerTip: (matchId: string) => void;
   tipsBySport: Record<Sport, number>;
   myTips: SubmittedTip[];
-  // authorName: eigener Anzeigename, nur für den öffentlichen Feed-Eintrag
-  // ("Rene hat beim Spiel … getippt").
+  // Tipp abgeben. Eingeloggt bestimmt die Datenbank den Einsatz und zieht
+  // ihn ab (stake gilt nur für Gäste ohne Konto). Gibt den gespeicherten
+  // Tipp zurück, oder null, wenn die Datenbank ihn abgelehnt hat (z. B.
+  // Tippschluss). authorName: eigener Anzeigename, nur für den öffentlichen
+  // Feed-Eintrag ("Rene hat beim Spiel … getippt").
   submitTip: (
     matchId: string,
     predictedHomeScore: number,
     predictedAwayScore: number,
     stake: number,
     authorName?: string
-  ) => void;
+  ) => Promise<SubmittedTip | null>;
   // Korrigiert den eigenen, noch offenen Tipp zu einem Spiel bis zum
   // Tippschluss. Ändert NUR das Ergebnis: der Einsatz ist schon bezahlt und
   // bleibt gleich, es werden also keine Sterne abgezogen oder gutgeschrieben
@@ -337,23 +371,11 @@ interface AppDataContextValue {
   // Datenbank (Trigger freeze_tip_after_kickoff). Gibt false zurück, wenn
   // nichts geändert werden durfte.
   changeTip: (matchId: string, predictedHomeScore: number, predictedAwayScore: number) => boolean;
-  // Übernimmt beim Login aus Supabase geladene Tipps in den lokalen State –
-  // OHNE die Nebenwirkungen von submitTip (kein erneutes registerTip, kein
-  // neuer Feed-Eintrag). Ergänzt nur Tipps, die lokal noch nicht bekannt
-  // sind (per id), bestehende lokale Tipps bleiben unangetastet (siehe
-  // lib/UserContext.tsx für den zugehörigen Lade-/Sync-Effekt).
-  hydrateTips: (tips: SubmittedTip[]) => void;
-  markTipEvaluated: (
-    tipId: string,
-    result: {
-      tier: TipResultTier;
-      rangDelta: number;
-      starsDelta: number;
-      narration: string;
-      actualHome?: number;
-      actualAway?: number;
-    }
-  ) => void;
+  // Lädt die eigenen Tipps aus der Datenbank neu (z. B. nach einer
+  // Auswertung) – die Datenbank hat immer recht.
+  reloadMyTips: () => Promise<void>;
+  // true, sobald die eigenen Tipps nach dem Login geladen sind.
+  myTipsLoaded: boolean;
   updateMatchScore: (matchId: string, homeScore: number | null, awayScore: number | null, status: Match["status"]) => void;
   // Nachträgliches Bearbeiten der Stammdaten eines bereits angelegten Spiels
   // (Wettbewerb, Spieltag, Teams, Anpfiff, Tippschluss, Einsatz) – bisher
@@ -381,9 +403,8 @@ interface AppDataContextValue {
   setBonusQuestionAnswer: (matchId: string, correctOptionIndex: number) => void;
   myBonusAnswers: SubmittedBonusAnswer[];
   submitBonusAnswer: (matchId: string, optionIndex: number) => void;
-  markBonusAnswerEvaluated: (id: string, result: { correct: boolean; starsDelta: number }) => void;
-  // Übernimmt die in Supabase gespeicherten Bonus-Antworten (siehe UserContext).
-  hydrateBonusAnswers: (answers: SubmittedBonusAnswer[]) => void;
+  // Lädt die eigenen Bonus-Antworten (Tabelle bonus_answers) neu.
+  reloadMyBonusAnswers: () => Promise<void>;
   newsItems: NewsItem[];
   addNews: (text: string, sport: Sport | null, article: string | null) => void;
   updateNews: (id: string, text: string, sport: Sport | null, article: string | null) => void;
@@ -809,24 +830,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return { ok: true, refundedTips: typeof data === "number" ? data : 0 };
   }
 
-  function markTipRefunded(tipId: string, narration: string) {
-    setMyTips((current) =>
-      current.map((t) =>
-        t.id === tipId
-          ? {
-              ...t,
-              evaluated: true,
-              refunded: true,
-              resultTier: undefined,
-              rangDelta: 0,
-              starsDelta: 0,
-              narration,
-            }
-          : t
-      )
-    );
-  }
-
   function getTeam(id: string) {
     return teams.find((t) => t.id === id);
   }
@@ -848,25 +851,51 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return counts;
   }, [myTips, matches]);
 
-  function submitTip(
+  async function submitTip(
     matchId: string,
     predictedHomeScore: number,
     predictedAwayScore: number,
     stake: number,
     authorName?: string
-  ) {
+  ): Promise<SubmittedTip | null> {
+    const localTip: SubmittedTip = {
+      id: `tip-${Date.now()}`,
+      matchId,
+      predictedHomeScore,
+      predictedAwayScore,
+      stake,
+      submittedAt: new Date().toISOString(),
+    };
     registerTip(matchId);
-    setMyTips((current) => [
-      ...current,
-      {
-        id: `tip-${Date.now()}`,
-        matchId,
-        predictedHomeScore,
-        predictedAwayScore,
-        stake,
-        submittedAt: new Date().toISOString(),
-      },
-    ]);
+    setMyTips((current) => [...current, localTip]);
+
+    let saved = localTip;
+    if (authUserId) {
+      // Einsatz, Tageslimit und Tipp-Serie rechnet die Datenbank
+      // (supabase/auswertung-server.sql); zurück kommt der gespeicherte Tipp.
+      const { data, error } = await supabase
+        .from("tips")
+        .insert({
+          id: localTip.id,
+          user_id: authUserId,
+          match_id: matchId,
+          predicted_home_score: predictedHomeScore,
+          predicted_away_score: predictedAwayScore,
+          stake,
+          submitted_at: localTip.submittedAt,
+        })
+        .select()
+        .maybeSingle();
+      if (error || !data) {
+        if (error) console.warn("Tipp konnte nicht gespeichert werden:", error.message);
+        setMyTips((current) => current.filter((t) => t.id !== localTip.id));
+        setTipCounts((current) => ({ ...current, [matchId]: Math.max(0, (current[matchId] ?? 1) - 1) }));
+        return null;
+      }
+      saved = tipFromRow(data);
+      setMyTips((current) => current.map((t) => (t.id === localTip.id ? saved : t)));
+    }
+
     const match = matches.find((m) => m.id === matchId);
     if (match) {
       const home = getTeam(match.homeTeamId);
@@ -879,6 +908,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         authorName ? { author: authorName, text: `${authorName} hat beim Spiel ${matchLabel} getippt.` } : undefined
       );
     }
+    return saved;
   }
 
   function changeTip(matchId: string, predictedHomeScore: number, predictedAwayScore: number) {
@@ -895,46 +925,71 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setMyTips((current) =>
       current.map((t) => (t.id === tip.id ? { ...t, predictedHomeScore, predictedAwayScore } : t))
     );
+    if (authUserId) {
+      // Die Datenbank lässt die Änderung nur bis Tippschluss zu; was sie
+      // zurückgibt, gilt.
+      supabase
+        .from("tips")
+        .update({ predicted_home_score: predictedHomeScore, predicted_away_score: predictedAwayScore })
+        .eq("id", tip.id)
+        .select()
+        .maybeSingle()
+        .then(({ data, error }) => {
+          if (error) console.warn("Tipp konnte nicht geändert werden:", error.message);
+          const stored = data ? tipFromRow(data) : tip;
+          setMyTips((current) => current.map((t) => (t.id === tip.id ? stored : t)));
+        });
+    }
     return true;
   }
 
-  function hydrateTips(tips: SubmittedTip[]) {
+  // Eigene Tipps und Bonus-Antworten aus der Datenbank: beim Login laden,
+  // beim Logout leeren. Gespeichert wird nicht mehr "alles auf einmal",
+  // sondern jeder Tipp einzeln beim Abgeben/Ändern (siehe oben).
+  const [myTipsLoaded, setMyTipsLoaded] = useState(false);
+
+  async function reloadMyTips() {
+    if (!authUserId) return;
+    const userId = authUserId;
+    const { data, error } = await supabase.from("tips").select("*").eq("user_id", userId);
+    if (error) {
+      console.warn("Tipps konnten nicht geladen werden:", error.message);
+      return;
+    }
+    const fromDb = (data ?? []).map((row) => tipFromRow(row));
+    // Lokal gerade erst abgegebene Tipps, die noch auf die Datenbank warten,
+    // bleiben stehen.
     setMyTips((current) => {
-      const existingIds = new Set(current.map((t) => t.id));
-      const missing = tips.filter((t) => !existingIds.has(t.id));
-      if (missing.length === 0) return current;
-      return [...current, ...missing];
+      const dbIds = new Set(fromDb.map((t) => t.id));
+      const pending = current.filter((t) => !dbIds.has(t.id) && !fromDb.some((d) => d.matchId === t.matchId));
+      return [...fromDb, ...pending];
     });
   }
 
-  function markTipEvaluated(
-    tipId: string,
-    result: {
-      tier: TipResultTier;
-      rangDelta: number;
-      starsDelta: number;
-      narration: string;
-      actualHome?: number;
-      actualAway?: number;
+  async function reloadMyBonusAnswers() {
+    if (!authUserId) return;
+    const { data, error } = await supabase.from("bonus_answers").select("*").eq("user_id", authUserId);
+    if (error) {
+      console.warn("Bonus-Antworten konnten nicht geladen werden:", error.message);
+      return;
     }
-  ) {
-    setMyTips((current) =>
-      current.map((t) =>
-        t.id === tipId
-          ? {
-              ...t,
-              evaluated: true,
-              resultTier: result.tier,
-              rangDelta: result.rangDelta,
-              starsDelta: result.starsDelta,
-              narration: result.narration,
-              evaluatedHomeScore: result.actualHome,
-              evaluatedAwayScore: result.actualAway,
-            }
-          : t
-      )
-    );
+    setMyBonusAnswers((data ?? []).map((row) => bonusAnswerFromRow(row)));
   }
+
+  useEffect(() => {
+    setMyTipsLoaded(false);
+    setMyTips([]);
+    setMyBonusAnswers([]);
+    if (!authUserId) return;
+    let cancelled = false;
+    Promise.all([reloadMyTips(), reloadMyBonusAnswers()]).then(() => {
+      if (!cancelled) setMyTipsLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUserId]);
 
   function updateMatchScore(
     matchId: string,
@@ -1019,27 +1074,25 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }
 
   function submitBonusAnswer(matchId: string, optionIndex: number) {
-    setMyBonusAnswers((current) => [
-      ...current,
-      { id: `bonus-${Date.now()}`, matchId, optionIndex, submittedAt: new Date().toISOString() },
-    ]);
-  }
-
-  function markBonusAnswerEvaluated(id: string, result: { correct: boolean; starsDelta: number }) {
-    setMyBonusAnswers((current) =>
-      current.map((a) =>
-        a.id === id ? { ...a, evaluated: true, correct: result.correct, starsDelta: result.starsDelta } : a
-      )
-    );
-  }
-
-  function hydrateBonusAnswers(answers: SubmittedBonusAnswer[]) {
-    setMyBonusAnswers((current) => {
-      const existingIds = new Set(current.map((a) => a.id));
-      const missing = answers.filter((a) => !existingIds.has(a.id));
-      if (missing.length === 0) return current;
-      return [...current, ...missing];
-    });
+    const answer: SubmittedBonusAnswer = {
+      id: `bonus-${Date.now()}`,
+      matchId,
+      optionIndex,
+      submittedAt: new Date().toISOString(),
+    };
+    setMyBonusAnswers((current) => [...current, answer]);
+    if (!authUserId) return;
+    // Nur bis Tippschluss und solange die richtige Antwort offen ist – sonst
+    // speichert die Datenbank nichts und die Antwort verschwindet wieder.
+    supabase
+      .from("bonus_answers")
+      .insert({ id: answer.id, user_id: authUserId, match_id: matchId, option_index: optionIndex })
+      .select()
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error) console.warn("Bonus-Antwort konnte nicht gespeichert werden:", error.message);
+        if (!data) setMyBonusAnswers((current) => current.filter((a) => a.id !== answer.id));
+      });
   }
 
   function addNews(text: string, sport: Sport | null, article: string | null) {
@@ -1173,7 +1226,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         addMatch,
         removeMatch,
         cancelMatch,
-        markTipRefunded,
         getTeam,
         tipCounts,
         registerTip,
@@ -1181,8 +1233,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         myTips,
         submitTip,
         changeTip,
-        hydrateTips,
-        markTipEvaluated,
+        reloadMyTips,
+        myTipsLoaded,
         updateMatchScore,
         updateMatchDetails,
         setSummaryVideo,
@@ -1192,8 +1244,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setBonusQuestionAnswer,
         myBonusAnswers,
         submitBonusAnswer,
-        markBonusAnswerEvaluated,
-        hydrateBonusAnswers,
+        reloadMyBonusAnswers,
         newsItems,
         addNews,
         updateNews,
