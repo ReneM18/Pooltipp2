@@ -27,8 +27,13 @@ where (id = 'news-1' and data->>'text' = 'Bayern führt weiter die Bundesliga-Ta
    or (id = 'news-3' and data->>'text' = 'Sabine K. verteidigt Platz 1 in der Rangliste')
    or (id = 'news-4' and data->>'text' = 'Über 500.000 Sterne wurden diesen Spieltag verteilt');
 
+-- Beispiel-Turnier nur, solange es völlig unverändert ist (Name und die
+-- ursprünglichen 8 Beispiel-Spiele). Hat der Admin eigene Spiele
+-- hinzugefügt oder es umbenannt, bleibt es stehen.
 delete from public.tournaments
-where id = 'tournament-demo' and data->>'name' = 'Spieltag-Spezial';
+where id = 'tournament-demo'
+  and data->>'name' = 'Spieltag-Spezial'
+  and data->'matchIds' = '["match-1","match-2","match-3","match-4","match-5","match-6","match-7","match-8"]'::jsonb;
 
 -- Kontrolle: sollte überall 0 zeigen.
 select
