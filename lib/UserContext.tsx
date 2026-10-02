@@ -271,6 +271,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return () => listener.subscription.unsubscribe();
   }, []);
   const isRegistered = authEmail !== null;
+  const authUserIdRef = useRef<string | null>(null);
+  authUserIdRef.current = authUserId;
 
   // Admin-Prüfung über die Datenbank (is_admin() in
   // supabase/social-features.sql), statt einer PIN im Browser-Code.
@@ -562,14 +564,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const fresh = outdated.filter((key) => !syncedResultsRef.current.has(key));
     if (fresh.length === 0) return;
     fresh.forEach((key) => syncedResultsRef.current.add(key));
-    const timers = [0, 3000, 10000].map((delay) =>
+    // Bewusst ohne Aufräumen beim nächsten Rendern: das erste Neuladen
+    // ändert myTips, die späteren Versuche sollen trotzdem noch laufen.
+    // Nach Logout/Kontowechsel verfallen sie (authUserIdRef).
+    const scheduledFor = authUserId;
+    for (const delay of [0, 3000, 10000]) {
       window.setTimeout(() => {
+        if (authUserIdRef.current !== scheduledFor) return;
         void reloadMyTips();
         void reloadMyBonusAnswers();
         void reloadWallet();
-      }, delay)
-    );
-    return () => timers.forEach((t) => window.clearTimeout(t));
+      }, delay);
+    }
     // reload* lesen bewusst den aktuellen Render-Stand.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches, myTips, myBonusAnswers, authUserId, profileLoaded, myTipsLoaded, contentLoaded]);

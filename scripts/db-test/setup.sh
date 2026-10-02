@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 DB="${1:-pooltipp_test}"
 export PGUSER="${PGUSER:-postgres}"
-psql -q -d postgres -c "drop database if exists $DB" -c "create database $DB"
+psql -q -d postgres -c "drop database if exists $DB with (force)" -c "create database $DB"
 run() { psql -q -v ON_ERROR_STOP=1 -d "$DB" -f "$1" >/dev/null; }
 # Rollen gibt es pro Cluster nur einmal.
 psql -q -d postgres -tc "select 1 from pg_roles where rolname='anon'" | grep -q 1 \

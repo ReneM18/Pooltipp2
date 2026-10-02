@@ -15,9 +15,10 @@ export const CURRENT_SEASON: SeasonData = HERBST_2026;
 // "Erreichte Level" werden pro Saison dauerhaft gespeichert, als Text wie
 // "herbst-2026:4" in der Liste profiles.claimed_milestones (dort stehen sonst
 // nur die Streak-Meilensteine als Zahlen – Text und Zahl kommen sich nicht in
-// die Quere). So braucht es keine neue Datenbank-Spalte, andere Spieler
-// können Titel/Abzeichen lesen (Profile sind für alle lesbar), und eine
-// Sterne-Belohnung wird garantiert nur einmal gutgeschrieben.
+// die Quere). Eintragen und Sterne gutschreiben macht die Datenbank beim
+// Tagesbonus (claim_pass_rewards in supabase/auswertung-server.sql, dort
+// stehen die Level auch in der Tabelle season_pass_levels). Andere Spieler
+// können Titel/Abzeichen lesen (Profile sind für alle lesbar).
 // ----------------------------------------------------------------------------
 export function passClaimKey(seasonId: string, level: number): string {
   return `${seasonId}:${level}`;
