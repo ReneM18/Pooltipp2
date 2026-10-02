@@ -198,7 +198,8 @@ export default function MatchCard({
             .filter((t) => t.userId !== authUserId)
             .map((t) => ({ predictedHome: t.predictedHome, predictedAway: t.predictedAway })),
           finalScore.home,
-          finalScore.away
+          finalScore.away,
+          isOneXTwo
         )
       : null;
 
@@ -440,7 +441,9 @@ export default function MatchCard({
               </div>
             )}
 
-            {hasTipped && myTip?.evaluated && <PoolScoreResultBox myTip={myTip!} comparison={comparison} />}
+            {hasTipped && myTip?.evaluated && (
+              <PoolScoreResultBox myTip={myTip!} comparison={comparison} isOneXTwo={isOneXTwo} />
+            )}
 
             {match.bonusQuestion && myBonusAnswer && (
               <div
@@ -664,9 +667,11 @@ function TippersList({
 function PoolScoreResultBox({
   myTip,
   comparison,
+  isOneXTwo,
 }: {
   myTip: MyTip;
   comparison: { beaten: number; tied: number; ahead: number; total: number } | null;
+  isOneXTwo: boolean;
 }) {
   const tier = myTip.resultTier ?? "falsch";
   const rangDelta = myTip.rangDelta ?? 0;
@@ -675,7 +680,9 @@ function PoolScoreResultBox({
   return (
     <div className={`flex flex-col gap-2 rounded-lg border px-4 py-3 ${TIER_BOX_CLASS[tier]}`}>
       <div className="flex items-center justify-between gap-2">
-        <span className="font-display text-sm font-semibold text-ink">{TIER_LABEL[tier]}</span>
+        <span className="font-display text-sm font-semibold text-ink">
+          {isOneXTwo && tier === "tendenz" ? "👍 Richtig getippt" : TIER_LABEL[tier]}
+        </span>
         <span
           className={`font-display text-sm font-bold ${rangDelta >= 0 ? "text-action" : "text-red-400"}`}
         >
