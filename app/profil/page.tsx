@@ -12,6 +12,7 @@ import RankMeaningBadge from "@/components/RankMeaningBadge";
 import FavoriteClubs from "@/components/FavoriteClubs";
 import WelcomeBanner from "@/components/WelcomeBanner";
 import FitText from "@/components/FitText";
+import PassHonorTags from "@/components/PassHonors";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { Sport } from "@/lib/types";
 import { SEASON_THEME } from "@/lib/seasonTheme";
@@ -31,6 +32,7 @@ export default function ProfilPage() {
     setDisplayName,
     freeStars,
     passXP,
+    passHonors,
     tipsSubmitted,
     rankIconOptions,
     selectedRankIconId,
@@ -205,6 +207,12 @@ export default function ProfilPage() {
           <p className="text-sm text-muted">
             {currentRank ? `Aktuell Platz ${currentRank} in der Rangliste` : "Noch nicht platziert"}
           </p>
+          {/* Saison-Pass: Titel (Level 4/6/8) und Abzeichen (Level 10, bleibt für immer). */}
+          {(passHonors.title || passHonors.badges.length > 0) && (
+            <div className="mt-2">
+              <PassHonorTags honors={passHonors} />
+            </div>
+          )}
           {/* Level 10 Premium: Saison-gebundener Champion-Titel (siehe
               lib/passLevels.ts – bewusst an SEASON_THEME.year statt an einen
               Rang gebunden). */}

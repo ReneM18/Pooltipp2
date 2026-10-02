@@ -9,6 +9,14 @@ import { useAppData, SubmittedBonusAnswer } from "@/lib/AppDataContext";
 import { Sport, SPORTS } from "@/lib/types";
 import { mockLeaderboardBySport } from "@/lib/mockLeaderboard";
 import {
+  CURRENT_SEASON,
+  getPassHonors,
+  passClaimKey,
+  reachedLevels,
+  splitClaimedMilestones,
+  PassHonors,
+} from "@/lib/seasons";
+import {
   evaluatePoolScore,
   TIER_ORDER,
   daysBetween,
@@ -81,6 +89,12 @@ interface UserContextValue {
   // (claimDailyBonus), niemals durch Tipp-Ergebnisse. Siehe PoolScore-Konzept:
   // der Pass darf nie wieder sinken bzw. ein Level "entsperren".
   passXP: number;
+  // Dauerhaft gespeicherte Saison-Pass-Level (z. B. "herbst-2026:4"), siehe
+  // lib/seasons/index.ts. Darüber laufen Titel, Abzeichen, Emotes und die
+  // einmalige Sterne-Gutschrift.
+  passClaims: string[];
+  // Eigene Titel/Abzeichen/Emotes aus dem Saison-Pass.
+  passHonors: PassHonors;
   // Rangliste-Punkte je Sportart – Elo-artig, kann durch PoolScore steigen
   // UND fallen (inkl. Inaktivitäts-Abklingen). Komplett von passXP entkoppelt.
   rangPunkte: Record<Sport, number>;
@@ -254,6 +268,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }
 
   const [passXP, setPassXP] = useState(mockUser.passXP);
+  const [passClaims, setPassClaims] = useState<string[]>([]);
   const [rangPunkte, setRangPunkte] = useState<Record<Sport, number>>(initialRangPunkte);
   const [lastClaimedAt, setLastClaimedAt] = useState<string | null>(null);
 
@@ -383,6 +398,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     lastSyncedStarsRef.current = null;
     setProfileLoaded(false);
+    setPassClaims([]);
     if (!authUserId) return;
     let cancelled = false;
     (async () => {
@@ -420,8 +436,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
           ...current,
           count: profile.streak_count ?? current.count,
           lastTipDate: profile.last_tip_date ?? current.lastTipDate,
-          claimedMilestones: (profile.claimed_milestones as number[] | null) ?? current.claimedMilestones,
+          claimedMilestones: profile.claimed_milestones
+            ? splitClaimedMilestones(profile.claimed_milestones).streak
+            : current.claimedMilestones,
         }));
+        setPassClaims(splitClaimedMilestones(profile.claimed_milestones).pass);
         setLastClaimedAt(profile.last_claimed_at ?? null);
       } else {
         // Kein Profil-Eintrag vorhanden (z.B. Konto von vor dieser
@@ -430,6 +449,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         lastSyncedStarsRef.current = freeStars;
         setRangPunkte(Object.fromEntries(SPORTS.map((s) => [s, 0])) as Record<Sport, number>);
         setPassXP(0);
+        setPassClaims([]);
         await supabase.from("profiles").insert({
           id: authUserId,
           display_name: displayName,
@@ -466,7 +486,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         pass_xp: passXP,
         streak_count: streakState.count,
         last_tip_date: streakState.lastTipDate,
-        claimed_milestones: streakState.claimedMilestones,
+        // Streak-Meilensteine (Zahlen) und Saison-Pass-Level (Text) teilen
+        // sich diese Liste, siehe lib/seasons/index.ts.
+        claimed_milestones: [...streakState.claimedMilestones, ...passClaims],
         last_claimed_at: lastClaimedAt,
         updated_at: new Date().toISOString(),
       })
@@ -479,6 +501,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     rangPunkte,
     passXP,
     streakState,
+    passClaims,
     lastClaimedAt,
     isRegistered,
     authUserId,
@@ -519,6 +542,44 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
     });
   }, [freeStars, isRegistered, authUserId, profileLoaded]);
+
+  // Saison-Pass: neu erreichte Level dauerhaft speichern und erst DANACH
+  // deren Sterne gutschreiben. Weil der Eintrag ("herbst-2026:10") zuerst in
+  // der Datenbank steht, gibt es die Sterne garantiert nur einmal – auch
+  // nicht erneut nach Neuladen der Seite oder auf einem zweiten Gerät.
+  // Schlägt das Speichern fehl, gibt es (noch) keine Sterne; beim nächsten
+  // Laden wird es erneut versucht.
+  const claimingRef = useRef(false);
+  useEffect(() => {
+    if (!isRegistered || !authUserId || !profileLoaded || claimingRef.current) return;
+    const seasonId = CURRENT_SEASON.theme.id;
+    const newLevels = reachedLevels(passXP).filter(
+      (l) => !passClaims.includes(passClaimKey(seasonId, l.level))
+    );
+    if (newLevels.length === 0) return;
+    claimingRef.current = true;
+    const nextClaims = [...passClaims, ...newLevels.map((l) => passClaimKey(seasonId, l.level))];
+    const stars = newLevels.reduce((sum, l) => sum + (l.starsReward ?? 0), 0);
+    supabase
+      .from("profiles")
+      .update({ claimed_milestones: [...streakState.claimedMilestones, ...nextClaims] })
+      .eq("id", authUserId)
+      .then(({ error }) => {
+        claimingRef.current = false;
+        if (error) {
+          console.warn("Saison-Pass-Level konnten nicht gespeichert werden:", error.message);
+          return;
+        }
+        setPassClaims(nextClaims);
+        if (stars > 0) {
+          creditStars(stars);
+          addActivity("🏅", `Saison-Pass ${CURRENT_SEASON.theme.name}: +${stars} Sterne gutgeschrieben.`);
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passXP, passClaims, isRegistered, authUserId, profileLoaded]);
+
+  const passHonors = useMemo(() => getPassHonors(passXP, passClaims), [passXP, passClaims]);
 
   function refreshStars() {
     if (!authUserId) return;
@@ -1236,6 +1297,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         removePhoto,
         freeStars,
         passXP,
+        passClaims,
+        passHonors,
         rangPunkte,
         canClaimDailyBonus,
         claimDailyBonus,

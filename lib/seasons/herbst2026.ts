@@ -1,0 +1,147 @@
+import type { SeasonData, SeasonTheme } from "./types";
+
+// ============================================================================
+// Saison "Herbst 2026" – die erste Saison des Saison-Passes.
+// ============================================================================
+// Nur Daten, kein Code: für die nächste Saison (Winter) diese Datei kopieren,
+// id/Name/Farben/Emotes/Titel austauschen und in lib/seasons/index.ts als
+// CURRENT_SEASON eintragen. Die id NIE nachträglich ändern – sie steht in der
+// Datenbank bei jedem, der schon Level erreicht hat.
+//
+// Grundsatz: anfangs sparsam. Sterne gibt es nur einmal (Level 10, klein),
+// Titel und Abzeichen sind Ehre, kein Geld. Das Beste kommt später.
+
+const theme: SeasonTheme = {
+  id: "herbst-2026",
+  name: "Herbst 2026",
+  year: "2026",
+  icon: "🍂",
+  colorFrom: "#E8893A",
+  colorTo: "#B5452B",
+};
+
+export const HERBST_2026: SeasonData = {
+  theme,
+  levels: [
+    {
+      level: 1,
+      xpRequired: 0,
+      kind: "banner",
+      reward: "Willkommens-Banner",
+      rewardWhere: "oben in deinem Profil, bis du Level 2 erreichst",
+      icon: "🎉",
+      premiumReward: `Start-Glow im Saison-Design „${theme.name}"`,
+      premiumIcon: theme.icon,
+    },
+    {
+      level: 2,
+      xpRequired: 200,
+      kind: "emotes",
+      reward: "Emote-Paket „Herbst“ (12 Sticker)",
+      rewardWhere: "im Community-Chat und bei Spiel-Kommentaren über den 🙂-Knopf",
+      icon: "🍂",
+      premiumReward: `Animierter Rahmen „Neon-Pulse" ums Profilbild`,
+      premiumIcon: "🌟",
+    },
+    {
+      level: 3,
+      xpRequired: 500,
+      kind: "frame",
+      reward: "Profil-Rahmen „Saison-Bronze“",
+      rewardWhere: "um dein Profilbild (Profil und oben im Menü)",
+      icon: "🖼️",
+      premiumReward: "Saison-Icon neben deinem Namen",
+      premiumIcon: theme.icon,
+    },
+    {
+      level: 4,
+      xpRequired: 900,
+      kind: "title",
+      label: "Herbstläufer",
+      reward: "Titel „Herbstläufer“",
+      rewardWhere: "in deinem Profil und neben deinem Namen im Chat",
+      icon: "🏃",
+      premiumReward: "Sieges-Animation bei gewonnenen Duellen",
+      premiumIcon: "🏅",
+    },
+    {
+      level: 5,
+      xpRequired: 1400,
+      kind: "frame",
+      reward: "Profil-Rahmen „Saison-Silber“",
+      rewardWhere: "um dein Profilbild (ersetzt Bronze)",
+      icon: "🥈",
+      premiumReward: "Eigener Farbwähler für deinen Rahmen",
+      premiumIcon: "🎨",
+    },
+    {
+      level: 6,
+      xpRequired: 2000,
+      kind: "title",
+      label: "Laubjäger",
+      reward: "Titel „Laubjäger“",
+      rewardWhere: "in deinem Profil und im Chat (ersetzt Herbstläufer)",
+      icon: "🍁",
+      premiumReward: "Große goldene Sternenexplosion bei exaktem Tipp",
+      premiumIcon: "💥",
+    },
+    {
+      level: 7,
+      xpRequired: 2700,
+      kind: "frame",
+      reward: "Profil-Rahmen „Saison-Gold“",
+      rewardWhere: "um dein Profilbild (ersetzt Silber)",
+      icon: "🥇",
+      premiumReward: "Tiefen-Statistik: deine Trefferquote vs. Community",
+      premiumIcon: "📊",
+      premiumNote: "Community-Wert ist noch ein Beispielwert",
+    },
+    {
+      level: 8,
+      xpRequired: 3500,
+      kind: "title",
+      label: "Nebeltipper",
+      reward: "Titel „Nebeltipper“",
+      rewardWhere: "in deinem Profil und im Chat (ersetzt Laubjäger)",
+      icon: "🌫️",
+      premiumReward: "Animiertes Kronen-Icon + Profil-Hintergrundbanner",
+      premiumIcon: "👑",
+    },
+    {
+      level: 9,
+      xpRequired: 4500,
+      kind: "frame",
+      reward: "Profil-Rahmen „Saison-Diamant“",
+      rewardWhere: "um dein Profilbild (ersetzt Gold)",
+      icon: "💎",
+      premiumReward: "Automatische Saison-Rückblick-Karte zum Teilen",
+      premiumIcon: "🗂️",
+    },
+    {
+      level: 10,
+      xpRequired: 6000,
+      kind: "badge",
+      label: "Herbstmeister 2026",
+      reward: "Abzeichen „Herbstmeister 2026“ + 50 Sterne",
+      rewardWhere: "Abzeichen für immer im Profil und im Chat, Sterne sofort aufs Konto",
+      icon: "🏅",
+      starsReward: 50,
+      premiumReward: `Titel „Champion ${theme.year}" + Abschluss-Feuerwerk`,
+      premiumIcon: "🎆",
+    },
+  ],
+  emotes: [
+    { id: "herbst26-blatt", label: "Herbstblatt", emoji: "🍂" },
+    { id: "herbst26-kuerbis", label: "Kürbis", emoji: "🎃" },
+    { id: "herbst26-pilz", label: "Pilz", emoji: "🍄" },
+    { id: "herbst26-kastanie", label: "Kastanie", emoji: "🌰" },
+    { id: "herbst26-regen", label: "Regenspiel", emoji: "☔" },
+    { id: "herbst26-tee", label: "Tasse Tee", emoji: "🍵" },
+    { id: "herbst26-laubball", label: "Fußball im Laub", emoji: "⚽", accent: "🍂" },
+    { id: "herbst26-pokal", label: "Pokal mit Herbstkranz", emoji: "🏆", accent: "🍁" },
+    { id: "herbst26-jubel", label: "Torjubel mit Schal", emoji: "🙌", accent: "🧣" },
+    { id: "herbst26-daumen", label: "Daumen hoch mit Handschuh", emoji: "👍", accent: "🧤" },
+    { id: "herbst26-gaensehaut", label: "Gänsehaut (knappes Spiel)", emoji: "😬", accent: "🍃" },
+    { id: "herbst26-sturm", label: "Sturm (Überraschung!)", emoji: "🌪️" },
+  ],
+};

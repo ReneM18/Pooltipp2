@@ -11,6 +11,8 @@ import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { xpForLevel } from "@/lib/seasonPass";
 import TeamBadge from "./TeamBadge";
+import PassHonorTags, { useOtherPlayersHonors } from "./PassHonors";
+import { EmotePicker, MessageBody, stickerFromText, stickerText } from "./Emotes";
 import Countdown from "./Countdown";
 import ScoreInput from "./ScoreInput";
 import { StarIcon, TvIcon, PlayIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
@@ -108,12 +110,16 @@ export default function MatchCard({
     useAppData();
   const [bonusPick, setBonusPick] = useState<number | null>(null);
   const myBonusAnswer = myBonusAnswers.find((a) => a.matchId === match.id);
-  const { displayName, hasPremiumPass, passXP } = useUser();
+  const { displayName, hasPremiumPass, passXP, passHonors, authUserId } = useUser();
   const { showToast, celebrate } = useFeedback();
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
   const commentSubmittedRef = useRef(false);
   const matchComments = getCommentsForMatch(match.id);
+  // Titel/Abzeichen aus dem Saison-Pass neben den Namen (nur wenn aufgeklappt).
+  const commentHonors = useOtherPlayersHonors(
+    commentsOpen ? matchComments.map((c) => (c.userId === authUserId ? null : c.userId)) : []
+  );
 
   // Der PoolScore-"Reveal"-Moment: sobald der eigene Tipp ausgewertet wurde,
   // einmalig Konfetti + die narrierte Meldung als Toast zeigen (nicht bei
@@ -135,6 +141,9 @@ export default function MatchCard({
   function handleCommentSubmit(e: FormEvent) {
     e.preventDefault();
     if (!commentDraft.trim() || commentSubmittedRef.current) return;
+    // Sticker-Code von Hand eingetippt, ohne den Sticker zu besitzen: nicht senden.
+    const typedSticker = stickerFromText(commentDraft);
+    if (typedSticker && !passHonors.emotes.some((em) => em.id === typedSticker.id)) return;
     commentSubmittedRef.current = true;
     addComment(match.id, displayName, commentDraft);
     setCommentDraft("");
@@ -461,16 +470,21 @@ export default function MatchCard({
                 {matchComments.map((comment) => {
                   const liked = comment.likedBy.includes(displayName);
                   const isMine = comment.author === displayName;
+                  const ownHonors = comment.userId && comment.userId === authUserId ? passHonors : null;
+                  const honors = ownHonors ?? (comment.userId ? commentHonors[comment.userId] : undefined);
                   return (
                     <div key={comment.id} className="rounded-lg border border-edge bg-pitch px-3 py-2.5">
-                      <div className="mb-1 flex items-center justify-between">
-                        <Link
-                          href={`/spieler/${encodeURIComponent(comment.author)}`}
-                          className="text-xs font-semibold text-gold hover:opacity-80"
-                        >
-                          {comment.author}
-                        </Link>
-                        <span className="text-[11px] text-muted">
+                      <div className="mb-1 flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                          <Link
+                            href={`/spieler/${encodeURIComponent(comment.author)}`}
+                            className="text-xs font-semibold text-gold [overflow-wrap:anywhere] hover:opacity-80"
+                          >
+                            {comment.author}
+                          </Link>
+                          {honors && <PassHonorTags honors={honors} size="sm" />}
+                        </div>
+                        <span className="shrink-0 text-[11px] text-muted">
                           {new Date(comment.createdAt).toLocaleString("de-DE", {
                             day: "2-digit",
                             month: "2-digit",
@@ -479,7 +493,9 @@ export default function MatchCard({
                           })}
                         </span>
                       </div>
-                      <p className="mb-1.5 text-sm text-ink [overflow-wrap:anywhere]">{comment.text}</p>
+                      <p className="mb-1.5 text-sm text-ink [overflow-wrap:anywhere]">
+                        <MessageBody text={comment.text} />
+                      </p>
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => toggleCommentLike(comment.id, displayName)}
@@ -506,11 +522,15 @@ export default function MatchCard({
               </div>
             )}
             <form onSubmit={handleCommentSubmit} className="flex gap-2">
+              <EmotePicker
+                onInsertEmoji={(emoji) => setCommentDraft((d) => d + emoji)}
+                onSendSticker={(emote) => addComment(match.id, displayName, stickerText(emote))}
+              />
               <input
                 value={commentDraft}
                 onChange={(e) => setCommentDraft(e.target.value)}
                 placeholder="Kommentar schreiben…"
-                className="flex-1 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+                className="min-w-0 flex-1 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
               />
               <button
                 type="submit"
