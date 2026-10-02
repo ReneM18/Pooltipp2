@@ -13,6 +13,7 @@ import { DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
 import TeamBadge from "@/components/TeamBadge";
 import { useFeedback } from "@/lib/FeedbackContext";
+import { findDuplicateTeam } from "@/lib/teamName";
 import ScoreInput from "@/components/ScoreInput";
 
 type AdminTab = "spiele" | "teams" | "turniere" | "news";
@@ -377,9 +378,17 @@ function TeamManager() {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  // Gibt es das Team in dieser Sportart schon? Dann Hinweis zeigen und
+  // Speichern sperren, damit kein Team doppelt angelegt wird.
+  const duplicate = findDuplicateTeam(teams, name, sport, editingId);
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    if (duplicate) {
+      showToast(`„${duplicate.name}“ gibt es bei ${duplicate.sport} schon.`, "info");
+      return;
+    }
     const data = {
       name: name.trim(),
       sport,
@@ -425,7 +434,10 @@ function TeamManager() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="z. B. Kansas City Chiefs"
-              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+              aria-invalid={duplicate ? true : undefined}
+              className={`w-full rounded-lg border bg-pitch px-4 py-3 text-base text-ink outline-none ${
+                duplicate ? "border-red-400 focus:border-red-400" : "border-edge focus:border-gold"
+              }`}
             />
           </div>
           <div>
@@ -447,6 +459,35 @@ function TeamManager() {
             <CountryPicker value={countryCode} onChange={setCountryCode} />
           </div>
         </div>
+
+        {duplicate && (
+          <div
+            role="alert"
+            className="flex items-start gap-3 rounded-lg border border-red-400/60 bg-red-500/10 px-4 py-3 text-sm text-ink"
+          >
+            <span aria-hidden className="text-lg leading-none">
+              ⚠️
+            </span>
+            <span className="min-w-0">
+              <span className="block font-semibold text-red-300">Dieses Team gibt es schon!</span>
+              „{duplicate.name}“ ist bei {sportIcon[duplicate.sport]} {duplicate.sport} bereits
+              angelegt. Bitte nicht doppelt anlegen, sondern das vorhandene Team verwenden oder
+              bearbeiten.
+              {!editingId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTeamListTab(duplicate.sport);
+                    startEdit(duplicate);
+                  }}
+                  className="mt-2 block text-left font-semibold text-gold transition-colors hover:text-ink"
+                >
+                  Vorhandenes Team bearbeiten&nbsp;→
+                </button>
+              )}
+            </span>
+          </div>
+        )}
 
         <label className="flex w-fit items-center gap-2 text-sm text-muted">
           <input
@@ -525,7 +566,8 @@ function TeamManager() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="submit"
-            className="rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
+            disabled={!!duplicate}
+            className="rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-action"
           >
             {editingId ? "Änderungen speichern" : "Team anlegen"}
           </button>
