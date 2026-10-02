@@ -126,7 +126,7 @@ export default function MatchCard({
     useAppData();
   const [bonusPick, setBonusPick] = useState<number | null>(null);
   const myBonusAnswer = myBonusAnswers.find((a) => a.matchId === match.id);
-  const { displayName, hasPremiumPass, passXP, passHonors, authUserId } = useUser();
+  const { displayName, hasPremiumPass, passXP, passHonors, authUserId, freeStars, stakeBudgetRemainingToday } = useUser();
   const { showToast, celebrate } = useFeedback();
   const [commentsOpen, setCommentsOpen] = useState(false);
   // Liste "Wer hat getippt?" unter der Karte (Klick auf "X getippt").
@@ -202,6 +202,11 @@ export default function MatchCard({
   const missingScore = !isOneXTwo && (homeScore === null || awayScore === null);
   const notReady = missingPick || missingScore;
   const limit = scoreLimit[match.sport] ?? scoreLimit["Fußball"];
+  // Was beim Abgeben wirklich abgezogen würde (gleiche Rechnung wie
+  // spendStars): weniger als der Einsatz, wenn Guthaben oder Tageslimit
+  // nicht reichen. Vorher erfuhr man das erst im Toast nach dem Abgeben.
+  const possibleStake = Math.max(0, Math.min(match.fixedStake, freeStars, stakeBudgetRemainingToday));
+  const stakeReduced = possibleStake < match.fixedStake;
   // Echte Tipps aller Spieler: für die Liste und für den Vergleich nach der
   // Auswertung. Fremde Tipps (die Zahlen) erst nach Tippschluss zeigen.
   const { tippers, failed: tippersFailed } = useMatchTips(
@@ -423,12 +428,25 @@ export default function MatchCard({
                 Einsatz schon bezahlt – beim Ändern werden keine Sterne abgezogen.
               </p>
             ) : (
-              <div className="mb-5 flex items-center justify-between rounded-lg border border-edge bg-pitch px-4 py-2.5">
-                <span className="text-sm text-muted">Einsatz für dieses Spiel</span>
-                <span className="flex items-center gap-1 font-display font-semibold text-gold">
-                  <StarIcon className="h-4 w-4" />
-                  {match.fixedStake.toLocaleString("de-DE")}
-                </span>
+              <div className="mb-5 rounded-lg border border-edge bg-pitch px-4 py-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted">Einsatz für dieses Spiel</span>
+                  <span className="flex items-center gap-1 font-display font-semibold text-gold">
+                    <StarIcon className="h-4 w-4" />
+                    {stakeReduced && (
+                      <span className="mr-1 text-sm font-normal text-muted line-through">
+                        {match.fixedStake.toLocaleString("de-DE")}
+                      </span>
+                    )}
+                    {possibleStake.toLocaleString("de-DE")}
+                  </span>
+                </div>
+                {stakeReduced && (
+                  <p className="mt-1 text-xs text-[#FF9B5C]">
+                    {freeStars < match.fixedStake ? "Nicht genug Sterne" : "Tageslimit für Einsätze erreicht"}
+                    {possibleStake === 0 ? " – du tippst ohne Einsatz." : " – du tippst mit weniger Einsatz."}
+                  </p>
+                )}
               </div>
             )}
 
