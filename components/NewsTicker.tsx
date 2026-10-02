@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAppData, NewsItem } from "@/lib/AppDataContext";
+import { useUser } from "@/lib/UserContext";
 
 const sportIcon: Record<string, string> = {
   "Fußball": "⚽",
@@ -12,9 +13,13 @@ const sportIcon: Record<string, string> = {
 
 export default function NewsTicker() {
   const { newsItems } = useAppData();
+  const { isAdmin } = useUser();
   const [selected, setSelected] = useState<NewsItem | null>(null);
 
+  // Ohne News kein leeres gelbes Band für Spieler – nur der Admin sieht den
+  // Hinweis, wo man welche anlegt.
   if (newsItems.length === 0) {
+    if (!isAdmin) return null;
     return (
       <div className="border-b border-edge bg-gold py-1.5 text-center font-display text-sm font-semibold text-pitch">
         Noch keine News – im Admin-Bereich könnt ihr welche anlegen.

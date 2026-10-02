@@ -12,13 +12,13 @@ const SLIDES = [
   },
   {
     icon: "⭐",
-    title: "So funktioniert PoolScore",
-    text: "Dein Einsatz zählt: Exakt getroffen bringt Sterne-Bonus obendrauf, bei der Tendenz bekommst du deinen Einsatz zurück, nur bei Fehltipps geht ein Teil verloren – nie alles auf einmal. Dazu siehst du, gegen wie viele Mitspieler du dich durchgesetzt hast.",
+    title: "So funktionieren Sterne",
+    text: "Für jeden Tipp setzt du Gratis-Sterne ein. Exakt getroffen (bei 1X2: richtig getippt) bringt die Hälfte obendrauf, bei der richtigen Tendenz bekommst du deinen Einsatz zurück, bei einem Fehltipp ist die Hälfte weg. Richtige Tipps bringen außerdem Rangpunkte für die Rangliste.",
   },
   {
     icon: "👑",
     title: "Ränge & Saison-Pass",
-    text: "Sammle Punkte, steig in den Sport-Rängen auf und schalte im Saison-Pass exklusive Belohnungen frei – sichtbar bei deinem Namen überall in der App.",
+    text: "Mit Rangpunkten steigst du in der Rangliste und den Sport-Rängen auf. Den Saison-Pass füllst du mit deinem täglichen Bonus – schau jeden Tag vorbei und schalte Belohnungen frei, die man überall bei deinem Namen sieht.",
   },
   {
     icon: "🔵",

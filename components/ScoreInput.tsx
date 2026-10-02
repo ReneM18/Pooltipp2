@@ -10,29 +10,39 @@ import { useEffect, useState } from "react";
 //   Cursor steht ("0" + "1" -> "1"). Wer 10 will, tippt danach einfach "0".
 // - Führende Nullen fallen immer weg, nur Ziffern sind erlaubt.
 // - Leer lassen geht beim Tippen; beim Verlassen des Felds wird daraus 0.
+//   Mit onClear bleibt das Feld leer (value null): so startet z. B. die
+//   Spielkarte ohne vorausgefüllte 0 und niemand tippt versehentlich 0:0.
 // type="text" + inputMode="numeric" statt type="number": zeigt am Handy
 // trotzdem die Zahlentastatur, aber das Markieren beim Antippen klappt auch
 // auf älteren iPhones, und der Wert lässt sich sauber kontrollieren.
 export default function ScoreInput({
   value,
   onChange,
+  onClear,
   max,
   label,
   disabled = false,
   className,
 }: {
-  value: number;
+  value: number | null;
   onChange: (value: number) => void;
+  onClear?: () => void;
   max: number;
   label: string;
   disabled?: boolean;
   className?: string;
 }) {
-  const [text, setText] = useState(String(value));
+  const [text, setText] = useState(value === null ? "" : String(value));
 
   // Wert von außen geändert (z. B. "Ändern" füllt den alten Tipp ein).
   useEffect(() => {
-    setText((current) => (current === "" && value === 0) || Number(current) === value ? current : String(value));
+    if (value === null) {
+      setText("");
+      return;
+    }
+    setText((current) =>
+      (current === "" && value === 0) || (current !== "" && Number(current) === value) ? current : String(value)
+    );
   }, [value]);
 
   function handleChange(raw: string) {
@@ -46,7 +56,8 @@ export default function ScoreInput({
     digits = digits.replace(/^0+(?=\d)/, "");
     if (digits === "") {
       setText("");
-      onChange(0);
+      if (onClear) onClear();
+      else onChange(0);
       return;
     }
     const next = Math.min(max, Number(digits));
@@ -62,7 +73,7 @@ export default function ScoreInput({
       autoComplete="off"
       maxLength={String(max).length + 1}
       value={text}
-      placeholder="0"
+      placeholder={onClear ? "–" : "0"}
       disabled={disabled}
       aria-label={label}
       onFocus={(e) => e.currentTarget.select()}
@@ -71,7 +82,7 @@ export default function ScoreInput({
       onMouseUp={(e) => e.preventDefault()}
       onChange={(e) => handleChange(e.target.value)}
       onBlur={() => {
-        if (text === "") setText("0");
+        if (text === "" && !onClear) setText("0");
       }}
       className={className}
     />

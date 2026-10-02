@@ -24,7 +24,7 @@ export default function Footer() {
           Spiel deiner Lieblingsligen (Fußball, NFL, NBA, NHL) das Ergebnis. Dein Einsatz zählt –
           exakt getroffen bringt Sterne-Bonus obendrauf, bei der Tendenz gibt's den Einsatz zurück,
           nur bei einem Fehltipp geht ein Teil verloren, nie alles auf einmal. Je genauer dein Tipp,
-          desto mehr Rangliste-Punkte, Sterne und Prämien-Shop-Guthaben sammelst du. Dazu gibt's echte
+          desto mehr Rangliste-Punkte und Sterne sammelst du. Dazu gibt's echte
           Live-Ergebnisse und Tabellen im Matchcenter, einen Saison-Pass mit Belohnungen fürs
           tägliche Reinschauen, eine Rangliste pro Sportart und private Tipprunden für Freunde,
           Verein oder Kollegen. Alles komplett kostenlos – gespielt wird nur um virtuelle Sterne,

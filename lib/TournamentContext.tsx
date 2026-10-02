@@ -5,24 +5,9 @@ import { supabase } from "./supabaseClient";
 import { Tournament } from "./tournamentTypes";
 import { useAppData } from "./AppDataContext";
 
-// Demo-Turnier, das die aktuell angelegten Spiele bündelt, damit der
-// Turnier-Bereich nach dem ersten Deploy nicht komplett leer ist. Admin kann
-// es jederzeit bearbeiten oder löschen wie jedes andere Turnier auch. Läuft
-// (wie Teams/Spiele/News) über Supabase: für alle User sichtbar, nur vom
-// Admin-Account änderbar (siehe supabase/social-features.sql).
-const demoTournamentId = "tournament-demo";
-const initialTournaments: Tournament[] = [
-  {
-    id: demoTournamentId,
-    name: "Spieltag-Spezial",
-    description: "Alle aktuell angelegten Spiele in einem Turnier gebündelt – als Beispiel.",
-    icon: "🏆",
-    startDate: "2026-09-15T00:00:00+02:00",
-    endDate: "2026-10-15T00:00:00+02:00",
-    matchIds: ["match-1", "match-2", "match-3", "match-4", "match-5", "match-6", "match-7", "match-8"],
-    createdAt: "2026-09-15T00:00:00+02:00",
-  },
-];
+// Turniere kommen nur aus der Datenbank (für alle User sichtbar, nur vom
+// Admin-Account änderbar, siehe supabase/social-features.sql). Das frühere
+// Demo-Turnier "Spieltag-Spezial … als Beispiel" gibt es nicht mehr.
 
 interface TournamentContextValue {
   tournaments: Tournament[];
@@ -49,14 +34,12 @@ const TournamentContext = createContext<TournamentContextValue | null>(null);
 
 export function TournamentProvider({ children }: { children: ReactNode }) {
   const { addActivity } = useAppData();
-  const [tournaments, setTournaments] = useState<Tournament[]>(initialTournaments);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  // Beim ersten Laden aus Supabase übernehmen (ersetzt die lokalen
-  // Demo-Daten durch den echten, von allen Usern geteilten Stand – auch wenn
-  // er leer ist). Schlägt das fehl, bleiben die Demo-Daten nur zur Anzeige
-  // stehen und werden nicht zurückgeschrieben (sonst würden sie beim Admin
-  // die echten Turniere in der Datenbank überschreiben).
+  // Beim ersten Laden aus Supabase übernehmen. Schlägt das fehl, wird
+  // nichts zurückgeschrieben (sonst würde beim Admin der leere Stand die
+  // echten Turniere in der Datenbank überschreiben).
   useEffect(() => {
     let cancelled = false;
     (async () => {

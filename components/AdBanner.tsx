@@ -10,10 +10,16 @@ import { useUser } from "@/lib/UserContext";
 // dieser Banner verlinkt daher nur noch dorthin, statt selbst zu verkaufen.
 // Sobald hasAdFreeSubscription (= hasPremiumPass) aktiv ist, rendert diese
 // Komponente gar nichts mehr.
+//
+// Vorerst ausgeblendet: ein Platzhalter ganz oben wirkt unfertig und kostet
+// am Handy den besten Platz. Sobald es echte Werbung gibt, hier auf true
+// stellen.
+const SHOW_AD_PLACEHOLDER = false;
+
 export default function AdBanner() {
   const { hasAdFreeSubscription } = useUser();
 
-  if (hasAdFreeSubscription) return null;
+  if (!SHOW_AD_PLACEHOLDER || hasAdFreeSubscription) return null;
 
   return (
     <div className="flex flex-col items-start gap-3 rounded-card border border-dashed border-edge bg-surface/60 px-4 py-2.5 sm:flex-row sm:items-center sm:gap-4">

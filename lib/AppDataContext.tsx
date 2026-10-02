@@ -239,36 +239,9 @@ const initialMatches: Match[] = [
   },
 ];
 
-const initialNews: NewsItem[] = [
-  {
-    id: "news-1",
-    text: "Bayern führt weiter die Bundesliga-Tabelle an",
-    article:
-      "Nach dem Sieg im Topspiel gegen Dortmund bleibt Bayern München an der Tabellenspitze der Bundesliga. Die Mannschaft zeigte über weite Strecken eine starke Leistung und setzte sich verdient durch.",
-    sport: "Fußball",
-    createdAt: "2026-09-20T10:00:00+02:00",
-  },
-  { id: "news-2", text: "Neu im Prämien-Shop: der Titel „Tipp-König“", article: null, sport: null, createdAt: "2026-09-20T09:00:00+02:00" },
-  { id: "news-3", text: "Sabine K. verteidigt Platz 1 in der Rangliste", article: null, sport: null, createdAt: "2026-09-19T09:00:00+02:00" },
-  { id: "news-4", text: "Über 500.000 Sterne wurden diesen Spieltag verteilt", article: null, sport: null, createdAt: "2026-09-18T09:00:00+02:00" },
-  { id: "news-5", text: "Perfekter Tipp bringt den größten Sterne-Gewinn", article: null, sport: null, createdAt: "2026-09-17T09:00:00+02:00" },
-];
-
-const initialComments: Comment[] = [
-  { id: "comment-1", matchId: "match-1", author: "Marco T.", text: "Bayern zuhause eigentlich immer sicher, 2:1 wie erwartet.", createdAt: "2026-09-20T14:10:00+02:00", likedBy: ["Sabine K."] },
-  { id: "comment-2", matchId: "match-1", author: "Sabine K.", text: "Dortmund hätte da mehr draus machen müssen, verdiente Niederlage.", createdAt: "2026-09-20T16:05:00+02:00", likedBy: [] },
-  { id: "comment-3", matchId: "match-2", author: "Jonas H.", text: "Leverkusen ist gerade richtig stark drauf, ich tippe auf einen Auswärtssieg.", createdAt: "2026-09-19T20:30:00+02:00", likedBy: ["Marco T.", "Sabine K."] },
-];
-
-// Fiktive Community-Aktivität als Startbefüllung, damit der Feed von Anfang an
-// lebendig wirkt. Echte Einträge (eigener Tipp, eigener Kommentar) kommen dazu.
-const initialActivity: ActivityItem[] = [
-  { id: "activity-1", icon: "⚽", text: "Marco T. hat beim Spiel Bayern München vs. Borussia Dortmund getippt.", createdAt: "2026-09-20T14:12:00+02:00" },
-  { id: "activity-2", icon: "💬", text: "Sabine K. hat einen Kommentar zu Bayern München vs. Borussia Dortmund geschrieben.", createdAt: "2026-09-20T16:05:00+02:00" },
-  { id: "activity-3", icon: "🏆", text: "Sabine K. verteidigt Platz 1 in der Gesamt-Rangliste.", createdAt: "2026-09-19T09:00:00+02:00" },
-  { id: "activity-4", icon: "🏈", text: "Jonas H. hat beim Spiel Buffalo Bills vs. Kansas City Chiefs getippt.", createdAt: "2026-09-18T18:20:00+02:00" },
-  { id: "activity-5", icon: "⭐", text: "Über 500.000 Sterne stecken diesen Spieltag im Tipp-Topf.", createdAt: "2026-09-18T09:00:00+02:00" },
-];
+// News, Kommentare und Feed starten leer und kommen nur aus der Datenbank.
+// Vorher standen hier erfundene Beispiel-Einträge ("Sabine K. verteidigt
+// Platz 1", "Über 500.000 Sterne …"), die wie echte Meldungen wirkten.
 
 interface ActivityRow {
   id: string;
@@ -417,9 +390,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [tipCounts, setTipCounts] = useState<Record<string, number>>({});
   const [myTips, setMyTips] = useState<SubmittedTip[]>([]);
   const [myBonusAnswers, setMyBonusAnswers] = useState<SubmittedBonusAnswer[]>([]);
-  const [newsItems, setNewsItems] = useState<NewsItem[]>(initialNews);
-  const [comments, setComments] = useState<Comment[]>(initialComments);
-  const [activity, setActivity] = useState<ActivityItem[]>(initialActivity);
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
 
   // Eigene, schlanke Session-Erkennung statt useUser() zu importieren – würde
   // einen Kreis ergeben, weil UserContext seinerseits useAppData() braucht

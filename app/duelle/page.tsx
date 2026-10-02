@@ -122,7 +122,7 @@ export default function DuellePage() {
               <input
                 value={opponent}
                 onChange={(e) => setOpponent(e.target.value)}
-                placeholder="z. B. Sabine K."
+                placeholder="Name deines Gegners"
                 className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
               />
             </div>

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, FormEvent, ChangeEvent } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
-import { mockLeaderboard } from "@/lib/mockLeaderboard";
+import { useMyOverallRank } from "@/lib/myOverallRank";
 import RankBadge from "@/components/RankBadge";
 import RankProgress from "@/components/RankProgress";
 import SeasonFrame from "@/components/SeasonFrame";
@@ -73,7 +73,10 @@ export default function ProfilPage() {
   );
   const selectedProgress = sportProgressOptions.find((o) => o.sport === rangSportTab);
 
-  const currentRank = mockLeaderboard.find((entry) => entry.isCurrentUser)?.rank;
+  // Echter Gesamtplatz, gleiche Rechnung wie in der Kopfzeile (vorher stand
+  // hier für jeden ein fester Demo-Platz aus mockLeaderboard).
+  const myRank = useMyOverallRank();
+  const currentRank = myRank.status === "ranked" ? myRank.rank : null;
 
   // Premium-Pass-Stufen (siehe lib/passLevels.ts): true, sobald die Premium-Spur
   // gekauft UND das jeweilige Level per Pass-XP erreicht ist.
@@ -210,7 +213,11 @@ export default function ProfilPage() {
           </h1>
           {userNumber !== null && <p className="text-xs font-semibold text-gold">Nummer #{userNumber}</p>}
           <p className="text-sm text-muted">
-            {currentRank ? `Aktuell Platz ${currentRank} in der Rangliste` : "Noch nicht platziert"}
+            {currentRank
+              ? `Aktuell Platz ${currentRank} in der Rangliste`
+              : myRank.status === "loading"
+                ? "Platz wird geladen …"
+                : "Noch nicht platziert"}
           </p>
           {/* Saison-Pass: Titel (Level 4/6/8) und Abzeichen (Level 10, bleibt für immer). */}
           {(passHonors.title || passHonors.badges.length > 0) && (

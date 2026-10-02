@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import MatchCard from "@/components/MatchCard";
 import AdBanner from "@/components/AdBanner";
 import { useUser } from "@/lib/UserContext";
@@ -12,6 +12,14 @@ export default function DashboardPage() {
   const { matches, getTeam, tipCounts, submitTip, changeTip, myTips } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [tab, setTab] = useState<"offen" | "geschlossen">("offen");
+  // Uhrzeit für die Sortierung (erst nach dem Laden im Browser gesetzt,
+  // sonst passen Server- und Browser-Ansicht nicht zusammen), jede Minute neu.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const interval = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   function findTipForMatch(matchId: string) {
     return [...myTips].reverse().find((t) => t.matchId === matchId);
@@ -47,8 +55,14 @@ export default function DashboardPage() {
 
   // Abgesagte Spiele stehen bei den geschlossenen (nicht mehr tippbar).
   const isClosed = (m: (typeof matches)[number]) => m.status === "finished" || m.status === "cancelled";
-  const offeneMatches = matches.filter((m) => !isClosed(m)).sort(byKickoffAsc);
-  const geschlosseneMatches = matches.filter(isClosed).sort(byKickoffAsc);
+  // Schon angepfiffene Spiele ohne Ergebnis stehen unter den noch tippbaren.
+  const pastDeadline = (m: (typeof matches)[number]) =>
+    now !== null && new Date(m.tipDeadline).getTime() <= now;
+  const offeneMatches = matches
+    .filter((m) => !isClosed(m))
+    .sort((a, b) => Number(pastDeadline(a)) - Number(pastDeadline(b)) || byKickoffAsc(a, b));
+  // Bei den geschlossenen das neueste Spiel zuerst.
+  const geschlosseneMatches = matches.filter(isClosed).sort((a, b) => byKickoffAsc(b, a));
   const visibleMatches = tab === "offen" ? offeneMatches : geschlosseneMatches;
 
   return (

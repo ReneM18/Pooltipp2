@@ -1,3 +1,8 @@
+// Shop vorerst ausgeblendet: die Joker ziehen Sterne ab, wirken aber noch
+// nirgends. Kein Link mehr in der Kopfzeile, /shop zeigt nur "Kommt bald".
+// Sobald die Joker wirklich etwas tun, hier auf true stellen.
+export const SHOP_ENABLED = false;
+
 export interface ShopItem {
   id: string;
   category: "In-Game";
