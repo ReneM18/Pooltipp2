@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, FormEvent, ChangeEvent } from "react";
 import Link from "next/link";
+import AccountSettings from "@/components/AccountSettings";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { mockLeaderboard } from "@/lib/mockLeaderboard";
@@ -540,25 +541,25 @@ export default function ProfilPage() {
             )}
           </div>
         )}
-        <p className="mt-2 text-xs text-muted">
-          Weitere Einstellungen (Benachrichtigungen, Passwort, Konto löschen) folgen noch.
-        </p>
 
         {isRegistered ? (
-          <div className="mt-4 flex items-center justify-between rounded-card border border-edge bg-surface p-4">
-            <div>
-              <p className="text-xs text-muted">Angemeldet als</p>
-              <p className="text-sm font-semibold text-ink">{authEmail}</p>
+          <>
+            <div className="mt-4 flex items-center justify-between rounded-card border border-edge bg-surface p-4">
+              <div>
+                <p className="text-xs text-muted">Angemeldet als</p>
+                <p className="text-sm font-semibold text-ink">{authEmail}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="shrink-0 rounded-full border border-edge px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-red-400/60 hover:text-red-300 disabled:opacity-60"
+              >
+                {loggingOut ? "…" : "Ausloggen"}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="shrink-0 rounded-full border border-edge px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-red-400/60 hover:text-red-300 disabled:opacity-60"
-            >
-              {loggingOut ? "…" : "Ausloggen"}
-            </button>
-          </div>
+            <AccountSettings />
+          </>
         ) : (
           <Link
             href="/registrieren"
