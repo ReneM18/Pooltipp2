@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, FormEvent, ChangeEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AccountSettings from "@/components/AccountSettings";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
@@ -28,7 +29,26 @@ const sportIcon: Record<string, string> = {
   NHL: "🏒",
 };
 
+// Das Profil gibt es nur mit Konto. Gäste (auch direkt nach dem Ausloggen
+// oder über einen alten Link) landen beim Einloggen.
 export default function ProfilPage() {
+  const { isRegistered, sessionChecked } = useUser();
+  const router = useRouter();
+  const isGuest = sessionChecked && !isRegistered;
+  useEffect(() => {
+    if (isGuest) router.replace("/registrieren");
+  }, [isGuest, router]);
+  if (!isRegistered) {
+    return (
+      <main className="mx-auto max-w-3xl px-5 py-16 text-center text-sm text-muted">
+        {isGuest ? "Weiter zum Einloggen…" : "Lädt…"}
+      </main>
+    );
+  }
+  return <ProfilInhalt />;
+}
+
+function ProfilInhalt() {
   const {
     displayName,
     userNumber,

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode, useMemo, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { setFlashToast } from "@/lib/flashToast";
 import { mockUser } from "@/lib/mockData";
 import { getAvailableRankIcons, getBestRankIcon, RankIconOption } from "@/lib/rankTiers";
 import { PhotoVisibility } from "@/lib/mockUsers";
@@ -167,6 +168,8 @@ interface UserContextValue {
   isAdmin: boolean;
   // false, solange die Admin-Prüfung noch läuft.
   adminChecked: boolean;
+  // false, solange beim Laden noch nicht feststeht, ob jemand eingeloggt ist.
+  sessionChecked: boolean;
   logout: () => Promise<void>;
 }
 
@@ -274,13 +277,30 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
+  // Einmal zur Startseite wechseln, auch wenn Knopf und Abmelde-Meldung
+  // beide auslösen.
+  const leavingRef = useRef(false);
+  function leaveToStart() {
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    window.location.replace("/");
+  }
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setAuthEmail(data.session?.user.email ?? null);
       setAuthUserId(data.session?.user.id ?? null);
       setSessionChecked(true);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    let hadUser = false;
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      // Abgemeldet (Knopf, anderer Tab, abgelaufene Sitzung): Seite komplett
+      // neu laden. Nur so verschwinden Name, Foto, Sterne und Tipps des
+      // Kontos sicher aus dem Speicher, auch in Safari auf dem iPhone.
+      if (event === "SIGNED_OUT" && hadUser) {
+        leaveToStart();
+        return;
+      }
+      if (session) hadUser = true;
       setAuthEmail(session?.user.email ?? null);
       setAuthUserId(session?.user.id ?? null);
       setSessionChecked(true);
@@ -315,8 +335,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // für genau dieses Konto beantwortet.
   const adminChecked = sessionChecked && (authUserId === null || adminCheckedFor === authUserId);
   const isAdminNow = isAdmin && adminCheckedFor === authUserId && authUserId !== null;
+  // Ausloggen: Sitzung beenden und zur Startseite. Klappt das Abmelden beim
+  // Server nicht (z. B. kein Netz), wird die Sitzung trotzdem auf diesem
+  // Gerät gelöscht, damit niemand eingeloggt hängen bleibt.
   async function logout() {
-    await supabase.auth.signOut();
+    setFlashToast("👋 Du bist ausgeloggt.");
+    const { error } = await supabase.auth.signOut();
+    if (error) await supabase.auth.signOut({ scope: "local" });
+    leaveToStart();
   }
 
   // Übernimmt den Kontostand aus der Datenbank (Antwort von my_wallet,
@@ -804,6 +830,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         profileLoaded,
         isAdmin: isAdminNow,
         adminChecked,
+        sessionChecked,
         logout,
       }}
     >
