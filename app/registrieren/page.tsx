@@ -7,24 +7,17 @@ import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { supabase } from "@/lib/supabaseClient";
 import { readPendingInvite } from "@/lib/leagueInvite";
+import { translateAuthError } from "@/lib/authMessages";
 
-type Mode = "login" | "register";
+// "forgot" = "Passwort vergessen?": nur E-Mail eingeben, Link anfordern.
+type Mode = "login" | "register" | "forgot";
 
 type Notice =
   | { kind: "error"; text: string }
   | { kind: "confirm"; email: string }
   | { kind: "unconfirmed"; email: string }
-  | { kind: "exists" };
-
-// Die häufigsten Supabase-Meldungen auf Deutsch, damit niemand mit
-// englischen Fachbegriffen allein gelassen wird.
-function translateAuthError(message: string): string {
-  if (/invalid login credentials/i.test(message)) return "E-Mail oder Passwort stimmt nicht. Bitte nochmal versuchen.";
-  if (/password should be at least/i.test(message)) return "Das Passwort muss mindestens 6 Zeichen haben.";
-  if (/invalid.*email|email.*invalid/i.test(message)) return "Diese E-Mail-Adresse sieht nicht richtig aus.";
-  if (/rate limit|too many|security purposes/i.test(message)) return "Zu viele Versuche. Bitte warte kurz und probier es dann nochmal.";
-  return `Das hat nicht geklappt: ${message}`;
-}
+  | { kind: "exists" }
+  | { kind: "resetSent"; email: string };
 
 export default function RegistrierenPage() {
   // isRegistered/authEmail/logout kommen jetzt direkt aus der echten
@@ -53,9 +46,9 @@ export default function RegistrierenPage() {
   const [pendingInvite, setPendingInvite] = useState<string | null>(null);
   useEffect(() => {
     setPendingInvite(readPendingInvite());
-    if (new URLSearchParams(window.location.search).get("modus") === "registrieren") {
-      setMode("register");
-    }
+    const modus = new URLSearchParams(window.location.search).get("modus");
+    if (modus === "registrieren") setMode("register");
+    if (modus === "passwort-vergessen") setMode("forgot");
   }, []);
 
   // Nach dem Einloggen mit offener Einladung automatisch zur Tipprunde.
@@ -155,6 +148,25 @@ export default function RegistrierenPage() {
     // aktualisieren sich von selbst.
   }
 
+  // "Passwort vergessen?": Supabase schickt eine Mail mit einem Link zu
+  // /passwort-neu. Die Meldung danach ist bewusst immer gleich – sie verrät
+  // nicht, ob zu dieser E-Mail überhaupt ein Konto existiert.
+  async function handleForgot(e: FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setSubmitting(true);
+    setNotice(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/passwort-neu?reset=1`,
+    });
+    setSubmitting(false);
+    if (error && !/user not found|not registered/i.test(error.message)) {
+      setNotice({ kind: "error", text: translateAuthError(error.message) });
+      return;
+    }
+    setNotice({ kind: "resetSent", email: email.trim() });
+  }
+
   async function handleResend(address: string) {
     setResending(true);
     const { error } = await supabase.auth.resend({
@@ -206,7 +218,7 @@ export default function RegistrierenPage() {
   return (
     <main className="mx-auto max-w-md px-5 py-10">
       <div role="tablist" className="mb-6 flex gap-1 rounded-full border border-edge bg-surface p-1">
-        <button type="button" role="tab" aria-selected={mode === "login"} onClick={() => switchMode("login")} className={tabClass(mode === "login")}>
+        <button type="button" role="tab" aria-selected={mode !== "register"} onClick={() => switchMode("login")} className={tabClass(mode !== "register")}>
           Einloggen
         </button>
         <button type="button" role="tab" aria-selected={mode === "register"} onClick={() => switchMode("register")} className={tabClass(mode === "register")}>
@@ -215,11 +227,13 @@ export default function RegistrierenPage() {
       </div>
 
       <h1 className="mb-1 font-display text-2xl font-bold text-ink">
-        {mode === "register" ? "Neues Konto anlegen" : "Willkommen zurück"}
+        {mode === "register" ? "Neues Konto anlegen" : mode === "forgot" ? "Passwort vergessen?" : "Willkommen zurück"}
       </h1>
       <p className="mb-6 text-sm text-muted">
         {mode === "register"
           ? "Leg dein Spieler-Profil an, damit du in Rangliste, Feed und bei Freunden mit deinem Namen erkennbar bist."
+          : mode === "forgot"
+          ? "Kein Problem. Gib deine E-Mail ein, wir schicken dir einen Link, mit dem du ein neues Passwort festlegst."
           : "Melde dich mit deiner E-Mail und deinem Passwort an."}
       </p>
 
@@ -242,6 +256,42 @@ export default function RegistrierenPage() {
         </div>
       )}
 
+      {notice?.kind === "resetSent" && (
+        <div className="mb-5 rounded-card border border-gold/60 bg-gold/10 p-4 text-sm text-ink">
+          <p className="font-display text-base font-semibold">📧 Schau in dein Postfach</p>
+          <p className="mt-2">
+            Wenn es zu <span className="font-semibold [overflow-wrap:anywhere]">{notice.email}</span> ein Konto gibt, ist
+            jetzt eine Mail mit einem Link unterwegs. Tippe darauf und lege dein neues Passwort fest.
+          </p>
+          <p className="mt-2 text-xs text-muted">
+            Keine Mail da? Schau auch im Spam-Ordner nach. Der Link gilt nur kurze Zeit und nur einmal.
+          </p>
+        </div>
+      )}
+
+      {mode === "forgot" ? (
+        <form onSubmit={handleForgot} className="flex flex-col gap-4 rounded-card border border-edge bg-surface p-5">
+          <div>
+            <label htmlFor="forgot-email" className="mb-1 block text-xs text-muted">E-Mail</label>
+            <input
+              id="forgot-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              required
+              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="mt-1 rounded-full bg-gold py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-gold/90 disabled:opacity-60"
+          >
+            {submitting ? "Wird verschickt…" : notice?.kind === "resetSent" ? "Link nochmal schicken" : "Link zum Zurücksetzen schicken"}
+          </button>
+        </form>
+      ) : (
       <form
         onSubmit={mode === "register" ? handleRegister : handleLogin}
         className="flex flex-col gap-4 rounded-card border border-edge bg-surface p-5"
@@ -286,6 +336,15 @@ export default function RegistrierenPage() {
             minLength={6}
             className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
           />
+          {mode === "login" && (
+            <button
+              type="button"
+              onClick={() => switchMode("forgot")}
+              className="mt-2 text-sm font-semibold text-gold underline underline-offset-2"
+            >
+              Passwort vergessen?
+            </button>
+          )}
         </div>
         <button
           type="submit"
@@ -295,6 +354,7 @@ export default function RegistrierenPage() {
           {submitting ? "Wird verarbeitet…" : mode === "register" ? "Jetzt registrieren" : "Einloggen"}
         </button>
       </form>
+      )}
 
       {notice?.kind === "error" && (
         <div className="mt-4 rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-200">{notice.text}</div>
@@ -335,10 +395,14 @@ export default function RegistrierenPage() {
 
       <button
         type="button"
-        onClick={() => switchMode(mode === "register" ? "login" : "register")}
+        onClick={() => switchMode(mode === "login" ? "register" : "login")}
         className="mt-5 w-full rounded-full border border-edge px-4 py-3 text-center font-display text-sm sm:text-base font-semibold text-ink transition-colors hover:border-gold hover:text-gold"
       >
-        {mode === "register" ? "Schon ein Konto? Hier einloggen" : "Noch kein Konto? Hier registrieren"}
+        {mode === "register"
+          ? "Schon ein Konto? Hier einloggen"
+          : mode === "forgot"
+          ? "Passwort wieder eingefallen? Zum Einloggen"
+          : "Noch kein Konto? Hier registrieren"}
       </button>
     </main>
   );
