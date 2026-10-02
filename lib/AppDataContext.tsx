@@ -3,6 +3,14 @@
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Match, Sport, Team, TipMode } from "./types";
+import {
+  Competition,
+  CompetitionsRow,
+  COMPETITIONS_ROW_ID,
+  buildStartCompetitions,
+  findDuplicateCompetition,
+  newCompetitionId,
+} from "./competitions";
 import { TipResultTier } from "./poolScore";
 
 export interface SubmittedTip {
@@ -290,6 +298,13 @@ interface AppDataContextValue {
   addTeam: (team: Omit<Team, "id">) => void;
   updateTeam: (id: string, changes: Omit<Team, "id">) => void;
   removeTeam: (id: string) => void;
+  // Wettbewerbe pro Sportart (Auswahl beim Spiel-Anlegen im Admin).
+  // add/rename geben null bzw. false zurück, wenn der Name in dieser
+  // Sportart schon existiert (Schreibweise egal) oder leer ist.
+  competitions: Competition[];
+  addCompetition: (name: string, sport: Sport) => Competition | null;
+  renameCompetition: (id: string, name: string) => boolean;
+  removeCompetition: (id: string) => void;
   addMatch: (match: Omit<Match, "id">) => void;
   removeMatch: (id: string) => void;
   getTeam: (id: string) => Team | undefined;
@@ -384,6 +399,9 @@ const AppDataContext = createContext<AppDataContextValue | null>(null);
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const [teams, setTeams] = useState<Team[]>(initialTeams);
   const [matches, setMatches] = useState<Match[]>(initialMatches);
+  const [competitions, setCompetitions] = useState<Competition[]>(() =>
+    buildStartCompetitions(initialMatches)
+  );
   // "X getippt" auf jeder Spielkarte: Anzahl ALLER abgegebenen Tipps pro
   // Spiel (alle Spieler), geladen aus der Datenbank – früher feste
   // Demo-Zahlen, die nur im eigenen Browser hochgezählt wurden.
@@ -461,13 +479,26 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       const [teamsRes, matchesRes, newsRes] = await Promise.all([
-        supabase.from("teams").select("data"),
+        supabase.from("teams").select("id, data"),
         supabase.from("matches").select("data"),
         supabase.from("news").select("data"),
       ]);
       if (cancelled) return;
       if (!teamsRes.error && teamsRes.data) {
-        setTeams(teamsRes.data.map((row) => row.data as Team));
+        // Die Wettbewerbe liegen als eigene Zeile in derselben Tabelle –
+        // die gehört nicht zu den Teams.
+        const compRow = teamsRes.data.find((row) => row.id === COMPETITIONS_ROW_ID);
+        setTeams(
+          teamsRes.data.filter((row) => row.id !== COMPETITIONS_ROW_ID).map((row) => row.data as Team)
+        );
+        const savedList = (compRow?.data as CompetitionsRow | undefined)?.list;
+        if (Array.isArray(savedList)) {
+          setCompetitions(savedList);
+        } else {
+          const dbMatches =
+            !matchesRes.error && matchesRes.data ? matchesRes.data.map((row) => row.data as Match) : [];
+          setCompetitions(buildStartCompetitions(dbMatches));
+        }
       } else {
         console.warn("Teams konnten nicht geladen werden:", teamsRes.error?.message);
       }
@@ -677,6 +708,51 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       .then(({ error }) => {
         if (error) console.warn("Team konnte nicht gelöscht werden:", error.message);
       });
+  }
+
+  // Speichert die komplette Wettbewerbs-Liste als eine Zeile (siehe
+  // lib/competitions.ts). Nur nach einer echten Änderung durch den Admin –
+  // nie beim bloßen Laden, und nie, wenn das Laden fehlgeschlagen ist.
+  function saveCompetitions(list: Competition[]) {
+    setCompetitions(list);
+    if (!loadedFromDb.teams) return;
+    const row: CompetitionsRow = { kind: "competitions", list };
+    supabase
+      .from("teams")
+      .upsert({ id: COMPETITIONS_ROW_ID, data: row, updated_at: new Date().toISOString() }, { onConflict: "id" })
+      .then(({ error }) => {
+        if (error) console.warn("Wettbewerbe konnten nicht gespeichert werden:", error.message);
+      });
+  }
+
+  function addCompetition(name: string, sport: Sport) {
+    const clean = name.trim();
+    if (!clean || findDuplicateCompetition(competitions, clean, sport)) return null;
+    const created: Competition = { id: newCompetitionId(), name: clean, sport };
+    saveCompetitions([...competitions, created]);
+    return created;
+  }
+
+  // Umbenennen ändert den Namen auch bei allen Spielen dieser Sportart, die
+  // noch den alten Namen tragen (z. B. Tippfehler ausbessern).
+  function renameCompetition(id: string, name: string) {
+    const clean = name.trim();
+    const current = competitions.find((c) => c.id === id);
+    if (!current || !clean || findDuplicateCompetition(competitions, clean, current.sport, id)) return false;
+    saveCompetitions(competitions.map((c) => (c.id === id ? { ...c, name: clean } : c)));
+    if (clean !== current.name) {
+      setMatches((ms) =>
+        ms.map((m) =>
+          m.sport === current.sport && m.competition.trim() === current.name ? { ...m, competition: clean } : m
+        )
+      );
+    }
+    return true;
+  }
+
+  // Bestehende Spiele behalten ihren Wettbewerb als Text – nichts geht kaputt.
+  function removeCompetition(id: string) {
+    saveCompetitions(competitions.filter((c) => c.id !== id));
   }
 
   function addMatch(match: Omit<Match, "id">) {
@@ -1028,6 +1104,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         addTeam,
         updateTeam,
         removeTeam,
+        competitions,
+        addCompetition,
+        renameCompetition,
+        removeCompetition,
         addMatch,
         removeMatch,
         getTeam,

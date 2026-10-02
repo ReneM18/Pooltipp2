@@ -15,8 +15,9 @@ import TeamBadge from "@/components/TeamBadge";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { findDuplicateTeam } from "@/lib/teamName";
 import ScoreInput from "@/components/ScoreInput";
+import { competitionsForSport, findDuplicateCompetition } from "@/lib/competitions";
 
-type AdminTab = "spiele" | "teams" | "turniere" | "news";
+type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news";
 
 // Zugang nur für den eingeloggten Admin-Account – geprüft über die
 // Datenbank-Funktion is_admin() (siehe isAdmin in lib/UserContext.tsx).
@@ -28,7 +29,7 @@ export default function AdminPage() {
   // "Spiele" ist bewusst der Start-Tab: das wird im Alltag am häufigsten
   // gebraucht und soll sofort sichtbar sein, ohne erst scrollen zu müssen.
   const [tab, setTab] = useState<AdminTab>("spiele");
-  const { teams, matches, newsItems } = useAppData();
+  const { teams, matches, newsItems, competitions } = useAppData();
   const { tournaments } = useTournaments();
 
   if (!adminChecked) {
@@ -45,6 +46,7 @@ export default function AdminPage() {
 
   const tabs: { id: AdminTab; label: string; icon: string; count: number }[] = [
     { id: "spiele", label: "Spiele", icon: "⚽", count: matches.length },
+    { id: "wettbewerbe", label: "Wettbewerbe", icon: "🏅", count: competitions.length },
     { id: "teams", label: "Teams", icon: "🛡️", count: teams.length },
     { id: "turniere", label: "Turniere", icon: "🏆", count: tournaments.length },
     { id: "news", label: "News", icon: "📰", count: newsItems.length },
@@ -54,7 +56,7 @@ export default function AdminPage() {
     <main className="mx-auto max-w-3xl px-5 py-8 lg:max-w-6xl">
       <h1 className="mb-1 font-display text-3xl font-bold text-ink sm:text-4xl">Admin-Bereich</h1>
       <p className="mb-7 text-sm text-muted">
-        Teams, Spiele, Turniere und News anlegen. Änderungen werden gespeichert und
+        Spiele, Wettbewerbe, Teams, Turniere und News anlegen. Änderungen werden gespeichert und
         sind sofort für alle sichtbar.
       </p>
 
@@ -62,12 +64,15 @@ export default function AdminPage() {
           Klick auf einen Reiter zeigt nur noch genau diesen Bereich, auf
           voller Breite. Bewusst groß und mit Zahl, damit auf einen Blick klar
           ist, wo man ist und wie viel schon angelegt wurde. */}
-      <div className="mb-9 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        {tabs.map((t) => (
+      <div className="mb-9 grid grid-cols-2 gap-2.5 md:grid-cols-5">
+        {tabs.map((t, i) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex flex-col items-center justify-center gap-1 rounded-card border px-4 py-5 font-display transition-colors ${
+            className={`${
+              // 5 Reiter: am Handy nimmt der letzte die ganze Zeile, statt allein halb leer zu stehen
+              i === tabs.length - 1 ? "col-span-2 md:col-span-1" : ""
+            } flex flex-col items-center justify-center gap-1 rounded-card border px-4 py-5 font-display transition-colors ${
               tab === t.id
                 ? "border-gold bg-gold/15 text-gold"
                 : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
@@ -88,6 +93,7 @@ export default function AdminPage() {
 
       <div>
         {tab === "spiele" && <MatchManager />}
+        {tab === "wettbewerbe" && <CompetitionManager />}
         {tab === "teams" && <TeamManager />}
         {tab === "turniere" && <TournamentManager />}
         {tab === "news" && <NewsManager />}
@@ -334,6 +340,352 @@ function NoAccess({ loggedIn }: { loggedIn: boolean }) {
         {loggedIn ? "Zur Startseite" : "Zum Login"}
       </Link>
     </main>
+  );
+}
+
+// Auswahlfeld "Wettbewerb" für das Spiel-Formular: zeigt die angelegten
+// Wettbewerbe der Sportart. Ganz unten "Neuen Wettbewerb anlegen" – dann
+// erscheint direkt darunter ein Eingabefeld, ohne den Reiter zu wechseln.
+// Hat ein älteres Spiel einen Wettbewerb, den es in der Liste nicht (mehr)
+// gibt, bleibt er als eigener Eintrag auswählbar.
+const NEW_COMPETITION = "__neu__";
+
+function CompetitionSelect({
+  sport,
+  value,
+  onChange,
+  compact = false,
+}: {
+  sport: Sport;
+  value: string;
+  onChange: (name: string) => void;
+  compact?: boolean;
+}) {
+  const { competitions, addCompetition } = useAppData();
+  const { showToast } = useFeedback();
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+
+  const options = competitionsForSport(competitions, sport);
+  const inList = options.some((c) => c.name === value);
+  const duplicate = findDuplicateCompetition(competitions, newName, sport);
+
+  const fieldClass = compact
+    ? "w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+    : "w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold";
+
+  function create() {
+    if (!newName.trim() || duplicate) return;
+    const created = addCompetition(newName, sport);
+    if (!created) return;
+    onChange(created.name);
+    setCreating(false);
+    setNewName("");
+    showToast(`✓ Wettbewerb "${created.name}" angelegt.`, "success");
+  }
+
+  return (
+    <div>
+      <select
+        value={creating ? NEW_COMPETITION : value}
+        onChange={(e) => {
+          if (e.target.value === NEW_COMPETITION) {
+            setCreating(true);
+            return;
+          }
+          setCreating(false);
+          onChange(e.target.value);
+        }}
+        className={fieldClass}
+      >
+        <option value="">Auswählen…</option>
+        {options.map((c) => (
+          <option key={c.id} value={c.name}>
+            {c.name}
+          </option>
+        ))}
+        {value && !inList && <option value={value}>{value} (nicht in der Liste)</option>}
+        <option value={NEW_COMPETITION}>＋ Neuer Wettbewerb…</option>
+      </select>
+
+      {creating && (
+        <div className="mt-2 flex flex-col gap-2 rounded-lg border border-gold/60 bg-gold/5 p-3">
+          <label className="text-sm text-muted">
+            Neuer Wettbewerb für {sportIcon[sport]} {sport}
+          </label>
+          <input
+            autoFocus
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter soll nur den Wettbewerb anlegen, nicht schon das Spiel
+              if (e.key === "Enter") {
+                e.preventDefault();
+                create();
+              }
+            }}
+            placeholder="z. B. UEFA Nations League"
+            aria-invalid={duplicate ? true : undefined}
+            className={`${fieldClass} ${duplicate ? "!border-red-400" : ""}`}
+          />
+          {duplicate && (
+            <p role="alert" className="text-sm text-ink">
+              <span className="font-semibold text-red-300">Gibt es schon:</span> „{duplicate.name}“.{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(duplicate.name);
+                  setCreating(false);
+                  setNewName("");
+                }}
+                className="font-semibold text-gold transition-colors hover:text-ink"
+              >
+                Diesen&nbsp;auswählen&nbsp;→
+              </button>
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={create}
+              disabled={!newName.trim() || !!duplicate}
+              className="rounded-full bg-action px-5 py-2 text-sm font-semibold text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Anlegen &amp; auswählen
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCreating(false);
+                setNewName("");
+              }}
+              className="rounded-full border border-edge px-5 py-2 text-sm font-semibold text-muted transition-colors hover:text-ink"
+            >
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Reiter "Wettbewerbe": einmal anlegen, dann beim Spiel nur noch auswählen.
+// Pro Sportart eine eigene Liste (wie bei den Teams). Löschen entfernt den
+// Wettbewerb nur aus der Auswahl – bestehende Spiele behalten ihn.
+function CompetitionManager() {
+  const { competitions, matches, addCompetition, renameCompetition, removeCompetition } = useAppData();
+  const { showToast } = useFeedback();
+  const [name, setName] = useState("");
+  const [sport, setSport] = useState<Sport>("Fußball");
+  const [listTab, setListTab] = useState<Sport>("Fußball");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+
+  const duplicate = findDuplicateCompetition(competitions, name, sport);
+  const editing = competitions.find((c) => c.id === editingId);
+  const editDuplicate = editing
+    ? findDuplicateCompetition(competitions, editName, editing.sport, editing.id)
+    : undefined;
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || duplicate) return;
+    const created = addCompetition(name, sport);
+    if (!created) return;
+    setName("");
+    setListTab(sport);
+    showToast(`✓ Wettbewerb "${created.name}" angelegt.`, "success");
+  }
+
+  function saveEdit() {
+    if (!editing || !editName.trim() || editDuplicate) return;
+    const oldName = editing.name;
+    const newName = editName.trim();
+    const used = matches.filter((m) => m.sport === editing.sport && m.competition.trim() === oldName).length;
+    if (
+      newName !== oldName &&
+      used > 0 &&
+      !confirm(`"${oldName}" in "${newName}" umbenennen? Das ändert auch ${used} ${used === 1 ? "Spiel" : "Spiele"}.`)
+    )
+      return;
+    if (renameCompetition(editing.id, newName)) {
+      setEditingId(null);
+      showToast(`✓ Wettbewerb "${newName}" gespeichert.`, "success");
+    }
+  }
+
+  const listed = competitionsForSport(competitions, listTab);
+
+  return (
+    <section>
+      <h2 className="mb-4 font-display text-2xl font-semibold text-ink">Wettbewerbe</h2>
+
+      <form
+        onSubmit={handleSubmit}
+        className="mb-6 flex flex-col gap-4 rounded-card border border-edge bg-surface p-5 sm:p-6"
+      >
+        <div>
+          <h3 className="font-display text-base font-semibold text-ink">Neuen Wettbewerb anlegen</h3>
+          <p className="mt-1 text-sm text-muted">
+            Einmal anlegen, dann beim Spiel einfach aus der Liste auswählen.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-sm text-muted">Name</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="z. B. UEFA Nations League"
+              aria-invalid={duplicate ? true : undefined}
+              className={`w-full rounded-lg border bg-pitch px-4 py-3 text-base text-ink outline-none ${
+                duplicate ? "border-red-400 focus:border-red-400" : "border-edge focus:border-gold"
+              }`}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm text-muted">Sportart</label>
+            <select
+              value={sport}
+              onChange={(e) => setSport(e.target.value as Sport)}
+              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+            >
+              {SPORTS.map((s) => (
+                <option key={s} value={s}>
+                  {sportIcon[s]} {s}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {duplicate && (
+          <div
+            role="alert"
+            className="flex items-start gap-3 rounded-lg border border-red-400/60 bg-red-500/10 px-4 py-3 text-sm text-ink"
+          >
+            <span aria-hidden className="text-lg leading-none">
+              ⚠️
+            </span>
+            <span className="min-w-0">
+              <span className="block font-semibold text-red-300">Diesen Wettbewerb gibt es schon!</span>
+              „{duplicate.name}“ ist bei {sportIcon[duplicate.sport]} {duplicate.sport} bereits angelegt.
+            </span>
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={!name.trim() || !!duplicate}
+          className="self-start rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Wettbewerb anlegen
+        </button>
+      </form>
+
+      <div className="mb-4 flex flex-wrap gap-2.5">
+        {SPORTS.map((s) => (
+          <button
+            key={s}
+            onClick={() => setListTab(s)}
+            className={`min-w-[9rem] rounded-full border px-5 py-3 text-base font-semibold transition-colors ${
+              listTab === s
+                ? "border-gold bg-gold/15 text-gold"
+                : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
+            }`}
+          >
+            {sportIcon[s]} {s} ({competitions.filter((c) => c.sport === s).length})
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {listed.length === 0 && (
+          <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted sm:col-span-2">
+            Noch keine Wettbewerbe für {listTab} angelegt.
+          </p>
+        )}
+        {listed.map((c) => {
+          const used = matches.filter((m) => m.sport === c.sport && m.competition.trim() === c.name).length;
+          if (c.id === editingId) {
+            return (
+              <div key={c.id} className="flex flex-col gap-2 rounded-card border border-gold bg-surface p-4">
+                <input
+                  autoFocus
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveEdit();
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                  aria-invalid={editDuplicate ? true : undefined}
+                  className={`w-full rounded-lg border bg-pitch px-3 py-2 text-base text-ink outline-none ${
+                    editDuplicate ? "border-red-400" : "border-edge focus:border-gold"
+                  }`}
+                />
+                {editDuplicate && (
+                  <p role="alert" className="text-sm text-red-300">
+                    „{editDuplicate.name}“ gibt es schon.
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={saveEdit}
+                    disabled={!editName.trim() || !!editDuplicate}
+                    className="rounded-lg bg-action px-3 py-1.5 text-sm font-semibold text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Speichern
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="rounded-lg border border-edge px-3 py-1.5 text-sm text-muted transition-colors hover:text-ink"
+                  >
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div
+              key={c.id}
+              className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold leading-tight text-ink">{c.name}</span>
+                <span className="text-xs text-muted">
+                  {used === 0 ? "noch kein Spiel" : `${used} ${used === 1 ? "Spiel" : "Spiele"}`}
+                </span>
+              </span>
+              <span className="flex shrink-0 flex-col items-end gap-1">
+                <button
+                  onClick={() => {
+                    setEditingId(c.id);
+                    setEditName(c.name);
+                  }}
+                  className="rounded-lg px-2 py-1 text-xs font-semibold text-gold transition-colors hover:text-ink"
+                >
+                  Umbenennen
+                </button>
+                <button
+                  onClick={() => {
+                    const hint = used > 0 ? ` Die ${used} ${used === 1 ? "Spiel behält" : "Spiele behalten"} ihn trotzdem.` : "";
+                    if (confirm(`Wettbewerb "${c.name}" aus der Auswahl entfernen?${hint}`)) {
+                      removeCompetition(c.id);
+                      showToast(`✓ Wettbewerb "${c.name}" entfernt.`, "info");
+                    }
+                  }}
+                  className="rounded-lg px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-red-400"
+                >
+                  Entfernen
+                </button>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -726,7 +1078,11 @@ function MatchManager() {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!competition.trim() || !kickoff || !tipDeadline || !homeTeamId || !awayTeamId) return;
+    if (!competition.trim()) {
+      showToast("Bitte zuerst einen Wettbewerb auswählen.", "info");
+      return;
+    }
+    if (!kickoff || !tipDeadline || !homeTeamId || !awayTeamId) return;
     if (homeTeamId === awayTeamId) return;
     const stakeValue = Number(fixedStake);
     if (!stakeValue || stakeValue < 1) return;
@@ -786,6 +1142,7 @@ function MatchManager() {
                 value={sport}
                 onChange={(e) => {
                   setSport(e.target.value as Sport);
+                  setCompetition("");
                   setHomeTeamId("");
                   setAwayTeamId("");
                 }}
@@ -800,12 +1157,7 @@ function MatchManager() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm text-muted">Wettbewerb</label>
-              <input
-                value={competition}
-                onChange={(e) => setCompetition(e.target.value)}
-                placeholder="z. B. Bundesliga"
-                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
-              />
+              <CompetitionSelect sport={sport} value={competition} onChange={setCompetition} />
             </div>
             <div>
               <label className="mb-1.5 block text-sm text-muted">Heimteam</label>
@@ -1280,11 +1632,7 @@ function MatchDetailsEditor({
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-sm text-muted">Wettbewerb</label>
-              <input
-                value={competition}
-                onChange={(e) => setCompetition(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-              />
+              <CompetitionSelect sport={match.sport} value={competition} onChange={setCompetition} compact />
             </div>
             <div>
               <label className="mb-1.5 block text-sm text-muted">Spieltag (optional)</label>
