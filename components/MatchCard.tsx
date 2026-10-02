@@ -183,6 +183,8 @@ export default function MatchCard({
   const canChangeTip = hasTipped && !tippingClosed && !isCancelled && !myTip?.evaluated && !!onChangeTip;
   const isChanging = changingTip && canChangeTip;
   const showResultView = (hasTipped && !isChanging) || tippingClosed || isCancelled;
+  // 1X2-Spiel ohne Auswahl: Knopf ist noch gesperrt.
+  const missingPick = isOneXTwo && !nflPick;
   // Echte Tipps aller Spieler: für die Liste und für den Vergleich nach der
   // Auswertung. Fremde Tipps (die Zahlen) erst nach Tippschluss zeigen.
   const { tippers, failed: tippersFailed } = useMatchTips(
@@ -323,6 +325,9 @@ export default function MatchCard({
                 <span aria-hidden>⏰</span> Gleich geschlossen – jetzt noch schnell tippen!
               </p>
             )}
+            {isOneXTwo && (
+              <p className="mb-2 text-center text-xs text-muted">Wer gewinnt? Heimsieg (1), Unentschieden (X) oder Auswärtssieg (2)</p>
+            )}
             {isOneXTwo ? (
               <div className="mb-5 flex items-center justify-center gap-2">
                 {(["1", "X", "2"] as OneXTwo[]).map((option) => (
@@ -408,13 +413,23 @@ export default function MatchCard({
               </div>
             )}
 
+            {/* Knopf-Zustände klar unterscheidbar: tippbereit = kräftiges
+                Grün mit Leuchten, noch nicht tippbereit = grau mit Grund
+                darunter (vorher nur halb durchsichtig, sah aus wie "kaputt"). */}
             <button
               onClick={handleSubmit}
-              disabled={submitting || (isOneXTwo && !nflPick)}
-              className="w-full rounded-full bg-action py-2.5 font-display font-semibold tracking-wide text-base text-pitch shadow-[0_0_20px_rgba(63,166,107,0.35)] transition-all enabled:hover:bg-action-hover enabled:hover:shadow-[0_0_28px_rgba(63,166,107,0.5)] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={submitting || missingPick}
+              className={`w-full rounded-full py-2.5 font-display font-semibold tracking-wide text-base transition-all ${
+                missingPick
+                  ? "cursor-not-allowed border border-edge bg-edge text-muted"
+                  : "bg-action-hover text-pitch shadow-[0_0_22px_rgba(79,193,129,0.45)] enabled:hover:bg-[#6BD497] enabled:hover:shadow-[0_0_30px_rgba(79,193,129,0.6)] disabled:cursor-wait"
+              }`}
             >
               {submitting ? "Wird gespeichert…" : isChanging ? "Änderung speichern" : "Tipp abgeben"}
             </button>
+            {missingPick && (
+              <p className="mt-2 text-center text-xs text-muted">Erst oben 1, X oder 2 antippen</p>
+            )}
             {isChanging && (
               <button
                 onClick={() => setChangingTip(false)}
@@ -430,7 +445,10 @@ export default function MatchCard({
           <div className="flex flex-col gap-3">
             {hasTipped && (
               <div className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-pitch px-4 py-2.5">
-                <span className="text-sm text-muted">Dein Tipp</span>
+                <span className="flex items-center gap-1.5 text-sm text-muted">
+                  <span aria-hidden className="font-bold text-action-hover">✓</span>
+                  Dein Tipp
+                </span>
                 <span className="flex items-center gap-3">
                   <span className="font-display font-semibold text-ink">
                     {isOneXTwo
