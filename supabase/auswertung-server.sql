@@ -30,9 +30,18 @@
 --
 -- Darf beliebig oft ausgeführt werden.
 --
+-- Gelöscht wird nichts: alle Tipps, Spiele, Teams, Tipprunden, Duelle,
+-- Freunde und der Chat bleiben, wie sie sind.
+--
 -- Ausführen: vorher alle PoolTipp-Tabs schließen. Dann Supabase-Dashboard ->
 -- SQL Editor -> New query -> dieses komplette Skript einfügen -> "Run".
+-- Läuft als ein Block: bricht etwas ab, ändert sich gar nichts.
+-- (Ist das Skript für den SQL Editor zu lang, in zwei Teilen ausführen, siehe
+-- scripts/db-test/split.sh. Teil 1 legt nur Funktionen an, die noch niemand
+-- benutzt; erst Teil 2 schaltet sie ein.)
 -- ============================================================================
+
+begin;
 
 
 -- ----------------------------------------------------------------------------
@@ -114,6 +123,9 @@ $$;
 -- ----------------------------------------------------------------------------
 alter table public.profiles add column if not exists rescue_bonus_used boolean not null default false;
 alter table public.tips add column if not exists staked_at timestamptz;
+-- Kommt eigentlich aus spiel-absagen.sql; hier nur angelegt, falls das noch
+-- nicht ausgeführt wurde (sonst bricht die Übernahme unten ab).
+alter table public.tips add column if not exists refunded_at timestamptz;
 alter table public.duels add column if not exists accepted_at timestamptz;
 
 -- Saison-Pass-Level, damit die Datenbank weiß, ab wie vielen XP es welche
@@ -296,19 +308,6 @@ begin
 end;
 $$;
 
-drop trigger if exists protect_profile_values on public.profiles;
-create trigger protect_profile_values
-  before insert or update on public.profiles
-  for each row execute procedure public.protect_profile_values();
-
--- Der alte Weg "beliebige Sterne-Änderung" ist zu.
-do $$
-begin
-  if to_regprocedure('public.add_stars(integer)') is not null then
-    revoke all on function public.add_stars(int) from public, anon, authenticated;
-  end if;
-end $$;
-
 
 -- ----------------------------------------------------------------------------
 -- 4) Tipps
@@ -372,11 +371,6 @@ begin
   return new;
 end;
 $$;
-
-drop trigger if exists protect_tip_fields on public.tips;
-create trigger protect_tip_fields
-  before insert or update on public.tips
-  for each row execute procedure public.protect_tip_fields();
 
 -- 4b) Neuer Tipp: Einsatz abziehen und Tipp-Serie fortschreiben. Läuft nach
 --     protect_tip_fields und vor refund_tip_on_cancelled_match (Trigger
@@ -470,11 +464,6 @@ begin
   return new;
 end;
 $$;
-
-drop trigger if exists protect_tip_stake on public.tips;
-create trigger protect_tip_stake
-  before insert on public.tips
-  for each row execute procedure public.protect_tip_stake();
 
 -- 4c) Tipp-Bewertung mit 1X2 (dort gibt es kein "exakt").
 create or replace function public.classify_tip_mode(p_home int, p_away int, p_actual_home int, p_actual_away int, p_one_x_two boolean)
@@ -625,6 +614,8 @@ end;
 $$;
 
 
+-- ===== TEIL 2 =====
+
 -- ----------------------------------------------------------------------------
 -- 5) Duelle
 -- ----------------------------------------------------------------------------
@@ -769,11 +760,6 @@ begin
 end;
 $$;
 
-drop trigger if exists protect_duel_stake on public.duels;
-create trigger protect_duel_stake
-  before insert on public.duels
-  for each row execute procedure public.protect_duel_stake();
-
 -- 5c) Annehmen: Einsatz des Gegners zieht die Datenbank ab.
 create or replace function public.accept_duel(p_duel_id text)
 returns void
@@ -839,11 +825,6 @@ begin
   return new;
 end;
 $$;
-
-drop trigger if exists protect_bonus_answer on public.bonus_answers;
-create trigger protect_bonus_answer
-  before insert on public.bonus_answers
-  for each row execute procedure public.protect_bonus_answer();
 
 -- 6b) Auswertung, sobald der Admin die richtige Antwort gesetzt hat. Ändert
 --     er sie später, wird nur die Differenz gebucht.
@@ -928,11 +909,6 @@ begin
 end;
 $$;
 
-drop trigger if exists keep_match_finished on public.matches;
-create trigger keep_match_finished
-  before update on public.matches
-  for each row execute procedure public.keep_match_finished();
-
 -- 7b) Nach jeder Änderung eines Spiels: Tipps + Duelle auswerten, wenn der
 --     Endstand (oder der Tipp-Modus) neu ist; Bonusfrage auswerten, wenn die
 --     richtige Antwort neu ist. Der Admin-Bereich speichert immer alle
@@ -967,11 +943,6 @@ begin
   return null;
 end;
 $$;
-
-drop trigger if exists evaluate_after_match_change on public.matches;
-create trigger evaluate_after_match_change
-  after insert or update on public.matches
-  for each row execute procedure public.evaluate_after_match_change();
 
 -- 7c) Auswertung von Hand nachholen (nur Admin), z. B. im SQL-Editor:
 --     select public.evaluate_match('match-123');
@@ -1158,8 +1129,54 @@ $$;
 
 
 -- ----------------------------------------------------------------------------
--- 9) Rechte: interne Funktionen kann der Browser nicht aufrufen
+-- 9) Schutz einschalten und Rechte setzen
 -- ----------------------------------------------------------------------------
+-- Erst hier werden die Funktionen oben aktiv. Bis zu dieser Stelle hat das
+-- Skript nur neue Funktionen angelegt, die noch niemand benutzt.
+drop trigger if exists protect_profile_values on public.profiles;
+create trigger protect_profile_values
+  before insert or update on public.profiles
+  for each row execute procedure public.protect_profile_values();
+
+drop trigger if exists protect_tip_fields on public.tips;
+create trigger protect_tip_fields
+  before insert or update on public.tips
+  for each row execute procedure public.protect_tip_fields();
+
+drop trigger if exists protect_tip_stake on public.tips;
+create trigger protect_tip_stake
+  before insert on public.tips
+  for each row execute procedure public.protect_tip_stake();
+
+drop trigger if exists protect_duel_stake on public.duels;
+create trigger protect_duel_stake
+  before insert on public.duels
+  for each row execute procedure public.protect_duel_stake();
+
+drop trigger if exists protect_bonus_answer on public.bonus_answers;
+create trigger protect_bonus_answer
+  before insert on public.bonus_answers
+  for each row execute procedure public.protect_bonus_answer();
+
+drop trigger if exists keep_match_finished on public.matches;
+create trigger keep_match_finished
+  before update on public.matches
+  for each row execute procedure public.keep_match_finished();
+
+drop trigger if exists evaluate_after_match_change on public.matches;
+create trigger evaluate_after_match_change
+  after insert or update on public.matches
+  for each row execute procedure public.evaluate_after_match_change();
+
+-- Der alte Weg "beliebige Sterne-Änderung" ist zu.
+do $$
+begin
+  if to_regprocedure('public.add_stars(integer)') is not null then
+    revoke all on function public.add_stars(int) from public, anon, authenticated;
+  end if;
+end $$;
+
+-- Interne Funktionen kann der Browser nicht aufrufen.
 revoke all on function public.add_private_activity(uuid, text, text) from public, anon, authenticated;
 revoke all on function public.stake_used_today(uuid) from public, anon, authenticated;
 revoke all on function public.take_stars(uuid, int, boolean, boolean) from public, anon, authenticated;
@@ -1200,7 +1217,7 @@ begin
     set rescue_bonus_used = true
     from public.profile_extras e
     where e.id = p.id and not p.rescue_bonus_used
-      and e.stake_state ->> 'rescueBonusUsed' = 'true';
+      and to_jsonb(e) -> 'stake_state' ->> 'rescueBonusUsed' = 'true';
   end if;
 end $$;
 
@@ -1219,7 +1236,7 @@ begin
            public.try_int(a -> 'starsDelta')
     from public.profile_extras e
     cross join lateral jsonb_array_elements(
-      case when jsonb_typeof(e.bonus_answers) = 'array' then e.bonus_answers else '[]'::jsonb end
+      case when jsonb_typeof(to_jsonb(e) -> 'bonus_answers') = 'array' then to_jsonb(e) -> 'bonus_answers' else '[]'::jsonb end
     ) a
     where jsonb_typeof(a) = 'object'
       and a ->> 'id' is not null
@@ -1296,6 +1313,8 @@ begin
   end loop;
 end $$;
 
+
+commit;
 
 -- ----------------------------------------------------------------------------
 -- Kontrolle (erscheint unten als Tabelle): Stand aller Spieler.
