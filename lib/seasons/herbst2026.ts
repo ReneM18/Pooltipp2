@@ -25,6 +25,8 @@ export const HERBST_2026: SeasonData = {
   // Saison-Design Herbst (von Rene am 02.10.2026 ausgesucht): warmes
   // Dunkelbraun, Knöpfe orange, kräftige Laub-Deko, Nachrichtenstreifen orange.
   design: {
+    // Freigeschaltet mit Level 2 (zusammen mit den Herbst-Stickern).
+    unlockLevel: 2,
     colors: {
       pitch: "#140E0A",
       surface: "#231912",
@@ -62,8 +64,9 @@ export const HERBST_2026: SeasonData = {
       level: 2,
       xpRequired: 200,
       kind: "emotes",
-      reward: "Emote-Paket „Herbst“ (12 Sticker)",
-      rewardWhere: "im Community-Chat und bei Spiel-Kommentaren über den 🙂-Knopf",
+      reward: "Emote-Paket „Herbst“ (12 Sticker) + Herbst-Design",
+      rewardWhere:
+        "Sticker im Chat und bei Spiel-Kommentaren (🙂-Knopf), Herbst-Design in der ganzen App (im Profil abschaltbar)",
       icon: "🍂",
       premiumReward: `Animierter Rahmen „Neon-Pulse" ums Profilbild`,
       premiumIcon: "🌟",
