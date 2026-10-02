@@ -60,8 +60,16 @@ export default function FortschrittPage() {
   const { showToast, celebrate } = useFeedback();
   const [purchasing, setPurchasing] = useState(false);
 
-  function handleClaimDailyBonus() {
-    claimDailyBonus();
+  async function handleClaimDailyBonus() {
+    const { claimed, error } = await claimDailyBonus();
+    if (error) {
+      showToast(error, "info");
+      return;
+    }
+    if (!claimed) {
+      showToast("Den Bonus hast du heute schon abgeholt – morgen gibt's den nächsten.", "info");
+      return;
+    }
     celebrate();
     showToast("🎁 Täglicher Bonus abgeholt: +8 Sterne, +100 Pass-XP!", "gold");
   }

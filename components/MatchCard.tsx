@@ -46,7 +46,9 @@ interface MatchCardProps {
   awayTeam: Team;
   tipCount: number;
   myTip?: MyTip;
-  onSubmitTip: (homeScore: number, awayScore: number) => void;
+  // Darf ein Promise zurückgeben (Speichern in der Datenbank): Danach wird
+  // der Knopf wieder frei, falls der Tipp nicht angenommen wurde.
+  onSubmitTip: (homeScore: number, awayScore: number) => void | Promise<unknown>;
   // Abgegebenen Tipp bis Tippschluss korrigieren. Ohne diese Funktion
   // (z. B. auf Seiten ohne Speicher-Logik) gibt es keinen "Ändern"-Knopf.
   onChangeTip?: (homeScore: number, awayScore: number) => void;
@@ -249,7 +251,10 @@ export default function MatchCard({
       setSubmitting(false);
       return;
     }
-    onSubmitTip(h, a);
+    Promise.resolve(onSubmitTip(h, a)).finally(() => {
+      submittedRef.current = false;
+      setSubmitting(false);
+    });
   }
 
   return (
