@@ -9,6 +9,7 @@ import { SEASON_THEME } from "@/lib/seasonTheme";
 import { SPORTS } from "@/lib/types";
 import { CURRENT_SEASON, seasonCountdownText, seasonPeriodText } from "@/lib/seasons";
 import { EmoteSticker } from "@/components/Emotes";
+import { SeasonHeroLeaves } from "@/components/SeasonDeco";
 import { useFeedback } from "@/lib/FeedbackContext";
 
 const sportIcon: Record<string, string> = {
@@ -108,7 +109,10 @@ export default function FortschrittPage() {
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
-      <div className="mb-6">
+      {/* Mit Saison-Design wird dieser Kopfbereich zur warmen Karte mit
+          Deko (CSS .season-hero in app/globals.css). */}
+      <div className="season-hero mb-6">
+        <SeasonHeroLeaves />
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: SEASON_THEME.colorFrom }}>
             {SEASON_THEME.icon} Saison {SEASON_THEME.name}

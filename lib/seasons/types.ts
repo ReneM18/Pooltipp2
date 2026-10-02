@@ -50,8 +50,37 @@ export interface SeasonEmote {
   accent?: string;
 }
 
+/** Saison-Design: so sieht die ganze App während der Saison aus (Farben +
+ *  Laub-/Schnee-Deko). Fehlt es, bleibt die App im normalen Grün. Alle
+ *  Farben als "#RRGGBB". Die Texte müssen auf den Hintergründen mindestens so
+ *  gut lesbar bleiben wie im normalen Design. */
+export interface SeasonDesign {
+  colors: {
+    pitch: string; // Seitenhintergrund
+    surface: string; // Karten
+    surfaceHover: string;
+    edge: string; // feine Ränder, gesperrte Knöpfe
+    gold: string; // Sterne
+    goldDim: string;
+    action: string; // Knöpfe, Fortschritt, Chat-Knopf
+    actionHover: string; // aktiver Tipp-Knopf
+    ink: string; // Haupttext
+    muted: string; // Nebentext
+    ticker: string; // Nachrichtenstreifen unter der Kopfleiste
+  };
+  /** Zwei sanfte Lichtflecken im Seitenhintergrund (CSS-Farbe mit Deckkraft). */
+  glow: [string, string];
+  /** Farben der Deko-Blätter (Kopfleiste und Saison-Pass). */
+  decoColors: string[];
+  /** Verlauf im Kopfbereich der Saison-Pass-Seite. */
+  heroFrom: string;
+  heroTo: string;
+}
+
 export interface SeasonData {
   theme: SeasonTheme;
+  /** Aussehen der App während dieser Saison (optional). */
+  design?: SeasonDesign;
   /** Erster Tag der Saison, Format "JJJJ-MM-TT" (österreichische Zeit). */
   startsOn: string;
   /** Letzter Tag der Saison (einschließlich), Format "JJJJ-MM-TT". */

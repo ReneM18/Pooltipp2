@@ -16,7 +16,7 @@ export default function NewsTicker() {
 
   if (newsItems.length === 0) {
     return (
-      <div className="border-b border-edge bg-gold py-1.5 text-center font-display text-sm font-semibold text-pitch">
+      <div className="border-b border-edge bg-ticker py-1.5 text-center font-display text-sm font-semibold text-pitch">
         Noch keine News – im Admin-Bereich könnt ihr welche anlegen.
       </div>
     );
@@ -29,7 +29,7 @@ export default function NewsTicker() {
 
   return (
     <>
-      <div className="overflow-hidden border-b border-edge bg-gold py-1.5">
+      <div className="overflow-hidden border-b border-edge bg-ticker py-1.5">
         <div className="ticker-track flex items-center gap-10 px-5">
           {doubled.map((item, i) => {
             const isDuplicate = i >= newsItems.length;
