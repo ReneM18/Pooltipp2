@@ -211,7 +211,7 @@ export default function ChatWidget() {
 
       <button
         onClick={() => setOpen((current) => !current)}
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-action text-2xl shadow-[0_0_20px_rgba(63,166,107,0.4)] transition-transform hover:scale-105"
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-action text-2xl shadow-[0_0_20px_rgb(var(--c-action)/0.4)] transition-transform hover:scale-105"
         aria-label="Chat öffnen"
       >
         💬

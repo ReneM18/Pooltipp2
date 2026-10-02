@@ -422,7 +422,7 @@ export default function MatchCard({
               className={`w-full rounded-full py-2.5 font-display font-semibold tracking-wide text-base transition-all ${
                 missingPick
                   ? "cursor-not-allowed border border-edge bg-edge text-muted"
-                  : "bg-action-hover text-pitch shadow-[0_0_22px_rgba(79,193,129,0.45)] enabled:hover:bg-[#6BD497] enabled:hover:shadow-[0_0_30px_rgba(79,193,129,0.6)] disabled:cursor-wait"
+                  : "bg-action-hover text-pitch shadow-[0_0_22px_rgb(var(--c-action-hover)/0.45)] enabled:hover:brightness-110 enabled:hover:shadow-[0_0_30px_rgb(var(--c-action-hover)/0.6)] disabled:cursor-wait"
               }`}
             >
               {submitting ? "Wird gespeichert…" : isChanging ? "Änderung speichern" : "Tipp abgeben"}

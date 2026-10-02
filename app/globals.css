@@ -48,11 +48,54 @@ html {
   }
 }
 
+/* App-Farben als "R G B" (siehe tailwind.config.ts). Das Saison-Design
+   (lib/seasonDesign.ts) überschreibt sie mit den Farben der laufenden Saison. */
+:root {
+  --c-pitch: 13 21 18;
+  --c-surface: 23 36 32;
+  --c-surface-hover: 30 47 41;
+  --c-edge: 36 51 44;
+  --c-gold: 232 179 76;
+  --c-gold-dim: 74 61 34;
+  --c-action: 63 166 107;
+  --c-action-hover: 79 193 129;
+  --c-ink: 243 241 234;
+  --c-muted: 139 152 144;
+  --c-ticker: 232 179 76;
+  --bg-glow-a: rgba(232, 179, 76, 0.06);
+  --bg-glow-b: rgba(63, 166, 107, 0.08);
+}
+
 body {
-  background-color: #0d1512;
-  background-image: radial-gradient(circle at 20% 0%, rgba(232, 179, 76, 0.06), transparent 40%),
-    radial-gradient(circle at 80% 20%, rgba(63, 166, 107, 0.08), transparent 45%);
-  color: #f3f1ea;
+  background-color: rgb(var(--c-pitch));
+  background-image: radial-gradient(circle at 20% 0%, var(--bg-glow-a), transparent 40%),
+    radial-gradient(circle at 80% 20%, var(--bg-glow-b), transparent 45%);
+  color: rgb(var(--c-ink));
+}
+
+/* Saison-Design: Deko nur, solange es eingeschaltet ist. */
+.season-deco {
+  display: none;
+}
+html[data-season-design] .season-deco {
+  display: block;
+}
+/* Kopfbereich der Saison-Pass-Seite als warme Karte (nur mit Saison-Design). */
+html[data-season-design] .season-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgb(var(--c-edge));
+  padding: 1.25rem;
+  background-image: linear-gradient(
+    135deg,
+    var(--season-hero-from),
+    rgb(var(--c-surface)) 55%,
+    var(--season-hero-to)
+  );
+}
+html[data-season-design] .season-hero > :not(.season-deco) {
+  position: relative;
 }
 
 /* Custom range slider styling for the stake control */
