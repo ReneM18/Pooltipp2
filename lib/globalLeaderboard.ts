@@ -17,7 +17,7 @@ export interface GlobalPlayer {
   total: number;
 }
 
-interface ProfileRow {
+export interface ProfileRow {
   id: string;
   display_name: string | null;
   rang_punkte: Partial<Record<Sport, number>> | null;
@@ -120,7 +120,7 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  * - fehlende Spalte (z. B. rang_punkte noch nicht angelegt) -> zweiter
  *   Versuch mit "*", dann zählen fehlende Punkte einfach als 0.
  */
-async function loadProfiles(isCancelled: () => boolean): Promise<{ rows: ProfileRow[] } | { error: string }> {
+export async function loadProfiles(isCancelled: () => boolean): Promise<{ rows: ProfileRow[] } | { error: string }> {
   let lastError = "Unbekannter Fehler";
   for (let tryNo = 0; tryNo < 3; tryNo++) {
     if (tryNo > 0) await wait(600 * tryNo);
