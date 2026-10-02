@@ -8,7 +8,7 @@ import { PhotoVisibility } from "@/lib/mockUsers";
 import { useAppData, SubmittedTip } from "@/lib/AppDataContext";
 import { Sport, SPORTS } from "@/lib/types";
 import { mockLeaderboardBySport } from "@/lib/mockLeaderboard";
-import { getPassHonors, splitClaimedMilestones, PassHonors } from "@/lib/seasons";
+import { CURRENT_SEASON, seasonChangedSinceLoad, getPassHonors, splitClaimedMilestones, PassHonors } from "@/lib/seasons";
 import {
   DAILY_BONUS_STARS,
   DAILY_BONUS_XP,
@@ -184,6 +184,23 @@ interface WalletRow {
 }
 
 const UserContext = createContext<UserContextValue | null>(null);
+
+// Saisonwechsel (supabase/saisonwechsel.sql): Gehören die gespeicherten
+// Saison-XP noch zu einer früheren Saison, setzt die Datenbank sie hier
+// einmalig auf 0. Titel/Abzeichen (claimed_milestones) bleiben. Antwort: die
+// gültigen Saison-XP – oder null, falls das SQL noch nicht ausgeführt wurde
+// (dann bleibt alles wie bisher).
+async function startPassSeason(): Promise<number | null> {
+  const { data, error } = await supabase.rpc("start_pass_season", {
+    p_season_id: CURRENT_SEASON.theme.id,
+    p_starts_on: CURRENT_SEASON.startsOn,
+  });
+  if (error) {
+    console.warn("Saisonwechsel nicht geprüft:", error.message);
+    return null;
+  }
+  return typeof data?.pass_xp === "number" ? data.pass_xp : null;
+}
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const {
@@ -367,6 +384,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
         await supabase.from("profiles").insert({ id: authUserId, display_name: displayName });
       }
       if (cancelled) return;
+      // Saisonwechsel prüfen, bevor der Kontostand gelesen wird: setzt die
+      // Saison-XP nach einem Wechsel einmalig auf 0 (supabase/saisonwechsel.sql).
+      await startPassSeason();
+      if (cancelled) return;
       const ok = await reloadWallet();
       if (cancelled || !ok) return;
       setProfileLoaded(true);
@@ -376,6 +397,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUserId]);
+
+  // Tab über einen Saisonwechsel hinweg offen gelassen: beim Zurückkehren
+  // neu laden, damit die neue Saison (und der XP-Neustart) greift und keine
+  // alten XP in die neue Saison geschrieben werden.
+  useEffect(() => {
+    function checkSeason() {
+      if (document.visibilityState === "visible" && seasonChangedSinceLoad()) window.location.reload();
+    }
+    document.addEventListener("visibilitychange", checkSeason);
+    window.addEventListener("focus", checkSeason);
+    return () => {
+      document.removeEventListener("visibilitychange", checkSeason);
+      window.removeEventListener("focus", checkSeason);
+    };
+  }, []);
 
   // Den Anzeigenamen schreibt der Browser weiterhin selbst zurück – alles
   // andere im Profil (Sterne, Punkte, XP, Serie) ignoriert die Datenbank.

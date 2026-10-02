@@ -1,15 +1,28 @@
 import type { PassLevel, SeasonData, SeasonEmote } from "./types";
 import { HERBST_2026 } from "./herbst2026";
+import { WINTER_2026 } from "./winter2026";
+import { playableSeasons, seasonForDate } from "./schedule";
 
 export type { PassLevel, SeasonData, SeasonEmote, SeasonTheme, RewardKind } from "./types";
+export { seasonCountdownText, seasonPeriodText, seasonForDate } from "./schedule";
 
-// Alle Saisons, die es je gab (älteste zuerst). Alte Saisons bleiben hier
-// stehen, damit ihre Abzeichen, Titel und Emotes auch nach Saisonende noch
-// richtig angezeigt werden.
-export const ALL_SEASONS: SeasonData[] = [HERBST_2026];
+// Jede Saison, die es gibt oder geben wird – auch Entwürfe. Eine neue Saison
+// = neue Datei + hier eintragen. Alte Saisons NIE entfernen, damit ihre
+// Abzeichen, Titel und Emotes auch nach Saisonende richtig angezeigt werden.
+export const SEASON_FILES: SeasonData[] = [HERBST_2026, WINTER_2026];
 
-/** Die gerade laufende Saison – für eine neue Saison nur diese Zeile ändern. */
-export const CURRENT_SEASON: SeasonData = HERBST_2026;
+/** Alle spielbaren Saisons (ohne Entwürfe), älteste zuerst. */
+export const ALL_SEASONS: SeasonData[] = playableSeasons(SEASON_FILES);
+
+/** Die gerade laufende Saison – ergibt sich automatisch aus dem Datum
+ *  (startsOn/endsOn in der jeweiligen Saison-Datei). */
+export const CURRENT_SEASON: SeasonData = seasonForDate(SEASON_FILES, new Date());
+
+/** true, wenn seit dem Laden der Seite eine neue Saison begonnen hat (Tab
+ *  über Nacht offen) – dann muss die Seite neu geladen werden. */
+export function seasonChangedSinceLoad(): boolean {
+  return seasonForDate(SEASON_FILES, new Date()).theme.id !== CURRENT_SEASON.theme.id;
+}
 
 // ----------------------------------------------------------------------------
 // "Erreichte Level" werden pro Saison dauerhaft gespeichert, als Text wie
