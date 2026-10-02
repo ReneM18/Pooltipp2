@@ -7,6 +7,8 @@ import { PASS_LEVELS, PREMIUM_PASS_PRICE } from "@/lib/passLevels";
 import { xpForLevel } from "@/lib/seasonPass";
 import { SEASON_THEME } from "@/lib/seasonTheme";
 import { SPORTS } from "@/lib/types";
+import { CURRENT_SEASON } from "@/lib/seasons";
+import { EmoteSticker } from "@/components/Emotes";
 import { useFeedback } from "@/lib/FeedbackContext";
 
 const sportIcon: Record<string, string> = {
@@ -102,9 +104,12 @@ export default function FortschrittPage() {
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <div className="mb-6">
+        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: SEASON_THEME.colorFrom }}>
+          {SEASON_THEME.icon} Saison {SEASON_THEME.name}
+        </p>
         <h1 className="font-display text-3xl font-bold text-ink">Saison-Pass</h1>
         <p className="mt-1 text-sm text-muted">
-          Sammle Punkte durch Tippen und schalte nach und nach neue Belohnungen frei.
+          Hol dir jeden Tag deinen Bonus, sammle Saison-XP und schalte Level für Level neue Belohnungen frei.
         </p>
       </div>
 
@@ -160,15 +165,37 @@ export default function FortschrittPage() {
         </div>
       </section>
 
-      {/* Premium-Pass Kaufkarte */}
+      {/* Feste Rollen der drei Zähler – damit Tester gleich verstehen, was wofür ist. */}
+      <section className="mb-8 rounded-card border border-edge bg-surface p-4">
+        <p className="mb-2 font-display text-sm font-semibold text-ink">So funktioniert der Pass</p>
+        <ul className="flex flex-col gap-1.5 text-xs text-muted">
+          <li>
+            <span className="font-semibold text-ink">Saison-XP</span> zeigen, wie aktiv du bist, und füllen nur
+            diesen Pass.
+          </li>
+          <li>
+            <span className="font-semibold text-ink">Rangpunkte</span> zeigen, wie gut du tippst (Rangliste) und
+            haben mit dem Pass nichts zu tun.
+          </li>
+          <li>
+            <span className="font-semibold text-ink">Sterne</span> brauchst du zum Tippen. Der Pass gibt nur auf
+            Level 10 ein paar dazu.
+          </li>
+          <li>Abzeichen, Titel und Sticker, die du freischaltest, behältst du auch nach der Saison.</li>
+        </ul>
+      </section>
+
+      {/* Premium-Pass Kaufkarte – Bezahlen ist noch nicht eingebaut, daher
+          ehrlich als kostenloser Test gekennzeichnet. */}
       <section className="mb-8">
         {hasPremiumPass ? (
           <div className="flex items-center gap-3 rounded-card border border-gold bg-gold/10 p-4">
             <span className="text-2xl">👑</span>
             <div className="flex-1">
-              <p className="font-display text-sm font-semibold text-gold">Premium-Pass aktiv</p>
+              <p className="font-display text-sm font-semibold text-gold">Premium-Test aktiv</p>
               <p className="text-xs text-muted">
-                Du erhältst zusätzlich zu jeder Stufe die Premium-Belohnung rechts daneben.
+                Du siehst zusätzlich zu jeder Stufe die Premium-Belohnung daneben. Der Test gilt nur bis
+                zum Neuladen der Seite.
               </p>
             </div>
           </div>
@@ -176,12 +203,12 @@ export default function FortschrittPage() {
           <div className="flex flex-col items-start gap-3 rounded-card border border-edge bg-gradient-to-br from-surface to-surface-hover p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="flex items-center gap-2 font-display text-sm font-semibold text-ink">
-                <span className="text-lg">👑</span> Premium-Pass freischalten
+                <span className="text-lg">👑</span> Premium-Pass (Vorschau)
               </p>
               <p className="mt-0.5 text-xs text-muted">
-                Einmalig {PREMIUM_PASS_PRICE} – schaltet auf jeder Stufe eine zusätzliche exklusive
-                Belohnung frei (Rahmen, Titel, Sterne-Boni). Kein Zufall, keine Lose – du bekommst
-                garantiert alle Premium-Inhalte, die du mit deinen Punkten erreichst.
+                Geplant für einmalig {PREMIUM_PASS_PRICE}: auf jeder Stufe eine zusätzliche Belohnung
+                (Rahmen, Animationen, Statistik, Titel). Bezahlen ist noch nicht eingebaut – zum Testen
+                kannst du Premium hier kostenlos ansehen, bis du die Seite neu lädst.
               </p>
             </div>
             <button
@@ -189,7 +216,7 @@ export default function FortschrittPage() {
               disabled={purchasing}
               className="shrink-0 rounded-full bg-gold px-5 py-2.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90 disabled:opacity-60"
             >
-              {purchasing ? "Wird verarbeitet…" : `Freischalten – ${PREMIUM_PASS_PRICE}`}
+              {purchasing ? "Wird freigeschaltet…" : "Kostenlos testen"}
             </button>
           </div>
         )}
@@ -241,6 +268,7 @@ export default function FortschrittPage() {
           <h2 className="mb-1 font-display text-lg font-semibold text-ink">Tiefen-Statistik</h2>
           <p className="mb-3 text-xs text-muted">
             Deine Trefferquote (exakte Tipps) pro Sportart im Vergleich zum Community-Durchschnitt.
+            Hinweis: Der Community-Wert ist noch ein Beispielwert, deine eigene Quote ist echt.
           </p>
           <div className="flex flex-col gap-3">
             {SPORTS.map((sport) => {
@@ -286,7 +314,7 @@ export default function FortschrittPage() {
           {PASS_LEVELS.map((lvl) => {
             const unlocked = passXP >= lvl.xpRequired;
             const isCurrent = lvl.level === currentLevel.level;
-            const isPayout = !!lvl.starsReward;
+            const isPayout = lvl.kind === "badge" || !!lvl.starsReward;
             return (
               <div
                 key={lvl.level}
@@ -314,15 +342,17 @@ export default function FortschrittPage() {
                     </span>
                     {unlocked && <span className="text-xs font-semibold text-action">✓ Freigeschaltet</span>}
                   </div>
-                  <p className="text-sm text-muted">
-                    {lvl.reward}
-                    {lvl.rewardWhere && <span className="ml-1 text-gold">· {lvl.rewardWhere}</span>}
-                    {isPayout && (
-                      <span className="ml-1 text-gold">
-                        · wandert direkt in dein Sterne-Guthaben für den Shop
-                      </span>
-                    )}
+                  <p className={`text-sm ${unlocked ? "text-ink" : "text-muted"}`}>{lvl.reward}</p>
+                  <p className="text-xs text-muted">
+                    <span className="text-gold">Wo:</span> {lvl.rewardWhere}
                   </p>
+                  {lvl.kind === "emotes" && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {CURRENT_SEASON.emotes.map((emote) => (
+                        <EmoteSticker key={emote.id} emote={emote} size={28} />
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {lvl.premiumReward && (
@@ -339,6 +369,7 @@ export default function FortschrittPage() {
                         Premium
                       </p>
                       <p className="text-xs text-muted">{lvl.premiumReward}</p>
+                      {lvl.premiumNote && <p className="text-[10px] italic text-muted">{lvl.premiumNote}</p>}
                     </div>
                   </div>
                 )}

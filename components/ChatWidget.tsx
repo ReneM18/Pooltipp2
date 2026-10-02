@@ -6,16 +6,21 @@ import { useUser } from "@/lib/UserContext";
 import { supabase } from "@/lib/supabaseClient";
 import { getMockRankIconForName } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
+import PassHonorTags, { useOtherPlayersHonors } from "@/components/PassHonors";
+import { EmotePicker, MessageBody, stickerFromText, stickerText } from "@/components/Emotes";
+import { SeasonEmote } from "@/lib/seasons";
 
 interface ChatMessage {
   id: string;
   author: string;
   text: string;
   isMe: boolean;
+  userId: string | null;
 }
 
 export default function ChatWidget() {
-  const { displayName, authUserId } = useUser();
+  const { displayName, authUserId, passHonors } = useUser();
+
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -44,6 +49,7 @@ export default function ChatWidget() {
             author: row.author_name,
             text: row.text,
             isMe: row.user_id === authUserId,
+            userId: row.user_id ?? null,
           }))
         );
       }
@@ -56,7 +62,16 @@ export default function ChatWidget() {
         setMessages((current) =>
           current.some((m) => m.id === row.id)
             ? current
-            : [...current, { id: row.id, author: row.author_name, text: row.text, isMe: row.user_id === authUserId }]
+            : [
+                ...current,
+                {
+                  id: row.id,
+                  author: row.author_name,
+                  text: row.text,
+                  isMe: row.user_id === authUserId,
+                  userId: row.user_id,
+                },
+              ]
         );
       })
       .subscribe();
@@ -68,6 +83,9 @@ export default function ChatWidget() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUserId]);
 
+  // Titel/Abzeichen (Saison-Pass) der anderen Schreiber, nach Nutzer-ID.
+  const honorsByUser = useOtherPlayersHonors(messages.filter((m) => !m.isMe).map((m) => m.userId));
+
   useEffect(() => {
     if (open && listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
@@ -76,17 +94,30 @@ export default function ChatWidget() {
 
   function handleSend(e: FormEvent) {
     e.preventDefault();
-    if (!draft.trim() || !authUserId) return;
-    const id = `chat-${Date.now()}`;
     const text = draft.trim();
+    if (!text || !authUserId) return;
+    // Sticker-Code von Hand eingetippt, ohne den Sticker zu besitzen: nicht senden.
+    const typedSticker = stickerFromText(text);
+    if (typedSticker && !passHonors.emotes.some((em) => em.id === typedSticker.id)) return;
     setDraft("");
+    sendText(text);
+  }
+
+  function handleSendSticker(emote: SeasonEmote) {
+    if (!authUserId) return;
+    sendText(stickerText(emote));
+  }
+
+  function sendText(text: string) {
+    if (!authUserId) return;
+    const id = `chat-${Date.now()}`;
     supabase
       .from("chat_messages")
       .insert({ id, user_id: authUserId, author_name: displayName, text })
       .then(({ error }) => {
         if (error) {
           console.warn("Nachricht konnte nicht gesendet werden:", error.message);
-          setDraft(text);
+          if (!stickerFromText(text)) setDraft(text);
           return;
         }
         // Nach dem Speichern selbst anhängen, statt nur auf das Realtime-Abo
@@ -95,7 +126,7 @@ export default function ChatWidget() {
         setMessages((current) =>
           current.some((m) => m.id === id)
             ? current
-            : [...current, { id, author: displayName, text, isMe: true }]
+            : [...current, { id, author: displayName, text, isMe: true, userId: authUserId }]
         );
       });
   }
@@ -116,35 +147,55 @@ export default function ChatWidget() {
               <p className="mb-3 text-center text-xs text-muted">Noch keine Nachrichten – schreib die erste!</p>
             )}
             <div className="flex flex-col gap-2">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`max-w-[80%] rounded-lg px-3 py-2 text-sm [overflow-wrap:anywhere] ${
-                    msg.isMe ? "ml-auto bg-action text-pitch" : "bg-surface-hover text-ink"
-                  }`}
-                >
-                  {!msg.isMe && (
-                    <Link
-                      href={`/spieler/${encodeURIComponent(msg.author)}`}
-                      className="mb-1 flex items-center gap-2 text-xs font-semibold text-gold hover:opacity-80"
-                    >
-                      <RankBadge option={getMockRankIconForName(msg.author)} size="sm" />
-                      {msg.author}
-                    </Link>
-                  )}
-                  {msg.text}
-                </div>
-              ))}
+              {messages.map((msg) => {
+                const isSticker = !!stickerFromText(msg.text);
+                const honors = msg.userId ? honorsByUser[msg.userId] : undefined;
+                return (
+                  <div
+                    key={msg.id}
+                    className={`max-w-[80%] rounded-lg text-sm [overflow-wrap:anywhere] ${
+                      isSticker && msg.isMe
+                        ? "ml-auto"
+                        : msg.isMe
+                        ? "ml-auto bg-action px-3 py-2 text-pitch"
+                        : "bg-surface-hover px-3 py-2 text-ink"
+                    }`}
+                  >
+                    {!msg.isMe && (
+                      <div className="mb-1">
+                        <Link
+                          href={`/spieler/${encodeURIComponent(msg.author)}`}
+                          className="flex items-center gap-2 text-xs font-semibold text-gold hover:opacity-80"
+                        >
+                          <RankBadge option={getMockRankIconForName(msg.author)} size="sm" />
+                          {msg.author}
+                        </Link>
+                        {honors && (honors.title || honors.badges.length > 0) && (
+                          <div className="mt-1">
+                            <PassHonorTags honors={honors} size="sm" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <MessageBody text={msg.text} />
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           <form onSubmit={handleSend} className="flex gap-2 border-t border-edge p-3">
+            <EmotePicker
+              disabled={!authUserId}
+              onInsertEmoji={(emoji) => setDraft((d) => d + emoji)}
+              onSendSticker={handleSendSticker}
+            />
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={authUserId ? "Nachricht schreiben…" : "Melde dich an, um zu schreiben"}
               disabled={!authUserId}
-              className="flex-1 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold disabled:opacity-50"
+              className="min-w-0 flex-1 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold disabled:opacity-50"
             />
             <button
               type="submit"

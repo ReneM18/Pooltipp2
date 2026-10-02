@@ -22,7 +22,7 @@ const FeedbackContext = createContext<FeedbackContextValue | null>(null);
 let idCounter = 0;
 
 export function FeedbackProvider({ children }: { children: ReactNode }) {
-  const { passXP } = useUser();
+  const { passXP, profileLoaded, authUserId } = useUser();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [bursts, setBursts] = useState<{ id: number; big: boolean }[]>([]);
   const [levelUpInfo, setLevelUpInfo] = useState<(typeof PASS_LEVELS)[number] | null>(null);
@@ -48,6 +48,13 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
   // täglichen Bonus) eine neue Stufe erreicht, ein Popup zeigen. Beim
   // allerersten Render wird nur der Startwert gemerkt, damit beim Laden der
   // Seite kein falsches Popup aufpoppt.
+  // Beim Laden des echten Profils (oder Kontowechsel) springt passXP vom
+  // Demo-Wert auf den gespeicherten Wert – das ist kein Level-Up. Daher hier
+  // die Ausgangsbasis neu setzen (muss VOR dem Effekt darunter stehen).
+  useEffect(() => {
+    lastLevelRef.current = null;
+  }, [profileLoaded, authUserId]);
+
   useEffect(() => {
     const currentLevel =
       [...PASS_LEVELS].reverse().find((l) => passXP >= l.xpRequired) ?? PASS_LEVELS[0];
@@ -105,7 +112,8 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
             <p className="text-xs font-semibold uppercase tracking-widest text-gold">Level Up!</p>
             <div className="my-3 text-5xl">{levelUpInfo.icon}</div>
             <p className="font-display text-xl font-bold text-ink">Level {levelUpInfo.level} erreicht</p>
-            <p className="mt-1 text-sm text-muted">{levelUpInfo.reward}</p>
+            <p className="mt-1 text-sm font-semibold text-ink">{levelUpInfo.reward}</p>
+            <p className="mt-1 text-xs text-muted">Zu sehen: {levelUpInfo.rewardWhere}</p>
             <button
               onClick={() => setLevelUpInfo(null)}
               className="mt-5 w-full rounded-full bg-gold py-2.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90"
