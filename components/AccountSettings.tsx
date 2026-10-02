@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
+import { setFlashToast } from "@/lib/flashToast";
 import { supabase } from "@/lib/supabaseClient";
 import { MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/authMessages";
 
@@ -17,7 +17,6 @@ const inputClass =
 export default function AccountSettings() {
   const { authEmail, authUserId, isAdmin } = useUser();
   const { showToast } = useFeedback();
-  const router = useRouter();
 
   const [pwOpen, setPwOpen] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
@@ -101,9 +100,9 @@ export default function AccountSettings() {
     } catch {
       // Ohne Zugriff auf den Speicher ist nichts aufzuräumen.
     }
+    setFlashToast("Dein Konto wurde gelöscht. Danke fürs Mitspielen!");
     await supabase.auth.signOut({ scope: "local" });
-    showToast("Dein Konto wurde gelöscht. Danke fürs Mitspielen!", "info");
-    router.push("/");
+    window.location.replace("/");
   }
 
   return (

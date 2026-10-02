@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode, CSSProperties } from "react";
 import { useUser } from "@/lib/UserContext";
 import { PASS_LEVELS } from "@/lib/passLevels";
+import { takeFlashToast } from "@/lib/flashToast";
 
 interface Toast {
   id: number;
@@ -43,6 +44,12 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
       setBursts((current) => current.filter((b) => b.id !== id));
     }, 1400);
   }
+
+  useEffect(() => {
+    const flash = takeFlashToast();
+    if (flash) showToast(flash.message, flash.variant);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Level-Up-Erkennung: sobald "passXP" (Saison-Pass-XP, steigt nur durch den
   // täglichen Bonus) eine neue Stufe erreicht, ein Popup zeigen. Beim
