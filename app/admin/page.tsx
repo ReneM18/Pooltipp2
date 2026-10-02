@@ -317,12 +317,14 @@ const matchStatusLabel: Record<MatchStatus, string> = {
   upcoming: "Bevorstehend",
   live: "Live",
   finished: "Beendet",
+  cancelled: "Abgesagt",
 };
 
 const matchStatusClass: Record<MatchStatus, string> = {
   upcoming: "border-edge bg-surface-hover text-muted",
   live: "border-red-400/60 bg-red-400/10 text-red-300",
   finished: "border-gold bg-gold/15 text-gold",
+  cancelled: "border-red-400/60 bg-red-400/10 text-red-300",
 };
 
 function NoAccess({ loggedIn }: { loggedIn: boolean }) {
@@ -1021,6 +1023,7 @@ function MatchManager() {
     matches,
     addMatch,
     removeMatch,
+    cancelMatch,
     getTeam,
     updateMatchScore,
     updateMatchDetails,
@@ -1314,11 +1317,13 @@ function MatchManager() {
       </form>
 
       {(() => {
+        // Abgesagte Spiele stehen bei "Beendet" (nichts mehr zu tun).
+        const isDone = (m: (typeof matches)[number]) => m.status === "finished" || m.status === "cancelled";
         const upcomingMatches = matches
-          .filter((m) => m.status !== "finished")
+          .filter((m) => !isDone(m))
           .sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime());
         const finishedMatches = matches
-          .filter((m) => m.status === "finished")
+          .filter(isDone)
           .sort((a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime());
         const visibleMatches = matchListTab === "bevorstehend" ? upcomingMatches : finishedMatches;
 
@@ -1423,18 +1428,54 @@ function MatchManager() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 border-t border-edge pt-4">
-                <MatchDetailsEditor match={match} teams={teams} onSave={updateMatchDetails} />
-                <LiveScoreEditor match={match} onUpdate={handleScoreUpdate} />
-                <MatchExtrasEditor
-                  match={match}
-                  onSaveTipMode={setTipMode}
-                  onSaveTvChannel={setTvChannel}
-                  onSaveVideoUrl={setSummaryVideo}
-                />
-                <BonusQuestionEditor match={match} onSave={setBonusQuestion} onSetAnswer={handleBonusAnswer} />
+                {match.status !== "cancelled" && (
+                  <>
+                    <MatchDetailsEditor match={match} teams={teams} onSave={updateMatchDetails} />
+                    <LiveScoreEditor match={match} onUpdate={handleScoreUpdate} />
+                    <MatchExtrasEditor
+                      match={match}
+                      onSaveTipMode={setTipMode}
+                      onSaveTvChannel={setTvChannel}
+                      onSaveVideoUrl={setSummaryVideo}
+                    />
+                    <BonusQuestionEditor match={match} onSave={setBonusQuestion} onSetAnswer={handleBonusAnswer} />
+                  </>
+                )}
+                {match.status !== "finished" && match.status !== "cancelled" && (
+                  <button
+                    onClick={async () => {
+                      if (
+                        !confirm(
+                          `Spiel "${home?.name ?? "?"} vs ${away?.name ?? "?"}" absagen?\n\n` +
+                            "Alle Spieler bekommen ihren Einsatz zurück, das Spiel wird nicht gewertet. " +
+                            "Das lässt sich nicht rückgängig machen."
+                        )
+                      )
+                        return;
+                      const result = await cancelMatch(match.id);
+                      if (result.ok) {
+                        showToast(
+                          result.refundedTips === 1
+                            ? "✓ Spiel abgesagt – 1 Tipp erstattet."
+                            : `✓ Spiel abgesagt – ${result.refundedTips} Tipps erstattet.`,
+                          "success"
+                        );
+                      } else {
+                        showToast(`Absagen fehlgeschlagen: ${result.error}`, "info");
+                      }
+                    }}
+                    className="rounded-lg border border-red-400/50 px-2.5 py-1 text-xs font-semibold text-red-300 transition-colors hover:bg-red-400/10"
+                  >
+                    Absagen
+                  </button>
+                )}
                 <button
                   onClick={() => {
-                    if (confirm(`Spiel "${home?.name ?? "?"} vs ${away?.name ?? "?"}" wirklich entfernen?`)) {
+                    const refundNote =
+                      match.status === "finished" || match.status === "cancelled"
+                        ? ""
+                        : "\n\nWer schon getippt hat, bekommt seinen Einsatz automatisch zurück.";
+                    if (confirm(`Spiel "${home?.name ?? "?"} vs ${away?.name ?? "?"}" wirklich entfernen?${refundNote}`)) {
                       removeMatch(match.id);
                       showToast("✓ Spiel entfernt.", "info");
                     }

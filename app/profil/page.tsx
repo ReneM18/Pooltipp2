@@ -77,7 +77,7 @@ export default function ProfilPage() {
   // gekauft UND das jeweilige Level per Pass-XP erreicht ist.
   const hasLevelPremium = (level: number) => hasPremiumPass && passXP >= xpForLevel(level);
 
-  const evaluatedTips = myTips.filter((t) => t.evaluated);
+  const evaluatedTips = myTips.filter((t) => t.evaluated && !t.refunded);
   const exaktCount = evaluatedTips.filter((t) => t.resultTier === "exakt").length;
   const trefferquote =
     evaluatedTips.length > 0 ? Math.round((exaktCount / evaluatedTips.length) * 100) : 0;

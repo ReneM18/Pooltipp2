@@ -35,6 +35,9 @@ interface MyTip {
   rangDelta?: number;
   starsDelta?: number;
   narration?: string;
+  stake?: number;
+  // Spiel abgesagt, Einsatz kam zurück (keine Wertung).
+  refunded?: boolean;
 }
 
 interface MatchCardProps {
@@ -83,6 +86,7 @@ export default function MatchCard({
   onChangeTip,
 }: MatchCardProps) {
   const isOneXTwo = match.tipMode === "1x2";
+  const isCancelled = match.status === "cancelled";
   const [homeScore, setHomeScore] = useState<number>(0);
   const [awayScore, setAwayScore] = useState<number>(0);
   const [nflPick, setNflPick] = useState<OneXTwo | null>(null);
@@ -128,7 +132,7 @@ export default function MatchCard({
   // jedem Re-Render erneut).
   const celebratedRef = useRef(false);
   useEffect(() => {
-    if (myTip?.evaluated && !celebratedRef.current) {
+    if (myTip?.evaluated && !myTip.refunded && !celebratedRef.current) {
       celebratedRef.current = true;
       // Level 6 Premium: "Große goldene Sternenexplosion bei exaktem Tipp" –
       // ansonsten der normale (kleinere) Sterne-Burst.
@@ -138,7 +142,7 @@ export default function MatchCard({
         showToast(myTip.narration, myTip.resultTier === "falsch" ? "info" : "gold");
       }
     }
-  }, [myTip?.evaluated, myTip?.narration, myTip?.resultTier, hasPremiumPass, passXP, celebrate, showToast]);
+  }, [myTip?.evaluated, myTip?.refunded, myTip?.narration, myTip?.resultTier, hasPremiumPass, passXP, celebrate, showToast]);
 
   function handleCommentSubmit(e: FormEvent) {
     e.preventDefault();
@@ -176,9 +180,9 @@ export default function MatchCard({
   });
 
   const hasTipped = !!myTip;
-  const canChangeTip = hasTipped && !tippingClosed && !myTip?.evaluated && !!onChangeTip;
+  const canChangeTip = hasTipped && !tippingClosed && !isCancelled && !myTip?.evaluated && !!onChangeTip;
   const isChanging = changingTip && canChangeTip;
-  const showResultView = (hasTipped && !isChanging) || tippingClosed;
+  const showResultView = (hasTipped && !isChanging) || tippingClosed || isCancelled;
   // Echte Tipps aller Spieler: für die Liste und für den Vergleich nach der
   // Auswertung. Fremde Tipps (die Zahlen) erst nach Tippschluss zeigen.
   const { tippers, failed: tippersFailed } = useMatchTips(
@@ -257,7 +261,13 @@ export default function MatchCard({
           <span className="truncate">{match.competition}</span>
         </span>
         <span className="shrink-0 whitespace-nowrap text-xs font-medium">
-          <Countdown kickoff={match.tipDeadline} />
+          {isCancelled ? (
+            <span className="rounded-full border border-red-400/60 bg-red-400/10 px-2 py-0.5 font-semibold text-red-300">
+              Abgesagt
+            </span>
+          ) : (
+            <Countdown kickoff={match.tipDeadline} />
+          )}
         </span>
       </div>
 
@@ -441,7 +451,7 @@ export default function MatchCard({
               </div>
             )}
 
-            {hasTipped && myTip?.evaluated && (
+            {hasTipped && myTip?.evaluated && !myTip.refunded && !isCancelled && (
               <PoolScoreResultBox myTip={myTip!} comparison={comparison} isOneXTwo={isOneXTwo} />
             )}
 
@@ -464,12 +474,18 @@ export default function MatchCard({
                     {myBonusAnswer.correct ? `✓ +${myBonusAnswer.starsDelta}` : "✗"}
                   </span>
                 ) : (
-                  <span className="shrink-0 text-xs text-muted">wartet auf Auswertung</span>
+                  <span className="shrink-0 text-xs text-muted">
+                    {isCancelled ? "entfällt" : "wartet auf Auswertung"}
+                  </span>
                 )}
               </div>
             )}
 
-            <ResultBox match={match} homeTeam={homeTeam} awayTeam={awayTeam} />
+            {isCancelled ? (
+              <CancelledBox stake={hasTipped ? myTip!.stake ?? 0 : null} />
+            ) : (
+              <ResultBox match={match} homeTeam={homeTeam} awayTeam={awayTeam} />
+            )}
           </div>
         )}
 
@@ -708,6 +724,21 @@ function PoolScoreResultBox({
             </span>
           ))}
       </div>
+    </div>
+  );
+}
+
+function CancelledBox({ stake }: { stake: number | null }) {
+  return (
+    <div className="flex flex-col items-center gap-1 rounded-lg border border-red-400/50 bg-red-400/10 px-4 py-3 text-center">
+      <span className="font-display text-sm font-semibold text-red-300">🚫 Spiel abgesagt</span>
+      <span className="text-xs text-muted">
+        {stake === null
+          ? "Dieses Spiel wird nicht gewertet."
+          : stake > 0
+          ? `Dein Einsatz von ${stake.toLocaleString("de-DE")} Sternen ist zurück auf deinem Konto.`
+          : "Dein Tipp wird nicht gewertet."}
+      </span>
     </div>
   );
 }

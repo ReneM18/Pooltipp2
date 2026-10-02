@@ -6,6 +6,7 @@ import {
   compareWithOthers,
   DAILY_STAKE_BUDGET,
   RESCUE_BONUS_STARS,
+  stakeBudgetAfterRefund,
 } from "../lib/poolScore.ts";
 
 let count = 0;
@@ -70,5 +71,27 @@ const stakes = [40, 40, 40, 40].map((s) => {
 assert.deepEqual(stakes, [40, 40, 20, 0]);
 assert.equal(RESCUE_BONUS_STARS, 20);
 count++;
+
+// Abgesagtes Spiel: erstatteter Einsatz zählt nicht mehr gegen das Tages-Limit.
+const now = "2026-10-02T12:00:00.000Z";
+const heute = { stakedToday: 100, stakeBudgetDay: "2026-10-02T09:00:00.000Z", refundedTipIds: [] };
+const tipHeute = { id: "t1", stake: 40, submittedAt: "2026-10-02T10:00:00.000Z" };
+const nach1 = stakeBudgetAfterRefund(heute, tipHeute, now);
+assert.equal(nach1.stakedToday, 60, "40 zurück ins Tages-Limit");
+assert.deepEqual(nach1.refundedTipIds, ["t1"]);
+// Zweimal (Neuladen, zweiter Tab): nichts doppelt.
+assert.equal(stakeBudgetAfterRefund(nach1, tipHeute, now), nach1, "nie doppelt");
+// Tipp von gestern: Limit von heute bleibt, Tipp wird nur gemerkt.
+const nach2 = stakeBudgetAfterRefund(heute, { id: "t2", stake: 20, submittedAt: "2026-10-01T10:00:00.000Z" }, now);
+assert.equal(nach2.stakedToday, 100);
+assert.deepEqual(nach2.refundedTipIds, ["t2"]);
+// Nie unter 0.
+assert.equal(stakeBudgetAfterRefund({ ...heute, stakedToday: 10 }, tipHeute, now).stakedToday, 0);
+// Limit-Tag ist schon vorbei: nichts abziehen.
+assert.equal(
+  stakeBudgetAfterRefund({ ...heute, stakeBudgetDay: "2026-10-01T09:00:00.000Z" }, tipHeute, now).stakedToday,
+  100
+);
+count += 5;
 
 console.log(`OK – ${count} Sterne-Rechnungen stimmen.`);
