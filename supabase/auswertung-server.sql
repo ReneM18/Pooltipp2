@@ -118,7 +118,7 @@ alter table public.duels add column if not exists accepted_at timestamptz;
 
 -- Saison-Pass-Level, damit die Datenbank weiß, ab wie vielen XP es welche
 -- Belohnung gibt (gleiche Werte wie lib/seasons/herbst2026.ts). Für eine
--- neue Saison nur Zeilen hinzufügen und current_pass_season_id() umstellen.
+-- neue Saison (z. B. Winter) hier nur ihre Zeilen hinzufügen.
 create table if not exists public.season_pass_levels (
   season_id text not null,
   level int not null,
@@ -1013,15 +1013,19 @@ language plpgsql
 security definer set search_path = public
 as $$
 declare
-  v_season text := public.current_pass_season_id();
+  v_season text;
   v_xp int;
   v_claimed jsonb;
   v_level record;
   v_key text;
   v_stars int := 0;
 begin
-  select pass_xp, coalesce(claimed_milestones, '[]'::jsonb) into v_xp, v_claimed
-  from public.profiles where id = p_user for update;
+  -- Saison der XP: steht seit dem Saisonwechsel (saisonwechsel.sql) im
+  -- Profil; fehlt die Spalte noch, gilt die laufende Saison.
+  select p.pass_xp, coalesce(p.claimed_milestones, '[]'::jsonb),
+         coalesce(to_jsonb(p) ->> 'pass_season_id', public.current_pass_season_id())
+    into v_xp, v_claimed, v_season
+  from public.profiles p where p.id = p_user for update;
   if not found then
     return 0;
   end if;

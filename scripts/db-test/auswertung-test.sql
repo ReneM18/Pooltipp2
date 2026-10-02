@@ -510,6 +510,31 @@ select t.eq(t.stars(:'dora'), 100, 'H5 Tipp auf abgesagtes Spiel: nichts abgezog
 select t.eq((select (spend_stars(30) ->> 'free_stars')::int), 70, 'H6 Shop: 30 Sterne ausgegeben');
 commit;
 
+-- ============================================================================
+-- S) Saisonwechsel (nur wenn supabase/saisonwechsel.sql eingespielt ist)
+-- ============================================================================
+select exists (select 1 from information_schema.columns
+  where table_schema = 'public' and table_name = 'profiles' and column_name = 'pass_season_id') as saison \gset
+\if :saison
+-- Cara ist schon im Winter: ihre XP schalten keine Herbst-Level frei.
+update public.profiles set pass_season_id = 'winter-2026', pass_season_start = date '2026-12-21',
+  pass_xp = 6000, claimed_milestones = '[]'::jsonb where id = :'cara';
+select public.claim_pass_rewards(:'cara');
+select t.eq((select claimed_milestones from public.profiles where id = :'cara'), '[]'::jsonb, 'S1 Winter-XP geben keine Herbst-Level');
+-- Browser darf die Saison-Spalten nicht setzen, Reset über start_pass_season geht trotz Schutz.
+update public.profiles set pass_season_id = 'herbst-2026', pass_season_start = date '2026-09-23' where id = :'dora';
+begin;
+select t.login(:'dora');
+set local role authenticated;
+update public.profiles set pass_season_id = 'winter-2026' where id = :'dora';
+select t.eq((select pass_season_id from public.profiles where id = :'dora'), 'herbst-2026', 'S2 Saison-Spalte geschützt');
+select public.start_pass_season('winter-2026', current_date - 1);
+select t.eq((select pass_xp from public.profiles where id = :'dora'), 0, 'S3 Saisonwechsel setzt XP auf 0');
+select t.eq((select pass_season_id from public.profiles where id = :'dora'), 'winter-2026', 'S4 Saisonwechsel trägt neue Saison ein');
+commit;
+\echo 'Saisonwechsel-Tests grün'
+\endif
+
 -- Kontrolle: kein Profil unter 0.
 select t.eq((select count(*)::int from public.profiles where free_stars < 0), 0, 'Z1 Kein Guthaben unter 0');
 \echo 'ALLE TESTS GRÜN'

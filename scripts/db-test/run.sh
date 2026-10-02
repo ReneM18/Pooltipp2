@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Komplett-Test der serverseitigen Auswertung auf einer lokalen Test-Datenbank:
 #   PGHOST=... PGPORT=... scripts/db-test/run.sh
+# Mit WITH_SAISON=1 wird vorher auch supabase/saisonwechsel.sql eingespielt.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 export PGUSER="${PGUSER:-postgres}" PGOPTIONS="${PGOPTIONS:--c client_min_messages=notice}"

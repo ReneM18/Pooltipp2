@@ -13,7 +13,7 @@ psql -q -d postgres -tc "select 1 from pg_roles where rolname='anon'" | grep -q 
   && sed '/^create role/d' scripts/db-test/supabase-stub.sql | psql -q -v ON_ERROR_STOP=1 -d "$DB" >/dev/null \
   || run scripts/db-test/supabase-stub.sql
 for f in profiles tips social-features fixes-features40 fix-rechte-tabellen tipprunden vereinswertung \
-         profil-extras freunde rangpunkte-neu-berechnen sterne-1x2-korrektur spiel-absagen; do
+         profil-extras freunde rangpunkte-neu-berechnen sterne-1x2-korrektur spiel-absagen ${WITH_SAISON:+saisonwechsel}; do
   run "supabase/$f.sql"
 done
 echo "Test-Datenbank $DB mit dem bisherigen Live-Stand angelegt."
