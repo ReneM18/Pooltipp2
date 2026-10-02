@@ -16,6 +16,7 @@ import { EmotePicker, MessageBody, stickerFromText, stickerText } from "./Emotes
 import Countdown from "./Countdown";
 import ScoreInput from "./ScoreInput";
 import { StarIcon, TvIcon, PlayIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
+import { SeasonCardWatermark } from "./SeasonDeco";
 
 const sportIcon: Record<string, string> = {
   "Fußball": "⚽",
@@ -54,7 +55,9 @@ interface MatchCardProps {
   awayTeam: Team;
   tipCount: number;
   myTip?: MyTip;
-  onSubmitTip: (homeScore: number, awayScore: number) => void;
+  // Darf ein Promise zurückgeben (Speichern in der Datenbank): Danach wird
+  // der Knopf wieder frei, falls der Tipp nicht angenommen wurde.
+  onSubmitTip: (homeScore: number, awayScore: number) => void | Promise<unknown>;
   // Abgegebenen Tipp bis Tippschluss korrigieren. Ohne diese Funktion
   // (z. B. auf Seiten ohne Speicher-Logik) gibt es keinen "Ändern"-Knopf.
   onChangeTip?: (homeScore: number, awayScore: number) => void;
@@ -271,11 +274,16 @@ export default function MatchCard({
       setSubmitting(false);
       return;
     }
-    onSubmitTip(h, a);
+    Promise.resolve(onSubmitTip(h, a)).finally(() => {
+      submittedRef.current = false;
+      setSubmitting(false);
+    });
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-card border border-edge bg-surface">
+    <div className="relative isolate flex h-full flex-col overflow-hidden rounded-card border border-edge bg-surface">
+      {/* Saison-Design: verblasstes Blatt hinter dem Karteninhalt. */}
+      <SeasonCardWatermark variant={match.id.length + match.id.charCodeAt(match.id.length - 1)} />
       {/* Sport-Banner – immer genau eine Zeile (Spieltag steht unten bei der
           Anstoßzeit), damit alle Karten gleich hohe Köpfe haben. */}
       <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-surface-hover to-surface px-4 py-2.5 sm:gap-3 sm:px-5">

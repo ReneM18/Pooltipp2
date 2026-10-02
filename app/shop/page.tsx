@@ -28,29 +28,25 @@ function ShopComingSoon() {
 }
 
 function Shop() {
-  const { freeStars, spendStars, stakeBudgetRemainingToday } = useUser();
+  const { freeStars, spendStarsInShop } = useUser();
   const { showToast, celebrate } = useFeedback();
   const [redeemedIds, setRedeemedIds] = useState<string[]>([]);
   // Schutz gegen Doppel-Klick (gleiches Muster wie bei den Tipp-Formularen).
   const redeemingRef = useRef(false);
 
-  function handleRedeem(item: ShopItem) {
+  async function handleRedeem(item: ShopItem) {
     if (redeemingRef.current) return;
     redeemingRef.current = true;
 
-    // spendStars() kann WENIGER als den vollen Preis abziehen, wenn das
-    // Sterne-Guthaben oder das Tages-Limit nicht reicht (Sicherheitsnetz für
-    // Tipp-Einsätze – siehe UserContext.spendStars). Für den Shop soll das
-    // aber immer "alles oder nichts" sein: vorher prüfen, damit nie Sterne
-    // abgebucht werden, ohne dass die Prämie auch wirklich gutgeschrieben wird.
-    if (freeStars < item.cost || stakeBudgetRemainingToday < item.cost) {
-      showToast("✗ Nicht genug Sterne verfügbar (oder heutiges Limit erreicht).", "info");
+    // Alles oder nichts: Die Datenbank bucht nur ab, wenn das Guthaben für
+    // den vollen Preis reicht (spend_stars).
+    if (freeStars < item.cost) {
+      showToast("✗ Nicht genug Sterne verfügbar.", "info");
       redeemingRef.current = false;
       return;
     }
 
-    const actual = spendStars(item.cost);
-    if (actual === item.cost) {
+    if (await spendStarsInShop(item.cost)) {
       setRedeemedIds((current) => [...current, item.id]);
       celebrate();
       showToast(`✓ „${item.name}" eingelöst!`, "gold");
@@ -74,7 +70,7 @@ function Shop() {
           <ShopItemCard
             key={item.id}
             item={item}
-            canAfford={freeStars >= item.cost && stakeBudgetRemainingToday >= item.cost}
+            canAfford={freeStars >= item.cost}
             redeemed={redeemedIds.includes(item.id)}
             onRedeem={() => handleRedeem(item)}
           />

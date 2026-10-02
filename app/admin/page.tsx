@@ -4,7 +4,6 @@ import { useState, useRef, FormEvent } from "react";
 import Link from "next/link";
 import { useAppData, NewsItem } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
-import { useDuels } from "@/lib/DuelsContext";
 import { useTournaments } from "@/lib/TournamentContext";
 import { Tournament } from "@/lib/tournamentTypes";
 import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
@@ -1033,33 +1032,24 @@ function MatchManager() {
     setBonusQuestion,
     setBonusQuestionAnswer,
   } = useAppData();
-  const { evaluateBonusAnswerForCurrentUser } = useUser();
-  const { resolveDuelsForMatch } = useDuels();
   const { showToast } = useFeedback();
 
+  // Die Bonusfrage wertet die Datenbank aus, sobald die richtige Antwort
+  // gespeichert ist (supabase/auswertung-server.sql).
   function handleBonusAnswer(matchId: string, correctOptionIndex: number) {
     setBonusQuestionAnswer(matchId, correctOptionIndex);
-    evaluateBonusAnswerForCurrentUser(matchId);
   }
 
-  // Die PoolScore-Auswertung der Tipps (auch Korrekturen nach einem
-  // geänderten Endstand) passiert nicht mehr hier, sondern bei JEDEM Spieler
-  // selbst, sobald er das beendete Spiel sieht – siehe die automatische
-  // Auswertung in lib/UserContext.tsx. Vorher wurde hier nur der eigene Tipp
-  // des Admins ausgewertet, alle anderen blieben für immer offen.
+  // Tipps, Duelle und Endstand-Korrekturen wertet die Datenbank für ALLE
+  // Spieler selbst aus, sobald das Spiel hier als beendet gespeichert wird
+  // – kein Browser muss dafür offen sein, und keiner kann dabei schummeln.
   function handleScoreUpdate(
     matchId: string,
     homeScore: number | null,
     awayScore: number | null,
     status: MatchStatus
   ) {
-    const match = matches.find((m) => m.id === matchId);
     updateMatchScore(matchId, homeScore, awayScore, status);
-    if (status === "finished" && match && homeScore !== null && awayScore !== null) {
-      // Löst auch offene Kopf-an-Kopf-Duelle zu diesem Spiel aus – tut
-      // nichts, wenn es keine gibt oder sie schon ausgewertet sind.
-      resolveDuelsForMatch(matchId, homeScore, awayScore);
-    }
   }
 
   // Trennt die Liste unten in "Bevorstehend" (inkl. Live) und "Beendet" –

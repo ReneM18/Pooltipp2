@@ -4,12 +4,11 @@
 // registrierten User (vorher war der Gegner nur simuliert, weil es kein
 // Backend gab). Ablauf: Herausfordern (Einsatz ist sofort weg) -> Gegner
 // nimmt an (eigener Einsatz ist jetzt auch weg) oder lehnt ab (Einsatz kommt
-// zurück) -> sobald der Admin das Spiel beendet, wertet eine SQL-Funktion in
-// Supabase (resolve_duels_for_match, siehe supabase/social-features.sql)
-// alle offenen Duelle dieses Spiels anhand der echten, normal abgegebenen
-// Tipps beider Seiten aus und schreibt Sterne auf BEIDEN Konten gut. Das
-// muss serverseitig passieren, weil aus dem Browser der einen Person heraus
-// nie das Sterne-Guthaben der anderen Person verändert werden darf.
+// zurück) -> sobald der Admin das Spiel beendet, wertet die Datenbank alle
+// offenen Duelle dieses Spiels anhand der echten, normal abgegebenen Tipps
+// beider Seiten aus und schreibt Sterne auf BEIDEN Konten gut. Auch die
+// Einsätze bucht die Datenbank ab (supabase/auswertung-server.sql) – aus dem
+// Browser heraus lässt sich kein Sterne-Guthaben mehr verändern.
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "./supabaseClient";
@@ -31,14 +30,16 @@ interface DuelsContextValue {
   createDuel: (opponentName: string, matchId: string, stake: number) => Promise<CreateDuelResult>;
   acceptDuel: (duelId: string) => Promise<CreateDuelResult>;
   declineDuel: (duelId: string) => Promise<CreateDuelResult>;
-  resolveDuelsForMatch: (matchId: string, actualHome: number, actualAway: number) => void;
 }
 
 const DuelsContext = createContext<DuelsContextValue | null>(null);
 
-// Supabase meldet so, dass eine SQL-Funktion (noch) nicht existiert.
-function isMissingFunction(error: { code?: string; message?: string }) {
-  return error.code === "PGRST202" || error.code === "42883";
+// Fehlermeldung der Datenbank in einen einfachen Satz übersetzen.
+function duelErrorMessage(error: { message?: string }, fallback: string) {
+  const message = error.message ?? "";
+  if (/Nicht genug Sterne/.test(message)) return "Nicht genug Sterne (oder Tages-Limit erreicht) für diesen Einsatz.";
+  if (/Tippschluss/.test(message)) return "Tippschluss für dieses Spiel ist schon vorbei.";
+  return fallback;
 }
 
 function mapRow(row: Record<string, unknown>): Duel {
@@ -62,7 +63,7 @@ function mapRow(row: Record<string, unknown>): Duel {
 
 export function DuelsProvider({ children }: { children: ReactNode }) {
   const { matches, addActivity } = useAppData();
-  const { displayName, authUserId, spendStars, creditStars, refreshStars } = useUser();
+  const { displayName, authUserId, refreshStars } = useUser();
   const [duels, setDuels] = useState<Duel[]>([]);
 
   // Läd alle Duelle, an denen der aktuelle Account beteiligt ist (egal ob
@@ -154,25 +155,31 @@ export function DuelsProvider({ children }: { children: ReactNode }) {
       return { ok: false, error: "Du kannst dich nicht selbst herausfordern." };
     }
 
-    const actualStake = spendStars(stake);
-    if (actualStake <= 0) return { ok: false, error: "Nicht genug Sterne für diesen Einsatz." };
-
+    // Den Einsatz zieht die Datenbank ab (höchstens Guthaben und
+    // Tages-Limit) und gibt den tatsächlichen Einsatz zurück.
     const id = `duel-${Date.now()}`;
-    const { error: insertError } = await supabase.from("duels").insert({
-      id,
-      challenger_id: authUserId,
-      challenger_name: displayName,
-      opponent_id: opponentProfile.id,
-      opponent_name: opponentProfile.display_name,
-      match_id: matchId,
-      stake: actualStake,
-      status: "pending",
-    });
-    if (insertError) {
-      // Einsatz war schon weg, aber das Duell kam nie an -> zurückbuchen.
-      creditStars(actualStake);
-      return { ok: false, error: "Duell konnte nicht gespeichert werden, versuch es nochmal." };
+    const { data: inserted, error: insertError } = await supabase
+      .from("duels")
+      .insert({
+        id,
+        challenger_id: authUserId,
+        challenger_name: displayName,
+        opponent_id: opponentProfile.id,
+        opponent_name: opponentProfile.display_name,
+        match_id: matchId,
+        stake,
+        status: "pending",
+      })
+      .select("stake")
+      .maybeSingle();
+    refreshStars();
+    if (insertError || !inserted) {
+      return {
+        ok: false,
+        error: duelErrorMessage(insertError ?? {}, "Duell konnte nicht gespeichert werden, versuch es nochmal."),
+      };
     }
+    const actualStake = inserted.stake as number;
 
     setDuels((current) => [
       {
@@ -202,23 +209,15 @@ export function DuelsProvider({ children }: { children: ReactNode }) {
     if (duel.opponentId !== authUserId) return { ok: false, error: "Nur der Herausgeforderte kann annehmen." };
     if (duel.status !== "pending") return { ok: false, error: "Duell ist nicht mehr offen." };
 
-    const actualStake = spendStars(duel.stake);
-    if (actualStake < duel.stake) {
-      if (actualStake > 0) creditStars(actualStake);
-      return { ok: false, error: "Nicht genug Sterne, um diesen Einsatz anzunehmen." };
-    }
-
-    // Annehmen über die SQL-Funktion accept_duel (supabase/fixes-features40.sql),
-    // weil die Duell-Zeile seitdem nicht mehr direkt geändert werden darf.
-    // Fällt auf das alte direkte Update zurück, solange das Skript noch nicht
-    // ausgeführt wurde.
-    let { error } = await supabase.rpc("accept_duel", { p_duel_id: duelId });
-    if (error && isMissingFunction(error)) {
-      ({ error } = await supabase.from("duels").update({ status: "offen" }).eq("id", duelId));
-    }
+    // Annehmen über die SQL-Funktion accept_duel: sie zieht den Einsatz ab
+    // (alles oder nichts) und setzt das Duell auf "offen".
+    const { error } = await supabase.rpc("accept_duel", { p_duel_id: duelId });
+    refreshStars();
     if (error) {
-      creditStars(actualStake);
-      return { ok: false, error: "Annahme konnte nicht gespeichert werden, versuch es nochmal." };
+      return {
+        ok: false,
+        error: duelErrorMessage(error, "Annahme konnte nicht gespeichert werden, versuch es nochmal."),
+      };
     }
 
     setDuels((current) => current.map((d) => (d.id === duelId ? { ...d, status: "offen" } : d)));
@@ -239,21 +238,9 @@ export function DuelsProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   }
 
-  // Wird beim Beenden eines Spiels aufgerufen (siehe app/admin/page.tsx).
-  // Läuft serverseitig über eine SQL-Funktion statt lokal zu rechnen, weil
-  // dabei ggf. Sterne auf dem Konto der GEGENSEITE gutgeschrieben werden
-  // müssen – das darf aus diesem Browser heraus nicht direkt passieren.
-  function resolveDuelsForMatch(matchId: string, actualHome: number, actualAway: number) {
-    supabase
-      .rpc("resolve_duels_for_match", { p_match_id: matchId, p_actual_home: actualHome, p_actual_away: actualAway })
-      .then(({ error }) => {
-        if (error) console.warn("Duelle konnten nicht ausgewertet werden:", error.message);
-      });
-  }
-
   return (
     <DuelsContext.Provider
-      value={{ duels, pendingForMe, createDuel, acceptDuel, declineDuel, resolveDuelsForMatch }}
+      value={{ duels, pendingForMe, createDuel, acceptDuel, declineDuel }}
     >
       {children}
     </DuelsContext.Provider>

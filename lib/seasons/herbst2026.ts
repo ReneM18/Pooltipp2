@@ -25,20 +25,26 @@ export const HERBST_2026: SeasonData = {
   // Saison-Design Herbst (von Rene am 02.10.2026 ausgesucht): warmes
   // Dunkelbraun, Knöpfe orange, kräftige Laub-Deko, Nachrichtenstreifen orange.
   design: {
+    // Freigeschaltet mit Level 2 (zusammen mit den Herbst-Stickern).
+    unlockLevel: 2,
+    // Rene (02.10.2026): nicht die ganze Seite braun, nur Akzente. Hinter-
+    // grund, Karten, Ränder und Text bleiben deshalb im normalen Design
+    // (dieselben Werte wie in app/globals.css :root); herbstlich sind nur
+    // Knöpfe, Nachrichtenstreifen, Blätter und der Kopf des Saison-Passes.
     colors: {
-      pitch: "#140E0A",
-      surface: "#231912",
-      surfaceHover: "#2E2117",
-      edge: "#3D2B1E",
-      gold: "#ECB548",
-      goldDim: "#523C1E",
+      pitch: "#0D1512",
+      surface: "#172420",
+      surfaceHover: "#1E2F29",
+      edge: "#24332C",
+      gold: "#E8B34C",
+      goldDim: "#4A3D22",
       action: "#E2793A",
       actionHover: "#F0904F",
-      ink: "#F6F0E6",
-      muted: "#AA9A8B",
+      ink: "#F3F1EA",
+      muted: "#8B9890",
       ticker: "#E2793A",
     },
-    glow: ["rgba(226, 121, 58, 0.10)", "rgba(181, 69, 43, 0.09)"],
+    glow: ["rgba(232, 179, 76, 0.06)", "rgba(226, 121, 58, 0.07)"],
     decoColors: ["#E2793A", "#B5452B", "#ECB548"],
     heroFrom: "#7A3414",
     heroTo: "#6A2616",
@@ -62,8 +68,9 @@ export const HERBST_2026: SeasonData = {
       level: 2,
       xpRequired: 200,
       kind: "emotes",
-      reward: "Emote-Paket „Herbst“ (12 Sticker)",
-      rewardWhere: "im Community-Chat und bei Spiel-Kommentaren über den 🙂-Knopf",
+      reward: "Emote-Paket „Herbst“ (12 Sticker) + Herbst-Design",
+      rewardWhere:
+        "Sticker im Chat und bei Spiel-Kommentaren (🙂-Knopf), Herbst-Design in der ganzen App (im Profil abschaltbar)",
       icon: "🍂",
       premiumReward: `Animierter Rahmen „Neon-Pulse" ums Profilbild`,
       premiumIcon: "🌟",

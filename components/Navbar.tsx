@@ -10,7 +10,8 @@ import { SHOP_ENABLED } from "@/lib/mockShopItems";
 import { StarIcon, TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
 
 export default function Navbar() {
-  const { displayName, freeStars, activeRankIcon, isRegistered, isLowOnStars, photos, isAdmin } = useUser();
+  const { displayName, freeStars, activeRankIcon, isRegistered, sessionChecked, isLowOnStars, photos, isAdmin } =
+    useUser();
 
   const myRank = useMyOverallRank();
   // Am Handy nur "3." (Platz passt sonst nicht neben Sterne und Profilbild),
@@ -75,15 +76,6 @@ export default function Navbar() {
             </Link>
           )}
 
-          {!isRegistered && (
-            <Link
-              href="/registrieren"
-              className="hidden rounded-full border border-gold px-3 py-1.5 font-display text-sm font-semibold text-gold transition-colors hover:bg-gold hover:text-pitch md:block"
-            >
-              Einloggen
-            </Link>
-          )}
-
           <div
             className={`flex items-center gap-0.5 rounded-full px-0.5 py-1 sm:gap-2 sm:border sm:px-3 sm:py-1.5 ${
               isLowOnStars
@@ -113,23 +105,37 @@ export default function Navbar() {
             <span className="font-display text-base font-semibold text-ink sm:text-lg">{rankLabel}</span>
           </Link>
 
-          <Link href="/profil" className="relative ml-0.5 flex shrink-0 items-center">
-            <SeasonFrame size={32}>
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-sm font-semibold text-muted transition-colors hover:text-ink sm:h-9 sm:w-9 sm:text-base">
-                {photos[0] ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={photos[0]} alt="Profilbild" className="h-full w-full object-cover" />
-                ) : (
-                  displayName.slice(0, 1).toUpperCase()
-                )}
-              </span>
-            </SeasonFrame>
-            {activeRankIcon && (
-              <span className="absolute -bottom-1.5 -right-1.5 rounded-full">
-                <RankBadge option={activeRankIcon} size="xs" />
-              </span>
-            )}
-          </Link>
+          {/* Profilbild nur für Eingeloggte. Gäste haben kein Profil und
+              sehen stattdessen "Einloggen". Solange beim Laden noch nicht
+              feststeht, wer da ist, bleibt der Platz leer. */}
+          {!sessionChecked ? (
+            <span className="ml-0.5 h-8 w-8 shrink-0 sm:h-9 sm:w-9" aria-hidden />
+          ) : !isRegistered ? (
+            <Link
+              href="/registrieren"
+              className="ml-0.5 shrink-0 whitespace-nowrap rounded-full border border-gold px-2.5 py-1 font-display text-sm font-semibold text-gold transition-colors hover:bg-gold hover:text-pitch sm:px-3 sm:py-1.5"
+            >
+              Einloggen
+            </Link>
+          ) : (
+            <Link href="/profil" className="relative ml-0.5 flex shrink-0 items-center">
+              <SeasonFrame size={32}>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-sm font-semibold text-muted transition-colors hover:text-ink sm:h-9 sm:w-9 sm:text-base">
+                  {photos[0] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photos[0]} alt="Profilbild" className="h-full w-full object-cover" />
+                  ) : (
+                    displayName.slice(0, 1).toUpperCase()
+                  )}
+                </span>
+              </SeasonFrame>
+              {activeRankIcon && (
+                <span className="absolute -bottom-1.5 -right-1.5 rounded-full">
+                  <RankBadge option={activeRankIcon} size="xs" />
+                </span>
+              )}
+            </Link>
+          )}
         </div>
       </div>
     </header>

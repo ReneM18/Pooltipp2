@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, FormEvent, ChangeEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import AccountSettings from "@/components/AccountSettings";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useMyOverallRank } from "@/lib/myOverallRank";
@@ -27,7 +29,26 @@ const sportIcon: Record<string, string> = {
   NHL: "🏒",
 };
 
+// Das Profil gibt es nur mit Konto. Gäste (auch direkt nach dem Ausloggen
+// oder über einen alten Link) landen beim Einloggen.
 export default function ProfilPage() {
+  const { isRegistered, sessionChecked } = useUser();
+  const router = useRouter();
+  const isGuest = sessionChecked && !isRegistered;
+  useEffect(() => {
+    if (isGuest) router.replace("/registrieren");
+  }, [isGuest, router]);
+  if (!isRegistered) {
+    return (
+      <main className="mx-auto max-w-3xl px-5 py-16 text-center text-sm text-muted">
+        {isGuest ? "Weiter zum Einloggen…" : "Lädt…"}
+      </main>
+    );
+  }
+  return <ProfilInhalt />;
+}
+
+function ProfilInhalt() {
   const {
     displayName,
     userNumber,
@@ -488,7 +509,9 @@ export default function ProfilPage() {
         )}
       </section>
 
-      <section>
+      {/* id für den Link aus dem Saison-Design-Hinweis; scroll-mt wegen der
+          festen Kopfleiste. */}
+      <section id="einstellungen" className="scroll-mt-48">
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Einstellungen</h2>
         <form
           onSubmit={handleSaveName}
@@ -509,53 +532,61 @@ export default function ProfilPage() {
             {saved ? "Gespeichert ✓" : "Speichern"}
           </button>
         </form>
-        {/* Saison-Design: alle bekommen es automatisch, hier abschaltbar
-            (gilt pro Gerät, siehe lib/seasons/design.ts). */}
+        {/* Saison-Design: kommt automatisch ab dem Level aus der Saison-Datei,
+            hier abschaltbar (gilt pro Gerät, siehe lib/seasons/design.ts). */}
         {seasonDesign.available && (
           <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-ink">Saison-Design</p>
               <p className="text-xs text-muted">
-                Farben und Deko der Saison „{seasonDesign.seasonName}“ in der ganzen App.
+                {seasonDesign.unlocked
+                  ? `Farben und Deko der Saison „${seasonDesign.seasonName}“ in der ganzen App.`
+                  : `Kommt automatisch, sobald du im Saison-Pass Level ${seasonDesign.unlockLevel} erreichst.`}
               </p>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={seasonDesign.enabled}
-              aria-label="Saison-Design an oder aus"
-              onClick={() => seasonDesign.setEnabled(!seasonDesign.enabled)}
-              className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 font-display text-sm font-semibold transition-colors ${
-                seasonDesign.enabled ? "border-action bg-action text-pitch" : "border-edge bg-pitch text-muted"
-              }`}
-            >
-              <span
-                className={`h-3 w-3 rounded-full ${seasonDesign.enabled ? "bg-pitch" : "bg-muted"}`}
-                aria-hidden
-              />
-              {seasonDesign.enabled ? "An" : "Aus"}
-            </button>
+            {seasonDesign.unlocked ? (
+              <button
+                type="button"
+                role="switch"
+                aria-checked={seasonDesign.enabled}
+                aria-label="Saison-Design an oder aus"
+                onClick={() => seasonDesign.setEnabled(!seasonDesign.enabled)}
+                className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 font-display text-sm font-semibold transition-colors ${
+                  seasonDesign.enabled ? "border-action bg-action text-pitch" : "border-edge bg-pitch text-muted"
+                }`}
+              >
+                <span
+                  className={`h-3 w-3 rounded-full ${seasonDesign.enabled ? "bg-pitch" : "bg-muted"}`}
+                  aria-hidden
+                />
+                {seasonDesign.enabled ? "An" : "Aus"}
+              </button>
+            ) : (
+              <span className="shrink-0 rounded-full border border-edge px-3 py-1.5 font-display text-sm font-semibold text-muted">
+                🔒 Level {seasonDesign.unlockLevel}
+              </span>
+            )}
           </div>
         )}
-        <p className="mt-2 text-xs text-muted">
-          Weitere Einstellungen (Benachrichtigungen, Passwort, Konto löschen) folgen noch.
-        </p>
 
         {isRegistered ? (
-          <div className="mt-4 flex items-center justify-between rounded-card border border-edge bg-surface p-4">
-            <div>
-              <p className="text-xs text-muted">Angemeldet als</p>
-              <p className="text-sm font-semibold text-ink">{authEmail}</p>
+          <>
+            <div className="mt-4 flex items-center justify-between rounded-card border border-edge bg-surface p-4">
+              <div>
+                <p className="text-xs text-muted">Angemeldet als</p>
+                <p className="text-sm font-semibold text-ink">{authEmail}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="shrink-0 rounded-full border border-edge px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-red-400/60 hover:text-red-300 disabled:opacity-60"
+              >
+                {loggingOut ? "…" : "Ausloggen"}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className="shrink-0 rounded-full border border-edge px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-red-400/60 hover:text-red-300 disabled:opacity-60"
-            >
-              {loggingOut ? "…" : "Ausloggen"}
-            </button>
-          </div>
+            <AccountSettings />
+          </>
         ) : (
           <Link
             href="/registrieren"

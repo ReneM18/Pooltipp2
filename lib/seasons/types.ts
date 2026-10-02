@@ -55,6 +55,9 @@ export interface SeasonEmote {
  *  Farben als "#RRGGBB". Die Texte müssen auf den Hintergründen mindestens so
  *  gut lesbar bleiben wie im normalen Design. */
 export interface SeasonDesign {
+  /** Ab diesem Saison-Pass-Level bekommt ein Spieler das Design automatisch
+   *  (vorher und für Gäste: normales Grün). */
+  unlockLevel: number;
   colors: {
     pitch: string; // Seitenhintergrund
     surface: string; // Karten

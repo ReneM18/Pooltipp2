@@ -78,3 +78,48 @@ export function SeasonHeroLeaves() {
     </div>
   );
 }
+
+// Verblasste Blätter hinter der ganzen Seite (wie ein Wasserzeichen). Liegt
+// fest hinter allem Inhalt; Karten, Knöpfe und Texte decken sie ab, sichtbar
+// sind sie also nur in den Lücken und am Rand.
+const BACKDROP_LEAVES = [
+  { x: "4%", y: "18%", r: -25, s: 110 },
+  { x: "82%", y: "12%", r: 35, s: 90 },
+  { x: "60%", y: "38%", r: 120, s: 130 },
+  { x: "14%", y: "52%", r: -80, s: 80 },
+  { x: "88%", y: "60%", r: 15, s: 120 },
+  { x: "36%", y: "72%", r: 160, s: 100 },
+  { x: "6%", y: "86%", r: 60, s: 95 },
+  { x: "70%", y: "88%", r: -40, s: 85 },
+];
+
+export function SeasonBackdrop() {
+  const colors = useDecoColors();
+  if (!colors || colors.length === 0) return null;
+  return (
+    <div className="season-deco pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden>
+      {BACKDROP_LEAVES.map((l, i) => (
+        <span key={i} className="absolute opacity-[0.08]" style={{ left: l.x, top: l.y }}>
+          <Leaf size={l.s} color={colors[i % colors.length]} rotate={l.r} />
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Ein großes, verblasstes Blatt unten rechts in einer Karte (z. B. Tipp-
+ *  Karte). Die Karte braucht "relative isolate", dann liegt das Blatt hinter
+ *  Teamnamen, Eingaben und Knöpfen. variant verdreht es pro Karte etwas. */
+export function SeasonCardWatermark({ variant = 0 }: { variant?: number }) {
+  const colors = useDecoColors();
+  if (!colors || colors.length === 0) return null;
+  const rotate = [-35, 20, -110, 65][variant % 4];
+  return (
+    <span
+      className="season-deco pointer-events-none absolute -bottom-6 -right-6 -z-10 opacity-[0.07]"
+      aria-hidden
+    >
+      <Leaf size={130} color={colors[variant % colors.length]} rotate={rotate} />
+    </span>
+  );
+}

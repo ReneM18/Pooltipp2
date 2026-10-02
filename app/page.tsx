@@ -8,8 +8,8 @@ import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 
 export default function DashboardPage() {
-  const { spendStars, recordTipSubmitted, streakCount, displayName } = useUser();
-  const { matches, getTeam, tipCounts, submitTip, changeTip, myTips } = useAppData();
+  const { placeTip, streakCount } = useUser();
+  const { matches, getTeam, tipCounts, changeTip, myTips } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [tab, setTab] = useState<"offen" | "geschlossen">("offen");
   // Uhrzeit für die Sortierung (erst nach dem Laden im Browser gesetzt,
@@ -25,23 +25,24 @@ export default function DashboardPage() {
     return [...myTips].reverse().find((t) => t.matchId === matchId);
   }
 
-  function handleSubmitTip(matchId: string, stake: number, homeScore: number, awayScore: number) {
-    // Sicherheitsnetz: spendStars zieht nie mehr ab, als vorhanden ist – der
-    // tatsächlich abgezogene (ggf. reduzierte) Betrag ist der Einsatz, der
-    // gespeichert und bei der Auswertung berücksichtigt wird.
-    const actualStake = spendStars(stake);
-    recordTipSubmitted();
-    submitTip(matchId, homeScore, awayScore, actualStake, displayName);
+  async function handleSubmitTip(matchId: string, stake: number, homeScore: number, awayScore: number) {
+    // Den Einsatz zieht die Datenbank ab – nie mehr als Guthaben und
+    // Tages-Limit. Der gespeicherte (ggf. reduzierte) Einsatz kommt zurück.
+    const saved = await placeTip(matchId, homeScore, awayScore);
+    if (!saved) {
+      showToast("Tipp konnte nicht gespeichert werden – Tippschluss erreicht oder schon getippt.", "info");
+      return;
+    }
     celebrate();
     showToast(
-      actualStake < stake
+      saved.stake < stake
         ? "✓ Tipp gespeichert – mit reduziertem Einsatz (Sterne-Guthaben oder Tages-Limit erreicht)."
         : "✓ Tipp gespeichert – viel Glück!"
     );
   }
 
   function handleChangeTip(matchId: string, homeScore: number, awayScore: number) {
-    // Kein spendStars: der Einsatz wurde schon bei der Abgabe bezahlt.
+    // Kein neuer Einsatz: der wurde schon bei der Abgabe bezahlt.
     if (changeTip(matchId, homeScore, awayScore)) {
       showToast("✓ Tipp geändert – Einsatz bleibt gleich, keine Sterne abgezogen.");
     } else {
@@ -53,16 +54,17 @@ export default function DashboardPage() {
   const byKickoffAsc = (a: (typeof matches)[number], b: (typeof matches)[number]) =>
     new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
 
-  // Abgesagte Spiele stehen bei den geschlossenen (nicht mehr tippbar).
-  const isClosed = (m: (typeof matches)[number]) => m.status === "finished" || m.status === "cancelled";
-  // Schon angepfiffene Spiele ohne Ergebnis stehen unter den noch tippbaren.
+  // Geschlossen = Tippschluss vorbei (auch wenn das Spiel noch läuft),
+  // beendet oder abgesagt. Offen sind nur Spiele, auf die man noch tippen kann.
   const pastDeadline = (m: (typeof matches)[number]) =>
     now !== null && new Date(m.tipDeadline).getTime() <= now;
-  const offeneMatches = matches
-    .filter((m) => !isClosed(m))
-    .sort((a, b) => Number(pastDeadline(a)) - Number(pastDeadline(b)) || byKickoffAsc(a, b));
-  // Bei den geschlossenen das neueste Spiel zuerst.
-  const geschlosseneMatches = matches.filter(isClosed).sort((a, b) => byKickoffAsc(b, a));
+  const isClosed = (m: (typeof matches)[number]) =>
+    m.status === "finished" || m.status === "cancelled" || m.status === "live" || pastDeadline(m);
+  const offeneMatches = matches.filter((m) => !isClosed(m)).sort(byKickoffAsc);
+  // Bei den geschlossenen der zuletzt geschlossene Tipp zuerst.
+  const geschlosseneMatches = matches
+    .filter(isClosed)
+    .sort((a, b) => new Date(b.tipDeadline).getTime() - new Date(a.tipDeadline).getTime());
   const visibleMatches = tab === "offen" ? offeneMatches : geschlosseneMatches;
 
   return (
