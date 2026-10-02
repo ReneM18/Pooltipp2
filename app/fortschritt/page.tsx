@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, CSSProperties } from "react";
+import { useEffect, useState, CSSProperties } from "react";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { PASS_LEVELS, PREMIUM_PASS_PRICE } from "@/lib/passLevels";
 import { xpForLevel } from "@/lib/seasonPass";
 import { SEASON_THEME } from "@/lib/seasonTheme";
 import { SPORTS } from "@/lib/types";
-import { CURRENT_SEASON } from "@/lib/seasons";
+import { CURRENT_SEASON, seasonCountdownText, seasonPeriodText } from "@/lib/seasons";
 import { EmoteSticker } from "@/components/Emotes";
 import { useFeedback } from "@/lib/FeedbackContext";
 
@@ -59,6 +59,11 @@ export default function FortschrittPage() {
   const { tipsBySport, myTips, matches } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [purchasing, setPurchasing] = useState(false);
+  // Erst im Browser ausrechnen (heutiges Datum), nicht schon beim Bauen der Seite.
+  const [countdown, setCountdown] = useState<string | null>(null);
+  useEffect(() => {
+    setCountdown(seasonCountdownText(CURRENT_SEASON, new Date()));
+  }, []);
 
   function handleClaimDailyBonus() {
     claimDailyBonus();
@@ -104,9 +109,20 @@ export default function FortschrittPage() {
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: SEASON_THEME.colorFrom }}>
-          {SEASON_THEME.icon} Saison {SEASON_THEME.name}
-        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: SEASON_THEME.colorFrom }}>
+            {SEASON_THEME.icon} Saison {SEASON_THEME.name}
+          </p>
+          <p className="text-xs text-muted">
+            <span className="whitespace-nowrap">{seasonPeriodText(CURRENT_SEASON)}</span>
+            {countdown && (
+              <>
+                {" · "}
+                <span className="whitespace-nowrap font-semibold text-ink">{countdown}</span>
+              </>
+            )}
+          </p>
+        </div>
         <h1 className="font-display text-3xl font-bold text-ink">Saison-Pass</h1>
         <p className="mt-1 text-sm text-muted">
           Hol dir jeden Tag deinen Bonus, sammle Saison-XP und schalte Level für Level neue Belohnungen frei.
