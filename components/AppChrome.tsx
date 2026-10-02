@@ -8,6 +8,7 @@ import ChatWidget from "./ChatWidget";
 import OnboardingTour from "./OnboardingTour";
 import Footer from "./Footer";
 import SeasonDesignGate from "./SeasonDesignGate";
+import { SeasonBackdrop } from "./SeasonDeco";
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -40,6 +41,8 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
       </div>
       {/* pb-24: reserviert unten Platz, damit der schwebende Chat-Button
           nicht über den letzten Inhalt/Footer ragt. */}
+      {/* Saison-Design: verblasste Blätter hinter der ganzen Seite. */}
+      <SeasonBackdrop />
       <div className="pb-24">
         <SeasonDesignGate />
         {children}
