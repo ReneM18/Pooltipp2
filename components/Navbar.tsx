@@ -4,10 +4,35 @@ import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import RankBadge from "@/components/RankBadge";
 import SeasonFrame from "@/components/SeasonFrame";
+import { useMyOverallRank } from "@/lib/myOverallRank";
 import { StarIcon, TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
 
 export default function Navbar() {
-  const { displayName, freeStars, passXP, activeRankIcon, isRegistered, isLowOnStars, photos, isAdmin } = useUser();
+  const { displayName, freeStars, activeRankIcon, isRegistered, isLowOnStars, photos, isAdmin } = useUser();
+
+  const myRank = useMyOverallRank();
+  // Am Handy nur "3." (Platz passt sonst nicht neben Sterne und Profilbild),
+  // ab Tablet-Breite ausgeschrieben "Platz 3".
+  const rankLabel =
+    myRank.status === "ranked" ? (
+      <>
+        <span className="hidden sm:inline">Platz </span>
+        {myRank.rank.toLocaleString("de-DE")}
+        <span className="sm:hidden">.</span>
+      </>
+    ) : myRank.status === "loading" ? (
+      "…"
+    ) : (
+      "–"
+    );
+  const rankTitle =
+    myRank.status === "ranked"
+      ? `Dein Gesamtplatz: ${myRank.rank} von ${myRank.players} Spielern`
+      : myRank.status === "none" && myRank.reason === "guest"
+        ? "Einloggen, um in die Rangliste zu kommen"
+        : myRank.status === "none" && myRank.reason === "noPoints"
+          ? "Noch kein Platz: Sammle mit deinem ersten richtigen Tipp Rangpunkte"
+          : "Zur Rangliste";
 
   return (
     <header className="border-b border-edge bg-pitch/95 backdrop-blur">
@@ -72,15 +97,16 @@ export default function Navbar() {
             </span>
           </div>
 
-          <div
-            className="flex items-center gap-0.5 rounded-full px-0.5 py-1 sm:gap-2 sm:border sm:border-edge sm:bg-surface sm:px-3 sm:py-1.5"
-            title="Deine Saison-Pass-XP"
+          {/* Gesamtplatz in der Rangliste (Summe aller Rangpunkte). Die
+              Saison-Pass-XP stehen nur noch im Saison-Pass. */}
+          <Link
+            href="/rangliste"
+            className="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full px-0.5 py-1 transition-colors sm:gap-2 sm:border sm:border-edge sm:bg-surface sm:px-3 sm:py-1.5 sm:hover:border-action"
+            title={rankTitle}
           >
             <TrophyIcon className="h-4 w-4 text-action sm:h-[18px] sm:w-[18px]" />
-            <span className="font-display text-base font-semibold text-ink sm:text-lg">
-              {passXP.toLocaleString("de-DE")}
-            </span>
-          </div>
+            <span className="font-display text-base font-semibold text-ink sm:text-lg">{rankLabel}</span>
+          </Link>
 
           <Link href="/profil" className="relative ml-0.5 flex shrink-0 items-center">
             <SeasonFrame size={32}>
