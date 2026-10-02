@@ -1,11 +1,33 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { mockShopItems, ShopItem } from "@/lib/mockShopItems";
+import Link from "next/link";
+import { mockShopItems, ShopItem, SHOP_ENABLED } from "@/lib/mockShopItems";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 
 export default function ShopPage() {
+  if (!SHOP_ENABLED) return <ShopComingSoon />;
+  return <Shop />;
+}
+
+function ShopComingSoon() {
+  return (
+    <main className="mx-auto max-w-md px-5 py-12 text-center">
+      <p className="text-5xl">🛒</p>
+      <h1 className="mt-4 font-display text-2xl font-bold text-ink">Prämien-Shop kommt bald</h1>
+      <p className="mt-2 text-sm text-muted">Hier gibt es später Joker für deine Tipps.</p>
+      <Link
+        href="/"
+        className="mt-6 inline-block rounded-full bg-action-hover px-5 py-2.5 font-display text-base font-semibold text-pitch transition-all hover:brightness-110"
+      >
+        Zu den Spielen
+      </Link>
+    </main>
+  );
+}
+
+function Shop() {
   const { freeStars, spendStarsInShop } = useUser();
   const { showToast, celebrate } = useFeedback();
   const [redeemedIds, setRedeemedIds] = useState<string[]>([]);

@@ -132,9 +132,12 @@ export default function ChatWidget() {
   }
 
   return (
-    <div className="fixed inset-x-4 bottom-5 z-20 flex flex-col items-end sm:inset-x-auto sm:right-5">
+    // pointer-events-none: am Handy ist dieser Block so breit wie der
+    // Bildschirm – ohne das schluckte die leere Fläche neben dem Knopf jeden
+    // Tipp auf "Tipp abgeben" & Co. Nur Knopf und Chatfenster sind klickbar.
+    <div className="pointer-events-none fixed inset-x-3 bottom-3 z-20 flex flex-col items-end sm:inset-x-auto sm:bottom-5 sm:right-5">
       {open && (
-        <div className="mb-3 flex h-96 w-full max-w-80 flex-col overflow-hidden rounded-card border border-edge bg-surface shadow-2xl">
+        <div className="pointer-events-auto mb-3 flex h-96 w-full max-w-80 flex-col overflow-hidden rounded-card border border-edge bg-surface shadow-2xl">
           <div className="flex items-center justify-between border-b border-edge bg-surface-hover px-4 py-3">
             <span className="font-display text-sm font-semibold text-ink">Community-Chat</span>
             <button onClick={() => setOpen(false)} className="text-muted hover:text-ink">
@@ -211,7 +214,7 @@ export default function ChatWidget() {
 
       <button
         onClick={() => setOpen((current) => !current)}
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-action text-2xl shadow-[0_0_20px_rgb(var(--c-action)/0.4)] transition-transform hover:scale-105"
+        className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full bg-action text-xl shadow-[0_0_20px_rgb(var(--c-action)/0.4)] transition-transform hover:scale-105 sm:h-14 sm:w-14 sm:text-2xl"
         aria-label="Chat öffnen"
       >
         💬

@@ -54,9 +54,7 @@ export default function MatchcenterPage() {
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Matchcenter</h1>
 
-      <div className="mb-5">
-        <AdBanner />
-      </div>
+      <AdBanner />
 
       <div className="mb-5 flex flex-wrap gap-2">
         {LEAGUES.map((l) => (

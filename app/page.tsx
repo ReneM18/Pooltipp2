@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import MatchCard from "@/components/MatchCard";
 import AdBanner from "@/components/AdBanner";
 import { useUser } from "@/lib/UserContext";
@@ -12,6 +12,14 @@ export default function DashboardPage() {
   const { matches, getTeam, tipCounts, changeTip, myTips } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [tab, setTab] = useState<"offen" | "geschlossen">("offen");
+  // Uhrzeit für die Sortierung (erst nach dem Laden im Browser gesetzt,
+  // sonst passen Server- und Browser-Ansicht nicht zusammen), jede Minute neu.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const interval = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   function findTipForMatch(matchId: string) {
     return [...myTips].reverse().find((t) => t.matchId === matchId);
@@ -46,10 +54,17 @@ export default function DashboardPage() {
   const byKickoffAsc = (a: (typeof matches)[number], b: (typeof matches)[number]) =>
     new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
 
-  // Abgesagte Spiele stehen bei den geschlossenen (nicht mehr tippbar).
-  const isClosed = (m: (typeof matches)[number]) => m.status === "finished" || m.status === "cancelled";
+  // Geschlossen = Tippschluss vorbei (auch wenn das Spiel noch läuft),
+  // beendet oder abgesagt. Offen sind nur Spiele, auf die man noch tippen kann.
+  const pastDeadline = (m: (typeof matches)[number]) =>
+    now !== null && new Date(m.tipDeadline).getTime() <= now;
+  const isClosed = (m: (typeof matches)[number]) =>
+    m.status === "finished" || m.status === "cancelled" || m.status === "live" || pastDeadline(m);
   const offeneMatches = matches.filter((m) => !isClosed(m)).sort(byKickoffAsc);
-  const geschlosseneMatches = matches.filter(isClosed).sort(byKickoffAsc);
+  // Bei den geschlossenen der zuletzt geschlossene Tipp zuerst.
+  const geschlosseneMatches = matches
+    .filter(isClosed)
+    .sort((a, b) => new Date(b.tipDeadline).getTime() - new Date(a.tipDeadline).getTime());
   const visibleMatches = tab === "offen" ? offeneMatches : geschlosseneMatches;
 
   return (

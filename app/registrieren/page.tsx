@@ -190,6 +190,14 @@ export default function RegistrierenPage() {
         <p className="mt-2 text-sm text-muted">
           Angemeldet als <span className="font-semibold text-ink">{authEmail}</span>
         </p>
+        {/* Nach dem Login nicht in einer Sackgasse landen: klarer Weg zu
+            den Spielen, "Ausloggen" nur noch als kleiner Zweit-Knopf. */}
+        <Link
+          href="/"
+          className="mt-6 block rounded-full bg-action-hover px-5 py-2.5 font-display text-base font-semibold text-pitch transition-all hover:brightness-110"
+        >
+          Los geht&apos;s zu den Spielen
+        </Link>
         {pendingInvite && (
           <Link
             href={`/teams?code=${encodeURIComponent(pendingInvite)}`}

@@ -6,7 +6,6 @@ import { Match, Team } from "@/lib/types";
 import { TipResultTier, compareWithOthers } from "@/lib/poolScore";
 import { MatchTipper, useMatchTips } from "@/lib/matchTips";
 import { flagEmoji } from "@/lib/flags";
-import { generateTickerEvents } from "@/lib/liveTicker";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
@@ -24,6 +23,15 @@ const sportIcon: Record<string, string> = {
   NFL: "🏈",
   NBA: "🏀",
   NHL: "🏒",
+};
+
+// Ergebnis-Tipp: Höchstwert und Beschriftung je Sportart (vorher überall
+// "Tor-Ergebnis" bis 20 – bei Basketball wurde aus 112 einfach 20).
+const scoreLimit: Record<string, { max: number; unit: string }> = {
+  "Fußball": { max: 20, unit: "Tore" },
+  NHL: { max: 20, unit: "Tore" },
+  NFL: { max: 99, unit: "Punkte" },
+  NBA: { max: 199, unit: "Punkte" },
 };
 
 interface MyTip {
@@ -90,8 +98,10 @@ export default function MatchCard({
 }: MatchCardProps) {
   const isOneXTwo = match.tipMode === "1x2";
   const isCancelled = match.status === "cancelled";
-  const [homeScore, setHomeScore] = useState<number>(0);
-  const [awayScore, setAwayScore] = useState<number>(0);
+  // Leer (null) statt 0: der Knopf wird erst aktiv, wenn beide Zahlen
+  // bewusst eingetragen sind – sonst gab ein versehentliches Antippen 0:0 ab.
+  const [homeScore, setHomeScore] = useState<number | null>(null);
+  const [awayScore, setAwayScore] = useState<number | null>(null);
   const [nflPick, setNflPick] = useState<OneXTwo | null>(null);
   // Schutz gegen Doppel-Tipp durch einen versehentlichen Doppel-Klick/-Tap
   // (am Handy sehr real): submittedRef greift SOFORT (synchron), bevor
@@ -113,11 +123,13 @@ export default function MatchCard({
   // Vorwarnung in der letzten Minute vor Tippschluss, damit das Formular
   // nicht kommentarlos mitten beim Ausfüllen verschwindet.
   const [closingSoon, setClosingSoon] = useState(false);
+  // Anpfiff vorbei, aber noch kein Ergebnis eingetragen.
+  const [kickedOff, setKickedOff] = useState(false);
   const { getCommentsForMatch, addComment, removeComment, toggleCommentLike, myBonusAnswers, submitBonusAnswer } =
     useAppData();
   const [bonusPick, setBonusPick] = useState<number | null>(null);
   const myBonusAnswer = myBonusAnswers.find((a) => a.matchId === match.id);
-  const { displayName, hasPremiumPass, passXP, passHonors, authUserId } = useUser();
+  const { displayName, hasPremiumPass, passXP, passHonors, authUserId, freeStars, stakeBudgetRemainingToday } = useUser();
   const { showToast, celebrate } = useFeedback();
   const [commentsOpen, setCommentsOpen] = useState(false);
   // Liste "Wer hat getippt?" unter der Karte (Klick auf "X getippt").
@@ -161,18 +173,19 @@ export default function MatchCard({
 
   useEffect(() => {
     const deadline = new Date(match.tipDeadline).getTime();
-    // Sofortiger erster Check direkt nach dem Laden, statt die ganze
-    // Sekunde bis zum ersten Intervall-Tick zu warten.
-    const initialRemaining = deadline - Date.now();
-    setTippingClosed(initialRemaining <= 0);
-    setClosingSoon(initialRemaining > 0 && initialRemaining <= 60 * 1000);
-    const interval = setInterval(() => {
+    const kickoff = new Date(match.kickoff).getTime();
+    function check() {
       const remaining = deadline - Date.now();
       setTippingClosed(remaining <= 0);
       setClosingSoon(remaining > 0 && remaining <= 60 * 1000);
-    }, 1000);
+      setKickedOff(Date.now() >= kickoff);
+    }
+    // Sofortiger erster Check direkt nach dem Laden, statt die ganze
+    // Sekunde bis zum ersten Intervall-Tick zu warten.
+    check();
+    const interval = setInterval(check, 1000);
     return () => clearInterval(interval);
-  }, [match.tipDeadline]);
+  }, [match.tipDeadline, match.kickoff]);
 
   const kickoffLabel = new Date(match.kickoff).toLocaleString("de-DE", {
     weekday: "short",
@@ -188,6 +201,15 @@ export default function MatchCard({
   const showResultView = (hasTipped && !isChanging) || tippingClosed || isCancelled;
   // 1X2-Spiel ohne Auswahl: Knopf ist noch gesperrt.
   const missingPick = isOneXTwo && !nflPick;
+  // Ergebnis-Tipp mit leerem Feld: Knopf ebenfalls gesperrt.
+  const missingScore = !isOneXTwo && (homeScore === null || awayScore === null);
+  const notReady = missingPick || missingScore;
+  const limit = scoreLimit[match.sport] ?? scoreLimit["Fußball"];
+  // Was beim Abgeben wirklich abgezogen würde (gleiche Rechnung wie
+  // spendStars): weniger als der Einsatz, wenn Guthaben oder Tageslimit
+  // nicht reichen. Vorher erfuhr man das erst im Toast nach dem Abgeben.
+  const possibleStake = Math.max(0, Math.min(match.fixedStake, freeStars, stakeBudgetRemainingToday));
+  const stakeReduced = possibleStake < match.fixedStake;
   // Echte Tipps aller Spieler: für die Liste und für den Vergleich nach der
   // Auswertung. Fremde Tipps (die Zahlen) erst nach Tippschluss zeigen.
   const { tippers, failed: tippersFailed } = useMatchTips(
@@ -238,12 +260,12 @@ export default function MatchCard({
       submitBonusAnswer(match.id, bonusPick);
     }
 
-    if (isOneXTwo && !nflPick) {
+    if (notReady) {
       submittedRef.current = false;
       setSubmitting(false);
       return;
     }
-    const [h, a] = isOneXTwo && nflPick ? oneXTwoToScore(nflPick) : [homeScore, awayScore];
+    const [h, a] = isOneXTwo && nflPick ? oneXTwoToScore(nflPick) : [homeScore ?? 0, awayScore ?? 0];
 
     if (isChanging) {
       onChangeTip?.(h, a);
@@ -358,16 +380,18 @@ export default function MatchCard({
                 <ScoreInput
                   value={homeScore}
                   onChange={setHomeScore}
-                  max={20}
-                  label={`Tor-Ergebnis ${homeTeam.name}`}
+                  onClear={() => setHomeScore(null)}
+                  max={limit.max}
+                  label={`${limit.unit} ${homeTeam.name}`}
                   className={scoreInputClass}
                 />
                 <span className="font-display text-xl text-muted">:</span>
                 <ScoreInput
                   value={awayScore}
                   onChange={setAwayScore}
-                  max={20}
-                  label={`Tor-Ergebnis ${awayTeam.name}`}
+                  onClear={() => setAwayScore(null)}
+                  max={limit.max}
+                  label={`${limit.unit} ${awayTeam.name}`}
                   className={scoreInputClass}
                 />
               </div>
@@ -412,12 +436,25 @@ export default function MatchCard({
                 Einsatz schon bezahlt – beim Ändern werden keine Sterne abgezogen.
               </p>
             ) : (
-              <div className="mb-5 flex items-center justify-between rounded-lg border border-edge bg-pitch px-4 py-2.5">
-                <span className="text-sm text-muted">Einsatz für dieses Spiel</span>
-                <span className="flex items-center gap-1 font-display font-semibold text-gold">
-                  <StarIcon className="h-4 w-4" />
-                  {match.fixedStake.toLocaleString("de-DE")}
-                </span>
+              <div className="mb-5 rounded-lg border border-edge bg-pitch px-4 py-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted">Einsatz für dieses Spiel</span>
+                  <span className="flex items-center gap-1 font-display font-semibold text-gold">
+                    <StarIcon className="h-4 w-4" />
+                    {stakeReduced && (
+                      <span className="mr-1 text-sm font-normal text-muted line-through">
+                        {match.fixedStake.toLocaleString("de-DE")}
+                      </span>
+                    )}
+                    {possibleStake.toLocaleString("de-DE")}
+                  </span>
+                </div>
+                {stakeReduced && (
+                  <p className="mt-1 text-xs text-[#FF9B5C]">
+                    {freeStars < match.fixedStake ? "Nicht genug Sterne" : "Tageslimit für Einsätze erreicht"}
+                    {possibleStake === 0 ? " – du tippst ohne Einsatz." : " – du tippst mit weniger Einsatz."}
+                  </p>
+                )}
               </div>
             )}
 
@@ -426,9 +463,9 @@ export default function MatchCard({
                 darunter (vorher nur halb durchsichtig, sah aus wie "kaputt"). */}
             <button
               onClick={handleSubmit}
-              disabled={submitting || missingPick}
+              disabled={submitting || notReady}
               className={`w-full rounded-full py-2.5 font-display font-semibold tracking-wide text-base transition-all ${
-                missingPick
+                notReady
                   ? "cursor-not-allowed border border-edge bg-edge text-muted"
                   : "bg-action-hover text-pitch shadow-[0_0_22px_rgb(var(--c-action-hover)/0.45)] enabled:hover:brightness-110 enabled:hover:shadow-[0_0_30px_rgb(var(--c-action-hover)/0.6)] disabled:cursor-wait"
               }`}
@@ -437,6 +474,9 @@ export default function MatchCard({
             </button>
             {missingPick && (
               <p className="mt-2 text-center text-xs text-muted">Erst oben 1, X oder 2 antippen</p>
+            )}
+            {missingScore && (
+              <p className="mt-2 text-center text-xs text-muted">Erst oben beide Ergebnisse eintragen</p>
             )}
             {isChanging && (
               <button
@@ -510,7 +550,7 @@ export default function MatchCard({
             {isCancelled ? (
               <CancelledBox stake={hasTipped ? myTip!.stake ?? 0 : null} />
             ) : (
-              <ResultBox match={match} homeTeam={homeTeam} awayTeam={awayTeam} />
+              <ResultBox match={match} kickedOff={kickedOff} />
             )}
           </div>
         )}
@@ -537,7 +577,9 @@ export default function MatchCard({
               className="flex items-center gap-1.5 font-semibold text-muted transition-colors hover:text-ink"
             >
               <ChatIcon className="h-3.5 w-3.5" />
-              {matchComments.length > 0 ? `${matchComments.length} Kommentare` : "Kommentieren"}
+              {matchComments.length === 0
+                ? "Kommentieren"
+                : `${matchComments.length} ${matchComments.length === 1 ? "Kommentar" : "Kommentare"}`}
             </button>
             {hasTipped && <span className="font-semibold text-action">✓ Getippt</span>}
           </div>
@@ -769,45 +811,17 @@ function CancelledBox({ stake }: { stake: number | null }) {
   );
 }
 
-function ResultBox({ match, homeTeam, awayTeam }: { match: Match; homeTeam: Team; awayTeam: Team }) {
+function ResultBox({ match, kickedOff }: { match: Match; kickedOff: boolean }) {
   if (match.status === "live") {
-    // Live-Ticker-Gefühl: nur bei Fußball, weil Tor/Karte dort die
-    // gewohnten Begriffe sind – bei den anderen Sportarten bleibt es beim
-    // schlichten LIVE-Badge, statt falsche Fußball-Begriffe zu verwenden.
-    const events =
-      match.sport === "Fußball"
-        ? generateTickerEvents(match.id, match.liveHomeScore ?? 0, match.liveAwayScore ?? 0)
-        : [];
-    const eventLabel: Record<string, string> = {
-      tor: "Tor für",
-      gelb: "Gelbe Karte:",
-      rot: "Rote Karte:",
-    };
-    const eventIcon: Record<string, string> = { tor: "⚽", gelb: "🟨", rot: "🟥" };
-
+    // Nur der echte Spielstand – es gibt keinen Ereignis-Feed. Früher
+    // wurden hier Tore und Karten per Zufall erfunden.
     return (
-      <div className="flex flex-col gap-2 rounded-lg border border-action bg-action/10 px-4 py-3">
-        <div className="flex items-center justify-center gap-3">
-          <span className="flex h-2 w-2 animate-pulse rounded-full bg-action" />
-          <span className="font-display text-sm font-semibold text-action">LIVE</span>
-          <span className="font-display text-xl font-bold text-ink">
-            {match.liveHomeScore ?? 0} : {match.liveAwayScore ?? 0}
-          </span>
-        </div>
-        {events.length > 0 && (
-          <div className="flex flex-col gap-1 border-t border-action/20 pt-2">
-            {events.map((event, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs">
-                <span className="w-7 shrink-0 text-right font-display text-muted">{event.minute}&apos;</span>
-                <span aria-hidden>{eventIcon[event.type]}</span>
-                <span className="text-muted">
-                  {eventLabel[event.type]}{" "}
-                  <span className="text-ink">{event.team === "home" ? homeTeam.name : awayTeam.name}</span>
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+      <div className="flex items-center justify-center gap-3 rounded-lg border border-action bg-action/10 px-4 py-3">
+        <span className="flex h-2 w-2 animate-pulse rounded-full bg-action" />
+        <span className="font-display text-sm font-semibold text-action">LIVE</span>
+        <span className="font-display text-xl font-bold text-ink">
+          {match.liveHomeScore ?? 0} : {match.liveAwayScore ?? 0}
+        </span>
       </div>
     );
   }
@@ -838,7 +852,9 @@ function ResultBox({ match, homeTeam, awayTeam }: { match: Match; homeTeam: Team
 
   return (
     <div className="flex items-center justify-center rounded-lg border border-edge bg-pitch px-4 py-3">
-      <span className="text-sm text-muted">Spiel hat noch nicht begonnen</span>
+      <span className="text-sm text-muted">
+        {kickedOff ? "Spiel läuft – Ergebnis folgt" : "Spiel hat noch nicht begonnen"}
+      </span>
     </div>
   );
 }
