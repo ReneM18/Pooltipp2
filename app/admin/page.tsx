@@ -11,6 +11,7 @@ import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
 import { Sport, SPORTS, JerseyStyle, JERSEY_STYLES, Match, MatchStatus, TipMode, Team } from "@/lib/types";
 import { DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
+import TeamPicker from "@/components/TeamPicker";
 import TeamBadge from "@/components/TeamBadge";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { findDuplicateTeam } from "@/lib/teamName";
@@ -1161,33 +1162,23 @@ function MatchManager() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm text-muted">Heimteam</label>
-              <select
+              <TeamPicker
+                teams={teamsForSport}
                 value={homeTeamId}
-                onChange={(e) => setHomeTeamId(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
-              >
-                <option value="">Auswählen…</option>
-                {teamsForSport.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {flagEmoji(t.countryCode)} {t.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setHomeTeamId}
+                otherTeamId={awayTeamId}
+                otherLabel="schon als Auswärtsteam gewählt"
+              />
             </div>
             <div>
               <label className="mb-1.5 block text-sm text-muted">Auswärtsteam</label>
-              <select
+              <TeamPicker
+                teams={teamsForSport}
                 value={awayTeamId}
-                onChange={(e) => setAwayTeamId(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
-              >
-                <option value="">Auswählen…</option>
-                {teamsForSport.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {flagEmoji(t.countryCode)} {t.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setAwayTeamId}
+                otherTeamId={homeTeamId}
+                otherLabel="schon als Heimteam gewählt"
+              />
             </div>
           </div>
 
@@ -1645,31 +1636,23 @@ function MatchDetailsEditor({
             </div>
             <div>
               <label className="mb-1.5 block text-sm text-muted">Heimteam</label>
-              <select
+              <TeamPicker
+                teams={teamsForSport}
                 value={homeTeamId}
-                onChange={(e) => setHomeTeamId(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-              >
-                {teamsForSport.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {flagEmoji(t.countryCode)} {t.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setHomeTeamId}
+                otherTeamId={awayTeamId}
+                otherLabel="schon als Auswärtsteam gewählt" compact
+              />
             </div>
             <div>
               <label className="mb-1.5 block text-sm text-muted">Auswärtsteam</label>
-              <select
+              <TeamPicker
+                teams={teamsForSport}
                 value={awayTeamId}
-                onChange={(e) => setAwayTeamId(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-              >
-                {teamsForSport.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {flagEmoji(t.countryCode)} {t.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setAwayTeamId}
+                otherTeamId={homeTeamId}
+                otherLabel="schon als Heimteam gewählt" compact
+              />
             </div>
             <div>
               <label className="mb-1.5 block text-sm text-muted">Einsatz (Sterne)</label>
