@@ -12,6 +12,7 @@ import {
   newCompetitionId,
 } from "./competitions";
 import { TipResultTier } from "./poolScore";
+import { matchTitle } from "./teamOrder";
 
 export interface SubmittedTip {
   id: string;
@@ -797,7 +798,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (match) {
       const home = getTeam(match.homeTeamId);
       const away = getTeam(match.awayTeamId);
-      const text = `Abgesagt: ${home?.name ?? "?"} vs. ${away?.name ?? "?"} – alle Einsätze gehen zurück.`;
+      const text = `Abgesagt: ${matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")} – alle Einsätze gehen zurück.`;
       addActivity("🚫", text, { author: "PoolTipp", text });
     }
     return { ok: true, refundedTips: typeof data === "number" ? data : 0 };

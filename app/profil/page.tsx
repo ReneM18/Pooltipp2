@@ -22,6 +22,7 @@ import { SEASON_THEME } from "@/lib/seasonTheme";
 import { CURRENT_SEASON } from "@/lib/seasons";
 import { xpForLevel } from "@/lib/seasonPass";
 import { useSeasonDesign } from "@/lib/seasonDesign";
+import { matchTitle, scoreText } from "@/lib/teamOrder";
 
 const sportIcon: Record<string, string> = {
   "Fußball": "⚽",
@@ -641,7 +642,7 @@ function ProfilInhalt() {
                     {match.matchday ? ` · Spieltag ${match.matchday}` : ""}
                   </p>
                   <p className="font-display text-sm font-semibold text-ink">
-                    {homeTeam.name} vs {awayTeam.name}
+                    {matchTitle(match.sport, homeTeam.name, awayTeam.name)}
                   </p>
                   <p className="text-xs text-muted">
                     Getippt:{" "}
@@ -651,9 +652,9 @@ function ProfilInhalt() {
                         : tip.predictedAwayScore > tip.predictedHomeScore
                         ? `Sieg ${awayTeam.name}`
                         : "Unentschieden"
-                      : `${tip.predictedHomeScore}:${tip.predictedAwayScore}`}
+                      : scoreText(match.sport, tip.predictedHomeScore, tip.predictedAwayScore)}
                     {match.status === "finished" &&
-                      ` · Endstand: ${match.liveHomeScore}:${match.liveAwayScore}`}{" "}
+                      ` · Endstand: ${scoreText(match.sport, match.liveHomeScore, match.liveAwayScore)}`}{" "}
                     · {new Date(tip.submittedAt).toLocaleString("de-DE")}
                   </p>
                 </div>

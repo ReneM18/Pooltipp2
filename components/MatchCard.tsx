@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, FormEvent } from "react";
 import Link from "next/link";
-import { Match, Team } from "@/lib/types";
+import { Match, Sport, Team } from "@/lib/types";
 import { TipResultTier, compareWithOthers } from "@/lib/poolScore";
 import { MatchTipper, useMatchTips } from "@/lib/matchTips";
 import { flagEmoji } from "@/lib/flags";
@@ -10,6 +10,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { xpForLevel } from "@/lib/seasonPass";
+import { displayOrder, isAwayFirst } from "@/lib/teamOrder";
 import TeamBadge from "./TeamBadge";
 import PassHonorTags, { useOtherPlayersHonors } from "./PassHonors";
 import { EmotePicker, MessageBody, stickerFromText, stickerText } from "./Emotes";
@@ -91,9 +92,11 @@ export default function MatchCard({
   onChangeTip,
 }: MatchCardProps) {
   const isOneXTwo = match.tipMode === "1x2";
-  // US-Sport: NBA und NHL kennen kein Unentschieden (Verlängerung bzw.
-  // Penaltyschießen bis zur Entscheidung), NFL nur ganz selten.
-  const isUsSport = match.sport === "NFL" || match.sport === "NBA" || match.sport === "NHL";
+  // US-Sport: Gast links, Heim rechts ("Gast @ Heim"). NBA und NHL kennen
+  // kein Unentschieden (Verlängerung bzw. Penaltyschießen bis zur
+  // Entscheidung), NFL nur ganz selten.
+  const isUsSport = isAwayFirst(match.sport);
+  const [leftTeam, rightTeam] = displayOrder(match.sport, homeTeam, awayTeam);
   const allowsDraw = match.sport !== "NBA" && match.sport !== "NHL";
   const isCancelled = match.status === "cancelled";
   // Leer (null) statt 0: der Knopf wird erst aktiv, wenn beide Zahlen
@@ -234,14 +237,25 @@ export default function MatchCard({
 
   // 1X2 mit Teamnamen statt "Heimsieg (1)": eindeutig, egal auf welcher
   // Seite das Heimteam steht. Gespeichert wird weiter 1:0 / 0:0 / 0:1.
+  // Gleiche Reihenfolge wie die Teams darüber (bei US-Sport Gast-Sieg links).
+  const [leftPick, rightPick] = displayOrder<OneXTwo>(match.sport, "1", "2");
+  const oneXTwoOptions: OneXTwo[] =
+    allowsDraw || nflPick === "X" ? [leftPick, "X", rightPick] : [leftPick, rightPick];
+
   function pickLabel(pick: OneXTwo) {
     if (pick === "1") return `Sieg ${homeTeam.name}`;
     if (pick === "2") return `Sieg ${awayTeam.name}`;
     return "Unentschieden";
   }
 
+  // Ergebnis in Anzeige-Reihenfolge (bei US-Sport Gast : Heim).
+  function formatScore(home: number, away: number) {
+    const [left, right] = displayOrder(match.sport, home, away);
+    return `${left} : ${right}`;
+  }
+
   function formatTip(home: number, away: number) {
-    return isOneXTwo ? pickLabel(scoreToOneXTwo(home, away)) : `${home} : ${away}`;
+    return isOneXTwo ? pickLabel(scoreToOneXTwo(home, away)) : formatScore(home, away);
   }
 
   function startChangingTip() {
@@ -286,6 +300,27 @@ export default function MatchCard({
     });
   }
 
+  const homeScoreInput = (
+    <ScoreInput
+      value={homeScore}
+      onChange={setHomeScore}
+      onClear={() => setHomeScore(null)}
+      max={limit.max}
+      label={`${limit.unit} ${homeTeam.name}`}
+      className={scoreInputClass}
+    />
+  );
+  const awayScoreInput = (
+    <ScoreInput
+      value={awayScore}
+      onChange={setAwayScore}
+      onClear={() => setAwayScore(null)}
+      max={limit.max}
+      label={`${limit.unit} ${awayTeam.name}`}
+      className={scoreInputClass}
+    />
+  );
+
   return (
     <div className="relative isolate flex h-full flex-col overflow-hidden match-card-rand rounded-card border bg-surface">
       {/* Saison-Design: verblasstes Blatt hinter dem Karteninhalt. */}
@@ -328,45 +363,20 @@ export default function MatchCard({
             abgeschnitten zu werden. Zwei gleich breite Spalten + "vs" in der
             Mitte, Platz für zwei Zeilen reserviert -> alle Karten gleich hoch. */}
         <div className="mb-5 grid grid-cols-[1fr_auto_1fr] items-start gap-2 sm:gap-3">
-          <div className="flex min-w-0 flex-col items-center gap-1.5 self-stretch">
-            <TeamBadge
-              sport={match.sport}
-              primaryColor={homeTeam.primaryColor}
-              secondaryColor={homeTeam.secondaryColor}
-              jerseyStyle={homeTeam.jerseyStyle}
-              isNationalTeam={homeTeam.isNationalTeam}
-              countryCode={homeTeam.countryCode}
-              size={34}
-            />
-            <TeamLabel name={homeTeam.name} />
-            {isUsSport && <SideTag>Heim</SideTag>}
-          </div>
+          <TeamColumn sport={match.sport} team={leftTeam} tag={isUsSport ? "Gast" : null} />
           {finalScore ? (
             // Beendet: oben zwischen den Teams steht direkt der Endstand
             // (unten in der Karte steht er nicht mehr extra).
             <div className="flex flex-col items-center pt-0.5">
               <span className="whitespace-nowrap font-display text-2xl font-bold leading-tight text-ink">
-                {finalScore.home} : {finalScore.away}
+                {formatScore(finalScore.home, finalScore.away)}
               </span>
               <span className="text-[10px] uppercase tracking-wide text-muted">Endstand</span>
             </div>
           ) : (
-            <span className="pt-2 font-display text-xs text-muted sm:text-sm">vs</span>
+            <span className="pt-2 font-display text-xs text-muted sm:text-sm">{isUsSport ? "@" : "vs"}</span>
           )}
-          <div className="flex min-w-0 flex-col items-center gap-1.5 self-stretch">
-            <TeamBadge
-              sport={match.sport}
-              primaryColor={awayTeam.primaryColor}
-              secondaryColor={awayTeam.secondaryColor}
-              jerseyStyle={awayTeam.jerseyStyle}
-              isNationalTeam={awayTeam.isNationalTeam}
-              countryCode={awayTeam.countryCode}
-              flip
-              size={34}
-            />
-            <TeamLabel name={awayTeam.name} />
-            {isUsSport && <SideTag>Gast</SideTag>}
-          </div>
+          <TeamColumn sport={match.sport} team={rightTeam} tag={isUsSport ? "Heim" : null} flip />
         </div>
 
         {!showResultView && (
@@ -376,16 +386,11 @@ export default function MatchCard({
                 <span aria-hidden>⏰</span> Gleich geschlossen – jetzt noch schnell tippen!
               </p>
             )}
-            {isOneXTwo && (
-              <p className="mb-2 text-center text-xs text-muted">
-                {allowsDraw ? "Wer gewinnt? Oder Unentschieden?" : "Wer gewinnt? (Hier gibt es kein Unentschieden)"}
-              </p>
-            )}
             {isOneXTwo ? (
               // Knöpfe stehen direkt unter dem jeweiligen Team: links tippt
               // man das linke Team, rechts das rechte – ohne 1/2 zu kennen.
               <div className={`mb-5 grid items-stretch gap-2 ${allowsDraw ? "grid-cols-[1fr_auto_1fr]" : "grid-cols-2"}`}>
-                {(allowsDraw || nflPick === "X" ? (["1", "X", "2"] as OneXTwo[]) : (["1", "2"] as OneXTwo[])).map((option) => (
+                {oneXTwoOptions.map((option) => (
                   <button
                     key={option}
                     onClick={() => setNflPick(option)}
@@ -408,23 +413,19 @@ export default function MatchCard({
               </div>
             ) : (
               <div className="mb-5 flex items-center justify-center gap-3">
-                <ScoreInput
-                  value={homeScore}
-                  onChange={setHomeScore}
-                  onClear={() => setHomeScore(null)}
-                  max={limit.max}
-                  label={`${limit.unit} ${homeTeam.name}`}
-                  className={scoreInputClass}
-                />
-                <span className="font-display text-xl text-muted">:</span>
-                <ScoreInput
-                  value={awayScore}
-                  onChange={setAwayScore}
-                  onClear={() => setAwayScore(null)}
-                  max={limit.max}
-                  label={`${limit.unit} ${awayTeam.name}`}
-                  className={scoreInputClass}
-                />
+                {isUsSport ? (
+                  <>
+                    {awayScoreInput}
+                    <span className="font-display text-xl text-muted">:</span>
+                    {homeScoreInput}
+                  </>
+                ) : (
+                  <>
+                    {homeScoreInput}
+                    <span className="font-display text-xl text-muted">:</span>
+                    {awayScoreInput}
+                  </>
+                )}
               </div>
             )}
 
@@ -847,7 +848,7 @@ function ResultBox({ match, kickedOff }: { match: Match; kickedOff: boolean }) {
         <span className="flex h-2 w-2 animate-pulse rounded-full bg-action" />
         <span className="font-display text-sm font-semibold text-action">LIVE</span>
         <span className="font-display text-xl font-bold text-ink">
-          {match.liveHomeScore ?? 0} : {match.liveAwayScore ?? 0}
+          {displayOrder(match.sport, match.liveHomeScore ?? 0, match.liveAwayScore ?? 0).join(" : ")}
         </span>
       </div>
     );
@@ -884,6 +885,25 @@ function ResultBox({ match, kickedOff }: { match: Match; kickedOff: boolean }) {
 // Teamnamen brechen nur an Leerzeichen um, nie mitten im Wort (kein
 // "Le-/verkusen"). Passt ein langes Einzelwort wie "Mönchengladbach" nicht in
 // die Spalte, wird die Schrift schrittweise verkleinert, bis es passt.
+function TeamColumn({ sport, team, tag, flip = false }: { sport: Sport; team: Team; tag: string | null; flip?: boolean }) {
+  return (
+    <div className="flex min-w-0 flex-col items-center gap-1.5 self-stretch">
+      <TeamBadge
+        sport={sport}
+        primaryColor={team.primaryColor}
+        secondaryColor={team.secondaryColor}
+        jerseyStyle={team.jerseyStyle}
+        isNationalTeam={team.isNationalTeam}
+        countryCode={team.countryCode}
+        flip={flip}
+        size={34}
+      />
+      <TeamLabel name={team.name} />
+      {tag && <SideTag>{tag}</SideTag>}
+    </div>
+  );
+}
+
 function SideTag({ children }: { children: string }) {
   return (
     <span className="mt-auto rounded-full border border-edge px-2 py-px text-[10px] font-semibold uppercase tracking-wide text-muted">

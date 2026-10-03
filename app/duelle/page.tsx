@@ -9,6 +9,7 @@ import { xpForLevel } from "@/lib/seasonPass";
 import { Duel } from "@/lib/duelTypes";
 import { Team } from "@/lib/types";
 import { StarIcon } from "@/components/Icons";
+import { matchTitle } from "@/lib/teamOrder";
 
 export default function DuellePage() {
   const { freeStars, authUserId } = useUser();
@@ -138,7 +139,7 @@ export default function DuellePage() {
                   const away = getTeam(m.awayTeamId);
                   return (
                     <option key={m.id} value={m.id}>
-                      {home?.name ?? "?"} vs {away?.name ?? "?"}
+                      {matchTitle(m.sport, home?.name ?? "?", away?.name ?? "?")}
                     </option>
                   );
                 })}
@@ -208,7 +209,7 @@ function InviteRow({ duel, home, away }: { duel: Duel; home?: Team; away?: Team 
       <div>
         <p className="font-display text-sm font-semibold text-ink">{duel.challengerName} fordert dich heraus</p>
         <p className="text-xs text-muted">
-          {home?.name ?? "?"} vs {away?.name ?? "?"} · Einsatz{" "}
+          {matchTitle(home?.sport ?? "", home?.name ?? "?", away?.name ?? "?")} · Einsatz{" "}
           <span className="inline-flex items-center gap-1 text-gold">
             <StarIcon className="h-3 w-3" /> {duel.stake}
           </span>
@@ -281,7 +282,7 @@ function DuelRow({ duel, home, away }: { duel: Duel; home?: Team; away?: Team })
         </span>
       </div>
       <p className="text-xs text-muted">
-        {home?.name ?? "?"} vs {away?.name ?? "?"}
+        {matchTitle(home?.sport ?? "", home?.name ?? "?", away?.name ?? "?")}
       </p>
       {duel.status !== "ausgewertet" ? (
         <p className="mt-1.5 text-xs text-muted">{statusLabel[duel.status]}</p>

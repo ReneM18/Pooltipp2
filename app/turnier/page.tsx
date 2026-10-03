@@ -8,6 +8,7 @@ import { useUser } from "@/lib/UserContext";
 import { Tournament, TournamentStatus } from "@/lib/tournamentTypes";
 import { getTournamentStatus, useTournamentStandings } from "@/lib/tournamentLeaderboard";
 import { Sport } from "@/lib/types";
+import { matchTitle, scoreText } from "@/lib/teamOrder";
 
 const sportIcon: Record<Sport, string> = {
   "Fußball": "⚽",
@@ -185,11 +186,11 @@ function TournamentCard({
                 const away = getTeam(match.awayTeamId);
                 return (
                   <p key={match.id} className="text-xs leading-snug text-ink">
-                    {sportIcon[match.sport]} {home?.name ?? "?"} vs {away?.name ?? "?"}
+                    {sportIcon[match.sport]} {matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")}
                     {match.status === "finished" && (
                       <span className="text-muted">
                         {" "}
-                        ({match.liveHomeScore ?? 0}:{match.liveAwayScore ?? 0})
+                        ({scoreText(match.sport, match.liveHomeScore, match.liveAwayScore)})
                       </span>
                     )}
                   </p>
