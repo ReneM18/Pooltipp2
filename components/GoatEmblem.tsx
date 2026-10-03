@@ -1,11 +1,17 @@
 import { useId } from "react";
+import { SPORT_EMOJI } from "@/lib/rankTiers";
+import { Sport } from "@/lib/types";
 
 // GOAT-Abzeichen (einzige Stufe über Meister): goldener Ziegenkopf in
-// Seitenansicht auf einem goldenen Medaillon. Ein Glanz-Streifen wandert alle
-// paar Sekunden darüber, ab mittlerer Größe funkeln kleine Sterne drumherum.
+// Seitenansicht auf einem goldenen Medaillon, unten rechts eine goldene
+// Plakette mit dem Sportsymbol. Ein Glanz-Streifen wandert alle paar Sekunden
+// darüber, ab mittlerer Größe funkeln kleine Sterne drumherum.
+// "Unsterblich" (GOAT in allen Sportarten): dieselbe Ziege, um die die vier
+// Sportsymbole langsam kreisen.
 // Bei "Bewegung reduzieren" bleibt alles still (siehe .goat-fx in globals.css).
 
 const CLIP = "M20 1.5 A18.5 18.5 0 1 1 19.99 1.5 Z";
+const SPORTS = Object.keys(SPORT_EMOJI) as Sport[];
 
 // 4-zackiger Funkel-Stern um (cx, cy) mit Radius r.
 function sparklePath(cx: number, cy: number, r: number) {
@@ -19,16 +25,29 @@ const SPARKLES = [
   { x: 36, y: 30, r: 2, delay: "1.6s" },
 ];
 
-export default function GoatEmblem({ size }: { size: number }) {
-  const id = useId();
-  // Am Profilbild (klein) ohne Funkeln und ohne feine Innenlinie – wäre nur Unruhe.
-  const small = size < 24;
+function Sparkles() {
+  return (
+    <>
+      {SPARKLES.map((s, i) => (
+        <path
+          key={i}
+          className="goat-fx-sparkle"
+          d={sparklePath(s.x, s.y, s.r)}
+          fill="#FFFBEA"
+          style={{ animationDelay: s.delay, transformOrigin: `${s.x}px ${s.y}px` }}
+        />
+      ))}
+    </>
+  );
+}
+
+// Medaillon mit Ziegenkopf und Glanz-Streifen im 40er-Raster.
+function Medallion({ id, small, goatShift = 0 }: { id: string; small: boolean; goatShift?: number }) {
   const gold = `url(#${id}g)`;
   const stroke = "#5a3d05";
   const eye = "#1a1204";
-
   return (
-    <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden className="goat-fx shrink-0 overflow-visible">
+    <>
       <defs>
         <linearGradient id={`${id}g`} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor="#FFF3B0" />
@@ -55,7 +74,11 @@ export default function GoatEmblem({ size }: { size: number }) {
       )}
 
       <g clipPath={`url(#${id}clip)`}>
-        <g transform="translate(21.5 20.5) scale(0.9) translate(-20 -20)" strokeLinejoin="round" strokeLinecap="round">
+        <g
+          transform={`translate(${21.5 + goatShift} 20.5) scale(0.9) translate(-20 -20)`}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        >
           {/* Horn: setzt oben am Kopf an und schwingt weit nach hinten über den Nacken */}
           <path
             d="M21.6 13 C20.4 8.4 16.6 5.2 12 5.6 C8.6 6 6.4 9 7 12.8 C7.6 16 9.6 18.6 11.4 20.2 C10.4 17.2 10.2 13.6 11.6 11.4 C13.2 9.2 16.4 9.6 17.8 14.4 Z"
@@ -93,17 +116,81 @@ export default function GoatEmblem({ size }: { size: number }) {
           transform="rotate(20 20 20)"
         />
       </g>
+    </>
+  );
+}
 
-      {!small &&
-        SPARKLES.map((s, i) => (
-          <path
-            key={i}
-            className="goat-fx-sparkle"
-            d={sparklePath(s.x, s.y, s.r)}
-            fill="#FFFBEA"
-            style={{ animationDelay: s.delay, transformOrigin: `${s.x}px ${s.y}px` }}
-          />
-        ))}
+// Goldene Plakette mit Sportsymbol.
+function SportPlate({ sport, cx, cy, r }: { sport: Sport; cx: number; cy: number; r: number }) {
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={r} fill="#14110a" stroke="#FFD24A" strokeWidth={Math.min(1.8, r * 0.25)} />
+      <text x={cx} y={cy + r * 0.38} textAnchor="middle" fontSize={r * 1.15}>
+        {SPORT_EMOJI[sport]}
+      </text>
+    </g>
+  );
+}
+
+export default function GoatEmblem({ size, sport }: { size: number; sport?: Sport }) {
+  const id = useId();
+  // Am Profilbild (klein) ohne Funkeln und ohne feine Innenlinie – wäre nur Unruhe.
+  const small = size < 24;
+
+  return (
+    <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden className="goat-fx shrink-0 overflow-visible">
+      <Medallion id={id} small={small} goatShift={sport ? -1.5 : 0} />
+      {!small && <Sparkles />}
+      {sport && <SportPlate sport={sport} cx={31.5} cy={31.5} r={9} />}
+    </svg>
+  );
+}
+
+export function UnsterblichEmblem({ size }: { size: number }) {
+  const id = useId();
+  // Klein am Profilbild ohne kreisende Plaketten – dort wären sie nur Flecken.
+  // Die Plaketten sitzen auf dem Ring, damit das Abzeichen nicht größer wird
+  // als die anderen Rang-Icons.
+  const small = size < 24;
+  const plates = [
+    { x: 20, y: 3.6 },
+    { x: 36.4, y: 20 },
+    { x: 20, y: 36.4 },
+    { x: 3.6, y: 20 },
+  ];
+
+  return (
+    <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden className="goat-fx shrink-0 overflow-visible">
+      <defs>
+        <linearGradient id={`${id}r`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#FFE680" />
+          <stop offset="0.5" stopColor="#FFFFFF" />
+          <stop offset="1" stopColor="#B07A12" />
+        </linearGradient>
+      </defs>
+      <circle
+        className="goat-fx-spin"
+        cx="20"
+        cy="20"
+        r="19.4"
+        fill="none"
+        stroke={`url(#${id}r)`}
+        strokeWidth="1.6"
+        strokeDasharray="3 2"
+      />
+      <g transform={`translate(20 20) scale(${small ? 0.9 : 0.74}) translate(-20 -20)`}>
+        <Medallion id={id} small={small} />
+      </g>
+      {!small && (
+        <g className="goat-fx-spin">
+          {plates.map((p, i) => (
+            // Gegenläufig gedreht, damit die Sportsymbole aufrecht bleiben.
+            <g key={SPORTS[i]} className="goat-fx-spin-rev" style={{ transformOrigin: `${p.x}px ${p.y}px` }}>
+              <SportPlate sport={SPORTS[i]} cx={p.x} cy={p.y} r={4.6} />
+            </g>
+          ))}
+        </g>
+      )}
     </svg>
   );
 }

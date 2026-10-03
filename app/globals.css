@@ -246,6 +246,19 @@ input[type="range"].stake-slider::-moz-range-thumb {
   20% { opacity: 1; transform: scale(1); }
   40% { opacity: 0; transform: scale(0.3); }
 }
+/* Unsterblich: Ring und Sport-Plaketten kreisen langsam. */
+.goat-fx-spin {
+  animation: goat-spin 14s linear infinite;
+  transform-box: view-box;
+  transform-origin: 20px 20px;
+}
+.goat-fx-spin-rev {
+  animation: goat-spin 14s linear infinite reverse;
+  transform-box: view-box;
+}
+@keyframes goat-spin {
+  to { transform: rotate(360deg); }
+}
 @media (prefers-reduced-motion: reduce) {
   .goat-fx, .goat-fx * { animation: none !important; }
   .goat-fx-sparkle { opacity: 1; }
