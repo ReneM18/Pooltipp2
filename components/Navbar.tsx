@@ -40,10 +40,10 @@ export default function Navbar() {
   return (
     <header className="relative border-b border-edge bg-pitch/95 backdrop-blur">
       <SeasonDeco />
-      <div className="relative mx-auto flex max-w-3xl lg:max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:px-5 sm:py-4">
+      <div className="relative mx-auto flex max-w-3xl lg:max-w-6xl items-center justify-between gap-2 px-4 py-2.5 sm:px-5 sm:py-4">
         <Link
           href="/"
-          className="font-logo text-2xl font-bold tracking-wide text-ink transition-opacity hover:opacity-80 sm:text-3xl"
+          className="shrink-0 font-logo text-[22px] font-bold min-[380px]:text-2xl tracking-wide text-ink transition-opacity hover:opacity-80 sm:text-3xl"
         >
           Pool<span className="text-gold">Tipp</span>
         </Link>
@@ -109,7 +109,7 @@ export default function Navbar() {
               sehen stattdessen "Einloggen". Solange beim Laden noch nicht
               feststeht, wer da ist, bleibt der Platz leer. */}
           {!sessionChecked ? (
-            <span className="ml-0.5 h-8 w-8 shrink-0 sm:h-9 sm:w-9" aria-hidden />
+            <span className="ml-0.5 h-11 w-11 shrink-0" aria-hidden />
           ) : !isRegistered ? (
             <Link
               href="/registrieren"
@@ -118,9 +118,15 @@ export default function Navbar() {
               Einloggen
             </Link>
           ) : (
-            <Link href="/profil" className="relative ml-0.5 flex shrink-0 items-center">
-              <SeasonFrame size={32}>
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-sm font-semibold text-muted transition-colors hover:text-ink sm:h-9 sm:w-9 sm:text-base">
+            // Profilbild 40 px (mit Saison-Rahmen 46 px), die Tippfläche ist
+            // mindestens 44 px groß, damit man am Handy gut ins Profil kommt.
+            <Link
+              href="/profil"
+              title="Mein Profil"
+              className="relative ml-0.5 flex min-h-11 min-w-11 shrink-0 items-center justify-center"
+            >
+              <SeasonFrame size={40}>
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-base font-semibold text-muted transition-colors hover:text-ink">
                   {photos[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={photos[0]} alt="Profilbild" className="h-full w-full object-cover" />
