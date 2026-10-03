@@ -281,7 +281,7 @@ export default function MatchCard({
   }
 
   return (
-    <div className="relative isolate flex h-full flex-col overflow-hidden rounded-card border border-edge bg-surface">
+    <div className="relative isolate flex h-full flex-col overflow-hidden match-card-rand rounded-card border bg-surface">
       {/* Saison-Design: verblasstes Blatt hinter dem Karteninhalt. */}
       <SeasonCardWatermark variant={match.id.length + match.id.charCodeAt(match.id.length - 1)} />
       {/* Sport-Banner – immer genau eine Zeile (Spieltag steht unten bei der

@@ -116,7 +116,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-3 lg:gap-5">
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-3 lg:gap-5">
         {visibleMatches.length === 0 && (
           <p className="py-8 text-center text-sm text-muted lg:col-span-3">
             {tab === "offen" ? "Aktuell keine offenen Spiele." : "Noch keine beendeten Spiele."}

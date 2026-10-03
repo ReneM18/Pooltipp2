@@ -263,3 +263,14 @@ input[type="range"].stake-slider::-moz-range-thumb {
   .goat-fx, .goat-fx * { animation: none !important; }
   .goat-fx-sparkle { opacity: 1; }
 }
+
+/* Tipp-Karten: Umrandung in der Akzentfarbe, damit man am Handy sofort sieht,
+   wo eine Karte aufhört. Normal Gold, mit Saison-Design die Saisonfarbe. */
+.match-card-rand {
+  border-color: rgb(var(--c-gold) / 0.55);
+  box-shadow: 0 0 0 1px rgb(var(--c-gold) / 0.12), 0 6px 18px -10px rgb(0 0 0 / 0.6);
+}
+html[data-season-design] .match-card-rand {
+  border-color: rgb(var(--c-action) / 0.65);
+  box-shadow: 0 0 0 1px rgb(var(--c-action) / 0.14), 0 6px 18px -10px rgb(0 0 0 / 0.6);
+}
