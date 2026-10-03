@@ -332,7 +332,18 @@ export default function MatchCard({
             />
             <TeamLabel name={homeTeam.name} />
           </div>
-          <span className="pt-2 font-display text-xs text-muted sm:text-sm">vs</span>
+          {finalScore ? (
+            // Beendet: oben zwischen den Teams steht direkt der Endstand
+            // (unten in der Karte steht er nicht mehr extra).
+            <div className="flex flex-col items-center pt-0.5">
+              <span className="whitespace-nowrap font-display text-2xl font-bold leading-tight text-ink">
+                {finalScore.home} : {finalScore.away}
+              </span>
+              <span className="text-[10px] uppercase tracking-wide text-muted">Endstand</span>
+            </div>
+          ) : (
+            <span className="pt-2 font-display text-xs text-muted sm:text-sm">vs</span>
+          )}
           <div className="flex min-w-0 flex-col items-center gap-1.5">
             <TeamBadge
               sport={match.sport}
@@ -827,25 +838,20 @@ function ResultBox({ match, kickedOff }: { match: Match; kickedOff: boolean }) {
   }
 
   if (match.status === "finished") {
+    // Der Endstand steht oben zwischen den Teams; hier bleibt nur noch der
+    // Link zur Zusammenfassung (falls es einen gibt).
+    if (!match.summaryVideoUrl) return null;
     return (
-      <div className="flex flex-col items-center gap-2 rounded-lg border border-edge bg-pitch px-4 py-3">
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-muted">Endstand</span>
-          <span className="font-display text-xl font-bold text-ink">
-            {match.liveHomeScore ?? 0} : {match.liveAwayScore ?? 0}
-          </span>
-        </div>
-        {match.summaryVideoUrl && (
-          <a
-            href={match.summaryVideoUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF0000]/15 px-4 py-2 font-display text-sm font-semibold text-[#FF4d4d] shadow-[0_0_16px_rgba(255,0,0,0.15)] transition-all hover:bg-[#FF0000]/25 hover:shadow-[0_0_22px_rgba(255,0,0,0.3)]"
-          >
-            <PlayIcon className="h-4 w-4" />
-            Zusammenfassung ansehen
-          </a>
-        )}
+      <div className="flex flex-col items-center">
+        <a
+          href={match.summaryVideoUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF0000]/15 px-4 py-2 font-display text-sm font-semibold text-[#FF4d4d] shadow-[0_0_16px_rgba(255,0,0,0.15)] transition-all hover:bg-[#FF0000]/25 hover:shadow-[0_0_22px_rgba(255,0,0,0.3)]"
+        >
+          <PlayIcon className="h-4 w-4" />
+          Zusammenfassung ansehen
+        </a>
       </div>
     );
   }
