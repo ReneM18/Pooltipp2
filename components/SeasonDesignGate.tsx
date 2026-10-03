@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import { SEASON_THEME } from "@/lib/seasonTheme";
+import { CURRENT_SEASON } from "@/lib/seasons";
 import { applySeasonDesign, readSwitchedOff, rememberUnlocked, useSeasonDesignUnlock } from "@/lib/seasonDesign";
 
 // Schaltet das Saison-Design ein, sobald der Spieler das Level aus der
@@ -17,6 +18,7 @@ export default function SeasonDesignGate({ showNotice = true }: { showNotice?: b
   const { authUserId } = useUser();
   const unlock = useSeasonDesignUnlock();
   const [noticeVisible, setNoticeVisible] = useState(false);
+  const unlockLevel = CURRENT_SEASON.design?.unlockLevel ?? 1;
 
   useEffect(() => {
     if (unlock === "unknown") return;
@@ -75,9 +77,9 @@ export default function SeasonDesignGate({ showNotice = true }: { showNotice?: b
               Saison-Design freigeschaltet!
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Du hast im Saison-Pass genug Punkte gesammelt: Die App zeigt jetzt das Design „
-              {SEASON_THEME.name}“. Gefällt es dir nicht, kannst du es im Profil unter Einstellungen
-              ausschalten.
+              {unlockLevel > 1 ? "Du hast im Saison-Pass genug Punkte gesammelt: " : ""}Die App zeigt
+              jetzt das Design „{SEASON_THEME.name}“. Gefällt es dir nicht, kannst du es im Profil unter
+              Einstellungen ausschalten.
             </p>
             <Link
               href="/profil#einstellungen"
