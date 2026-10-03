@@ -1,5 +1,5 @@
 import { useId } from "react";
-import GoatEmblem from "@/components/GoatEmblem";
+import GoatEmblem, { UnsterblichEmblem } from "@/components/GoatEmblem";
 import { RANK_COLORS, RankName, SPORT_EMOJI, SubTier } from "@/lib/rankTiers";
 import { Sport } from "@/lib/types";
 
@@ -44,6 +44,7 @@ export default function RankEmblem({
   sport,
   elite,
   eliteIcon,
+  unsterblich,
   colors,
   size,
 }: {
@@ -53,22 +54,27 @@ export default function RankEmblem({
   /** Legende-Abzeichen (alle Sportarten mind. Gold): goldener Stern mit Symbol. */
   elite?: boolean;
   eliteIcon?: string;
+  /** Unsterblich (in allen Sportarten GOAT): Ziege mit kreisenden Sportsymbolen. */
+  unsterblich?: boolean;
   colors: { from: string; to: string; text: string };
   size: number;
 }) {
   const gradientId = useId();
-  const isGoat = !elite && rank === "GOAT";
+  const isGoat = !elite && !unsterblich && rank === "GOAT";
   const shape = elite || !rank || rank === "GOAT" ? STAR : SHAPES[rank];
   const c = !elite && rank ? RANK_COLORS[rank] : colors;
   // Sportart-Punkt erst ab mittlerer Größe – am Profilbild in der Kopfzeile
-  // wäre er nur ein unlesbarer Fleck.
-  const showSport = !elite && sport && size >= 24;
+  // wäre er nur ein unlesbarer Fleck. Der GOAT trägt sein Sportsymbol schon
+  // als Plakette im Abzeichen.
+  const showSport = !elite && !unsterblich && !isGoat && sport && size >= 24;
   const sportSize = Math.max(11, Math.round(size * 0.42));
 
   return (
     <span className="relative inline-flex shrink-0" style={{ width: size, height: size }}>
-      {isGoat ? (
-        <GoatEmblem size={size} />
+      {unsterblich ? (
+        <UnsterblichEmblem size={size} />
+      ) : isGoat ? (
+        <GoatEmblem size={size} sport={sport} />
       ) : (
         <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden className="overflow-visible">
           <defs>

@@ -29,6 +29,7 @@ export default function RankBadge({
         sub={option.sub}
         sport={option.sport}
         elite={isElite}
+        unsterblich={option.kind === "unsterblich"}
         eliteIcon={option.icon}
         colors={{ from: option.colorFrom, to: option.colorTo, text: option.colorText }}
         size={SIZES[size]}

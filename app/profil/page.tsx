@@ -8,7 +8,7 @@ import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useMyOverallRank } from "@/lib/myOverallRank";
 import RankBadge from "@/components/RankBadge";
-import { getAllRankIcons } from "@/lib/rankTiers";
+import { getAllRankIcons, isUnsterblich } from "@/lib/rankTiers";
 import RankProgress from "@/components/RankProgress";
 import SeasonFrame from "@/components/SeasonFrame";
 import RankMeaningBadge from "@/components/RankMeaningBadge";
@@ -310,7 +310,7 @@ function ProfilInhalt() {
                     </span>
                     <span className="min-w-0">
                       <span className={`block text-xs font-medium ${unlocked ? "text-ink" : "text-muted"}`}>
-                        {unlocked ? option.label : `🔒 ${option.kind === "elite" ? option.label : option.sport}`}
+                        {unlocked ? option.label : `🔒 ${option.kind === "sport" ? option.sport : option.label}`}
                       </span>
                       {!unlocked && <span className="block text-[11px] text-muted">{hint}</span>}
                     </span>
@@ -346,7 +346,11 @@ function ProfilInhalt() {
               </div>
 
               {selectedProgress && (
-                <RankProgress sport={selectedProgress.sport!} points={selectedProgress.points!} />
+                <RankProgress
+                  sport={selectedProgress.sport!}
+                  points={selectedProgress.points!}
+                  unsterblich={isUnsterblich(rangPunkte)}
+                />
               )}
             </section>
           )}

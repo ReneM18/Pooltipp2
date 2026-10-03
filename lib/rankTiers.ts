@@ -89,10 +89,10 @@ export function getNextTier(points: number): RankTierDef | null {
 }
 
 // Ein auswählbares Rang-Icon: entweder sportgebunden (Fußball Gold III, ...)
-// oder das sportartübergreifende Elite-Icon "Legende".
+// oder sportartübergreifend: "Legende" (elite) bzw. "Unsterblich" (ganz oben).
 export interface RankIconOption {
   id: string;
-  kind: "sport" | "elite";
+  kind: "sport" | "elite" | "unsterblich";
   sport?: Sport;
   label: string;
   icon: string;
@@ -138,6 +138,27 @@ function isElite(pointsBySport: Partial<Record<Sport, number>>): boolean {
   return (Object.keys(SPORT_EMOJI) as Sport[]).every((s) => (pointsBySport[s] ?? 0) >= ELITE_MIN_POINTS);
 }
 
+// Das allerhöchste Abzeichen "Unsterblich": in ALLEN Sportarten GOAT.
+export const GOAT_MIN_POINTS = RANK_LADDER.find((t) => t.rank === "GOAT")!.minPoints;
+const UNSTERBLICH_COLORS = { from: "#B07A12", to: "#FFFFFF", text: "#1a1204" };
+
+function unsterblichIcon(idSuffix = ""): RankIconOption {
+  return {
+    id: `unsterblich${idSuffix}`,
+    kind: "unsterblich",
+    label: "Unsterblich",
+    icon: "🐐",
+    colorFrom: UNSTERBLICH_COLORS.from,
+    colorTo: UNSTERBLICH_COLORS.to,
+    colorText: UNSTERBLICH_COLORS.text,
+    title: "GOAT in allen Sportarten",
+  };
+}
+
+export function isUnsterblich(pointsBySport: Partial<Record<Sport, number>>): boolean {
+  return (Object.keys(SPORT_EMOJI) as Sport[]).every((s) => (pointsBySport[s] ?? 0) >= GOAT_MIN_POINTS);
+}
+
 /**
  * Rang-Icons, die der eingeloggte Spieler im Profil auswählen kann – aus
  * seinen echten Rangpunkten: ein Icon pro Sportart, in der er schon Punkte
@@ -150,6 +171,7 @@ export function getAvailableRankIcons(pointsBySport: Partial<Record<Sport, numbe
     if (points > 0) options.push(getSportRankIcon(sport, points));
   }
   if (isElite(pointsBySport)) options.push(eliteIcon());
+  if (isUnsterblich(pointsBySport)) options.push(unsterblichIcon());
   return options;
 }
 
@@ -174,15 +196,27 @@ export function getAllRankIcons(
     unlocked: isElite(pointsBySport),
     hint: `Gold (${ELITE_MIN_POINTS.toLocaleString("de-DE")} P) in allen 4 Sportarten`,
   });
+  list.push({
+    option: unsterblichIcon(),
+    unlocked: isUnsterblich(pointsBySport),
+    hint: `GOAT (${GOAT_MIN_POINTS.toLocaleString("de-DE")} P) in allen 4 Sportarten`,
+  });
   return list;
 }
 
-/** Bestes verfügbares Icon (Elite > höchster Rang) – dient als Standardauswahl. */
+/**
+ * Bestes verfügbares Icon – dient als Standardauswahl. Reihenfolge:
+ * Unsterblich > GOAT (in irgendeiner Sportart) > Legende > höchster Rang.
+ * Der GOAT steht über der Legende, weil 9.000 Punkte in einer Sportart viel
+ * schwerer sind als Gold in allen vier.
+ */
 export function getBestRankIcon(options: RankIconOption[]): RankIconOption | null {
   if (options.length === 0) return null;
-  const elite = options.find((o) => o.kind === "elite");
-  if (elite) return elite;
-  return [...options].sort((a, b) => (b.points ?? 0) - (a.points ?? 0))[0];
+  const unsterblich = options.find((o) => o.kind === "unsterblich");
+  if (unsterblich) return unsterblich;
+  const best = [...options].filter((o) => o.kind === "sport").sort((a, b) => (b.points ?? 0) - (a.points ?? 0))[0];
+  if (best?.rank === "GOAT") return best;
+  return options.find((o) => o.kind === "elite") ?? best ?? null;
 }
 
 /** Rang-Icon für eine Sportart und einen echten Punktestand. */
@@ -206,9 +240,9 @@ export function getSportRankIcon(sport: Sport, points: number, idSuffix = ""): R
 }
 
 /**
- * Für die GESAMT-Rangliste, Spielerseite und Chat: Elite-Icon, wenn der
- * Spieler in allen Sportarten mindestens Gold ist, sonst das Icon seiner
- * stärksten Sportart, ganz ohne Punkte -> kein Icon.
+ * Für die GESAMT-Rangliste, Spielerseite und Chat: immer das stärkste
+ * Abzeichen (Unsterblich > GOAT > Legende > höchster Rang), ganz ohne
+ * Punkte -> kein Icon. Bei Gleichstand zählt die Reihenfolge der Sportarten.
  */
 export function getIconForPoints(
   pointsBySport: Partial<Record<Sport, number>>,
@@ -217,7 +251,9 @@ export function getIconForPoints(
   const sports = Object.keys(SPORT_EMOJI) as Sport[];
   const withPoints = sports.filter((s) => (pointsBySport[s] ?? 0) > 0);
   if (withPoints.length === 0) return null;
-  if (isElite(pointsBySport)) return eliteIcon(idSuffix);
+  if (isUnsterblich(pointsBySport)) return unsterblichIcon(idSuffix);
   const best = withPoints.reduce((a, b) => ((pointsBySport[b] ?? 0) > (pointsBySport[a] ?? 0) ? b : a));
-  return getSportRankIcon(best, pointsBySport[best] ?? 0, idSuffix);
+  const bestIcon = getSportRankIcon(best, pointsBySport[best] ?? 0, idSuffix);
+  if (bestIcon.rank !== "GOAT" && isElite(pointsBySport)) return eliteIcon(idSuffix);
+  return bestIcon;
 }
