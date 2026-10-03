@@ -63,8 +63,8 @@ interface MatchCardProps {
   onChangeTip?: (homeScore: number, awayScore: number) => void;
 }
 
-// NFL wird nur per 1X2 (Heimsieg / Unentschieden / Auswärtssieg) getippt,
-// nicht per genauem Ergebnis. Codierung als Score-Paar, damit der bestehende
+// 1X2-Spiele werden nur per Sieger (Sieg Heimteam / Unentschieden / Sieg
+// Auswärtsteam) getippt, nicht per genauem Ergebnis. Codierung als Score-Paar, damit der bestehende
 // Tipp-Datenfluss (predictedHomeScore/predictedAwayScore) unverändert bleibt:
 // "1" -> 1:0, "X" -> 0:0, "2" -> 0:1.
 type OneXTwo = "1" | "X" | "2";
@@ -81,12 +81,6 @@ function scoreToOneXTwo(home: number, away: number): OneXTwo {
   return "X";
 }
 
-const ONE_X_TWO_LABEL: Record<OneXTwo, string> = {
-  "1": "Heimsieg (1)",
-  X: "Unentschieden (X)",
-  "2": "Auswärtssieg (2)",
-};
-
 export default function MatchCard({
   match,
   homeTeam,
@@ -97,6 +91,10 @@ export default function MatchCard({
   onChangeTip,
 }: MatchCardProps) {
   const isOneXTwo = match.tipMode === "1x2";
+  // US-Sport: NBA und NHL kennen kein Unentschieden (Verlängerung bzw.
+  // Penaltyschießen bis zur Entscheidung), NFL nur ganz selten.
+  const isUsSport = match.sport === "NFL" || match.sport === "NBA" || match.sport === "NHL";
+  const allowsDraw = match.sport !== "NBA" && match.sport !== "NHL";
   const isCancelled = match.status === "cancelled";
   // Leer (null) statt 0: der Knopf wird erst aktiv, wenn beide Zahlen
   // bewusst eingetragen sind – sonst gab ein versehentliches Antippen 0:0 ab.
@@ -234,8 +232,16 @@ export default function MatchCard({
         )
       : null;
 
+  // 1X2 mit Teamnamen statt "Heimsieg (1)": eindeutig, egal auf welcher
+  // Seite das Heimteam steht. Gespeichert wird weiter 1:0 / 0:0 / 0:1.
+  function pickLabel(pick: OneXTwo) {
+    if (pick === "1") return `Sieg ${homeTeam.name}`;
+    if (pick === "2") return `Sieg ${awayTeam.name}`;
+    return "Unentschieden";
+  }
+
   function formatTip(home: number, away: number) {
-    return isOneXTwo ? ONE_X_TWO_LABEL[scoreToOneXTwo(home, away)] : `${home} : ${away}`;
+    return isOneXTwo ? pickLabel(scoreToOneXTwo(home, away)) : `${home} : ${away}`;
   }
 
   function startChangingTip() {
@@ -322,7 +328,7 @@ export default function MatchCard({
             abgeschnitten zu werden. Zwei gleich breite Spalten + "vs" in der
             Mitte, Platz für zwei Zeilen reserviert -> alle Karten gleich hoch. */}
         <div className="mb-5 grid grid-cols-[1fr_auto_1fr] items-start gap-2 sm:gap-3">
-          <div className="flex min-w-0 flex-col items-center gap-1.5">
+          <div className="flex min-w-0 flex-col items-center gap-1.5 self-stretch">
             <TeamBadge
               sport={match.sport}
               primaryColor={homeTeam.primaryColor}
@@ -333,6 +339,7 @@ export default function MatchCard({
               size={34}
             />
             <TeamLabel name={homeTeam.name} />
+            {isUsSport && <SideTag>Heim</SideTag>}
           </div>
           {finalScore ? (
             // Beendet: oben zwischen den Teams steht direkt der Endstand
@@ -346,7 +353,7 @@ export default function MatchCard({
           ) : (
             <span className="pt-2 font-display text-xs text-muted sm:text-sm">vs</span>
           )}
-          <div className="flex min-w-0 flex-col items-center gap-1.5">
+          <div className="flex min-w-0 flex-col items-center gap-1.5 self-stretch">
             <TeamBadge
               sport={match.sport}
               primaryColor={awayTeam.primaryColor}
@@ -358,6 +365,7 @@ export default function MatchCard({
               size={34}
             />
             <TeamLabel name={awayTeam.name} />
+            {isUsSport && <SideTag>Gast</SideTag>}
           </div>
         </div>
 
@@ -369,22 +377,32 @@ export default function MatchCard({
               </p>
             )}
             {isOneXTwo && (
-              <p className="mb-2 text-center text-xs text-muted">Wer gewinnt? Heimsieg (1), Unentschieden (X) oder Auswärtssieg (2)</p>
+              <p className="mb-2 text-center text-xs text-muted">
+                {allowsDraw ? "Wer gewinnt? Oder Unentschieden?" : "Wer gewinnt? (Hier gibt es kein Unentschieden)"}
+              </p>
             )}
             {isOneXTwo ? (
-              <div className="mb-5 flex items-center justify-center gap-2">
-                {(["1", "X", "2"] as OneXTwo[]).map((option) => (
+              // Knöpfe stehen direkt unter dem jeweiligen Team: links tippt
+              // man das linke Team, rechts das rechte – ohne 1/2 zu kennen.
+              <div className={`mb-5 grid items-stretch gap-2 ${allowsDraw ? "grid-cols-[1fr_auto_1fr]" : "grid-cols-2"}`}>
+                {(allowsDraw || nflPick === "X" ? (["1", "X", "2"] as OneXTwo[]) : (["1", "2"] as OneXTwo[])).map((option) => (
                   <button
                     key={option}
                     onClick={() => setNflPick(option)}
-                    aria-label={ONE_X_TWO_LABEL[option]}
-                    className={`flex h-12 w-16 flex-col items-center justify-center rounded-lg border font-display text-lg font-bold transition-colors ${
+                    aria-label={pickLabel(option)}
+                    aria-pressed={nflPick === option}
+                    className={`flex min-h-[3.5rem] min-w-0 flex-col items-center justify-center rounded-lg border px-2 py-1.5 text-center transition-colors ${
                       nflPick === option
                         ? "border-gold bg-gold/15 text-gold"
                         : "border-edge bg-pitch text-ink hover:border-muted"
                     }`}
                   >
-                    {option}
+                    <span className="font-display text-base font-bold leading-tight">
+                      {option === "X" ? "X" : "Sieg"}
+                    </span>
+                    <span className="text-xs leading-tight text-muted [hyphens:manual] [overflow-wrap:normal]">
+                      {option === "1" ? homeTeam.name : option === "2" ? awayTeam.name : "Remis"}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -486,7 +504,7 @@ export default function MatchCard({
               {submitting ? "Wird gespeichert…" : isChanging ? "Änderung speichern" : "Tipp abgeben"}
             </button>
             {missingPick && (
-              <p className="mt-2 text-center text-xs text-muted">Erst oben 1, X oder 2 antippen</p>
+              <p className="mt-2 text-center text-xs text-muted">Erst oben einen Sieger antippen</p>
             )}
             {missingScore && (
               <p className="mt-2 text-center text-xs text-muted">Erst oben beide Ergebnisse eintragen</p>
@@ -506,17 +524,13 @@ export default function MatchCard({
           <div className="flex flex-col gap-3">
             {hasTipped && (
               <div className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-pitch px-4 py-2.5">
-                <span className="flex items-center gap-1.5 text-sm text-muted">
+                <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-muted">
                   <span aria-hidden className="font-bold text-action-hover">✓</span>
                   Dein Tipp
                 </span>
-                <span className="flex items-center gap-3">
-                  <span className="font-display font-semibold text-ink">
-                    {isOneXTwo
-                      ? ONE_X_TWO_LABEL[
-                          scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore)
-                        ]
-                      : `${myTip!.predictedHomeScore} : ${myTip!.predictedAwayScore}`}
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="text-right font-display font-semibold leading-tight text-ink">
+                    {formatTip(myTip!.predictedHomeScore, myTip!.predictedAwayScore)}
                   </span>
                   {canChangeTip && (
                     <button
@@ -870,6 +884,14 @@ function ResultBox({ match, kickedOff }: { match: Match; kickedOff: boolean }) {
 // Teamnamen brechen nur an Leerzeichen um, nie mitten im Wort (kein
 // "Le-/verkusen"). Passt ein langes Einzelwort wie "Mönchengladbach" nicht in
 // die Spalte, wird die Schrift schrittweise verkleinert, bis es passt.
+function SideTag({ children }: { children: string }) {
+  return (
+    <span className="mt-auto rounded-full border border-edge px-2 py-px text-[10px] font-semibold uppercase tracking-wide text-muted">
+      {children}
+    </span>
+  );
+}
+
 function TeamLabel({ name }: { name: string }) {
   const ref = useRef<HTMLSpanElement>(null);
 

@@ -1291,7 +1291,7 @@ function MatchManager() {
                 className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
               >
                 <option value="score">Ergebnis-Tipp (z. B. 2:1)</option>
-                <option value="1x2">1X2 (Heimsieg / Unentschieden / Auswärtssieg)</option>
+                <option value="1x2">1X2 (Wer gewinnt? Knöpfe mit Teamnamen)</option>
               </select>
             </div>
           </div>
@@ -1421,7 +1421,12 @@ function MatchManager() {
                 {match.status !== "cancelled" && (
                   <>
                     <MatchDetailsEditor match={match} teams={teams} onSave={updateMatchDetails} />
-                    <LiveScoreEditor match={match} onUpdate={handleScoreUpdate} />
+                    <LiveScoreEditor
+                      match={match}
+                      homeName={home?.name ?? "Heimteam"}
+                      awayName={away?.name ?? "Auswärtsteam"}
+                      onUpdate={handleScoreUpdate}
+                    />
                     <MatchExtrasEditor
                       match={match}
                       onSaveTipMode={setTipMode}
@@ -1927,9 +1932,13 @@ function BonusQuestionEditor({
 // die Ausnahme für einen Live-Spielstand, der das Spiel noch nicht beendet.
 function LiveScoreEditor({
   match,
+  homeName,
+  awayName,
   onUpdate,
 }: {
   match: Match;
+  homeName: string;
+  awayName: string;
   onUpdate: (matchId: string, homeScore: number | null, awayScore: number | null, status: MatchStatus) => void;
 }) {
   const { showToast } = useFeedback();
@@ -1939,7 +1948,9 @@ function LiveScoreEditor({
 
   function handleFinish() {
     const verb = alreadyFinished ? "korrigieren" : "festlegen";
-    if (!confirm(`Endstand ${homeScore}:${awayScore} ${verb} und Tipps auswerten?`)) return;
+    // Mit Teamnamen, weil US-Ergebnisse meist den Gast zuerst nennen – ein
+    // vertauschter Endstand würde die ganze Wertung umdrehen.
+    if (!confirm(`Endstand ${homeName} ${homeScore} : ${awayScore} ${awayName} ${verb} und Tipps auswerten?`)) return;
     onUpdate(match.id, homeScore, awayScore, "finished");
     showToast("✓ Endstand gespeichert – Tipps wurden ausgewertet.", "gold");
   }
@@ -1951,21 +1962,32 @@ function LiveScoreEditor({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <ScoreInput
-        value={homeScore}
-        onChange={setHomeScore}
-        max={999}
-        label="Tore Heim"
-        className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2.5 text-center text-base text-ink outline-none focus:border-gold"
-      />
-      <span className="text-base text-muted">:</span>
-      <ScoreInput
-        value={awayScore}
-        onChange={setAwayScore}
-        max={999}
-        label="Tore Gast"
-        className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2.5 text-center text-base text-ink outline-none focus:border-gold"
-      />
+      {/* Teamnamen direkt über den Feldern: welches Feld zu welchem Team
+          gehört, ist so auch bei US-Spielen (dort steht der Gast meist
+          zuerst) eindeutig. */}
+      <div className="flex items-end gap-2">
+        <label className="flex w-24 flex-col items-center gap-1">
+          <span className="text-center text-xs font-semibold leading-tight text-muted [overflow-wrap:normal]">{homeName}</span>
+          <ScoreInput
+            value={homeScore}
+            onChange={setHomeScore}
+            max={999}
+            label={`Endstand ${homeName}`}
+            className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2.5 text-center text-base text-ink outline-none focus:border-gold"
+          />
+        </label>
+        <span className="pb-2.5 text-base text-muted">:</span>
+        <label className="flex w-24 flex-col items-center gap-1">
+          <span className="text-center text-xs font-semibold leading-tight text-muted [overflow-wrap:normal]">{awayName}</span>
+          <ScoreInput
+            value={awayScore}
+            onChange={setAwayScore}
+            max={999}
+            label={`Endstand ${awayName}`}
+            className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2.5 text-center text-base text-ink outline-none focus:border-gold"
+          />
+        </label>
+      </div>
       <button
         onClick={handleFinish}
         title={

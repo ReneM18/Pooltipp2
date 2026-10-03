@@ -647,10 +647,10 @@ function ProfilInhalt() {
                     Getippt:{" "}
                     {match.tipMode === "1x2"
                       ? tip.predictedHomeScore > tip.predictedAwayScore
-                        ? "1 (Heimsieg)"
+                        ? `Sieg ${homeTeam.name}`
                         : tip.predictedAwayScore > tip.predictedHomeScore
-                        ? "2 (Auswärtssieg)"
-                        : "X (Unentschieden)"
+                        ? `Sieg ${awayTeam.name}`
+                        : "Unentschieden"
                       : `${tip.predictedHomeScore}:${tip.predictedAwayScore}`}
                     {match.status === "finished" &&
                       ` · Endstand: ${match.liveHomeScore}:${match.liveAwayScore}`}{" "}
