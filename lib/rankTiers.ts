@@ -1,16 +1,18 @@
 import { Sport } from "@/lib/types";
 
-export type RankName = "Bronze" | "Silber" | "Gold" | "Platin" | "Diamant" | "Meister";
+export type RankName = "Bronze" | "Silber" | "Gold" | "Platin" | "Diamant" | "Meister" | "GOAT";
 export type SubTier = "III" | "II" | "I";
 
 export interface RankTierDef {
   rank: RankName;
-  sub: SubTier;
+  /** Unterstufe III/II/I – fehlt beim GOAT, der nur eine einzige Stufe hat. */
+  sub?: SubTier;
   minPoints: number;
 }
 
 // Fixe Punktegrenzen – gelten pro Sportart, unabhängig davon wie viele andere
-// User gerade mitspielen. 6 Ränge x 3 Unterstufen (III = niedrigste, I = höchste).
+// User gerade mitspielen. 6 Ränge x 3 Unterstufen (III = niedrigste, I = höchste),
+// darüber als einzelne Stufe der GOAT.
 export const RANK_LADDER: RankTierDef[] = [
   { rank: "Bronze", sub: "III", minPoints: 0 },
   { rank: "Bronze", sub: "II", minPoints: 100 },
@@ -30,6 +32,8 @@ export const RANK_LADDER: RankTierDef[] = [
   { rank: "Meister", sub: "III", minPoints: 5500 },
   { rank: "Meister", sub: "II", minPoints: 6400 },
   { rank: "Meister", sub: "I", minPoints: 7400 },
+  // Ganz oben: eine einzige Stufe, ohne III/II/I.
+  { rank: "GOAT", minPoints: 9000 },
 ];
 
 export const RANK_COLORS: Record<RankName, { from: string; to: string; text: string }> = {
@@ -41,6 +45,7 @@ export const RANK_COLORS: Record<RankName, { from: string; to: string; text: str
   // Feurig statt kühl – hebt sich bewusst von Diamants Blau/Lila ab, damit auf
   // einen Blick klar ist: das ist nochmal eine eigene, höhere Stufe.
   Meister: { from: "#F97316", to: "#DC2626", text: "#2a0800" },
+  GOAT: { from: "#B07A12", to: "#FFE680", text: "#1a1204" },
 };
 
 // Titel werden NICHT mehr über den Saison-Pass verteilt, sondern verdient
@@ -54,6 +59,7 @@ export const RANK_TITLES: Record<RankName, string> = {
   Platin: "VIP-Tipper",
   Diamant: "Unaufhaltbar",
   Meister: "Elite-Tipper",
+  GOAT: "Größter aller Zeiten",
 };
 
 export const SPORT_EMOJI: Record<Sport, string> = {
@@ -73,10 +79,10 @@ export function getTierForPoints(points: number): RankTierDef {
 }
 
 export function tierLabel(tier: RankTierDef): string {
-  return `${tier.rank} ${tier.sub}`;
+  return tier.sub ? `${tier.rank} ${tier.sub}` : tier.rank;
 }
 
-/** Die nächste Stufe nach den aktuellen Punkten, oder null wenn schon die höchste Stufe (Meister I) erreicht ist. */
+/** Die nächste Stufe nach den aktuellen Punkten, oder null wenn schon die höchste Stufe (GOAT) erreicht ist. */
 export function getNextTier(points: number): RankTierDef | null {
   const currentIndex = RANK_LADDER.findIndex((t) => t === getTierForPoints(points));
   return RANK_LADDER[currentIndex + 1] ?? null;
@@ -106,12 +112,9 @@ export interface RankIconOption {
 // ist ein gängiges "Legendary"-Farbschema (eine Stufe über den kühleren
 // Diamant-Blautönen) und bleibt trotzdem hell genug für den dunklen Text.
 const ELITE_COLORS = { from: "#FFD700", to: "#B694F6", text: "#241040" };
-// GOAT-Ziege statt Krone: die Krone steht in der App schon für "Premium"
-// (siehe Level 8 im Saison-Pass), ein zweites Krone-Symbol fürs Elite-
-// Rang-Icon war verwirrend doppelt belegt. GOAT ("Greatest Of All Time")
-// ist im Sport-Slang etabliert und passt inhaltlich zu "bester in allen
-// Sportarten zugleich".
-const ELITE_ICON = "🐐";
+// Pokal statt Krone (die steht schon für "Premium", Level 8 im Saison-Pass)
+// und statt Ziege (die gehört jetzt allein dem GOAT-Rang ganz oben).
+const ELITE_ICON = "🏆";
 
 // Das Elite-Icon (Legende) gibt es erst, wenn man in ALLEN
 // Sportarten mindestens Gold erreicht hat – vorher reichte schon 1 Punkt pro
