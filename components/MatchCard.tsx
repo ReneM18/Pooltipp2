@@ -254,6 +254,8 @@ export default function MatchCard({
     return pickNumber(match.sport, pick === "1" ? "home" : "away");
   }
 
+  const needsWideMiddle = !showResultView && isOneXTwo && oneXTwoOptions.includes("X");
+
   // Zeile der Tipp-Kästen im Team-Raster (unter dem "Gleich geschlossen"-Hinweis).
   const tipRow = closingSoon ? "row-start-3" : "row-start-2";
 
@@ -265,7 +267,7 @@ export default function MatchCard({
         onClick={() => setNflPick(option)}
         aria-label={pickLabel(option)}
         aria-pressed={nflPick === option}
-        className={`flex h-12 w-20 max-w-full items-center justify-center rounded-lg border text-center transition-colors ${
+        className={`flex h-12 w-[4.5rem] max-w-full items-center justify-center rounded-lg border text-center transition-colors ${
           nflPick === option
             ? "border-gold bg-gold/15 text-gold"
             : "border-edge bg-pitch text-ink hover:border-muted"
@@ -390,27 +392,28 @@ export default function MatchCard({
         {/* Teams: Wappen über dem Namen, Namen dürfen umbrechen statt
             abgeschnitten zu werden. Zwei gleich breite Spalten + feste Mitte,
             damit die Namen auf allen Karten gleich viel Platz haben.
-            Die Tipp-Kästen sitzen im selben Raster: links/rechts genau unter
-            dem Team, X bzw. ":" in der Kartenmitte (darf über die schmale
-            Mitte hinausragen, die Zeile hat sonst nichts darin). Mit Endstand
-            gibt es keine Kästen, dann ist die Mitte so breit wie das Ergebnis. */}
+            Die 1/X/2-Kästen sitzen im selben Raster: links/rechts genau unter
+            dem Team, X in der Kartenmitte (darf über die schmale Mitte
+            hinausragen, braucht dafür eine feste Mitte). Ergebnis-Felder stehen
+            als enges Paar mittig. Ohne X-Kasten ist die Mitte nur so breit wie
+            "vs" bzw. der Endstand, dann haben die Namen mehr Platz. */}
         <div
           className={`mb-5 grid items-start gap-x-2 gap-y-4 sm:gap-x-3 ${
-            finalScore ? "grid-cols-[1fr_auto_1fr]" : "grid-cols-[1fr_3rem_1fr] sm:grid-cols-[1fr_2rem_1fr]"
+            needsWideMiddle ? "grid-cols-[1fr_1rem_1fr] sm:grid-cols-[1fr_1.5rem_1fr]" : "grid-cols-[1fr_auto_1fr]"
           }`}
         >
           <TeamColumn sport={match.sport} team={leftTeam} tag={isUsSport ? "Gast" : "Heim"} />
           {finalScore ? (
             // Beendet: oben zwischen den Teams steht direkt der Endstand
             // (unten in der Karte steht er nicht mehr extra).
-            <div className="flex flex-col items-center pt-0.5">
+            <div className="flex flex-col items-center pt-1">
               <span className="whitespace-nowrap font-display text-2xl font-bold leading-tight text-ink">
                 {formatScore(finalScore.home, finalScore.away)}
               </span>
               <span className="text-[10px] uppercase tracking-wide text-muted">Endstand</span>
             </div>
           ) : (
-            <span className="justify-self-center pt-2 font-display text-xs text-muted sm:text-sm">vs</span>
+            <span className="justify-self-center pt-3 font-display text-xs text-muted sm:text-sm">vs</span>
           )}
           <TeamColumn sport={match.sport} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} flip />
 
@@ -422,19 +425,22 @@ export default function MatchCard({
 
           {!showResultView && (
             <>
-              <div className={`col-start-1 flex justify-center ${tipRow}`}>
-                {isOneXTwo ? pickButton(leftPick) : isUsSport ? awayScoreInput : homeScoreInput}
-              </div>
-              <div className={`col-span-3 col-start-1 flex h-12 items-center justify-center ${tipRow}`}>
-                {isOneXTwo ? (
-                  oneXTwoOptions.includes("X") && pickButton("X")
-                ) : (
+              {isOneXTwo ? (
+                <>
+                  <div className={`col-start-1 flex justify-center ${tipRow}`}>{pickButton(leftPick)}</div>
+                  <div className={`col-span-3 col-start-1 flex h-12 items-center justify-center ${tipRow}`}>
+                    {oneXTwoOptions.includes("X") && pickButton("X")}
+                  </div>
+                  <div className={`col-start-3 flex justify-center ${tipRow}`}>{pickButton(rightPick)}</div>
+                </>
+              ) : (
+                // Ergebnis-Tipp: beide Felder als enges Paar in der Kartenmitte.
+                <div className={`col-span-3 col-start-1 flex items-center justify-center gap-3 ${tipRow}`}>
+                  {isUsSport ? awayScoreInput : homeScoreInput}
                   <span className="font-display text-xl text-muted">:</span>
-                )}
-              </div>
-              <div className={`col-start-3 flex justify-center ${tipRow}`}>
-                {isOneXTwo ? pickButton(rightPick) : isUsSport ? homeScoreInput : awayScoreInput}
-              </div>
+                  {isUsSport ? homeScoreInput : awayScoreInput}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -924,7 +930,7 @@ function TeamColumn({ sport, team, tag, flip = false }: { sport: Sport; team: Te
         isNationalTeam={team.isNationalTeam}
         countryCode={team.countryCode}
         flip={flip}
-        size={34}
+        size={44}
       />
       {/* HEIM/GAST direkt unter dem Wappen: steht so bei beiden Teams auf
           gleicher Höhe, auch wenn ein Name zweizeilig ist. */}
@@ -973,4 +979,4 @@ function TeamLabel({ name }: { name: string }) {
 }
 
 const scoreInputClass =
-  "h-12 w-20 max-w-full rounded-lg border border-edge bg-pitch text-center font-display text-xl font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
+  "h-12 w-[4.5rem] max-w-full rounded-lg border border-edge bg-pitch text-center font-display text-xl font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
