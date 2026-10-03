@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useAppData, NewsItem } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
-import { NEWS_SPORT_ICONS as sportIcon } from "@/lib/types";
+import NewsSportIcon from "@/components/NewsSportIcon";
 
 export default function NewsTicker() {
   const { newsItems } = useAppData();
@@ -42,7 +42,7 @@ export default function NewsTicker() {
                 aria-hidden={isDuplicate || undefined}
                 className="flex shrink-0 items-center gap-1.5 whitespace-nowrap font-display text-sm font-semibold text-pitch transition-opacity hover:opacity-70"
               >
-                {item.sport && <span>{sportIcon[item.sport]}</span>}
+                {item.sport && <span><NewsSportIcon sport={item.sport} /></span>}
                 <span>{item.text}</span>
               </button>
             );
@@ -64,7 +64,7 @@ export default function NewsTicker() {
           >
             <div className="overflow-y-auto p-8">
               <div className="mb-4 flex items-center gap-3">
-                {selected.sport && <span className="text-3xl">{sportIcon[selected.sport]}</span>}
+                {selected.sport && <span className="text-3xl"><NewsSportIcon sport={selected.sport} /></span>}
                 <h2 className="font-display text-2xl font-bold leading-snug text-ink">
                   {selected.text}
                 </h2>
