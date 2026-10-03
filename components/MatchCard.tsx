@@ -369,7 +369,7 @@ export default function MatchCard({
             abgeschnitten zu werden. Zwei gleich breite Spalten + "vs" in der
             Mitte, Platz für zwei Zeilen reserviert -> alle Karten gleich hoch. */}
         <div className="mb-5 grid grid-cols-[1fr_auto_1fr] items-start gap-2 sm:gap-3">
-          <TeamColumn sport={match.sport} team={leftTeam} tag={isUsSport ? "Gast" : null} />
+          <TeamColumn sport={match.sport} team={leftTeam} tag={isUsSport ? "Gast" : "Heim"} />
           {finalScore ? (
             // Beendet: oben zwischen den Teams steht direkt der Endstand
             // (unten in der Karte steht er nicht mehr extra).
@@ -382,7 +382,7 @@ export default function MatchCard({
           ) : (
             <span className="pt-2 font-display text-xs text-muted sm:text-sm">vs</span>
           )}
-          <TeamColumn sport={match.sport} team={rightTeam} tag={isUsSport ? "Heim" : null} flip />
+          <TeamColumn sport={match.sport} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} flip />
         </div>
 
         {!showResultView && (
@@ -395,14 +395,14 @@ export default function MatchCard({
             {isOneXTwo ? (
               // Knöpfe stehen direkt unter dem jeweiligen Team: links tippt
               // man das linke Team, rechts das rechte – ohne 1/2 zu kennen.
-              <div className={`mb-5 grid items-stretch gap-2 ${allowsDraw ? "grid-cols-[1fr_auto_1fr]" : "grid-cols-2"}`}>
+              <div className={`mb-5 grid items-stretch gap-2 ${oneXTwoOptions.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
                 {oneXTwoOptions.map((option) => (
                   <button
                     key={option}
                     onClick={() => setNflPick(option)}
                     aria-label={pickLabel(option)}
                     aria-pressed={nflPick === option}
-                    className={`flex h-12 min-w-[4rem] flex-col items-center justify-center rounded-lg border px-2 text-center transition-colors ${
+                    className={`flex h-12 min-w-0 flex-col items-center justify-center rounded-lg border px-2 text-center transition-colors ${
                       nflPick === option
                         ? "border-gold bg-gold/15 text-gold"
                         : "border-edge bg-pitch text-ink hover:border-muted"
