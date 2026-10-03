@@ -2,13 +2,14 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { mockShopItems, ShopItem, SHOP_ENABLED } from "@/lib/mockShopItems";
+import { mockShopItems, ShopItem, SHOP_ENABLED, SHOP_PREVIEW } from "@/lib/mockShopItems";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 
 export default function ShopPage() {
-  if (!SHOP_ENABLED) return <ShopComingSoon />;
-  return <Shop />;
+  if (SHOP_ENABLED) return <Shop />;
+  if (SHOP_PREVIEW) return <ShopPreview />;
+  return <ShopComingSoon />;
 }
 
 function ShopComingSoon() {
@@ -23,6 +24,32 @@ function ShopComingSoon() {
       >
         Zu den Spielen
       </Link>
+    </main>
+  );
+}
+
+// Nur zum Anschauen: gleiche Karten wie im echten Shop, aber ohne Einlösen.
+// Es wird nichts gebucht und nichts gespeichert.
+function ShopPreview() {
+  return (
+    <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
+      <div className="mb-4">
+        <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Prämien-Shop</h1>
+        <p className="mt-0.5 text-xs text-muted">
+          Sterne gegen spielerische Vorteile – kein Echtgeld nötig.
+        </p>
+      </div>
+
+      <div className="mb-4 rounded-card border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-ink">
+        <span className="font-semibold text-gold">Vorschau:</span> So sieht der Shop später aus.
+        Einlösen ist noch gesperrt, es werden keine Sterne abgebucht.
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {mockShopItems.map((item) => (
+          <ShopItemCard key={item.id} item={item} canAfford={false} redeemed={false} preview />
+        ))}
+      </div>
     </main>
   );
 }
@@ -85,13 +112,15 @@ function ShopItemCard({
   canAfford,
   redeemed,
   onRedeem,
+  preview = false,
 }: {
   item: ShopItem;
   canAfford: boolean;
   redeemed: boolean;
-  onRedeem: () => void;
+  onRedeem?: () => void;
+  preview?: boolean;
 }) {
-  const disabled = redeemed || !canAfford;
+  const disabled = preview || redeemed || !canAfford;
 
   return (
     <div className="flex flex-col justify-between rounded-card border border-edge bg-surface p-5">
@@ -109,7 +138,7 @@ function ShopItemCard({
           disabled={disabled}
           className="rounded-full bg-action px-4 py-1.5 font-display text-sm font-semibold text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:bg-edge disabled:text-muted"
         >
-          {redeemed ? "Eingelöst" : canAfford ? "Einlösen" : "Zu wenig Sterne"}
+          {preview ? "Bald verfügbar" : redeemed ? "Eingelöst" : canAfford ? "Einlösen" : "Zu wenig Sterne"}
         </button>
       </div>
     </div>

@@ -6,7 +6,7 @@ import RankBadge from "@/components/RankBadge";
 import SeasonFrame from "@/components/SeasonFrame";
 import SeasonDeco from "@/components/SeasonDeco";
 import { useMyOverallRank } from "@/lib/myOverallRank";
-import { SHOP_ENABLED } from "@/lib/mockShopItems";
+import { SHOP_ENABLED, SHOP_PREVIEW } from "@/lib/mockShopItems";
 import { StarIcon, TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
 
 export default function Navbar() {
@@ -54,7 +54,7 @@ export default function Navbar() {
             und Ranglisten-Punkte) stehen jetzt bewusst zusammen direkt vorm
             Profilbild, statt durch den Warenkorb getrennt zu sein. */}
         <div className="flex items-center gap-1 sm:gap-3">
-          {SHOP_ENABLED && (
+          {(SHOP_ENABLED || SHOP_PREVIEW) && (
             <Link
               href="/shop"
               title="Prämien-Shop"

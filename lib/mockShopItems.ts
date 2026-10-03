@@ -3,6 +3,11 @@
 // Sobald die Joker wirklich etwas tun, hier auf true stellen.
 export const SHOP_ENABLED = false;
 
+// Vorschau: Warenkorb in der Kopfzeile ist wieder da und /shop zeigt alle
+// Joker mit Preis, aber Einlösen ist gesperrt (es werden keine Sterne
+// abgebucht). Mit SHOP_ENABLED = true wird der Shop wieder echt.
+export const SHOP_PREVIEW = true;
+
 export interface ShopItem {
   id: string;
   category: "In-Game";
