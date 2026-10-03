@@ -304,13 +304,13 @@ export default function MatchCard({
       </div>
 
       <div className="flex flex-1 flex-col p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-xs text-muted">
+        <div className="mb-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[15px] text-muted">
           {match.matchday ? <span className="font-semibold text-ink/80">Spieltag {match.matchday}</span> : null}
           {match.matchday ? <span aria-hidden>·</span> : null}
           <span>{kickoffLabel}</span>
           {match.tvChannel && (
-            <span className="flex items-center gap-1 rounded-full border border-edge bg-pitch px-2 py-0.5 text-[11px] font-semibold text-ink">
-              <TvIcon className="h-3 w-3 text-muted" />
+            <span className="flex items-center gap-1 rounded-full border border-edge bg-pitch px-2 py-0.5 text-[13px] font-semibold text-ink">
+              <TvIcon className="h-3.5 w-3.5 text-muted" />
               {match.tvChannel}
             </span>
           )}
