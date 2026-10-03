@@ -18,7 +18,7 @@ export default function RankMeaningBadge({
   popupAlign = "left",
 }: {
   option: RankIconOption;
-  size?: "xs" | "sm" | "md" | "lg";
+  size?: "2xs" | "xs" | "sm" | "md" | "lg";
   className?: string;
   popupAlign?: "left" | "right";
 }) {
