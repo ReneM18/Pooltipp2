@@ -25,8 +25,9 @@ export const HERBST_2026: SeasonData = {
   // Saison-Design Herbst (von Rene am 02.10.2026 ausgesucht): warmes
   // Dunkelbraun, Knöpfe orange, kräftige Laub-Deko, Nachrichtenstreifen orange.
   design: {
-    // Freigeschaltet mit Level 2 (zusammen mit den Herbst-Stickern).
-    unlockLevel: 2,
+    // Rene (03.10.2026): ab Level 1, also für jeden eingeloggten Spieler
+    // von Anfang an (Gäste sehen weiter das normale Grün).
+    unlockLevel: 1,
     // Rene (02.10.2026): nicht die ganze Seite braun, nur Akzente. Hinter-
     // grund, Karten, Ränder und Text bleiben deshalb im normalen Design
     // (dieselben Werte wie in app/globals.css :root); herbstlich sind nur
