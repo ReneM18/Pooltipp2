@@ -8,7 +8,6 @@ import { getAvailableRankIcons, getBestRankIcon, RankIconOption } from "@/lib/ra
 import { PhotoVisibility } from "@/lib/mockUsers";
 import { useAppData, SubmittedTip } from "@/lib/AppDataContext";
 import { Sport, SPORTS } from "@/lib/types";
-import { mockLeaderboardBySport } from "@/lib/mockLeaderboard";
 import { CURRENT_SEASON, seasonChangedSinceLoad, getPassHonors, splitClaimedMilestones, PassHonors } from "@/lib/seasons";
 import {
   DAILY_BONUS_STARS,
@@ -18,12 +17,10 @@ import {
   LOW_STARS_THRESHOLD,
 } from "@/lib/poolScore";
 
+// Start bei 0 statt Demo-Punkten: sonst zeigte die Kopfzeile kurz (oder
+// bei Gästen dauerhaft) Rang-Icons aus erfundenen Werten.
 function initialRangPunkte(): Record<Sport, number> {
-  const initial = {} as Record<Sport, number>;
-  for (const sport of SPORTS) {
-    initial[sport] = mockLeaderboardBySport[sport].find((e) => e.isCurrentUser)?.points ?? 0;
-  }
-  return initial;
+  return Object.fromEntries(SPORTS.map((s) => [s, 0])) as Record<Sport, number>;
 }
 
 function isSameDay(aIso: string, bIso: string): boolean {
@@ -351,8 +348,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   function applyWallet(wallet: WalletRow) {
     setFreeStars(wallet.free_stars);
     setStakeBudgetRemainingToday(wallet.stake_budget_remaining ?? DAILY_STAKE_BUDGET);
-    // Echte Konten starten bei 0: fehlt eine Sportart, steht dort 0 (nicht
-    // der Demo-Wert, der vor dem Login angezeigt wird).
+    // Fehlt eine Sportart, steht dort 0.
     setRangPunkte({
       ...(Object.fromEntries(SPORTS.map((s) => [s, 0])) as Record<Sport, number>),
       ...((wallet.rang_punkte as Partial<Record<Sport, number>> | null) ?? {}),
