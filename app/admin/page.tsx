@@ -1206,7 +1206,7 @@ function MatchManager() {
                   {previewHome?.name ?? "Heimteam"}
                 </span>
               </div>
-              <span className="font-display text-sm font-bold text-muted">{isAwayFirst(sport) ? "@" : "vs"}</span>
+              <span className="font-display text-sm font-bold text-muted">vs</span>
               <div className="flex flex-col items-center gap-1.5">
                 {previewAway ? (
                   <TeamBadge
@@ -1403,7 +1403,7 @@ function MatchManager() {
                     {scoreText(match.sport, match.liveHomeScore, match.liveAwayScore)}
                   </span>
                 ) : (
-                  <span className="shrink-0 font-display text-sm font-bold text-muted">{isAwayFirst(match.sport) ? "@" : "vs"}</span>
+                  <span className="shrink-0 font-display text-sm font-bold text-muted">vs</span>
                 )}
 
                 <div className="flex flex-1 flex-col items-center gap-1.5 sm:flex-row sm:justify-start sm:gap-3">
@@ -1941,7 +1941,7 @@ function BonusQuestionEditor({
 // Bei US-Sport steht im Feldnamen dazu, wo das Team später angezeigt wird.
 function teamFieldLabel(sport: string, side: "home" | "away") {
   if (!isAwayFirst(sport)) return side === "home" ? "Heimteam" : "Auswärtsteam";
-  return side === "home" ? "Heimteam (steht rechts, nach dem @)" : "Gastteam (steht links, vor dem @)";
+  return side === "home" ? "Heimteam (steht rechts)" : "Gastteam (steht links)";
 }
 
 function LiveScoreEditor({
