@@ -4,7 +4,9 @@ import { useEffect, useRef, useState, FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import { useUser, FriendEntry, PlayerSearchResult } from "@/lib/UserContext";
 import FitText from "@/components/FitText";
-import { TrashIcon } from "@/components/Icons";
+import { TrashIcon, ChatIcon } from "@/components/Icons";
+import { useChat } from "@/lib/ChatContext";
+import { supabase } from "@/lib/supabaseClient";
 
 const PRIMARY_BTN =
   "shrink-0 whitespace-nowrap rounded-full bg-action px-4 py-2 font-display text-xs font-semibold text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50";
@@ -76,6 +78,7 @@ export default function FreundePage() {
     respondFriendRequest,
     removeFriend,
   } = useUser();
+  const { openChat, chats } = useChat();
 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PlayerSearchResult[] | null>(null);
@@ -86,6 +89,26 @@ export default function FreundePage() {
   // Doppel-Klicks, solange die Datenbank noch antwortet.
   const [busyId, setBusyId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Blockierte Spieler (chat.sql) – hier kann man die Blockierung aufheben.
+  const [blocked, setBlocked] = useState<{ id: string; name: string; number: number }[]>([]);
+
+  async function loadBlocked() {
+    const { data, error } = await supabase.rpc("my_blocked");
+    if (error) return; // chat.sql noch nicht ausgeführt: einfach nichts zeigen
+    setBlocked(
+      ((data ?? []) as { other_id: string; display_name: string; user_number: number }[]).map((b) => ({
+        id: b.other_id,
+        name: b.display_name,
+        number: b.user_number,
+      }))
+    );
+  }
+
+  // Nach Freundschafts-Änderungen (z. B. Blockieren im Chat) neu laden.
+  useEffect(() => {
+    if (isRegistered) loadBlocked();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRegistered, friendEntries]);
   const searchRequestRef = useRef(0);
 
   async function runSearch(text: string) {
@@ -279,17 +302,28 @@ export default function FreundePage() {
         ) : (
           accepted.map((f) => (
             <PersonRow key={f.id} name={f.name} number={f.number} link>
+              <button onClick={() => openChat(f.id)} className={`${PRIMARY_BTN} relative flex items-center gap-1.5 !px-3.5`}>
+                <ChatIcon className="h-3.5 w-3.5" />
+                Schreiben
+                {(chats.find((c) => c.friendId === f.id)?.unread ?? 0) > 0 && (
+                  <span className="absolute -right-1 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-surface bg-red-500 px-1 text-[10px] font-bold text-white">
+                    {chats.find((c) => c.friendId === f.id)?.unread}
+                  </span>
+                )}
+              </button>
               <button
+                aria-label={`${f.name} entfernen`}
+                title="Entfernen"
                 disabled={busyId === f.id}
                 onClick={() => {
                   if (confirm(`${f.name} wirklich aus deiner Freundesliste entfernen?`)) {
                     act(f.id, () => removeFriend(f.id));
                   }
                 }}
-                className="flex items-center gap-1 px-1 py-1 text-xs text-muted transition-colors hover:text-red-400 disabled:opacity-50"
+                className="flex items-center gap-1 p-2 sm:px-1 sm:py-1 text-xs text-muted transition-colors hover:text-red-400 disabled:opacity-50"
               >
-                <TrashIcon className="h-3.5 w-3.5" />
-                Entfernen
+                <TrashIcon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                <span className="hidden sm:inline">Entfernen</span>
               </button>
             </PersonRow>
           ))
@@ -310,6 +344,28 @@ export default function FreundePage() {
                 onClick={() => act(f.id, () => removeFriend(f.id))}
               >
                 Zurückziehen
+              </button>
+            </PersonRow>
+          ))}
+        </Section>
+      )}
+      {blocked.length > 0 && (
+        <Section title="Blockiert">
+          {blocked.map((b) => (
+            <PersonRow key={b.id} name={b.name} number={b.number} muted>
+              <button
+                className={SECONDARY_BTN}
+                disabled={busyId === b.id}
+                onClick={() =>
+                  act(b.id, async () => {
+                    const { error } = await supabase.rpc("unblock_user", { p_other: b.id });
+                    if (error) return "Das hat gerade nicht geklappt. Versuch es nochmal.";
+                    await loadBlocked();
+                    return null;
+                  })
+                }
+              >
+                Freigeben
               </button>
             </PersonRow>
           ))}
