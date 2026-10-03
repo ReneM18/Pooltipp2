@@ -284,13 +284,15 @@ export default function MatchCard({
     <div className="relative isolate flex h-full flex-col overflow-hidden match-card-rand rounded-card border bg-surface">
       {/* Saison-Design: verblasstes Blatt hinter dem Karteninhalt. */}
       <SeasonCardWatermark variant={match.id.length + match.id.charCodeAt(match.id.length - 1)} />
-      {/* Sport-Banner – immer genau eine Zeile (Spieltag steht unten bei der
-          Anstoßzeit), damit alle Karten gleich hohe Köpfe haben. */}
+      {/* Sport-Banner (Spieltag steht unten bei der Anstoßzeit). Lange
+          Wettbewerbsnamen wie "NHL Regular Season" brechen an Leerzeichen in
+          eine zweite Zeile um statt abgeschnitten zu werden; der Countdown
+          bleibt rechts daneben. */}
       <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-surface-hover to-surface px-4 py-2.5 sm:gap-3 sm:px-5">
         <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-ink">
           <span className="shrink-0 text-lg">{sportIcon[match.sport] ?? ""}</span>
           {!homeTeam.isNationalTeam && <span className="shrink-0">{flagEmoji(homeTeam.countryCode)}</span>}
-          <span className="truncate">{match.competition}</span>
+          <span className="min-w-0 leading-tight">{match.competition}</span>
         </span>
         <span className="shrink-0 whitespace-nowrap text-xs font-medium">
           {isCancelled ? (
