@@ -16,6 +16,7 @@ import { useFeedback } from "@/lib/FeedbackContext";
 import { findDuplicateTeam } from "@/lib/teamName";
 import ScoreInput from "@/components/ScoreInput";
 import { competitionsForSport, findDuplicateCompetition } from "@/lib/competitions";
+import { displayOrder, isAwayFirst, matchTitle, scoreText } from "@/lib/teamOrder";
 
 type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news";
 
@@ -1083,7 +1084,7 @@ function MatchManager() {
 
     const homeName = getTeam(homeTeamId)?.name ?? "?";
     const awayName = getTeam(awayTeamId)?.name ?? "?";
-    if (!confirm(`Spiel "${homeName} vs ${awayName}" (${competition.trim()}) anlegen?`)) return;
+    if (!confirm(`Spiel "${matchTitle(sport, homeName, awayName)}" (${competition.trim()}) anlegen?`)) return;
 
     addMatch({
       sport,
@@ -1111,7 +1112,7 @@ function MatchManager() {
     setFixedStake("20");
     setTvChannelInput("");
     setTipModeInput("score");
-    showToast(`✓ Spiel "${homeName} vs ${awayName}" angelegt.`, "success");
+    showToast(`✓ Spiel "${matchTitle(sport, homeName, awayName)}" angelegt.`, "success");
   }
 
   const previewHome = teamsForSport.find((t) => t.id === homeTeamId);
@@ -1153,8 +1154,9 @@ function MatchManager() {
               <label className="mb-1.5 block text-sm text-muted">Wettbewerb</label>
               <CompetitionSelect sport={sport} value={competition} onChange={setCompetition} />
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm text-muted">Heimteam</label>
+            {/* US-Sport ("Gast @ Heim"): Gastteam-Feld zuerst, wie auf dem Spielplan. */}
+            <div className={isAwayFirst(sport) ? "order-1" : ""}>
+              <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(sport, "home")}</label>
               <TeamPicker
                 teams={teamsForSport}
                 value={homeTeamId}
@@ -1164,7 +1166,7 @@ function MatchManager() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm text-muted">Auswärtsteam</label>
+              <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(sport, "away")}</label>
               <TeamPicker
                 teams={teamsForSport}
                 value={awayTeamId}
@@ -1179,7 +1181,11 @@ function MatchManager() {
               die Trikot-/Helmfarben, statt sie sich aus dem Namen vorstellen
               zu müssen. */}
           {(previewHome || previewAway) && (
-            <div className="mt-3 flex items-center justify-center gap-4 rounded-lg border border-edge bg-pitch px-4 py-4">
+            <div
+              className={`mt-3 flex items-center justify-center gap-4 rounded-lg border border-edge bg-pitch px-4 py-4 ${
+                isAwayFirst(sport) ? "flex-row-reverse" : ""
+              }`}
+            >
               <div className="flex flex-col items-center gap-1.5">
                 {previewHome ? (
                   <TeamBadge
@@ -1200,7 +1206,7 @@ function MatchManager() {
                   {previewHome?.name ?? "Heimteam"}
                 </span>
               </div>
-              <span className="font-display text-sm font-bold text-muted">vs</span>
+              <span className="font-display text-sm font-bold text-muted">{isAwayFirst(sport) ? "@" : "vs"}</span>
               <div className="flex flex-col items-center gap-1.5">
                 {previewAway ? (
                   <TeamBadge
@@ -1353,6 +1359,8 @@ function MatchManager() {
               {visibleMatches.map((match) => {
                 const home = getTeam(match.homeTeamId);
                 const away = getTeam(match.awayTeamId);
+                // US-Sport: Gast links, Heim rechts (nur Anzeige).
+                const [left, right] = displayOrder(match.sport, home, away);
           return (
             <div key={match.id} className="rounded-card border border-edge bg-surface p-5 sm:p-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -1374,45 +1382,45 @@ function MatchManager() {
 
               <div className="mb-5 flex items-center justify-center gap-4 sm:gap-6">
                 <div className="flex flex-1 flex-col items-center gap-1.5 sm:flex-row sm:justify-end sm:gap-3">
-                  {home && (
+                  {left && (
                     <TeamBadge
-                      sport={home.sport}
-                      primaryColor={home.primaryColor}
-                      secondaryColor={home.secondaryColor}
-                      jerseyStyle={home.jerseyStyle}
-                      isNationalTeam={home.isNationalTeam}
-                      countryCode={home.countryCode}
+                      sport={left.sport}
+                      primaryColor={left.primaryColor}
+                      secondaryColor={left.secondaryColor}
+                      jerseyStyle={left.jerseyStyle}
+                      isNationalTeam={left.isNationalTeam}
+                      countryCode={left.countryCode}
                       size={40}
                     />
                   )}
                   <span className="max-w-[8rem] text-center text-sm font-semibold leading-tight text-ink sm:text-right">
-                    {home?.name ?? "?"}
+                    {left?.name ?? "?"}
                   </span>
                 </div>
 
                 {match.status === "finished" || match.status === "live" ? (
                   <span className="shrink-0 font-display text-xl font-bold text-ink">
-                    {match.liveHomeScore ?? 0}:{match.liveAwayScore ?? 0}
+                    {scoreText(match.sport, match.liveHomeScore, match.liveAwayScore)}
                   </span>
                 ) : (
-                  <span className="shrink-0 font-display text-sm font-bold text-muted">vs</span>
+                  <span className="shrink-0 font-display text-sm font-bold text-muted">{isAwayFirst(match.sport) ? "@" : "vs"}</span>
                 )}
 
                 <div className="flex flex-1 flex-col items-center gap-1.5 sm:flex-row sm:justify-start sm:gap-3">
-                  {away && (
+                  {right && (
                     <TeamBadge
-                      sport={away.sport}
-                      primaryColor={away.primaryColor}
-                      secondaryColor={away.secondaryColor}
-                      jerseyStyle={away.jerseyStyle}
-                      isNationalTeam={away.isNationalTeam}
-                      countryCode={away.countryCode}
+                      sport={right.sport}
+                      primaryColor={right.primaryColor}
+                      secondaryColor={right.secondaryColor}
+                      jerseyStyle={right.jerseyStyle}
+                      isNationalTeam={right.isNationalTeam}
+                      countryCode={right.countryCode}
                       flip
                       size={40}
                     />
                   )}
                   <span className="max-w-[8rem] text-center text-sm font-semibold leading-tight text-ink sm:text-left">
-                    {away?.name ?? "?"}
+                    {right?.name ?? "?"}
                   </span>
                 </div>
               </div>
@@ -1441,7 +1449,7 @@ function MatchManager() {
                     onClick={async () => {
                       if (
                         !confirm(
-                          `Spiel "${home?.name ?? "?"} vs ${away?.name ?? "?"}" absagen?\n\n` +
+                          `Spiel "${matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")}" absagen?\n\n` +
                             "Alle Spieler bekommen ihren Einsatz zurück, das Spiel wird nicht gewertet. " +
                             "Das lässt sich nicht rückgängig machen."
                         )
@@ -1470,7 +1478,7 @@ function MatchManager() {
                       match.status === "finished" || match.status === "cancelled"
                         ? ""
                         : "\n\nWer schon getippt hat, bekommt seinen Einsatz automatisch zurück.";
-                    if (confirm(`Spiel "${home?.name ?? "?"} vs ${away?.name ?? "?"}" wirklich entfernen?${refundNote}`)) {
+                    if (confirm(`Spiel "${matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")}" wirklich entfernen?${refundNote}`)) {
                       removeMatch(match.id);
                       showToast("✓ Spiel entfernt.", "info");
                     }
@@ -1671,7 +1679,7 @@ function MatchDetailsEditor({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm text-muted">Heimteam</label>
+              <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(match.sport, "home")}</label>
               <TeamPicker
                 teams={teamsForSport}
                 value={homeTeamId}
@@ -1681,7 +1689,7 @@ function MatchDetailsEditor({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm text-muted">Auswärtsteam</label>
+              <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(match.sport, "away")}</label>
               <TeamPicker
                 teams={teamsForSport}
                 value={awayTeamId}
@@ -1930,6 +1938,12 @@ function BonusQuestionEditor({
 // "Spiel beenden" ist die Standard-Aktion und macht sofort, was der Name
 // sagt – Endstand setzen UND auswerten. "Nur Zwischenstand speichern" ist
 // die Ausnahme für einen Live-Spielstand, der das Spiel noch nicht beendet.
+// Bei US-Sport steht im Feldnamen dazu, wo das Team später angezeigt wird.
+function teamFieldLabel(sport: string, side: "home" | "away") {
+  if (!isAwayFirst(sport)) return side === "home" ? "Heimteam" : "Auswärtsteam";
+  return side === "home" ? "Heimteam (steht rechts, nach dem @)" : "Gastteam (steht links, vor dem @)";
+}
+
 function LiveScoreEditor({
   match,
   homeName,
@@ -1950,10 +1964,38 @@ function LiveScoreEditor({
     const verb = alreadyFinished ? "korrigieren" : "festlegen";
     // Mit Teamnamen, weil US-Ergebnisse meist den Gast zuerst nennen – ein
     // vertauschter Endstand würde die ganze Wertung umdrehen.
-    if (!confirm(`Endstand ${homeName} ${homeScore} : ${awayScore} ${awayName} ${verb} und Tipps auswerten?`)) return;
+    const scoreLine = isAwayFirst(match.sport)
+      ? `${awayName} ${awayScore} : ${homeScore} ${homeName}`
+      : `${homeName} ${homeScore} : ${awayScore} ${awayName}`;
+    if (!confirm(`Endstand ${scoreLine} ${verb} und Tipps auswerten?`)) return;
     onUpdate(match.id, homeScore, awayScore, "finished");
     showToast("✓ Endstand gespeichert – Tipps wurden ausgewertet.", "gold");
   }
+
+  const homeField = (
+    <label className="flex w-24 flex-col items-center gap-1">
+      <span className="text-center text-xs font-semibold leading-tight text-muted [overflow-wrap:normal]">{homeName}</span>
+      <ScoreInput
+        value={homeScore}
+        onChange={setHomeScore}
+        max={999}
+        label={`Endstand ${homeName}`}
+        className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2.5 text-center text-base text-ink outline-none focus:border-gold"
+      />
+    </label>
+  );
+  const awayField = (
+    <label className="flex w-24 flex-col items-center gap-1">
+      <span className="text-center text-xs font-semibold leading-tight text-muted [overflow-wrap:normal]">{awayName}</span>
+      <ScoreInput
+        value={awayScore}
+        onChange={setAwayScore}
+        max={999}
+        label={`Endstand ${awayName}`}
+        className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2.5 text-center text-base text-ink outline-none focus:border-gold"
+      />
+    </label>
+  );
 
   function handleSaveLive() {
     onUpdate(match.id, homeScore, awayScore, "live");
@@ -1966,27 +2008,19 @@ function LiveScoreEditor({
           gehört, ist so auch bei US-Spielen (dort steht der Gast meist
           zuerst) eindeutig. */}
       <div className="flex items-end gap-2">
-        <label className="flex w-24 flex-col items-center gap-1">
-          <span className="text-center text-xs font-semibold leading-tight text-muted [overflow-wrap:normal]">{homeName}</span>
-          <ScoreInput
-            value={homeScore}
-            onChange={setHomeScore}
-            max={999}
-            label={`Endstand ${homeName}`}
-            className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2.5 text-center text-base text-ink outline-none focus:border-gold"
-          />
-        </label>
-        <span className="pb-2.5 text-base text-muted">:</span>
-        <label className="flex w-24 flex-col items-center gap-1">
-          <span className="text-center text-xs font-semibold leading-tight text-muted [overflow-wrap:normal]">{awayName}</span>
-          <ScoreInput
-            value={awayScore}
-            onChange={setAwayScore}
-            max={999}
-            label={`Endstand ${awayName}`}
-            className="w-16 rounded-lg border border-edge bg-pitch px-2 py-2.5 text-center text-base text-ink outline-none focus:border-gold"
-          />
-        </label>
+        {isAwayFirst(match.sport) ? (
+          <>
+            {awayField}
+            <span className="pb-2.5 text-base text-muted">:</span>
+            {homeField}
+          </>
+        ) : (
+          <>
+            {homeField}
+            <span className="pb-2.5 text-base text-muted">:</span>
+            {awayField}
+          </>
+        )}
       </div>
       <button
         onClick={handleFinish}
@@ -2306,7 +2340,7 @@ function TournamentRow({
                 <input type="checkbox" checked={checked} onChange={() => toggleMatch(match.id)} />
                 <span>{sportIcon[match.sport]}</span>
                 <span className="min-w-0 flex-1 truncate">
-                  {home?.name ?? "?"} vs {away?.name ?? "?"}
+                  {matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")}
                 </span>
                 <span className="shrink-0 text-muted">{new Date(match.kickoff).toLocaleDateString("de-DE")}</span>
               </label>
