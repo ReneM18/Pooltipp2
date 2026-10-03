@@ -254,6 +254,28 @@ export default function MatchCard({
     return pickNumber(match.sport, pick === "1" ? "home" : "away");
   }
 
+  // Zeile der Tipp-Kästen im Team-Raster (unter dem "Gleich geschlossen"-Hinweis).
+  const tipRow = closingSoon ? "row-start-3" : "row-start-2";
+
+  // Gleich großer Kasten wie die Ergebnis-Felder, sitzt im Team-Raster.
+  function pickButton(option: OneXTwo) {
+    return (
+      <button
+        key={option}
+        onClick={() => setNflPick(option)}
+        aria-label={pickLabel(option)}
+        aria-pressed={nflPick === option}
+        className={`flex h-12 w-20 max-w-full items-center justify-center rounded-lg border text-center transition-colors ${
+          nflPick === option
+            ? "border-gold bg-gold/15 text-gold"
+            : "border-edge bg-pitch text-ink hover:border-muted"
+        }`}
+      >
+        <span className="font-display text-xl font-bold leading-tight">{pickButtonNumber(option)}</span>
+      </button>
+    );
+  }
+
   // Ergebnis in Anzeige-Reihenfolge (bei US-Sport Gast : Heim).
   function formatScore(home: number, away: number) {
     const [left, right] = displayOrder(match.sport, home, away);
@@ -366,9 +388,17 @@ export default function MatchCard({
         </div>
 
         {/* Teams: Wappen über dem Namen, Namen dürfen umbrechen statt
-            abgeschnitten zu werden. Zwei gleich breite Spalten + "vs" in der
-            Mitte, Platz für zwei Zeilen reserviert -> alle Karten gleich hoch. */}
-        <div className="mb-5 grid grid-cols-[1fr_auto_1fr] items-start gap-2 sm:gap-3">
+            abgeschnitten zu werden. Zwei gleich breite Spalten + feste Mitte,
+            damit die Namen auf allen Karten gleich viel Platz haben.
+            Die Tipp-Kästen sitzen im selben Raster: links/rechts genau unter
+            dem Team, X bzw. ":" in der Kartenmitte (darf über die schmale
+            Mitte hinausragen, die Zeile hat sonst nichts darin). Mit Endstand
+            gibt es keine Kästen, dann ist die Mitte so breit wie das Ergebnis. */}
+        <div
+          className={`mb-5 grid items-start gap-x-2 gap-y-4 sm:gap-x-3 ${
+            finalScore ? "grid-cols-[1fr_auto_1fr]" : "grid-cols-[1fr_3rem_1fr] sm:grid-cols-[1fr_2rem_1fr]"
+          }`}
+        >
           <TeamColumn sport={match.sport} team={leftTeam} tag={isUsSport ? "Gast" : "Heim"} />
           {finalScore ? (
             // Beendet: oben zwischen den Teams steht direkt der Endstand
@@ -380,60 +410,37 @@ export default function MatchCard({
               <span className="text-[10px] uppercase tracking-wide text-muted">Endstand</span>
             </div>
           ) : (
-            <span className="pt-2 font-display text-xs text-muted sm:text-sm">vs</span>
+            <span className="justify-self-center pt-2 font-display text-xs text-muted sm:text-sm">vs</span>
           )}
           <TeamColumn sport={match.sport} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} flip />
+
+          {!showResultView && closingSoon && (
+            <p className="col-span-3 row-start-2 -mb-1 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">
+              <span aria-hidden>⏰</span> Gleich geschlossen – jetzt noch schnell tippen!
+            </p>
+          )}
+
+          {!showResultView && (
+            <>
+              <div className={`col-start-1 flex justify-center ${tipRow}`}>
+                {isOneXTwo ? pickButton(leftPick) : isUsSport ? awayScoreInput : homeScoreInput}
+              </div>
+              <div className={`col-span-3 col-start-1 flex h-12 items-center justify-center ${tipRow}`}>
+                {isOneXTwo ? (
+                  oneXTwoOptions.includes("X") && pickButton("X")
+                ) : (
+                  <span className="font-display text-xl text-muted">:</span>
+                )}
+              </div>
+              <div className={`col-start-3 flex justify-center ${tipRow}`}>
+                {isOneXTwo ? pickButton(rightPick) : isUsSport ? homeScoreInput : awayScoreInput}
+              </div>
+            </>
+          )}
         </div>
 
         {!showResultView && (
           <>
-            {closingSoon && (
-              <p className="mb-3 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">
-                <span aria-hidden>⏰</span> Gleich geschlossen – jetzt noch schnell tippen!
-              </p>
-            )}
-            {isOneXTwo ? (
-              // Tipp-Zone: feste, gleich große Kästen (wie die Ergebnis-Felder),
-              // mittig unter den Teams statt bis an den Kartenrand.
-              <div className="mb-5 flex justify-center gap-2">
-                {oneXTwoOptions.map((option) => (
-                  <button
-                    key={option}
-                    onClick={() => setNflPick(option)}
-                    aria-label={pickLabel(option)}
-                    aria-pressed={nflPick === option}
-                    className={`flex h-12 w-20 flex-col items-center justify-center rounded-lg border text-center transition-colors ${
-                      nflPick === option
-                        ? "border-gold bg-gold/15 text-gold"
-                        : "border-edge bg-pitch text-ink hover:border-muted"
-                    }`}
-                  >
-                    <span className="font-display text-xl font-bold leading-tight">
-                      {pickButtonNumber(option)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              // Gleich große Kästen wie die 1 / X / 2-Knöpfe, eng um den
-              // Doppelpunkt, mittig unter den Teams.
-              <div className="mb-5 flex items-center justify-center gap-3">
-                {isUsSport ? (
-                  <>
-                    {awayScoreInput}
-                    <span className="font-display text-xl text-muted">:</span>
-                    {homeScoreInput}
-                  </>
-                ) : (
-                  <>
-                    {homeScoreInput}
-                    <span className="font-display text-xl text-muted">:</span>
-                    {awayScoreInput}
-                  </>
-                )}
-              </div>
-            )}
-
             {match.bonusQuestion && (
               <div className="mb-5 rounded-lg border border-gold/30 bg-gold/5 px-4 py-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
@@ -966,4 +973,4 @@ function TeamLabel({ name }: { name: string }) {
 }
 
 const scoreInputClass =
-  "h-12 w-20 rounded-lg border border-edge bg-pitch text-center font-display text-xl font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
+  "h-12 w-20 max-w-full rounded-lg border border-edge bg-pitch text-center font-display text-xl font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
