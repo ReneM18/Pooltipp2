@@ -369,7 +369,7 @@ export default function MatchCard({
             abgeschnitten zu werden. Zwei gleich breite Spalten + "vs" in der
             Mitte, Platz für zwei Zeilen reserviert -> alle Karten gleich hoch. */}
         <div className="mb-5 grid grid-cols-[1fr_auto_1fr] items-start gap-2 sm:gap-3">
-          <TeamColumn sport={match.sport} team={leftTeam} tag={isUsSport ? "Gast" : null} />
+          <TeamColumn sport={match.sport} team={leftTeam} tag={isUsSport ? "Gast" : "Heim"} />
           {finalScore ? (
             // Beendet: oben zwischen den Teams steht direkt der Endstand
             // (unten in der Karte steht er nicht mehr extra).
@@ -382,7 +382,7 @@ export default function MatchCard({
           ) : (
             <span className="pt-2 font-display text-xs text-muted sm:text-sm">vs</span>
           )}
-          <TeamColumn sport={match.sport} team={rightTeam} tag={isUsSport ? "Heim" : null} flip />
+          <TeamColumn sport={match.sport} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} flip />
         </div>
 
         {!showResultView && (
