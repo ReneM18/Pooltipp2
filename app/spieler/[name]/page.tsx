@@ -43,8 +43,8 @@ export default function SpielerProfilPage() {
               nicht zusätzlich als Text daneben, sondern poppt bei
               Hover/Antippen auf genau diesem Icon auf. */}
           {rankIcon && (
-            <span className="absolute -bottom-2 -right-2 rounded-full">
-              <RankMeaningBadge option={rankIcon} size="md" />
+            <span className="absolute -bottom-1 -right-1.5 rounded-full">
+              <RankMeaningBadge option={rankIcon} size="xs" />
             </span>
           )}
         </div>

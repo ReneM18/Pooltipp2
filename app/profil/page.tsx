@@ -222,8 +222,8 @@ function ProfilInhalt() {
               mehr weiter unten. Bewusst ohne Rahmen um das Icon – wirkte als
               dunkler Ring auf dem Profilbild optisch wie ein Fremdkörper. */}
           {activeRankIcon && (
-            <span className="absolute -bottom-2 -right-2 rounded-full">
-              <RankMeaningBadge option={activeRankIcon} size="md" />
+            <span className="absolute -bottom-1 -right-1.5 rounded-full">
+              <RankMeaningBadge option={activeRankIcon} size="xs" />
             </span>
           )}
         </div>

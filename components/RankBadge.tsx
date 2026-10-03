@@ -1,9 +1,11 @@
 import { RankIconOption } from "@/lib/rankTiers";
 import RankEmblem from "@/components/RankEmblem";
 
-// Größen in Pixel. "xs" sitzt als kleines Abzeichen am Profilbild (Kopfzeile)
-// und muss trotzdem noch klar erkennbar bleiben.
+// Größen in Pixel. "2xs" und "xs" sitzen als kleines Abzeichen in der Ecke
+// eines Profilbilds (Kopfzeile bzw. Profil/Spielerseite) – bewusst klein,
+// damit Foto oder Buchstabe gut sichtbar bleiben.
 const SIZES = {
+  "2xs": 15,
   xs: 20,
   sm: 28,
   md: 36,
@@ -15,7 +17,7 @@ export default function RankBadge({
   size = "md",
 }: {
   option: RankIconOption | null | undefined;
-  size?: "xs" | "sm" | "md" | "lg";
+  size?: keyof typeof SIZES;
 }) {
   if (!option) return null;
   const isElite = option.kind === "elite";
