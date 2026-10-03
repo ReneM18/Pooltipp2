@@ -1,13 +1,13 @@
 import { RankIconOption } from "@/lib/rankTiers";
+import RankEmblem from "@/components/RankEmblem";
 
-// Größer als früher (v.a. "xs"), damit das Icon als kleines Abzeichen auf
-// einem Profilbild noch klar erkennbar bleibt statt nur ein winziger,
-// verschwommener Punkt zu sein.
+// Größen in Pixel. "xs" sitzt als kleines Abzeichen am Profilbild (Kopfzeile)
+// und muss trotzdem noch klar erkennbar bleiben.
 const SIZES = {
-  xs: "h-5 w-5 text-[10px]",
-  sm: "h-7 w-7 text-[11px]",
-  md: "h-9 w-9 text-sm",
-  lg: "h-12 w-12 text-lg",
+  xs: 20,
+  sm: 28,
+  md: 36,
+  lg: 48,
 };
 
 export default function RankBadge({
@@ -18,25 +18,19 @@ export default function RankBadge({
   size?: "xs" | "sm" | "md" | "lg";
 }) {
   if (!option) return null;
-
-  const subTier = option.kind === "sport" ? option.label.split(" ").pop() : null;
   const isElite = option.kind === "elite";
 
   return (
-    <span
-      title={option.label}
-      className={`inline-flex shrink-0 items-center justify-center rounded-lg font-display font-bold leading-none shadow-md ${
-        SIZES[size]
-      } ${isElite ? "animate-elite-glow" : ""}`}
-      style={{
-        background: `linear-gradient(135deg, ${option.colorFrom}, ${option.colorTo})`,
-        color: option.colorText,
-      }}
-    >
-      {option.icon}
-      {option.kind === "sport" && subTier && size !== "xs" && (
-        <span className="ml-0.5 text-[0.65em]">{subTier}</span>
-      )}
+    <span title={option.label} className={`inline-flex shrink-0 ${isElite ? "animate-elite-glow-shape" : ""}`}>
+      <RankEmblem
+        rank={option.rank}
+        sub={option.sub}
+        sport={option.sport}
+        elite={isElite}
+        eliteIcon={option.icon}
+        colors={{ from: option.colorFrom, to: option.colorTo, text: option.colorText }}
+        size={SIZES[size]}
+      />
     </span>
   );
 }

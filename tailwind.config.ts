@@ -35,15 +35,17 @@ const config: Config = {
         card: "14px",
       },
       keyframes: {
-        eliteGlow: {
-          "0%, 100%": { boxShadow: "0 0 3px 0.5px rgba(182,148,246,0.35)" },
-          "50%": { boxShadow: "0 0 7px 1.5px rgba(255,215,0,0.45)" },
+        // Leuchten entlang der Sternform (drop-shadow statt box-shadow, das
+        // wäre ein eckiger Kasten um das Abzeichen).
+        eliteGlowShape: {
+          "0%, 100%": { filter: "drop-shadow(0 0 2px rgba(182,148,246,0.5))" },
+          "50%": { filter: "drop-shadow(0 0 5px rgba(255,215,0,0.6))" },
         },
       },
       animation: {
-        // Sanftes Leuchten für das Elite-Rang-Icon (Sport-Allrounder), damit
-        // es auf einen Blick als etwas Besonderes erkennbar ist.
-        "elite-glow": "eliteGlow 2.2s ease-in-out infinite",
+        // Sanftes Leuchten für das Legende-Abzeichen (alle Sportarten mind.
+        // Gold), damit es auf einen Blick als etwas Besonderes erkennbar ist.
+        "elite-glow-shape": "eliteGlowShape 2.2s ease-in-out infinite",
       },
     },
   },
