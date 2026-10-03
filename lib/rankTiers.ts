@@ -96,6 +96,9 @@ export interface RankIconOption {
   colorText: string;
   /** Rang-Titel (z.B. "Champion"), automatisch aus dem erreichten Rang. */
   title?: string;
+  /** Rang + Unterstufe – bestimmen Form und Winkel des Abzeichens. */
+  rank?: RankName;
+  sub?: SubTier;
 }
 
 // Gold -> gedecktes Lila statt des vorherigen Gold/Pink-Verlaufs: Pink war
@@ -194,6 +197,8 @@ export function getSportRankIcon(sport: Sport, points: number, idSuffix = ""): R
     colorTo: colors.to,
     colorText: colors.text,
     title: RANK_TITLES[tier.rank],
+    rank: tier.rank,
+    sub: tier.sub,
   };
 }
 

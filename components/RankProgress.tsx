@@ -1,4 +1,5 @@
 import { Sport } from "@/lib/types";
+import RankEmblem from "@/components/RankEmblem";
 import {
   RANK_LADDER,
   RANK_COLORS,
@@ -44,22 +45,15 @@ export default function RankProgress({ sport, points }: { sport: Sport; points: 
         {RANK_LADDER.map((tier, i) => {
           const unlocked = points >= tier.minPoints;
           const isCurrent = tier === current;
-          const colors = RANK_COLORS[tier.rank];
           return (
             <span
               key={i}
               title={`${tierLabel(tier)} ab ${tier.minPoints.toLocaleString("de-DE")} P`}
-              className={`flex h-7 min-w-7 items-center justify-center rounded-md px-1.5 text-[10px] font-bold ${
-                isCurrent ? "ring-2 ring-gold" : ""
+              className={`flex items-center justify-center rounded-lg p-0.5 ${isCurrent ? "ring-2 ring-gold" : ""} ${
+                unlocked ? "" : "opacity-30 grayscale"
               }`}
-              style={{
-                background: unlocked
-                  ? `linear-gradient(135deg, ${colors.from}, ${colors.to})`
-                  : "rgba(255,255,255,0.06)",
-                color: unlocked ? colors.text : "#5a6b60",
-              }}
             >
-              {tier.sub}
+              <RankEmblem rank={tier.rank} sub={tier.sub} colors={RANK_COLORS[tier.rank]} size={26} />
             </span>
           );
         })}
