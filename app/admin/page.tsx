@@ -18,6 +18,8 @@ import { findDuplicateTeam } from "@/lib/teamName";
 import ScoreInput from "@/components/ScoreInput";
 import { competitionsForSport, findDuplicateCompetition } from "@/lib/competitions";
 import { displayOrder, isAwayFirst, matchTitle, scoreText } from "@/lib/teamOrder";
+import { BOOSTER_STAKE, BOOSTERS_PER_DAY } from "@/lib/poolScore";
+import { boostersOnDay } from "@/lib/booster";
 
 type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news";
 
@@ -1008,6 +1010,7 @@ function MatchManager() {
     setSummaryVideo,
     setTvChannel,
     setTipMode,
+    setBooster,
     setBonusQuestion,
     setBonusQuestionAnswer,
   } = useAppData();
@@ -1043,7 +1046,7 @@ function MatchManager() {
   const [tipDeadline, setTipDeadline] = useState("");
   const [homeTeamId, setHomeTeamId] = useState("");
   const [awayTeamId, setAwayTeamId] = useState("");
-  const [fixedStake, setFixedStake] = useState("20");
+  const [booster, setBoosterInput] = useState(false);
   const [tvChannel, setTvChannelInput] = useState("");
   const [tipMode, setTipModeInput] = useState<TipMode>("score");
 
@@ -1057,8 +1060,10 @@ function MatchManager() {
     }
     if (!kickoff || !tipDeadline || !homeTeamId || !awayTeamId) return;
     if (homeTeamId === awayTeamId) return;
-    const stakeValue = Number(fixedStake);
-    if (!stakeValue || stakeValue < 1) return;
+    if (booster && boostersOnDay(matches, new Date(kickoff).toISOString()) >= BOOSTERS_PER_DAY) {
+      showToast(`An diesem Tag gibt es schon ${BOOSTERS_PER_DAY} Booster-Spiele.`, "info");
+      return;
+    }
 
     const homeName = getTeam(homeTeamId)?.name ?? "?";
     const awayName = getTeam(awayTeamId)?.name ?? "?";
@@ -1072,7 +1077,8 @@ function MatchManager() {
       tipDeadline: new Date(tipDeadline).toISOString(),
       homeTeamId,
       awayTeamId,
-      fixedStake: stakeValue,
+      fixedStake: booster ? BOOSTER_STAKE : 0,
+      booster,
       status: "upcoming",
       liveHomeScore: null,
       liveAwayScore: null,
@@ -1087,7 +1093,7 @@ function MatchManager() {
     setTipDeadline("");
     setHomeTeamId("");
     setAwayTeamId("");
-    setFixedStake("20");
+    setBoosterInput(false);
     setTvChannelInput("");
     setTipModeInput("score");
     showToast(`✓ Spiel "${matchTitle(sport, homeName, awayName)}" angelegt.`, "success");
@@ -1248,16 +1254,11 @@ function MatchManager() {
                 className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
               />
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm text-muted">Einsatz (Sterne, für alle User fest)</label>
-              <input
-                type="number"
-                min={1}
-                value={fixedStake}
-                onChange={(e) => setFixedStake(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
-              />
-            </div>
+            <BoosterCheckbox
+              checked={booster}
+              onChange={setBoosterInput}
+              taken={kickoff ? boostersOnDay(matches, new Date(kickoff).toISOString()) : 0}
+            />
             <div>
               <label className="mb-1.5 block text-sm text-muted">TV-Sender (optional)</label>
               <input
@@ -1349,7 +1350,11 @@ function MatchManager() {
                     {match.matchday ? ` · Spieltag ${match.matchday}` : ""}
                   </span>
                   <span>· {new Date(match.kickoff).toLocaleString("de-DE")}</span>
-                  <span>· ⭐ {match.fixedStake}</span>
+                  {match.booster && (
+                    <span className="rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs font-bold text-gold">
+                      ⚡ Booster
+                    </span>
+                  )}
                 </div>
                 <span
                   className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${matchStatusClass[match.status]}`}
@@ -1407,6 +1412,9 @@ function MatchManager() {
                 {match.status !== "cancelled" && (
                   <>
                     <MatchDetailsEditor match={match} teams={teams} onSave={updateMatchDetails} />
+                    {match.status === "upcoming" && (
+                      <BoosterToggleButton match={match} matches={matches} onToggle={setBooster} />
+                    )}
                     <LiveScoreEditor
                       match={match}
                       homeName={home?.name ?? "Heimteam"}
@@ -1595,11 +1603,11 @@ function MatchDetailsEditor({
       tipDeadline: string;
       homeTeamId: string;
       awayTeamId: string;
-      fixedStake: number;
     }
   ) => void;
 }) {
   const { showToast } = useFeedback();
+  const { matches } = useAppData();
   const [editing, setEditing] = useState(false);
   const [competition, setCompetition] = useState(match.competition);
   const [matchday, setMatchday] = useState(match.matchday ? String(match.matchday) : "");
@@ -1607,15 +1615,16 @@ function MatchDetailsEditor({
   const [tipDeadline, setTipDeadline] = useState(() => toLocalInputValue(match.tipDeadline));
   const [homeTeamId, setHomeTeamId] = useState(match.homeTeamId);
   const [awayTeamId, setAwayTeamId] = useState(match.awayTeamId);
-  const [fixedStake, setFixedStake] = useState(String(match.fixedStake));
 
   const teamsForSport = teams.filter((t) => t.sport === match.sport);
 
   function handleSave() {
     if (!competition.trim() || !kickoff || !tipDeadline || !homeTeamId || !awayTeamId) return;
     if (homeTeamId === awayTeamId) return;
-    const stakeValue = Number(fixedStake);
-    if (!stakeValue || stakeValue < 1) return;
+    if (match.booster && boostersOnDay(matches, new Date(kickoff).toISOString(), match.id) >= BOOSTERS_PER_DAY) {
+      showToast(`Am neuen Tag gibt es schon ${BOOSTERS_PER_DAY} Booster-Spiele – erst dort einen ausschalten.`, "info");
+      return;
+    }
     if (!confirm("Spieldaten wirklich ändern?")) return;
 
     onSave(match.id, {
@@ -1625,7 +1634,6 @@ function MatchDetailsEditor({
       tipDeadline: new Date(tipDeadline).toISOString(),
       homeTeamId,
       awayTeamId,
-      fixedStake: stakeValue,
     });
     setEditing(false);
     showToast("✓ Spieldaten gespeichert.", "success");
@@ -1674,16 +1682,6 @@ function MatchDetailsEditor({
                 onChange={setAwayTeamId}
                 otherTeamId={homeTeamId}
                 otherLabel="schon als Heimteam gewählt" compact
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm text-muted">Einsatz (Sterne)</label>
-              <input
-                type="number"
-                min={1}
-                value={fixedStake}
-                onChange={(e) => setFixedStake(e.target.value)}
-                className="w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-gold"
               />
             </div>
           </div>
@@ -2327,5 +2325,80 @@ function TournamentRow({
         </div>
       )}
     </div>
+  );
+}
+
+// Booster-Spiel beim Anlegen: fester Einsatz 20 Sterne, höchstens 3 pro Tag
+// (Anpfiff-Tag in Österreich). Alle anderen Spiele sind gratis.
+function BoosterCheckbox({
+  checked,
+  onChange,
+  taken,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  taken: number;
+}) {
+  const full = !checked && taken >= BOOSTERS_PER_DAY;
+  return (
+    <label
+      className={`flex items-start gap-3 rounded-lg border px-4 py-3 ${
+        checked ? "border-gold/60 bg-gold/10" : "border-edge bg-pitch"
+      } ${full ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={full}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 h-5 w-5 shrink-0 accent-[rgb(var(--c-gold))]"
+      />
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-ink">⚡ Booster-Spiel</span>
+        <span className="block text-xs text-muted">
+          {full
+            ? `An diesem Tag gibt es schon ${BOOSTERS_PER_DAY} Booster.`
+            : `${BOOSTER_STAKE} Sterne Einsatz, ohne Haken gratis. Schon ${taken} von ${BOOSTERS_PER_DAY} an diesem Tag.`}
+        </span>
+      </span>
+    </label>
+  );
+}
+
+// Booster in der Spieleliste an- oder ausschalten.
+function BoosterToggleButton({
+  match,
+  matches,
+  onToggle,
+}: {
+  match: Match;
+  matches: Match[];
+  onToggle: (matchId: string, booster: boolean) => void;
+}) {
+  const { showToast } = useFeedback();
+  const on = !!match.booster;
+
+  function handleClick() {
+    if (!on && boostersOnDay(matches, match.kickoff, match.id) >= BOOSTERS_PER_DAY) {
+      showToast(`An diesem Tag gibt es schon ${BOOSTERS_PER_DAY} Booster-Spiele.`, "info");
+      return;
+    }
+    const text = on
+      ? "Booster ausschalten? Neue Tipps sind dann gratis."
+      : `Zum Booster machen? Neue Tipps kosten dann ${BOOSTER_STAKE} Sterne Einsatz.`;
+    if (!confirm(`${text}\n\nWer schon getippt hat, behält seinen bisherigen Einsatz.`)) return;
+    onToggle(match.id, !on);
+    showToast(on ? "✓ Booster ausgeschaltet." : "✓ Booster eingeschaltet.", "success");
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`min-w-[9rem] rounded-lg px-3 py-2.5 text-base font-semibold transition-colors ${
+        on ? "border border-gold/60 bg-gold/15 text-gold hover:bg-gold/25" : "bg-surface-hover text-ink hover:text-gold"
+      }`}
+    >
+      {on ? "⚡ Booster aus" : "⚡ Booster an"}
+    </button>
   );
 }

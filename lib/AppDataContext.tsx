@@ -11,7 +11,7 @@ import {
   findDuplicateCompetition,
   newCompetitionId,
 } from "./competitions";
-import { TipResultTier } from "./poolScore";
+import { TipResultTier, BOOSTER_STAKE } from "./poolScore";
 import { matchTitle } from "./teamOrder";
 
 export interface SubmittedTip {
@@ -364,12 +364,14 @@ interface AppDataContextValue {
       tipDeadline: string;
       homeTeamId: string;
       awayTeamId: string;
-      fixedStake: number;
     }
   ) => void;
   setSummaryVideo: (matchId: string, url: string) => void;
   setTvChannel: (matchId: string, channel: string) => void;
   setTipMode: (matchId: string, mode: TipMode) => void;
+  // Booster-Spiel an/aus (Einsatz fest 20 Sterne, sonst gratis). Gilt nur für
+  // neue Tipps – schon abgegebene behalten ihren Einsatz.
+  setBooster: (matchId: string, booster: boolean) => void;
   // Bonusfrage: Admin legt Frage+Optionen an (oder entfernt sie wieder mit
   // question:null), setzt später die richtige Antwort separat vom Endstand,
   // weil beides zu unterschiedlichen Zeitpunkten feststehen kann.
@@ -994,7 +996,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       tipDeadline: string;
       homeTeamId: string;
       awayTeamId: string;
-      fixedStake: number;
     }
   ) {
     setMatches((current) => current.map((m) => (m.id === matchId ? { ...m, ...updates } : m)));
@@ -1015,6 +1016,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   function setTipMode(matchId: string, mode: TipMode) {
     setMatches((current) =>
       current.map((m) => (m.id === matchId ? { ...m, tipMode: mode } : m))
+    );
+  }
+
+  function setBooster(matchId: string, booster: boolean) {
+    setMatches((current) =>
+      current.map((m) => (m.id === matchId ? { ...m, booster, fixedStake: booster ? BOOSTER_STAKE : 0 } : m))
     );
   }
 
@@ -1213,6 +1220,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setSummaryVideo,
         setTvChannel,
         setTipMode,
+        setBooster,
         setBonusQuestion,
         setBonusQuestionAnswer,
         myBonusAnswers,

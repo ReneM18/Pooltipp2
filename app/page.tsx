@@ -6,6 +6,8 @@ import AdBanner from "@/components/AdBanner";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
+import { BOOSTER_STAKE } from "@/lib/poolScore";
+import { Match } from "@/lib/types";
 
 export default function DashboardPage() {
   const { placeTip, streakCount } = useUser();
@@ -27,26 +29,26 @@ export default function DashboardPage() {
     return [...myTips].reverse().find((t) => t.matchId === matchId);
   }
 
-  async function handleSubmitTip(matchId: string, stake: number, homeScore: number, awayScore: number) {
-    // Den Einsatz zieht die Datenbank ab – nie mehr als Guthaben und
-    // Tages-Limit. Der gespeicherte (ggf. reduzierte) Einsatz kommt zurück.
-    const saved = await placeTip(matchId, homeScore, awayScore);
+  async function handleSubmitTip(match: Match, homeScore: number, awayScore: number) {
+    // Den Einsatz (nur bei Booster-Spielen, fest 20) zieht die Datenbank ab.
+    const saved = await placeTip(match.id, homeScore, awayScore);
     if (!saved) {
-      showToast("Tipp konnte nicht gespeichert werden – Tippschluss erreicht oder schon getippt.", "info");
+      showToast(
+        match.booster
+          ? `Tipp konnte nicht gespeichert werden – Tippschluss erreicht, schon getippt oder weniger als ${BOOSTER_STAKE} Sterne.`
+          : "Tipp konnte nicht gespeichert werden – Tippschluss erreicht oder schon getippt.",
+        "info"
+      );
       return;
     }
     celebrate();
-    showToast(
-      saved.stake < stake
-        ? "✓ Tipp gespeichert – mit reduziertem Einsatz (Sterne-Guthaben oder Tages-Limit erreicht)."
-        : "✓ Tipp gespeichert – viel Glück!"
-    );
+    showToast(match.booster ? `✓ Booster-Tipp gespeichert – ${BOOSTER_STAKE} Sterne eingesetzt, viel Glück!` : "✓ Tipp gespeichert – viel Glück!");
   }
 
   function handleChangeTip(matchId: string, homeScore: number, awayScore: number) {
     // Kein neuer Einsatz: der wurde schon bei der Abgabe bezahlt.
     if (changeTip(matchId, homeScore, awayScore)) {
-      showToast("✓ Tipp geändert – Einsatz bleibt gleich, keine Sterne abgezogen.");
+      showToast("✓ Tipp geändert – keine Sterne abgezogen.");
     } else {
       showToast("Tippschluss – der Tipp kann nicht mehr geändert werden.", "info");
     }
@@ -73,6 +75,43 @@ export default function DashboardPage() {
   const tab =
     chosenTab ?? (offeneMatches.length === 0 && geschlosseneMatches.length > 0 ? "geschlossen" : "offen");
   const visibleMatches = tab === "offen" ? offeneMatches : geschlosseneMatches;
+  // Offene Booster-Spiele stehen oben in einem eigenen Block.
+  const openBoosters = tab === "offen" ? offeneMatches.filter((m) => m.booster) : [];
+  const otherMatches = openBoosters.length > 0 ? visibleMatches.filter((m) => !m.booster) : visibleMatches;
+
+  function renderCard(match: Match) {
+    const homeTeam = getTeam(match.homeTeamId);
+    const awayTeam = getTeam(match.awayTeamId);
+    if (!homeTeam || !awayTeam) return null;
+    const tip = findTipForMatch(match.id);
+
+    return (
+      <MatchCard
+        key={match.id}
+        match={match}
+        homeTeam={homeTeam}
+        awayTeam={awayTeam}
+        tipCount={tipCounts[match.id] ?? 0}
+        myTip={
+          tip
+            ? {
+                predictedHomeScore: tip.predictedHomeScore,
+                predictedAwayScore: tip.predictedAwayScore,
+                evaluated: tip.evaluated,
+                resultTier: tip.resultTier,
+                rangDelta: tip.rangDelta,
+                starsDelta: tip.starsDelta,
+                narration: tip.narration,
+                stake: tip.stake,
+                refunded: tip.refunded,
+              }
+            : undefined
+        }
+        onSubmitTip={(homeScore, awayScore) => handleSubmitTip(match, homeScore, awayScore)}
+        onChangeTip={(homeScore, awayScore) => handleChangeTip(match.id, homeScore, awayScore)}
+      />
+    );
+  }
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-5 sm:py-8">
@@ -122,43 +161,30 @@ export default function DashboardPage() {
             {tab === "offen" ? "Aktuell keine offenen Spiele." : "Noch keine beendeten Spiele."}
           </p>
         )}
-        {visibleMatches.map((match) => {
-          const homeTeam = getTeam(match.homeTeamId);
-          const awayTeam = getTeam(match.awayTeamId);
-          if (!homeTeam || !awayTeam) return null;
-          const tip = findTipForMatch(match.id);
-
-          return (
-            <MatchCard
-              key={match.id}
-              match={match}
-              homeTeam={homeTeam}
-              awayTeam={awayTeam}
-              tipCount={tipCounts[match.id] ?? 0}
-              myTip={
-                tip
-                  ? {
-                      predictedHomeScore: tip.predictedHomeScore,
-                      predictedAwayScore: tip.predictedAwayScore,
-                      evaluated: tip.evaluated,
-                      resultTier: tip.resultTier,
-                      rangDelta: tip.rangDelta,
-                      starsDelta: tip.starsDelta,
-                      narration: tip.narration,
-                      stake: tip.stake,
-                      refunded: tip.refunded,
-                    }
-                  : undefined
-              }
-              onSubmitTip={(homeScore, awayScore) =>
-                handleSubmitTip(match.id, match.fixedStake, homeScore, awayScore)
-              }
-              onChangeTip={(homeScore, awayScore) => handleChangeTip(match.id, homeScore, awayScore)}
+        {openBoosters.length > 0 && (
+          <>
+            <SectionHeading
+              title="⚡ Booster des Tages"
+              text={`${BOOSTER_STAKE} Sterne Einsatz – exakt getroffen gibt ${BOOSTER_STAKE * 3} zurück.`}
             />
-          );
-        })}
+            {openBoosters.map(renderCard)}
+            {otherMatches.length > 0 && (
+              <SectionHeading title="Weitere Spiele" text="Gratis – zählen für deine Rangpunkte." />
+            )}
+          </>
+        )}
+        {otherMatches.map(renderCard)}
       </div>
     </main>
+  );
+}
+
+function SectionHeading({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="-mb-1 lg:col-span-3 lg:mb-0 [&:not(:first-child)]:mt-3">
+      <h2 className="font-display text-base font-bold text-ink">{title}</h2>
+      <p className="text-xs text-muted">{text}</p>
+    </div>
   );
 }
 
