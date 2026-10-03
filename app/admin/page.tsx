@@ -7,7 +7,7 @@ import { useUser } from "@/lib/UserContext";
 import { useTournaments } from "@/lib/TournamentContext";
 import { Tournament } from "@/lib/tournamentTypes";
 import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
-import { Sport, SPORTS, JerseyStyle, JERSEY_STYLES, Match, MatchStatus, TipMode, Team } from "@/lib/types";
+import { Sport, SPORTS, NewsSport, NEWS_SPORTS, NEWS_SPORT_ICONS, JerseyStyle, JERSEY_STYLES, Match, MatchStatus, TipMode, Team } from "@/lib/types";
 import { DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
 import TeamPicker from "@/components/TeamPicker";
@@ -107,7 +107,7 @@ function NewsManager() {
   const { newsItems, addNews, updateNews, removeNews } = useAppData();
   const { showToast } = useFeedback();
   const [text, setText] = useState("");
-  const [sport, setSport] = useState<Sport | "">("");
+  const [sport, setSport] = useState<NewsSport | "">("");
   const [article, setArticle] = useState("");
 
   function handleSubmit(e: FormEvent) {
@@ -150,13 +150,13 @@ function NewsManager() {
             <label className="mb-1.5 block text-sm text-muted">Sportart (optional)</label>
             <select
               value={sport}
-              onChange={(e) => setSport(e.target.value as Sport | "")}
+              onChange={(e) => setSport(e.target.value as NewsSport | "")}
               className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
             >
               <option value="">Allgemein (kein Icon)</option>
-              {SPORTS.map((s) => (
+              {NEWS_SPORTS.map((s) => (
                 <option key={s} value={s}>
-                  {sportIcon[s]} {s}
+                  {NEWS_SPORT_ICONS[s]} {s}
                 </option>
               ))}
             </select>
@@ -204,13 +204,13 @@ function NewsItemRow({
   onRemove,
 }: {
   item: NewsItem;
-  onSave: (id: string, text: string, sport: Sport | null, article: string | null) => void;
+  onSave: (id: string, text: string, sport: NewsSport | null, article: string | null) => void;
   onRemove: (id: string) => void;
 }) {
   const { showToast } = useFeedback();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(item.text);
-  const [sport, setSport] = useState<Sport | "">(item.sport ?? "");
+  const [sport, setSport] = useState<NewsSport | "">(item.sport ?? "");
   const [article, setArticle] = useState(item.article ?? "");
 
   function handleSave() {
@@ -239,13 +239,13 @@ function NewsItemRow({
           />
           <select
             value={sport}
-            onChange={(e) => setSport(e.target.value as Sport | "")}
+            onChange={(e) => setSport(e.target.value as NewsSport | "")}
             className="rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
           >
             <option value="">Allgemein (kein Icon)</option>
-            {SPORTS.map((s) => (
+            {NEWS_SPORTS.map((s) => (
               <option key={s} value={s}>
-                {sportIcon[s]} {s}
+                {NEWS_SPORT_ICONS[s]} {s}
               </option>
             ))}
           </select>
@@ -278,7 +278,7 @@ function NewsItemRow({
   return (
     <div className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 sm:p-5">
       <span className="flex items-center gap-2 text-sm text-ink">
-        {item.sport && <span className="text-base">{sportIcon[item.sport]}</span>}
+        {item.sport && <span className="text-base">{NEWS_SPORT_ICONS[item.sport]}</span>}
         {item.text}
         {item.article && (
           <span className="rounded-full bg-surface-hover px-2 py-0.5 text-[10px] font-semibold text-muted">

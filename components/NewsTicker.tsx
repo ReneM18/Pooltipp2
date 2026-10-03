@@ -1,15 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useAppData, NewsItem } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
-
-const sportIcon: Record<string, string> = {
-  "Fußball": "⚽",
-  NFL: "🏈",
-  NBA: "🏀",
-  NHL: "🏒",
-};
+import { NEWS_SPORT_ICONS as sportIcon } from "@/lib/types";
 
 export default function NewsTicker() {
   const { newsItems } = useAppData();
@@ -55,7 +50,10 @@ export default function NewsTicker() {
         </div>
       </div>
 
-      {selected && (
+      {/* Per Portal direkt in <body>: Die Kopfzeile (AppChrome) hat
+          transform:translateZ(0), dadurch würde position:fixed sich nur auf
+          die Kopfzeile beziehen und das Fenster oben abgeschnitten. */}
+      {selected && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-pitch/85 p-4 backdrop-blur-sm sm:items-center"
           onClick={() => setSelected(null)}
@@ -82,7 +80,8 @@ export default function NewsTicker() {
               Schließen
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

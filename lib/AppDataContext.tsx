@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Match, Sport, Team, TipMode } from "./types";
+import { Match, NEWS_SPORT_ICONS, NewsSport, Sport, Team, TipMode } from "./types";
 import {
   Competition,
   CompetitionsRow,
@@ -84,7 +84,7 @@ export interface NewsItem {
   id: string;
   text: string; // Kurz-Headline im Laufband
   article: string | null; // ausführlicher Artikeltext, öffnet sich beim Antippen der Headline
-  sport: Sport | null; // null = allgemeine News ohne Sportart-Icon
+  sport: NewsSport | null; // null = allgemeine News ohne Sportart-Icon
   createdAt: string;
 }
 
@@ -380,8 +380,8 @@ interface AppDataContextValue {
   // Lädt die eigenen Bonus-Antworten (Tabelle bonus_answers) neu.
   reloadMyBonusAnswers: () => Promise<void>;
   newsItems: NewsItem[];
-  addNews: (text: string, sport: Sport | null, article: string | null) => void;
-  updateNews: (id: string, text: string, sport: Sport | null, article: string | null) => void;
+  addNews: (text: string, sport: NewsSport | null, article: string | null) => void;
+  updateNews: (id: string, text: string, sport: NewsSport | null, article: string | null) => void;
   removeNews: (id: string) => void;
   comments: Comment[];
   getCommentsForMatch: (matchId: string) => Comment[];
@@ -1069,18 +1069,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       });
   }
 
-  function addNews(text: string, sport: Sport | null, article: string | null) {
+  function addNews(text: string, sport: NewsSport | null, article: string | null) {
     const id = `news-${Date.now()}`;
     setNewsItems((current) => [
       { id, text, sport, article, createdAt: new Date().toISOString() },
       ...current,
     ]);
-    const sportIcon: Record<Sport, string> = { "Fußball": "⚽", NFL: "🏈", NBA: "🏀", NHL: "🏒" };
     const newsText = `Neue Schlagzeile: „${text}“`;
-    addActivity(sport ? sportIcon[sport] : "📰", newsText, { author: "PoolTipp", text: newsText });
+    addActivity(sport ? NEWS_SPORT_ICONS[sport] : "📰", newsText, { author: "PoolTipp", text: newsText });
   }
 
-  function updateNews(id: string, text: string, sport: Sport | null, article: string | null) {
+  function updateNews(id: string, text: string, sport: NewsSport | null, article: string | null) {
     setNewsItems((current) =>
       current.map((n) => (n.id === id ? { ...n, text, sport, article } : n))
     );
