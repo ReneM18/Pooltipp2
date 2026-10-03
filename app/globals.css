@@ -225,3 +225,28 @@ input[type="range"].stake-slider::-moz-range-thumb {
 .animate-levelup-in {
   animation: levelup-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+/* ENTWURF Halloween-Design (Event): ersetzt im Event die Herbst-Deko
+   (Blätter) durch Kürbisse/Geister/Fledermäuse. Der Kopf des Saison-Passes
+   behält seine Herbst-Blätter, denn der Saison-Pass bleibt unverändert. */
+.event-deco {
+  display: none;
+}
+html[data-event-design] .event-deco {
+  display: block;
+}
+html[data-event-design] .season-deco:not(.season-hero .season-deco) {
+  display: none;
+}
+/* Halloween-Farben: nur Seitenhintergrund (sehr dunkles Lila), Knöpfe
+   (Kürbis-Orange), Nachrichtenstreifen (Lila) und Lichtflecken. Karten,
+   Ränder und Texte bleiben wie sie sind. !important, damit sie im Event
+   vor den Saison-Farben gelten. */
+html[data-event-design] {
+  --c-pitch: 17 13 24 !important;
+  --c-action: 249 115 22 !important;
+  --c-action-hover: 251 146 60 !important;
+  --c-ticker: 139 92 246 !important;
+  --bg-glow-a: rgba(124, 58, 237, 0.16) !important;
+  --bg-glow-b: rgba(249, 115, 22, 0.1) !important;
+}

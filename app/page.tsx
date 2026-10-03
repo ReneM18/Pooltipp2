@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import MatchCard from "@/components/MatchCard";
 import AdBanner from "@/components/AdBanner";
 import { useUser } from "@/lib/UserContext";
+import { EventStrip } from "@/components/EventPass";
 import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 
@@ -83,6 +84,7 @@ export default function DashboardPage() {
           – spart eine ganze Zeile Höhe, bevor die eigentlichen Spiele
           kommen. Am Handy (zu schmal für eine Zeile) fällt sie automatisch
           darunter. */}
+      <EventStrip />
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex shrink-0 items-center gap-2.5">
           <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">

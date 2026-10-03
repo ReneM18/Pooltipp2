@@ -5,6 +5,7 @@ import { useUser } from "@/lib/UserContext";
 import RankBadge from "@/components/RankBadge";
 import SeasonFrame from "@/components/SeasonFrame";
 import SeasonDeco from "@/components/SeasonDeco";
+import { EventHeaderDeco } from "@/components/EventDeco";
 import { useMyOverallRank } from "@/lib/myOverallRank";
 import { SHOP_ENABLED } from "@/lib/mockShopItems";
 import { StarIcon, TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
@@ -40,6 +41,7 @@ export default function Navbar() {
   return (
     <header className="relative border-b border-edge bg-pitch/95 backdrop-blur">
       <SeasonDeco />
+      <EventHeaderDeco />
       <div className="relative mx-auto flex max-w-3xl lg:max-w-6xl items-center justify-between gap-2 px-4 py-3 sm:px-5 sm:py-4">
         <Link
           href="/"

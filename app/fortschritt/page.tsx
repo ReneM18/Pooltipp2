@@ -11,6 +11,7 @@ import { CURRENT_SEASON, seasonCountdownText, seasonPeriodText } from "@/lib/sea
 import { EmoteSticker } from "@/components/Emotes";
 import { SeasonHeroLeaves } from "@/components/SeasonDeco";
 import { useFeedback } from "@/lib/FeedbackContext";
+import { EventPassCard } from "@/components/EventPass";
 
 const sportIcon: Record<string, string> = {
   "Fußball": "⚽",
@@ -117,6 +118,7 @@ export default function FortschrittPage() {
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
+      <EventPassCard />
       {/* Mit Saison-Design wird dieser Kopfbereich zur warmen Karte mit
           Deko (CSS .season-hero in app/globals.css). */}
       <div className="season-hero mb-6">
@@ -182,6 +184,7 @@ export default function FortschrittPage() {
               Einmal pro Tag: +8 Sterne und +100 Pass-XP. Der Saison-Pass klettert nur so –
               nicht durch Tipp-Ergebnisse.
             </p>
+            <p className="mt-1 text-xs font-semibold text-[#F97316]">🎃 Zählt bis 2.11. auch für den Halloween-Pass.</p>
           </div>
           <button
             onClick={handleClaimDailyBonus}

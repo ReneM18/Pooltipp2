@@ -9,6 +9,7 @@ import OnboardingTour from "./OnboardingTour";
 import Footer from "./Footer";
 import SeasonDesignGate from "./SeasonDesignGate";
 import { SeasonBackdrop } from "./SeasonDeco";
+import { EventBackdrop, EventDesignGate } from "./EventDeco";
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -43,6 +44,8 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
           nicht über den letzten Inhalt/Footer ragt. */}
       {/* Saison-Design: verblasste Blätter hinter der ganzen Seite. */}
       <SeasonBackdrop />
+      <EventBackdrop />
+      <EventDesignGate />
       <div className="pb-24">
         <SeasonDesignGate />
         {children}
