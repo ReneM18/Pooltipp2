@@ -7,9 +7,10 @@ import { useUser } from "@/lib/UserContext";
 import { useTournaments } from "@/lib/TournamentContext";
 import { Tournament } from "@/lib/tournamentTypes";
 import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
-import { Sport, SPORTS, JerseyStyle, JERSEY_STYLES, Match, MatchStatus, TipMode, Team } from "@/lib/types";
+import { Sport, SPORTS, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchStatus, TipMode, Team } from "@/lib/types";
 import { DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
+import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
 import TeamPicker from "@/components/TeamPicker";
 import TeamBadge from "@/components/TeamBadge";
 import { useFeedback } from "@/lib/FeedbackContext";
@@ -107,7 +108,7 @@ function NewsManager() {
   const { newsItems, addNews, updateNews, removeNews } = useAppData();
   const { showToast } = useFeedback();
   const [text, setText] = useState("");
-  const [sport, setSport] = useState<Sport | "">("");
+  const [sport, setSport] = useState<NewsSport | "">("");
   const [article, setArticle] = useState("");
 
   function handleSubmit(e: FormEvent) {
@@ -136,31 +137,21 @@ function NewsManager() {
       >
         <h3 className="font-display text-base font-semibold text-ink">Neue Headline</h3>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <label className="mb-1.5 block text-sm text-muted">Headline</label>
-            <input
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="z. B. Bayern gewinnt Topspiel 3:1"
-              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm text-muted">Sportart (optional)</label>
-            <select
-              value={sport}
-              onChange={(e) => setSport(e.target.value as Sport | "")}
-              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
-            >
-              <option value="">Allgemein (kein Icon)</option>
-              {SPORTS.map((s) => (
-                <option key={s} value={s}>
-                  {sportIcon[s]} {s}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label className="mb-1.5 block text-sm text-muted">Headline</label>
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="z. B. Bayern gewinnt Topspiel 3:1"
+            className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm text-muted">
+            Sportart (optional – „Allgemein“ zeigt kein Icon)
+          </label>
+          <NewsSportPicker value={sport} onChange={setSport} />
         </div>
 
         <div>
@@ -204,13 +195,13 @@ function NewsItemRow({
   onRemove,
 }: {
   item: NewsItem;
-  onSave: (id: string, text: string, sport: Sport | null, article: string | null) => void;
+  onSave: (id: string, text: string, sport: NewsSport | null, article: string | null) => void;
   onRemove: (id: string) => void;
 }) {
   const { showToast } = useFeedback();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(item.text);
-  const [sport, setSport] = useState<Sport | "">(item.sport ?? "");
+  const [sport, setSport] = useState<NewsSport | "">(item.sport ?? "");
   const [article, setArticle] = useState(item.article ?? "");
 
   function handleSave() {
@@ -231,25 +222,12 @@ function NewsItemRow({
   if (editing) {
     return (
       <div className="flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:p-5">
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            className="flex-1 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-          />
-          <select
-            value={sport}
-            onChange={(e) => setSport(e.target.value as Sport | "")}
-            className="rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-          >
-            <option value="">Allgemein (kein Icon)</option>
-            {SPORTS.map((s) => (
-              <option key={s} value={s}>
-                {sportIcon[s]} {s}
-              </option>
-            ))}
-          </select>
-        </div>
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+        />
+        <NewsSportPicker value={sport} onChange={setSport} small />
         <textarea
           value={article}
           onChange={(e) => setArticle(e.target.value)}
@@ -278,7 +256,7 @@ function NewsItemRow({
   return (
     <div className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 sm:p-5">
       <span className="flex items-center gap-2 text-sm text-ink">
-        {item.sport && <span className="text-base">{sportIcon[item.sport]}</span>}
+        {item.sport && <span className="text-base"><NewsSportIcon sport={item.sport} /></span>}
         {item.text}
         {item.article && (
           <span className="rounded-full bg-surface-hover px-2 py-0.5 text-[10px] font-semibold text-muted">

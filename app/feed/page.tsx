@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppData, ActivityItem } from "@/lib/AppDataContext";
+import { ActivityIcon } from "@/components/NewsSportIcon";
 
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -92,7 +93,7 @@ export default function FeedPage() {
                         isMine ? "bg-gold/15" : "bg-surface-hover"
                       }`}
                     >
-                      {item.icon}
+                      <ActivityIcon icon={item.icon} />
                     </span>
                     <div className="flex-1 pt-0.5">
                       <ActivityText text={item.text} />

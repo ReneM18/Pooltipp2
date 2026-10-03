@@ -2,6 +2,25 @@ export type Sport = "Fußball" | "NFL" | "NBA" | "NHL";
 
 export const SPORTS: Sport[] = ["Fußball", "NFL", "NBA", "NHL"];
 
+// Sportarten für den News-Ticker: die Tipp-Sportarten plus weitere, zu denen
+// es nur News gibt (keine Spiele, keine Rangpunkte). News liegen als JSON in
+// der Datenbank, neue Sportarten brauchen deshalb kein SQL.
+export type NewsSport = Sport | "Formel 1" | "MotoGP" | "Tennis" | "Handball" | "Darts";
+
+export const NEWS_SPORTS: NewsSport[] = [...SPORTS, "Formel 1", "MotoGP", "Tennis", "Handball", "Darts"];
+
+export const NEWS_SPORT_ICONS: Record<NewsSport, string> = {
+  "Fußball": "⚽",
+  NFL: "🏈",
+  NBA: "🏀",
+  NHL: "🏒",
+  "Formel 1": "🏎️",
+  MotoGP: "🏍️",
+  Tennis: "🎾",
+  Handball: "🤾",
+  Darts: "🎯",
+};
+
 export type JerseyStyle = "solid" | "streifen" | "aermel";
 
 export const JERSEY_STYLES: { value: JerseyStyle; label: string }[] = [
