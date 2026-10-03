@@ -147,6 +147,30 @@ export function getAvailableRankIcons(pointsBySport: Partial<Record<Sport, numbe
   return options;
 }
 
+/**
+ * ALLE Rang-Icons fürs Profil, auch die noch nicht erreichten: eins pro
+ * Sportart (ab dem ersten Punkt freigeschaltet) plus das Legende-Icon (ab
+ * Gold in allen Sportarten). Gesperrte werden ausgegraut mit Hinweis gezeigt.
+ */
+export function getAllRankIcons(
+  pointsBySport: Partial<Record<Sport, number>>
+): { option: RankIconOption; unlocked: boolean; hint: string }[] {
+  const list = (Object.keys(SPORT_EMOJI) as Sport[]).map((sport) => {
+    const points = pointsBySport[sport] ?? 0;
+    return {
+      option: getSportRankIcon(sport, points),
+      unlocked: points > 0,
+      hint: `Gib deinen ersten ${sport}-Tipp ab`,
+    };
+  });
+  list.push({
+    option: eliteIcon(),
+    unlocked: isElite(pointsBySport),
+    hint: `Gold (${ELITE_MIN_POINTS.toLocaleString("de-DE")} P) in allen 4 Sportarten`,
+  });
+  return list;
+}
+
 /** Bestes verfügbares Icon (Elite > höchster Rang) – dient als Standardauswahl. */
 export function getBestRankIcon(options: RankIconOption[]): RankIconOption | null {
   if (options.length === 0) return null;
