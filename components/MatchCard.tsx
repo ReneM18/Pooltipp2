@@ -428,8 +428,11 @@ export default function MatchCard({
               {isOneXTwo ? (
                 <>
                   <div className={`col-start-1 flex justify-center ${tipRow}`}>{pickButton(leftPick)}</div>
-                  <div className={`col-span-3 col-start-1 flex h-12 items-center justify-center ${tipRow}`}>
-                    {oneXTwoOptions.includes("X") && pickButton("X")}
+                  {/* Die X-Zeile spannt über alle drei Spalten und liegt über den
+                      Nachbarn. pointer-events-none, sonst fängt sie die Klicks
+                      auf den linken Kasten ab (nur der X-Kasten selbst ist klickbar). */}
+                  <div className={`pointer-events-none col-span-3 col-start-1 flex h-12 items-center justify-center ${tipRow}`}>
+                    {oneXTwoOptions.includes("X") && <div className="pointer-events-auto">{pickButton("X")}</div>}
                   </div>
                   <div className={`col-start-3 flex justify-center ${tipRow}`}>{pickButton(rightPick)}</div>
                 </>
