@@ -13,7 +13,7 @@ const SLIDES = [
   {
     icon: "⭐",
     title: "So funktionieren Sterne",
-    text: "Für jeden Tipp setzt du Gratis-Sterne ein. Exakt getroffen (bei 1X2: richtig getippt) bringt die Hälfte obendrauf, bei der richtigen Tendenz bekommst du deinen Einsatz zurück, bei einem Fehltipp ist die Hälfte weg. Richtige Tipps bringen außerdem Rangpunkte für die Rangliste.",
+    text: "Alle Tipps sind gratis und bringen Rangpunkte für die Rangliste. Bei den Booster-Spielen des Tages setzt du zusätzlich 20 Gratis-Sterne ein: exakt getroffen gibt 60 zurück, die richtige Tendenz deinen Einsatz, ein Fehltipp die Hälfte. Mit Sternen holst du dir Joker im Shop.",
   },
   {
     icon: "👑",

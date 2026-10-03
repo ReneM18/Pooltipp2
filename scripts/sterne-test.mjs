@@ -7,6 +7,8 @@ import {
   DAILY_STAKE_BUDGET,
   RESCUE_BONUS_STARS,
   stakeBudgetAfterRefund,
+  dailyBonusStarsFor,
+  boosterPayouts,
 } from "../lib/poolScore.ts";
 
 let count = 0;
@@ -49,7 +51,26 @@ for (const [stake, richtig, falsch] of [
   check(`1X2 ${stake} falsch`, { ...t, predictedHome: 1, predictedAway: 0, actualHome: 2, actualAway: 2 }, { tier: "falsch", credit: falsch, net: falsch - stake, rang: 0 });
 }
 
-// Einsatz 0 (Tages-Limit oder Guthaben aufgebraucht): keine Sterne-Bewegung.
+// Booster (Einsatz 20): exakt = dreifach zurück, Tendenz = Einsatz, falsch =
+// Hälfte. 1X2 beim Booster wie immer: richtig x1,5, falsch die Hälfte.
+{
+  const b = { stake: 20, booster: true, actualHome: 2, actualAway: 1 };
+  check("Booster exakt", { ...b, predictedHome: 2, predictedAway: 1 }, { tier: "exakt", credit: 60, net: 40, rang: 10 });
+  check("Booster Tendenz", { ...b, predictedHome: 1, predictedAway: 0 }, { tier: "tendenz", credit: 20, net: 0, rang: 6 });
+  check("Booster falsch", { ...b, predictedHome: 0, predictedAway: 1 }, { tier: "falsch", credit: 10, net: -10, rang: 0 });
+  const o = { stake: 20, booster: true, isOneXTwo: true };
+  check("Booster 1X2 richtig", { ...o, predictedHome: 1, predictedAway: 0, actualHome: 1, actualAway: 0 }, { tier: "tendenz", credit: 30, net: 10, rang: 6 });
+  check("Booster 1X2 falsch", { ...o, predictedHome: 1, predictedAway: 0, actualHome: 0, actualAway: 0 }, { tier: "falsch", credit: 10, net: -10, rang: 0 });
+}
+assert.deepEqual(boosterPayouts(false).map((p) => p.stars), [60, 20, 10], "Booster-Anzeige Ergebnis");
+assert.deepEqual(boosterPayouts(true).map((p) => p.stars), [30, 10], "Booster-Anzeige 1X2");
+// Tagesbonus nur bis 500 Sterne.
+assert.equal(dailyBonusStarsFor(100), 8);
+assert.equal(dailyBonusStarsFor(495), 5);
+assert.equal(dailyBonusStarsFor(500), 0);
+assert.equal(dailyBonusStarsFor(700), 0);
+
+// Einsatz 0 (Gratis-Tipp, Tages-Limit oder Guthaben aufgebraucht): keine Sterne-Bewegung.
 check("Einsatz 0 exakt", { stake: 0, predictedHome: 1, predictedAway: 1, actualHome: 1, actualAway: 1 }, { tier: "exakt", credit: 0, net: 0, rang: 10 });
 // Gekürzter, ungerader Einsatz wird auf ganze Sterne gerundet.
 check("Einsatz 7 exakt", { stake: 7, predictedHome: 1, predictedAway: 0, actualHome: 1, actualAway: 0 }, { tier: "exakt", credit: 11, net: 4, rang: 10 });

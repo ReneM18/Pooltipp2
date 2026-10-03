@@ -68,7 +68,10 @@ export interface Match {
   tipDeadline: string; // ISO 8601 timestamp – ab hier ist Tippen nicht mehr möglich
   homeTeamId: string;
   awayTeamId: string;
-  fixedStake: number; // vom Admin festgelegter Einsatz in Sternen, für alle User gleich
+  // Einsatz in Sternen: 20 bei Booster-Spielen, sonst 0 (alte Spiele können
+  // noch einen anderen Wert haben, zählt nicht mehr – die Datenbank entscheidet).
+  fixedStake: number;
+  booster?: boolean; // Booster-Spiel: Tipp nur mit 20 Sternen Einsatz (max. 3 pro Tag)
   status: MatchStatus;
   liveHomeScore: number | null;
   liveAwayScore: number | null;

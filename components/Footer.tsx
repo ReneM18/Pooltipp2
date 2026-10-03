@@ -21,10 +21,11 @@ export default function Footer() {
         </h2>
         <p className="text-sm leading-relaxed text-muted sm:text-xs sm:leading-normal">
           PoolTipp ist das kostenlose Social-Tippspiel für echte Sportfans: Tippe live vor jedem
-          Spiel deiner Lieblingsligen (Fußball, NFL, NBA, NHL) das Ergebnis. Dein Einsatz zählt –
-          exakt getroffen bringt Sterne-Bonus obendrauf, bei der Tendenz gibt's den Einsatz zurück,
-          nur bei einem Fehltipp geht ein Teil verloren, nie alles auf einmal. Je genauer dein Tipp,
-          desto mehr Rangliste-Punkte und Sterne sammelst du. Dazu gibt's echte
+          Spiel deiner Lieblingsligen (Fußball, NFL, NBA, NHL) das Ergebnis. Jeder Tipp ist gratis
+          und bringt Rangliste-Punkte – je genauer, desto mehr. Jeden Tag gibt es bis zu drei
+          Booster-Spiele, bei denen du 20 Sterne einsetzt: exakt getroffen bekommst du 60 zurück,
+          bei der richtigen Tendenz deinen Einsatz, bei einem Fehltipp die Hälfte. Sterne gibt's
+          außerdem mit dem täglichen Bonus, eintauschen kannst du sie im Shop gegen Joker. Dazu gibt's echte
           Live-Ergebnisse und Tabellen im Matchcenter, einen Saison-Pass mit Belohnungen fürs
           tägliche Reinschauen, eine Rangliste pro Sportart und private Tipprunden für Freunde,
           Verein oder Kollegen. Alles komplett kostenlos – gespielt wird nur um virtuelle Sterne,

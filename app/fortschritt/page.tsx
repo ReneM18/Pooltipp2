@@ -67,7 +67,7 @@ export default function FortschrittPage() {
   }, []);
 
   async function handleClaimDailyBonus() {
-    const { claimed, error } = await claimDailyBonus();
+    const { claimed, error, starsAdded = 8 } = await claimDailyBonus();
     if (error) {
       showToast(error, "info");
       return;
@@ -77,7 +77,12 @@ export default function FortschrittPage() {
       return;
     }
     celebrate();
-    showToast("🎁 Täglicher Bonus abgeholt: +8 Sterne, +100 Pass-XP!", "gold");
+    showToast(
+      starsAdded > 0
+        ? `🎁 Täglicher Bonus abgeholt: +${starsAdded} Sterne, +100 Pass-XP!`
+        : "🎁 Täglicher Bonus abgeholt: +100 Pass-XP! (Ab 500 Sternen gibt es nur noch XP.)",
+      "gold"
+    );
   }
 
   function handleBuyPremium() {
@@ -179,8 +184,8 @@ export default function FortschrittPage() {
               <span className="text-lg">🎁</span> Täglicher Bonus
             </p>
             <p className="mt-0.5 text-xs text-muted">
-              Einmal pro Tag: +8 Sterne und +100 Pass-XP. Der Saison-Pass klettert nur so –
-              nicht durch Tipp-Ergebnisse.
+              Einmal pro Tag: +8 Sterne (bis 500 auf dem Konto) und +100 Pass-XP. Der
+              Saison-Pass klettert nur so – nicht durch Tipp-Ergebnisse.
             </p>
           </div>
           <button
@@ -206,8 +211,9 @@ export default function FortschrittPage() {
             haben mit dem Pass nichts zu tun.
           </li>
           <li>
-            <span className="font-semibold text-ink">Sterne</span> brauchst du zum Tippen. Der Pass gibt nur auf
-            Level 10 ein paar dazu.
+            <span className="font-semibold text-ink">Sterne</span> setzt du bei den Booster-Spielen ein und
+            tauschst sie im Shop gegen Joker. Normale Tipps sind gratis. Der Pass gibt nur auf Level 10 ein
+            paar dazu.
           </li>
           <li>Abzeichen, Titel und Sticker, die du freischaltest, behältst du auch nach der Saison.</li>
         </ul>

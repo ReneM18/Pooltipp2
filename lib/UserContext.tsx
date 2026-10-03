@@ -15,7 +15,15 @@ import {
   DAILY_STAKE_BUDGET,
   RESCUE_BONUS_STARS,
   LOW_STARS_THRESHOLD,
+  dailyBonusStarsFor,
+  BOOSTER_STAKE,
 } from "@/lib/poolScore";
+
+function bonusActivityText(stars: number) {
+  return stars > 0
+    ? `Täglicher Bonus abgeholt: +${stars} Sterne, +${DAILY_BONUS_XP} Pass-XP.`
+    : `Täglicher Bonus abgeholt: +${DAILY_BONUS_XP} Pass-XP (ab 500 Sternen gibt es nur noch XP).`;
+}
 
 // Start bei 0 statt Demo-Punkten: sonst zeigte die Kopfzeile kurz (oder
 // bei Gästen dauerhaft) Rang-Icons aus erfundenen Werten.
@@ -84,7 +92,7 @@ interface UserContextValue {
   canClaimDailyBonus: boolean;
   // Täglicher Bonus – rechnet die Datenbank (claim_daily_bonus). claimed:
   // false, wenn er heute schon abgeholt war.
-  claimDailyBonus: () => Promise<{ claimed: boolean; error: string | null }>;
+  claimDailyBonus: () => Promise<{ claimed: boolean; error: string | null; starsAdded?: number }>;
   // Tipp abgeben: Einsatz, Tageslimit, Rettungs-Bonus und Tipp-Serie rechnet
   // die Datenbank. null = nicht gespeichert (z. B. Tippschluss).
   placeTip: (matchId: string, homeScore: number, awayScore: number) => Promise<SubmittedTip | null>;
@@ -93,9 +101,8 @@ interface UserContextValue {
   // Holt Sterne, Rangpunkte, XP usw. neu aus der Datenbank (my_wallet), z. B.
   // nachdem die Datenbank selbst etwas gebucht hat (Duell, Auswertung).
   refreshStars: () => void;
-  // Sterne, die heute schon eingesetzt wurden bzw. noch bis zum Tages-Limit
-  // eingesetzt werden können – unabhängig davon, wie viele Spiele heute
-  // angeboten werden (siehe DAILY_STAKE_BUDGET).
+  // Sterne, die heute noch für Duelle eingesetzt werden können (Tages-Limit,
+  // siehe DAILY_STAKE_BUDGET). Tipps zählen nicht mehr mit.
   stakeBudgetRemainingToday: number;
   // Zeigt Warnfarben etc., wenn das Sterne-Guthaben knapp wird.
   isLowOnStars: boolean;
@@ -450,16 +457,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const passHonors = useMemo(() => getPassHonors(passXP, passClaims), [passXP, passClaims]);
 
-  async function claimDailyBonus(): Promise<{ claimed: boolean; error: string | null }> {
+  async function claimDailyBonus(): Promise<{ claimed: boolean; error: string | null; starsAdded?: number }> {
     if (!authUserId) {
       // Gast: Demo-Bonus nur im Browser.
       const now = new Date().toISOString();
       if (lastClaimedAt && isSameDay(lastClaimedAt, now)) return { claimed: false, error: null };
-      setFreeStars((current) => current + DAILY_BONUS_STARS);
+      const added = dailyBonusStarsFor(freeStars);
+      setFreeStars((current) => current + added);
       setPassXP((current) => current + DAILY_BONUS_XP);
       setLastClaimedAt(now);
-      addActivity("🎁", `Täglicher Bonus abgeholt: +${DAILY_BONUS_STARS} Sterne, +${DAILY_BONUS_XP} Pass-XP.`);
-      return { claimed: true, error: null };
+      addActivity("🎁", bonusActivityText(added));
+      return { claimed: true, error: null, starsAdded: added };
     }
     const requestId = ++walletRequestRef.current;
     const { data, error } = await supabase.rpc("claim_daily_bonus");
@@ -467,20 +475,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (error) console.warn("Tagesbonus fehlgeschlagen:", error.message);
       return { claimed: false, error: "Der Bonus konnte gerade nicht abgeholt werden. Bitte versuch es gleich noch einmal." };
     }
-    const result = data as WalletRow & { claimed: boolean };
+    const result = data as WalletRow & { claimed: boolean; stars_added?: number };
     if (requestId === walletRequestRef.current) applyWallet(result);
-    if (result.claimed) {
-      addActivity("🎁", `Täglicher Bonus abgeholt: +${DAILY_BONUS_STARS} Sterne, +${DAILY_BONUS_XP} Pass-XP.`);
-    }
-    return { claimed: result.claimed, error: null };
+    const starsAdded = result.stars_added ?? DAILY_BONUS_STARS;
+    if (result.claimed) addActivity("🎁", bonusActivityText(starsAdded));
+    return { claimed: result.claimed, error: null, starsAdded };
   }
 
   async function placeTip(matchId: string, homeScore: number, awayScore: number): Promise<SubmittedTip | null> {
     const match = matches.find((m) => m.id === matchId);
-    const wanted = match?.fixedStake ?? 0;
+    // Einsatz nur bei Booster-Spielen (fest 20), normale Tipps sind gratis.
+    const wanted = match?.booster ? BOOSTER_STAKE : 0;
     if (!authUserId) {
       // Gast: Demo-Einsatz nur im Browser (gleiche Regeln wie die Datenbank).
-      const actual = Math.max(0, Math.min(wanted, freeStars, stakeBudgetRemainingToday));
+      if (wanted > freeStars) return null;
+      const actual = wanted;
       let next = freeStars - actual;
       if (next <= 0 && actual > 0 && !guestRescueUsedRef.current) {
         next += RESCUE_BONUS_STARS;
@@ -488,7 +497,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
         addActivity("🎁", `Deine Sterne waren aufgebraucht – hier ${RESCUE_BONUS_STARS} Sterne geschenkt, damit's weitergeht.`);
       }
       setFreeStars(next);
-      setStakeBudgetRemainingToday((current) => Math.max(0, current - actual));
       return submitTip(matchId, homeScore, awayScore, actual, displayName);
     }
     const saved = await submitTip(matchId, homeScore, awayScore, wanted, displayName);

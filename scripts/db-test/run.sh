@@ -10,3 +10,4 @@ PGOPTIONS="-c client_min_messages=error" scripts/db-test/setup.sh "$DB" >/dev/nu
 psql -q -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/legacy-fixture.sql >/dev/null
 PGOPTIONS="-c client_min_messages=warning" psql -q -v ON_ERROR_STOP=1 -d "$DB" -f supabase/auswertung-server.sql >/dev/null
 psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/auswertung-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'
+psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/booster-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'

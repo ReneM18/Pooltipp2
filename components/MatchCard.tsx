@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, FormEvent } from "react";
 import Link from "next/link";
 import { Match, Sport, Team } from "@/lib/types";
-import { TipResultTier, compareWithOthers } from "@/lib/poolScore";
+import { TipResultTier, compareWithOthers, BOOSTER_STAKE, boosterPayouts } from "@/lib/poolScore";
 import { MatchTipper, useMatchTips } from "@/lib/matchTips";
 import { flagEmoji } from "@/lib/flags";
 import { useAppData } from "@/lib/AppDataContext";
@@ -130,7 +130,7 @@ export default function MatchCard({
     useAppData();
   const [bonusPick, setBonusPick] = useState<number | null>(null);
   const myBonusAnswer = myBonusAnswers.find((a) => a.matchId === match.id);
-  const { displayName, hasPremiumPass, passXP, passHonors, authUserId, freeStars, stakeBudgetRemainingToday } = useUser();
+  const { displayName, hasPremiumPass, passXP, passHonors, authUserId, freeStars } = useUser();
   const { showToast, celebrate } = useFeedback();
   const [commentsOpen, setCommentsOpen] = useState(false);
   // Liste "Wer hat getippt?" unter der Karte (Klick auf "X getippt").
@@ -204,13 +204,12 @@ export default function MatchCard({
   const missingPick = isOneXTwo && !nflPick;
   // Ergebnis-Tipp mit leerem Feld: Knopf ebenfalls gesperrt.
   const missingScore = !isOneXTwo && (homeScore === null || awayScore === null);
-  const notReady = missingPick || missingScore;
+  // Booster-Spiel: Tipp nur mit vollem Einsatz (20 Sterne). Normale Spiele
+  // sind gratis und bringen nur Rangpunkte.
+  const isBooster = !!match.booster;
+  const notEnoughStars = isBooster && !isChanging && freeStars < BOOSTER_STAKE;
+  const notReady = missingPick || missingScore || notEnoughStars;
   const limit = scoreLimit[match.sport] ?? scoreLimit["Fußball"];
-  // Was beim Abgeben wirklich abgezogen würde (gleiche Rechnung wie
-  // spendStars): weniger als der Einsatz, wenn Guthaben oder Tageslimit
-  // nicht reichen. Vorher erfuhr man das erst im Toast nach dem Abgeben.
-  const possibleStake = Math.max(0, Math.min(match.fixedStake, freeStars, stakeBudgetRemainingToday));
-  const stakeReduced = possibleStake < match.fixedStake;
   // Echte Tipps aller Spieler: für die Liste und für den Vergleich nach der
   // Auswertung. Fremde Tipps (die Zahlen) erst nach Tippschluss zeigen.
   const { tippers, failed: tippersFailed } = useMatchTips(
@@ -355,6 +354,13 @@ export default function MatchCard({
     <div className="relative isolate flex h-full flex-col overflow-hidden match-card-rand rounded-card border bg-surface">
       {/* Saison-Design: verblasstes Blatt hinter dem Karteninhalt. */}
       <SeasonCardWatermark variant={match.id.length + match.id.charCodeAt(match.id.length - 1)} />
+      {/* Booster-Spiel: eigene goldene Leiste ganz oben, damit man es auch
+          zwischen normalen Spielen (z. B. bei den geschlossenen) sofort sieht. */}
+      {isBooster && (
+        <div className="border-b border-gold/30 bg-gold/15 px-4 py-1 text-center font-display text-xs font-bold uppercase tracking-wider text-gold sm:px-5">
+          ⚡ Booster-Spiel
+        </div>
+      )}
       {/* Sport-Banner (Spieltag steht unten bei der Anstoßzeit). Lange
           Wettbewerbsnamen wie "NHL Regular Season" brechen an Leerzeichen in
           eine zweite Zeile um statt abgeschnitten zu werden; der Countdown
@@ -486,29 +492,31 @@ export default function MatchCard({
 
             {isChanging ? (
               <p className="mb-5 rounded-lg border border-edge bg-pitch px-4 py-2.5 text-center text-sm text-muted">
-                Einsatz schon bezahlt – beim Ändern werden keine Sterne abgezogen.
+                {isBooster
+                  ? "Einsatz schon bezahlt – beim Ändern werden keine Sterne abgezogen."
+                  : "Gratis-Tipp – Ändern kostet nichts."}
               </p>
-            ) : (
-              <div className="mb-5 rounded-lg border border-edge bg-pitch px-4 py-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted">Einsatz für dieses Spiel</span>
+            ) : isBooster ? (
+              <div className="mb-5 rounded-lg border border-gold/40 bg-gold/[0.07] px-4 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-ink">Booster-Einsatz</span>
                   <span className="flex items-center gap-1 font-display font-semibold text-gold">
                     <StarIcon className="h-4 w-4" />
-                    {stakeReduced && (
-                      <span className="mr-1 text-sm font-normal text-muted line-through">
-                        {match.fixedStake.toLocaleString("de-DE")}
-                      </span>
-                    )}
-                    {possibleStake.toLocaleString("de-DE")}
+                    {BOOSTER_STAKE}
                   </span>
                 </div>
-                {stakeReduced && (
-                  <p className="mt-1 text-xs text-[#FF9B5C]">
-                    {freeStars < match.fixedStake ? "Nicht genug Sterne" : "Tageslimit für Einsätze erreicht"}
-                    {possibleStake === 0 ? " – du tippst ohne Einsatz." : " – du tippst mit weniger Einsatz."}
-                  </p>
-                )}
+                <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">So viel kommt zurück</p>
+                <div className={`mt-1 grid gap-2 text-center ${isOneXTwo ? "grid-cols-2" : "grid-cols-3"}`}>
+                  {boosterPayouts(isOneXTwo).map((p) => (
+                    <div key={p.label} className="rounded-md bg-pitch/60 px-1 py-1">
+                      <div className="font-display text-sm font-bold text-gold">{p.stars}</div>
+                      <div className="text-[11px] text-muted">{p.label}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
+            ) : (
+              <p className="mb-4 text-center text-xs text-muted">Gratis-Tipp · zählt für deine Rangpunkte</p>
             )}
 
             {/* Knopf-Zustände klar unterscheidbar: tippbereit = kräftiges
@@ -525,10 +533,15 @@ export default function MatchCard({
             >
               {submitting ? "Wird gespeichert…" : isChanging ? "Änderung speichern" : "Tipp abgeben"}
             </button>
-            {missingPick && (
+            {notEnoughStars && (
+              <p className="mt-2 text-center text-xs text-[#FF9B5C]">
+                Für einen Booster brauchst du {BOOSTER_STAKE} Sterne – du hast {freeStars}.
+              </p>
+            )}
+            {missingPick && !notEnoughStars && (
               <p className="mt-2 text-center text-xs text-muted">{allowsDraw ? "Erst oben 1, X oder 2 antippen" : "Erst oben 1 oder 2 antippen"}</p>
             )}
-            {missingScore && (
+            {missingScore && !notEnoughStars && (
               <p className="mt-2 text-center text-xs text-muted">Erst oben beide Ergebnisse eintragen</p>
             )}
             {isChanging && (
@@ -825,6 +838,8 @@ function PoolScoreResultBox({
   const tier = myTip.resultTier ?? "falsch";
   const rangDelta = myTip.rangDelta ?? 0;
   const starsDelta = myTip.starsDelta ?? 0;
+  // Gratis-Tipp (kein Einsatz): keine Sterne-Zeile, nur Rangpunkte.
+  const hasStake = (myTip.stake ?? 0) > 0;
 
   return (
     <div className={`flex flex-col gap-2 rounded-lg border px-4 py-3 ${TIER_BOX_CLASS[tier]}`}>
@@ -839,24 +854,28 @@ function PoolScoreResultBox({
           {rangDelta} Rangpunkte
         </span>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-        <span className={`flex items-center gap-1 font-semibold ${starsDelta >= 0 ? "text-gold" : "text-red-400"}`}>
-          <StarIcon className="h-3.5 w-3.5" />
-          {starsDelta >= 0 ? "+" : ""}
-          {starsDelta} Sterne
-        </span>
-        {comparison &&
-          (comparison.total === 0 ? (
-            <span>Außer dir hat niemand getippt.</span>
-          ) : (
-            <span>
-              Besser als {comparison.beaten} von {comparison.total}{" "}
-              {comparison.total === 1 ? "Mitspieler" : "Mitspielern"} (
-              {Math.round((comparison.beaten / comparison.total) * 100)} %)
-              {comparison.tied > 0 ? `, gleich gut wie ${comparison.tied}` : ""}.
+      {(hasStake || comparison) && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
+          {hasStake && (
+            <span className={`flex items-center gap-1 font-semibold ${starsDelta >= 0 ? "text-gold" : "text-red-400"}`}>
+              <StarIcon className="h-3.5 w-3.5" />
+              {starsDelta >= 0 ? "+" : ""}
+              {starsDelta} Sterne
             </span>
-          ))}
-      </div>
+          )}
+          {comparison &&
+            (comparison.total === 0 ? (
+              <span>Außer dir hat niemand getippt.</span>
+            ) : (
+              <span>
+                Besser als {comparison.beaten} von {comparison.total}{" "}
+                {comparison.total === 1 ? "Mitspieler" : "Mitspielern"} (
+                {Math.round((comparison.beaten / comparison.total) * 100)} %)
+                {comparison.tied > 0 ? `, gleich gut wie ${comparison.tied}` : ""}.
+              </span>
+            ))}
+        </div>
+      )}
     </div>
   );
 }

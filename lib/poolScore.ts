@@ -59,19 +59,20 @@ export const RANG_BASE_POINTS: Record<TipResultTier, number> = {
 
 /**
  * Sterne-Gutschrift bei der Auswertung (wird auf das Guthaben aufgeschlagen,
- * nachdem der Einsatz bei Tipp-Abgabe bereits abgezogen wurde):
- *   - Exakt: Einsatz zurück + 50% Bonus obendrauf.
- *   - Tendenz (bei Ergebnis-Tipps): Einsatz zurück (Null-Ergebnis für die Sterne)
- *     – ist hier bewusst neutral, weil "Exakt" bei diesem Tipp-Modus noch
- *     erreichbar gewesen wäre.
- *   - Richtig bei 1X2-Tipps: Bei diesem Tipp-Modus IST "richtig geraten"
- *     bereits das bestmögliche Ergebnis (ein exaktes Ergebnis kann man hier
- *     gar nicht abgeben) – deshalb gibt's wie bei "Exakt" Einsatz zurück
- *     + 50% Bonus. Gewinn und Verlust sind damit gleich groß.
- *   - Falsch: nur 50% des Einsatzes gehen verloren, die Hälfte kommt zurück.
+ * nachdem der Einsatz bei Tipp-Abgabe bereits abgezogen wurde). Einsatz gibt
+ * es nur noch bei Booster-Spielen (siehe lib/booster.ts), normale Tipps haben
+ * Einsatz 0 und bewegen keine Sterne.
+ *   - Exakt beim Booster: dreifacher Einsatz zurück (20 -> 60). Ein exaktes
+ *     Ergebnis trifft man selten, darum lohnt es sich richtig.
+ *   - Exakt bei älteren Tipps (vor den Boostern abgegeben): Einsatz + 50 %.
+ *   - Tendenz (bei Ergebnis-Tipps): Einsatz zurück.
+ *   - Richtig bei 1X2-Tipps: Einsatz + 50 % (ein exaktes Ergebnis kann man
+ *     hier gar nicht abgeben). Gewinn und Verlust sind gleich groß.
+ *   - Falsch: die Hälfte des Einsatzes kommt zurück.
+ * Gleiche Regeln wie evaluate_match_tips in supabase/booster.sql.
  */
-export function starsDeltaForTier(tier: TipResultTier, stake: number, isOneXTwo = false): number {
-  if (tier === "exakt") return Math.round(stake * 1.5);
+export function starsDeltaForTier(tier: TipResultTier, stake: number, isOneXTwo = false, booster = false): number {
+  if (tier === "exakt") return Math.round(stake * (booster ? 3 : 1.5));
   if (tier === "tendenz") return Math.round(stake * (isOneXTwo ? 1.5 : 1));
   return Math.round(stake * 0.5);
 }
@@ -93,11 +94,12 @@ export function evaluatePoolScore(params: {
   actualAway: number;
   stake: number;
   isOneXTwo?: boolean;
+  booster?: boolean;
 }): PoolScoreResult {
   const isOneXTwo = params.isOneXTwo ?? false;
   const tier = classifyTip(params.predictedHome, params.predictedAway, params.actualHome, params.actualAway, isOneXTwo);
   const rangDelta = RANG_BASE_POINTS[tier];
-  const starsCredit = starsDeltaForTier(tier, params.stake, isOneXTwo);
+  const starsCredit = starsDeltaForTier(tier, params.stake, isOneXTwo, params.booster ?? false);
   const starsNet = starsCredit - params.stake;
   return { tier, rangDelta, starsCredit, starsNet };
 }
@@ -132,27 +134,51 @@ export function compareWithOthers(
 
 /** Sterne, die der tägliche Login-Bonus auszahlt. */
 export const DAILY_BONUS_STARS = 8;
+/**
+ * Obergrenze für den Tagesbonus: Ab diesem Kontostand gibt der Bonus nur noch
+ * XP, damit niemand endlos Sterne hortet (Booster-Gewinne und Pass-Belohnungen
+ * zählen trotzdem voll).
+ */
+export const DAILY_BONUS_STAR_CAP = 500;
+
+/** Sterne, die der Tagesbonus bei diesem Kontostand wirklich gibt. */
+export function dailyBonusStarsFor(currentStars: number): number {
+  return Math.max(0, Math.min(DAILY_BONUS_STARS, DAILY_BONUS_STAR_CAP - currentStars));
+}
 
 /**
- * Der "typische" Einsatz pro Spiel (Standardwert im Admin-Bereich beim
- * Anlegen eines Spiels). ALLE Sicherheits-Werte unten (Tages-Limit,
- * Warnschwelle, Rettungs-Bonus) werden bewusst als VIELFACHES dieser einen
- * Zahl berechnet statt als feste, unabhängige Zahlen. Grund: Wird künftig
- * öfter mit höheren oder niedrigeren Einsätzen gespielt, reicht es, NUR
- * diesen einen Wert anzupassen – die restlichen Sicherheits-Werte skalieren
- * dann automatisch mit, statt an mehreren Stellen im Code angepasst werden
- * zu müssen.
+ * Der Einsatz eines Booster-Spiels (fest, siehe lib/booster.ts). ALLE
+ * Sicherheits-Werte unten (Duell-Tageslimit, Warnschwelle, Rettungs-Bonus)
+ * werden bewusst als VIELFACHES dieser einen Zahl berechnet statt als feste,
+ * unabhängige Zahlen, damit sie automatisch mitskalieren.
  */
 export const REFERENCE_STAKE = 20;
 
+// Booster-Spiele: Normale Tipps sind gratis und bringen nur Rangpunkte. Pro
+// Tag markiert der Admin bis zu 3 Spiele als "Booster" – dort setzt man fest
+// 20 Sterne ein (siehe starsDeltaForTier). Welche Spiele an einem Tag schon
+// Booster sind, zählt lib/booster.ts. Abgebucht wird in supabase/booster.sql.
+export const BOOSTER_STAKE = REFERENCE_STAKE;
+export const BOOSTERS_PER_DAY = 3;
+
+/** Was bei einem Booster zurückkommt, für die Anzeige auf der Karte. */
+export function boosterPayouts(isOneXTwo: boolean): { label: string; stars: number }[] {
+  if (isOneXTwo) {
+    return [
+      { label: "Richtig", stars: starsDeltaForTier("tendenz", BOOSTER_STAKE, true, true) },
+      { label: "Falsch", stars: starsDeltaForTier("falsch", BOOSTER_STAKE, true, true) },
+    ];
+  }
+  return [
+    { label: "Exakt", stars: starsDeltaForTier("exakt", BOOSTER_STAKE, false, true) },
+    { label: "Tendenz", stars: starsDeltaForTier("tendenz", BOOSTER_STAKE, false, true) },
+    { label: "Falsch", stars: starsDeltaForTier("falsch", BOOSTER_STAKE, false, true) },
+  ];
+}
+
 /**
- * Maximaler Sterne-Einsatz, den ein User pro Tag insgesamt riskieren kann –
- * UNABHÄNGIG davon, wie viele Spiele an diesem Tag angeboten werden. Ohne
- * dieses Limit würde ein Tag mit vielen Spielen das Sterne-Guthaben viel
- * schneller aufbrauchen als ein Tag mit wenigen. Ist das Tages-Limit erreicht,
- * tippt man für die restlichen Spiele des Tages einfach ohne Einsatz weiter
- * (Rangliste-Punkte gibt's trotzdem, nur keine Sterne-Bewegung mehr).
- * Entspricht ca. 5 Einsätzen zum Referenz-Einsatz.
+ * Maximaler Sterne-Einsatz pro Tag für Duelle. Tipps zählen nicht mehr mit:
+ * Einsatz gibt es nur bei den Booster-Spielen (höchstens 3 pro Tag à 20).
  */
 export const DAILY_STAKE_BUDGET = REFERENCE_STAKE * 5;
 
