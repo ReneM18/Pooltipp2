@@ -1,6 +1,6 @@
 import { Sport } from "@/lib/types";
 
-export type RankName = "Bronze" | "Silber" | "Gold" | "Platin" | "Diamant" | "Legende";
+export type RankName = "Bronze" | "Silber" | "Gold" | "Platin" | "Diamant" | "Meister";
 export type SubTier = "III" | "II" | "I";
 
 export interface RankTierDef {
@@ -27,9 +27,9 @@ export const RANK_LADDER: RankTierDef[] = [
   { rank: "Diamant", sub: "III", minPoints: 3400 },
   { rank: "Diamant", sub: "II", minPoints: 4000 },
   { rank: "Diamant", sub: "I", minPoints: 4700 },
-  { rank: "Legende", sub: "III", minPoints: 5500 },
-  { rank: "Legende", sub: "II", minPoints: 6400 },
-  { rank: "Legende", sub: "I", minPoints: 7400 },
+  { rank: "Meister", sub: "III", minPoints: 5500 },
+  { rank: "Meister", sub: "II", minPoints: 6400 },
+  { rank: "Meister", sub: "I", minPoints: 7400 },
 ];
 
 export const RANK_COLORS: Record<RankName, { from: string; to: string; text: string }> = {
@@ -40,7 +40,7 @@ export const RANK_COLORS: Record<RankName, { from: string; to: string; text: str
   Diamant: { from: "#7a8cff", to: "#c9d2ff", text: "#0a0f2b" },
   // Feurig statt kühl – hebt sich bewusst von Diamants Blau/Lila ab, damit auf
   // einen Blick klar ist: das ist nochmal eine eigene, höhere Stufe.
-  Legende: { from: "#F97316", to: "#DC2626", text: "#2a0800" },
+  Meister: { from: "#F97316", to: "#DC2626", text: "#2a0800" },
 };
 
 // Titel werden NICHT mehr über den Saison-Pass verteilt, sondern verdient
@@ -53,7 +53,7 @@ export const RANK_TITLES: Record<RankName, string> = {
   Gold: "Champion",
   Platin: "VIP-Tipper",
   Diamant: "Unaufhaltbar",
-  Legende: "Elite-Tipper",
+  Meister: "Elite-Tipper",
 };
 
 export const SPORT_EMOJI: Record<Sport, string> = {
@@ -76,14 +76,14 @@ export function tierLabel(tier: RankTierDef): string {
   return `${tier.rank} ${tier.sub}`;
 }
 
-/** Die nächste Stufe nach den aktuellen Punkten, oder null wenn schon die höchste Stufe (Legende I) erreicht ist. */
+/** Die nächste Stufe nach den aktuellen Punkten, oder null wenn schon die höchste Stufe (Meister I) erreicht ist. */
 export function getNextTier(points: number): RankTierDef | null {
   const currentIndex = RANK_LADDER.findIndex((t) => t === getTierForPoints(points));
   return RANK_LADDER[currentIndex + 1] ?? null;
 }
 
 // Ein auswählbares Rang-Icon: entweder sportgebunden (Fußball Gold III, ...)
-// oder das sportartübergreifende Elite-Icon "Sport-Allrounder".
+// oder das sportartübergreifende Elite-Icon "Legende".
 export interface RankIconOption {
   id: string;
   kind: "sport" | "elite";
@@ -110,7 +110,7 @@ const ELITE_COLORS = { from: "#FFD700", to: "#B694F6", text: "#241040" };
 // Sportarten zugleich".
 const ELITE_ICON = "🐐";
 
-// Das Elite-Icon (Sport-Allrounder) gibt es erst, wenn man in ALLEN
+// Das Elite-Icon (Legende) gibt es erst, wenn man in ALLEN
 // Sportarten mindestens Gold erreicht hat – vorher reichte schon 1 Punkt pro
 // Sportart, und über Demo-Daten bekam es sogar jeder Spieler.
 export const ELITE_MIN_POINTS = RANK_LADDER.find((t) => t.rank === "Gold")!.minPoints;
@@ -119,7 +119,7 @@ function eliteIcon(idSuffix = ""): RankIconOption {
   return {
     id: `elite${idSuffix}`,
     kind: "elite",
-    label: "Sport-Allrounder (Elite)",
+    label: "Legende",
     icon: ELITE_ICON,
     colorFrom: ELITE_COLORS.from,
     colorTo: ELITE_COLORS.to,
