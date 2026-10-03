@@ -353,7 +353,7 @@ export default function MatchCard({
       </div>
 
       <div className="flex flex-1 flex-col p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[15px] text-muted">
+        <div className="mb-3 flex min-h-[1.75rem] flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[15px] text-muted">
           {match.matchday ? <span className="font-semibold text-ink/80">Spieltag {match.matchday}</span> : null}
           {match.matchday ? <span aria-hidden>·</span> : null}
           <span>{kickoffLabel}</span>
