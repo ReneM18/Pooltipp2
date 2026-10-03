@@ -395,14 +395,14 @@ export default function MatchCard({
             {isOneXTwo ? (
               // Knöpfe stehen direkt unter dem jeweiligen Team: links tippt
               // man das linke Team, rechts das rechte – ohne 1/2 zu kennen.
-              <div className={`mb-5 grid items-stretch gap-2 ${allowsDraw ? "grid-cols-[1fr_auto_1fr]" : "grid-cols-2"}`}>
+              <div className={`mb-5 grid items-stretch gap-2 ${oneXTwoOptions.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
                 {oneXTwoOptions.map((option) => (
                   <button
                     key={option}
                     onClick={() => setNflPick(option)}
                     aria-label={pickLabel(option)}
                     aria-pressed={nflPick === option}
-                    className={`flex h-12 min-w-[4rem] flex-col items-center justify-center rounded-lg border px-2 text-center transition-colors ${
+                    className={`flex h-12 min-w-0 flex-col items-center justify-center rounded-lg border px-2 text-center transition-colors ${
                       nflPick === option
                         ? "border-gold bg-gold/15 text-gold"
                         : "border-edge bg-pitch text-ink hover:border-muted"
