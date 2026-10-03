@@ -353,7 +353,7 @@ export default function MatchCard({
       </div>
 
       <div className="flex flex-1 flex-col p-5">
-        <div className="mb-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[15px] text-muted">
+        <div className="mb-3 flex min-h-[1.75rem] flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[15px] text-muted">
           {match.matchday ? <span className="font-semibold text-ink/80">Spieltag {match.matchday}</span> : null}
           {match.matchday ? <span aria-hidden>·</span> : null}
           <span>{kickoffLabel}</span>
@@ -393,16 +393,16 @@ export default function MatchCard({
               </p>
             )}
             {isOneXTwo ? (
-              // Knöpfe stehen direkt unter dem jeweiligen Team: links tippt
-              // man das linke Team, rechts das rechte – ohne 1/2 zu kennen.
-              <div className={`mb-5 grid items-stretch gap-2 ${oneXTwoOptions.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+              // Tipp-Zone: feste, gleich große Kästen (wie die Ergebnis-Felder),
+              // mittig unter den Teams statt bis an den Kartenrand.
+              <div className="mb-5 flex justify-center gap-2">
                 {oneXTwoOptions.map((option) => (
                   <button
                     key={option}
                     onClick={() => setNflPick(option)}
                     aria-label={pickLabel(option)}
                     aria-pressed={nflPick === option}
-                    className={`flex h-12 min-w-0 flex-col items-center justify-center rounded-lg border px-2 text-center transition-colors ${
+                    className={`flex h-12 w-20 flex-col items-center justify-center rounded-lg border text-center transition-colors ${
                       nflPick === option
                         ? "border-gold bg-gold/15 text-gold"
                         : "border-edge bg-pitch text-ink hover:border-muted"
@@ -415,19 +415,19 @@ export default function MatchCard({
                 ))}
               </div>
             ) : (
-              // Gleiches Raster wie die 1 / X / 2-Knöpfe: Felder so breit wie
-              // "1" und "2", der Doppelpunkt sitzt an der Stelle des X.
-              <div className="mb-5 grid grid-cols-3 items-center gap-2">
+              // Gleich große Kästen wie die 1 / X / 2-Knöpfe, eng um den
+              // Doppelpunkt, mittig unter den Teams.
+              <div className="mb-5 flex items-center justify-center gap-3">
                 {isUsSport ? (
                   <>
                     {awayScoreInput}
-                    <span className="text-center font-display text-xl text-muted">:</span>
+                    <span className="font-display text-xl text-muted">:</span>
                     {homeScoreInput}
                   </>
                 ) : (
                   <>
                     {homeScoreInput}
-                    <span className="text-center font-display text-xl text-muted">:</span>
+                    <span className="font-display text-xl text-muted">:</span>
                     {awayScoreInput}
                   </>
                 )}
@@ -919,15 +919,17 @@ function TeamColumn({ sport, team, tag, flip = false }: { sport: Sport; team: Te
         flip={flip}
         size={34}
       />
-      <TeamLabel name={team.name} />
+      {/* HEIM/GAST direkt unter dem Wappen: steht so bei beiden Teams auf
+          gleicher Höhe, auch wenn ein Name zweizeilig ist. */}
       {tag && <SideTag>{tag}</SideTag>}
+      <TeamLabel name={team.name} />
     </div>
   );
 }
 
 function SideTag({ children }: { children: string }) {
   return (
-    <span className="mt-auto rounded-full border border-edge px-2 py-px text-[10px] font-semibold uppercase tracking-wide text-muted">
+    <span className="rounded-full border border-edge px-2 py-px text-[10px] font-semibold uppercase tracking-wide text-muted">
       {children}
     </span>
   );
@@ -964,4 +966,4 @@ function TeamLabel({ name }: { name: string }) {
 }
 
 const scoreInputClass =
-  "h-12 w-full min-w-0 rounded-lg border border-edge bg-pitch text-center font-display text-xl font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
+  "h-12 w-20 rounded-lg border border-edge bg-pitch text-center font-display text-xl font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
