@@ -10,9 +10,10 @@ export function displayOrder<T>(sport: string, home: T, away: T): [T, T] {
   return isAwayFirst(sport) ? [away, home] : [home, away];
 }
 
-// Spieltitel in einer Zeile: "Bayern vs Dortmund" bzw. "Bills @ Chiefs".
+// Spieltitel in einer Zeile: "Bayern vs Dortmund" bzw. bei US-Sport
+// "Bills vs Chiefs" (Gast zuerst).
 export function matchTitle(sport: string, homeName: string, awayName: string): string {
-  return isAwayFirst(sport) ? `${awayName} @ ${homeName}` : `${homeName} vs ${awayName}`;
+  return isAwayFirst(sport) ? `${awayName} vs ${homeName}` : `${homeName} vs ${awayName}`;
 }
 
 // Ergebnis in Anzeige-Reihenfolge, z. B. "24:17".

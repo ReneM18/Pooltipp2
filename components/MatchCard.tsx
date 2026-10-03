@@ -380,7 +380,7 @@ export default function MatchCard({
               <span className="text-[10px] uppercase tracking-wide text-muted">Endstand</span>
             </div>
           ) : (
-            <span className="pt-2 font-display text-xs text-muted sm:text-sm">{isUsSport ? "@" : "vs"}</span>
+            <span className="pt-2 font-display text-xs text-muted sm:text-sm">vs</span>
           )}
           <TeamColumn sport={match.sport} team={rightTeam} tag={isUsSport ? "Heim" : null} flip />
         </div>
@@ -402,17 +402,14 @@ export default function MatchCard({
                     onClick={() => setNflPick(option)}
                     aria-label={pickLabel(option)}
                     aria-pressed={nflPick === option}
-                    className={`flex min-h-[3.5rem] min-w-0 flex-col items-center justify-center rounded-lg border px-2 py-1.5 text-center transition-colors ${
+                    className={`flex h-12 min-w-[4rem] flex-col items-center justify-center rounded-lg border px-2 text-center transition-colors ${
                       nflPick === option
                         ? "border-gold bg-gold/15 text-gold"
                         : "border-edge bg-pitch text-ink hover:border-muted"
                     }`}
                   >
-                    <span className="font-display text-lg font-bold leading-tight">
+                    <span className="font-display text-xl font-bold leading-tight">
                       {pickButtonNumber(option)}
-                    </span>
-                    <span className="text-xs leading-tight text-muted [hyphens:manual] [overflow-wrap:normal]">
-                      {option === "1" ? homeTeam.name : option === "2" ? awayTeam.name : "Remis"}
                     </span>
                   </button>
                 ))}
