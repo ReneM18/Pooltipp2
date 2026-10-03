@@ -10,7 +10,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { xpForLevel } from "@/lib/seasonPass";
-import { displayOrder, isAwayFirst } from "@/lib/teamOrder";
+import { displayOrder, isAwayFirst, oneXTwoText, pickNumber } from "@/lib/teamOrder";
 import TeamBadge from "./TeamBadge";
 import PassHonorTags, { useOtherPlayersHonors } from "./PassHonors";
 import { EmotePicker, MessageBody, stickerFromText, stickerText } from "./Emotes";
@@ -64,8 +64,8 @@ interface MatchCardProps {
   onChangeTip?: (homeScore: number, awayScore: number) => void;
 }
 
-// 1X2-Spiele werden nur per Sieger (Sieg Heimteam / Unentschieden / Sieg
-// Auswärtsteam) getippt, nicht per genauem Ergebnis. Codierung als Score-Paar, damit der bestehende
+// 1X2-Spiele werden nur per Sieger (1 / X / 2 nach Position, siehe
+// lib/teamOrder.ts) getippt, nicht per genauem Ergebnis. Codierung als Score-Paar, damit der bestehende
 // Tipp-Datenfluss (predictedHomeScore/predictedAwayScore) unverändert bleibt:
 // "1" -> 1:0, "X" -> 0:0, "2" -> 0:1.
 type OneXTwo = "1" | "X" | "2";
@@ -242,10 +242,16 @@ export default function MatchCard({
   const oneXTwoOptions: OneXTwo[] =
     allowsDraw || nflPick === "X" ? [leftPick, "X", rightPick] : [leftPick, rightPick];
 
+  // Intern "1" = Heimsieg, "2" = Auswärtssieg. Auf dem Knopf steht die
+  // Nummer nach Position (links 1, rechts 2) mit dem Teamnamen darunter.
   function pickLabel(pick: OneXTwo) {
-    if (pick === "1") return `Sieg ${homeTeam.name}`;
-    if (pick === "2") return `Sieg ${awayTeam.name}`;
-    return "Unentschieden";
+    const [h, a] = oneXTwoToScore(pick);
+    return oneXTwoText(match.sport, h, a, homeTeam.name, awayTeam.name);
+  }
+
+  function pickButtonNumber(pick: OneXTwo) {
+    if (pick === "X") return "X";
+    return pickNumber(match.sport, pick === "1" ? "home" : "away");
   }
 
   // Ergebnis in Anzeige-Reihenfolge (bei US-Sport Gast : Heim).
@@ -402,8 +408,8 @@ export default function MatchCard({
                         : "border-edge bg-pitch text-ink hover:border-muted"
                     }`}
                   >
-                    <span className="font-display text-base font-bold leading-tight">
-                      {option === "X" ? "X" : "Sieg"}
+                    <span className="font-display text-lg font-bold leading-tight">
+                      {pickButtonNumber(option)}
                     </span>
                     <span className="text-xs leading-tight text-muted [hyphens:manual] [overflow-wrap:normal]">
                       {option === "1" ? homeTeam.name : option === "2" ? awayTeam.name : "Remis"}
@@ -505,7 +511,7 @@ export default function MatchCard({
               {submitting ? "Wird gespeichert…" : isChanging ? "Änderung speichern" : "Tipp abgeben"}
             </button>
             {missingPick && (
-              <p className="mt-2 text-center text-xs text-muted">Erst oben einen Sieger antippen</p>
+              <p className="mt-2 text-center text-xs text-muted">{allowsDraw ? "Erst oben 1, X oder 2 antippen" : "Erst oben 1 oder 2 antippen"}</p>
             )}
             {missingScore && (
               <p className="mt-2 text-center text-xs text-muted">Erst oben beide Ergebnisse eintragen</p>
@@ -530,9 +536,25 @@ export default function MatchCard({
                   Dein Tipp
                 </span>
                 <span className="flex min-w-0 items-center gap-3">
-                  <span className="text-right font-display font-semibold leading-tight text-ink">
-                    {formatTip(myTip!.predictedHomeScore, myTip!.predictedAwayScore)}
-                  </span>
+                  {isOneXTwo ? (
+                    // Nummer groß, Teamname klein daneben – so bricht nur der
+                    // Name um, nicht "1 (Boston" / "Bruins)".
+                    <span className="flex min-w-0 items-center gap-2 text-right">
+                      <span className="font-display text-lg font-bold text-ink">
+                        {pickButtonNumber(scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore))}
+                      </span>
+                      <span className="text-xs leading-tight text-muted">
+                        {(() => {
+                          const pick = scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore);
+                          return pick === "1" ? homeTeam.name : pick === "2" ? awayTeam.name : "Unentschieden";
+                        })()}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-right font-display font-semibold leading-tight text-ink">
+                      {formatTip(myTip!.predictedHomeScore, myTip!.predictedAwayScore)}
+                    </span>
+                  )}
                   {canChangeTip && (
                     <button
                       onClick={startChangingTip}
