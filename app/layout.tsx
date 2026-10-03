@@ -7,6 +7,7 @@ import { TeamsProvider } from "@/lib/TeamsContext";
 import { DuelsProvider } from "@/lib/DuelsContext";
 import { TournamentProvider } from "@/lib/TournamentContext";
 import { FeedbackProvider } from "@/lib/FeedbackContext";
+import { ChatProvider } from "@/lib/ChatContext";
 import AppChrome from "@/components/AppChrome";
 import { seasonDesignBootScript } from "@/lib/seasons/design";
 
@@ -63,7 +64,9 @@ export default function RootLayout({
               <TournamentProvider>
                 <TeamsProvider>
                   <FeedbackProvider>
-                    <AppChrome>{children}</AppChrome>
+                    <ChatProvider>
+                      <AppChrome>{children}</AppChrome>
+                    </ChatProvider>
                   </FeedbackProvider>
                 </TeamsProvider>
               </TournamentProvider>

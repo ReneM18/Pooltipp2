@@ -7,11 +7,14 @@ import { mockLeaderboard } from "@/lib/mockLeaderboard";
 import { getMockUserProfile } from "@/lib/mockUsers";
 import { usePlayerRankIcons } from "@/lib/playerRankIcons";
 import RankMeaningBadge from "@/components/RankMeaningBadge";
+import { useChat } from "@/lib/ChatContext";
+import { ChatIcon } from "@/components/Icons";
 
 export default function SpielerProfilPage() {
   const params = useParams();
   const router = useRouter();
-  const { displayName, friends, pendingRequests, photos: myPhotos, activeRankIcon } = useUser();
+  const { displayName, friends, friendEntries, pendingRequests, photos: myPhotos, activeRankIcon } = useUser();
+  const { openChat } = useChat();
   const rankIcons = usePlayerRankIcons();
 
   const name = decodeURIComponent(
@@ -21,6 +24,7 @@ export default function SpielerProfilPage() {
   const isSelf = name === displayName;
   const isFriend = friends.includes(name);
   const isPending = pendingRequests.includes(name);
+  const friendEntry = friendEntries.find((f) => f.relation === "friend" && f.name === name);
   const profile = getMockUserProfile(name);
   const leaderboardEntry = mockLeaderboard.find((e) => e.name === name);
   // Eigenes Icon = das im Profil gewählte, bei anderen aus ihren echten Rangpunkten.
@@ -60,8 +64,8 @@ export default function SpielerProfilPage() {
       </div>
 
       {!isSelf && (
-        <div className="mb-6 flex items-center justify-between rounded-card border border-edge bg-surface p-4">
-          <div>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
+          <div className="min-w-[12rem] flex-1">
             <p className="text-sm font-semibold text-ink">
               {isFriend ? "Ihr seid befreundet" : isPending ? "Anfrage gesendet" : "Noch nicht befreundet"}
             </p>
@@ -84,12 +88,24 @@ export default function SpielerProfilPage() {
             </Link>
           )}
           {isFriend && (
-            <Link
-              href="/duelle"
-              className="shrink-0 rounded-full bg-gold px-4 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:opacity-90"
-            >
-              ⚔️ Herausfordern
-            </Link>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              {friendEntry && (
+                <button
+                  type="button"
+                  onClick={() => openChat(friendEntry.id)}
+                  className="flex items-center gap-1.5 rounded-full bg-action px-4 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+                >
+                  <ChatIcon className="h-4 w-4" />
+                  Schreiben
+                </button>
+              )}
+              <Link
+                href="/duelle"
+                className="rounded-full bg-gold px-4 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:opacity-90"
+              >
+                ⚔️ Herausfordern
+              </Link>
+            </div>
           )}
         </div>
       )}
