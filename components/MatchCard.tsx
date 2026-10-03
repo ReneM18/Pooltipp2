@@ -415,17 +415,19 @@ export default function MatchCard({
                 ))}
               </div>
             ) : (
-              <div className="mb-5 flex items-center justify-center gap-3">
+              // Gleiches Raster wie die 1 / X / 2-Knöpfe: Felder so breit wie
+              // "1" und "2", der Doppelpunkt sitzt an der Stelle des X.
+              <div className="mb-5 grid grid-cols-3 items-center gap-2">
                 {isUsSport ? (
                   <>
                     {awayScoreInput}
-                    <span className="font-display text-xl text-muted">:</span>
+                    <span className="text-center font-display text-xl text-muted">:</span>
                     {homeScoreInput}
                   </>
                 ) : (
                   <>
                     {homeScoreInput}
-                    <span className="font-display text-xl text-muted">:</span>
+                    <span className="text-center font-display text-xl text-muted">:</span>
                     {awayScoreInput}
                   </>
                 )}
@@ -962,4 +964,4 @@ function TeamLabel({ name }: { name: string }) {
 }
 
 const scoreInputClass =
-  "h-12 w-14 rounded-lg border border-edge bg-pitch text-center font-display text-xl font-semibold text-ink outline-none focus:border-gold disabled:opacity-60";
+  "h-12 w-full min-w-0 rounded-lg border border-edge bg-pitch text-center font-display text-xl font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
