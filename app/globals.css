@@ -225,3 +225,28 @@ input[type="range"].stake-slider::-moz-range-thumb {
 .animate-levelup-in {
   animation: levelup-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+/* GOAT-Abzeichen: Glanz-Streifen + Funkel-Sterne. Bei "Bewegung reduzieren" bleibt alles still. */
+.goat-fx-shine {
+  animation: goat-shine 3.2s ease-in-out infinite;
+  transform-box: view-box;
+  transform-origin: 20px 20px;
+}
+@keyframes goat-shine {
+  0%, 55% { transform: rotate(20deg) translateX(0); }
+  100% { transform: rotate(20deg) translateX(64px); }
+}
+.goat-fx-sparkle {
+  animation: goat-sparkle 2.4s ease-in-out infinite;
+  opacity: 0;
+  transform-box: view-box;
+}
+@keyframes goat-sparkle {
+  0%, 100% { opacity: 0; transform: scale(0.3); }
+  20% { opacity: 1; transform: scale(1); }
+  40% { opacity: 0; transform: scale(0.3); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .goat-fx, .goat-fx * { animation: none !important; }
+  .goat-fx-sparkle { opacity: 1; }
+}

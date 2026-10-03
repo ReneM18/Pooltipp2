@@ -9,6 +9,8 @@ import {
   tierLabel,
 } from "@/lib/rankTiers";
 
+const GOAT_TIER = RANK_LADDER[RANK_LADDER.length - 1];
+
 export default function RankProgress({ sport, points }: { sport: Sport; points: number }) {
   const current = getTierForPoints(points);
   const next = getNextTier(points);
@@ -38,7 +40,7 @@ export default function RankProgress({ sport, points }: { sport: Sport; points: 
       <p className="mb-4 text-xs text-muted">
         {next
           ? `Noch ${(next.minPoints - points).toLocaleString("de-DE")} Punkte bis ${tierLabel(next)}.`
-          : `Höchste Stufe erreicht – ${tierLabel(RANK_LADDER[RANK_LADDER.length - 1])}.`}
+          : `Höchste Stufe erreicht – ${tierLabel(GOAT_TIER)}.`}
       </p>
 
       <div className="flex flex-wrap gap-1.5">
@@ -58,6 +60,13 @@ export default function RankProgress({ sport, points }: { sport: Sport; points: 
           );
         })}
       </div>
+      {/* Ganz oben, noch gesperrt: kurz erklären, was der goldene Ziegenkopf ist. */}
+      {points < GOAT_TIER.minPoints && (
+        <p className="mt-3 text-[11px] text-muted">
+          🔒 Ganz oben wartet der {GOAT_TIER.rank}: ab {GOAT_TIER.minPoints.toLocaleString("de-DE")} Punkten in einer
+          Sportart.
+        </p>
+      )}
     </div>
   );
 }
