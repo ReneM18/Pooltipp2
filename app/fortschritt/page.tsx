@@ -211,8 +211,9 @@ export default function FortschrittPage() {
             haben mit dem Pass nichts zu tun.
           </li>
           <li>
-            <span className="font-semibold text-ink">Sterne</span> brauchst du zum Tippen. Der Pass gibt nur auf
-            Level 10 ein paar dazu.
+            <span className="font-semibold text-ink">Sterne</span> setzt du bei den Booster-Spielen ein und
+            tauschst sie im Shop gegen Joker. Normale Tipps sind gratis. Der Pass gibt nur auf Level 10 ein
+            paar dazu.
           </li>
           <li>Abzeichen, Titel und Sticker, die du freischaltest, behältst du auch nach der Saison.</li>
         </ul>
