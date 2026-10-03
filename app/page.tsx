@@ -11,7 +11,9 @@ export default function DashboardPage() {
   const { placeTip, streakCount } = useUser();
   const { matches, getTeam, tipCounts, changeTip, myTips } = useAppData();
   const { showToast, celebrate } = useFeedback();
-  const [tab, setTab] = useState<"offen" | "geschlossen">("offen");
+  // Vom Spieler angeklickter Reiter (null = noch nicht gewählt). Solange
+  // nichts gewählt ist, entscheidet die Seite selbst, siehe "tab" unten.
+  const [chosenTab, setTab] = useState<"offen" | "geschlossen" | null>(null);
   // Uhrzeit für die Sortierung (erst nach dem Laden im Browser gesetzt,
   // sonst passen Server- und Browser-Ansicht nicht zusammen), jede Minute neu.
   const [now, setNow] = useState<number | null>(null);
@@ -65,6 +67,11 @@ export default function DashboardPage() {
   const geschlosseneMatches = matches
     .filter(isClosed)
     .sort((a, b) => new Date(b.tipDeadline).getTime() - new Date(a.tipDeadline).getTime());
+  // Kein offenes Spiel mehr: gleich die geschlossenen zeigen statt einer
+  // leeren Seite. Sobald wieder eins offen ist, stehen die offenen vorne.
+  // Hat der Spieler selbst einen Reiter angeklickt, bleibt es dabei.
+  const tab =
+    chosenTab ?? (offeneMatches.length === 0 && geschlosseneMatches.length > 0 ? "geschlossen" : "offen");
   const visibleMatches = tab === "offen" ? offeneMatches : geschlosseneMatches;
 
   return (
