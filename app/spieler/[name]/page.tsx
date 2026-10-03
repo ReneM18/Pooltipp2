@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import { mockLeaderboard } from "@/lib/mockLeaderboard";
 import { getMockUserProfile } from "@/lib/mockUsers";
-import { getIconForName } from "@/lib/rankTiers";
+import { usePlayerRankIcons } from "@/lib/playerRankIcons";
 import RankMeaningBadge from "@/components/RankMeaningBadge";
 
 export default function SpielerProfilPage() {
   const params = useParams();
   const router = useRouter();
-  const { displayName, friends, pendingRequests, photos: myPhotos } = useUser();
+  const { displayName, friends, pendingRequests, photos: myPhotos, activeRankIcon } = useUser();
+  const rankIcons = usePlayerRankIcons();
 
   const name = decodeURIComponent(
     Array.isArray(params.name) ? params.name[0] : params.name ?? ""
@@ -22,7 +23,8 @@ export default function SpielerProfilPage() {
   const isPending = pendingRequests.includes(name);
   const profile = getMockUserProfile(name);
   const leaderboardEntry = mockLeaderboard.find((e) => e.name === name);
-  const rankIcon = getIconForName(name);
+  // Eigenes Icon = das im Profil gewählte, bei anderen aus ihren echten Rangpunkten.
+  const rankIcon = isSelf ? activeRankIcon : rankIcons.byName(name);
   const photosVisible = isSelf || isFriend || profile.photoVisibility === "public";
 
   return (

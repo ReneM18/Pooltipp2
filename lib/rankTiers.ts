@@ -1,5 +1,4 @@
 import { Sport } from "@/lib/types";
-import { mockLeaderboardBySport } from "@/lib/mockLeaderboard";
 
 export type RankName = "Bronze" | "Silber" | "Gold" | "Platin" | "Diamant" | "Legende";
 export type SubTier = "III" | "II" | "I";
@@ -111,56 +110,40 @@ const ELITE_COLORS = { from: "#FFD700", to: "#B694F6", text: "#241040" };
 // Sportarten zugleich".
 const ELITE_ICON = "🐐";
 
+// Das Elite-Icon (Sport-Allrounder) gibt es erst, wenn man in ALLEN
+// Sportarten mindestens Gold erreicht hat – vorher reichte schon 1 Punkt pro
+// Sportart, und über Demo-Daten bekam es sogar jeder Spieler.
+export const ELITE_MIN_POINTS = RANK_LADDER.find((t) => t.rank === "Gold")!.minPoints;
+
+function eliteIcon(idSuffix = ""): RankIconOption {
+  return {
+    id: `elite${idSuffix}`,
+    kind: "elite",
+    label: "Sport-Allrounder (Elite)",
+    icon: ELITE_ICON,
+    colorFrom: ELITE_COLORS.from,
+    colorTo: ELITE_COLORS.to,
+    colorText: ELITE_COLORS.text,
+    title: "alle Sportarten mindestens Gold",
+  };
+}
+
+function isElite(pointsBySport: Partial<Record<Sport, number>>): boolean {
+  return (Object.keys(SPORT_EMOJI) as Sport[]).every((s) => (pointsBySport[s] ?? 0) >= ELITE_MIN_POINTS);
+}
+
 /**
- * Ermittelt anhand der (aktuell noch statischen) Sport-Ranglisten, welche
- * Rang-Icons für den aktuell eingeloggten User verfügbar sind. Ein User
- * bekommt für jede Sportart, in der er einen Ranglisten-Eintrag hat, ein
- * eigenes Icon – und zusätzlich das Elite-Icon, sobald er in allen drei
- * Sportarten vertreten ist.
+ * Rang-Icons, die der eingeloggte Spieler im Profil auswählen kann – aus
+ * seinen echten Rangpunkten: ein Icon pro Sportart, in der er schon Punkte
+ * hat, plus das Elite-Icon, wenn er überall mindestens Gold ist.
  */
-export function getAvailableRankIcons(
-  livePointsBySport?: Partial<Record<Sport, number>>
-): RankIconOption[] {
+export function getAvailableRankIcons(pointsBySport: Partial<Record<Sport, number>>): RankIconOption[] {
   const options: RankIconOption[] = [];
-  const sports = Object.keys(mockLeaderboardBySport) as Sport[];
-  let sportsWithRank = 0;
-
-  for (const sport of sports) {
-    const entry = mockLeaderboardBySport[sport].find((e) => e.isCurrentUser);
-    if (!entry) continue;
-    sportsWithRank += 1;
-    // PoolScore aktualisiert die Rangliste-Punkte des eigenen Users live
-    // (UserContext.rangPunkte) – hier wird dieser aktuelle Stand verwendet,
-    // statt des eingefrorenen Werts aus den Mock-Daten.
-    const points = livePointsBySport?.[sport] ?? entry.points;
-    const tier = getTierForPoints(points);
-    const colors = RANK_COLORS[tier.rank];
-    options.push({
-      id: `sport-${sport}`,
-      kind: "sport",
-      sport,
-      label: `${sport} ${tierLabel(tier)}`,
-      icon: SPORT_EMOJI[sport],
-      points,
-      colorFrom: colors.from,
-      colorTo: colors.to,
-      colorText: colors.text,
-      title: RANK_TITLES[tier.rank],
-    });
+  for (const sport of Object.keys(SPORT_EMOJI) as Sport[]) {
+    const points = pointsBySport[sport] ?? 0;
+    if (points > 0) options.push(getSportRankIcon(sport, points));
   }
-
-  if (sportsWithRank === sports.length) {
-    options.push({
-      id: "elite",
-      kind: "elite",
-      label: "Sport-Allrounder (Elite)",
-      icon: ELITE_ICON,
-      colorFrom: ELITE_COLORS.from,
-      colorTo: ELITE_COLORS.to,
-      colorText: ELITE_COLORS.text,
-    });
-  }
-
+  if (isElite(pointsBySport)) options.push(eliteIcon());
   return options;
 }
 
@@ -170,77 +153,6 @@ export function getBestRankIcon(options: RankIconOption[]): RankIconOption | nul
   const elite = options.find((o) => o.kind === "elite");
   if (elite) return elite;
   return [...options].sort((a, b) => (b.points ?? 0) - (a.points ?? 0))[0];
-}
-
-/**
- * Für die GESAMT-Rangliste: schaut nach, in wie vielen der drei Sport-Ranglisten
- * dieser Name auftaucht. In allen dreien -> Elite-Icon (Allrounder). In ein oder
- * zwei Sportarten -> das Icon der Sportart, in der die Punktzahl am höchsten ist.
- * In keiner -> null (kein Icon).
- */
-export function getIconForName(name: string): RankIconOption | null {
-  const sports = Object.keys(mockLeaderboardBySport) as Sport[];
-  const matches: { sport: Sport; points: number }[] = [];
-
-  for (const sport of sports) {
-    const entry = mockLeaderboardBySport[sport].find((e) => e.name === name);
-    if (entry) matches.push({ sport, points: entry.points });
-  }
-
-  if (matches.length === 0) return null;
-
-  if (matches.length === sports.length) {
-    return {
-      id: `elite-${name}`,
-      kind: "elite",
-      label: "Sport-Allrounder (Elite)",
-      icon: ELITE_ICON,
-      colorFrom: ELITE_COLORS.from,
-      colorTo: ELITE_COLORS.to,
-      colorText: ELITE_COLORS.text,
-    };
-  }
-
-  const best = matches.reduce((a, b) => (b.points > a.points ? b : a));
-  const tier = getTierForPoints(best.points);
-  const colors = RANK_COLORS[tier.rank];
-  return {
-    id: `sport-${best.sport}-${name}`,
-    kind: "sport",
-    sport: best.sport,
-    label: `${best.sport} ${tierLabel(tier)}`,
-    icon: SPORT_EMOJI[best.sport],
-    points: best.points,
-    colorFrom: colors.from,
-    colorTo: colors.to,
-    colorText: colors.text,
-    title: RANK_TITLES[tier.rank],
-  };
-}
-
-// Für Freunde/Chat-Teilnehmer, für die wir (noch) keine echten Punktestände
-// tracken: liefert ein deterministisches, aber stabiles Demo-Icon pro Name,
-// damit die Namensliste nicht "nackt" wirkt, bis es echte Accounts gibt.
-export function getMockRankIconForName(name: string): RankIconOption {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  const sports: Sport[] = ["Fußball", "NFL", "NBA", "NHL"];
-  const sport = sports[hash % sports.length];
-  const points = 50 + (hash % 3200);
-  const tier = getTierForPoints(points);
-  const colors = RANK_COLORS[tier.rank];
-  return {
-    id: `mock-${name}`,
-    kind: "sport",
-    sport,
-    label: `${sport} ${tierLabel(tier)}`,
-    icon: SPORT_EMOJI[sport],
-    points,
-    colorFrom: colors.from,
-    colorTo: colors.to,
-    colorText: colors.text,
-    title: RANK_TITLES[tier.rank],
-  };
 }
 
 /** Rang-Icon für eine Sportart und einen echten Punktestand. */
@@ -262,9 +174,9 @@ export function getSportRankIcon(sport: Sport, points: number, idSuffix = ""): R
 }
 
 /**
- * Für die echte GESAMT-Rangliste: gleiche Logik wie getIconForName, aber mit
- * den echten Punkten eines Spielers. Punkte in allen Sportarten -> Elite-Icon,
- * sonst das Icon der stärksten Sportart, ganz ohne Punkte -> kein Icon.
+ * Für die GESAMT-Rangliste, Spielerseite und Chat: Elite-Icon, wenn der
+ * Spieler in allen Sportarten mindestens Gold ist, sonst das Icon seiner
+ * stärksten Sportart, ganz ohne Punkte -> kein Icon.
  */
 export function getIconForPoints(
   pointsBySport: Partial<Record<Sport, number>>,
@@ -273,17 +185,7 @@ export function getIconForPoints(
   const sports = Object.keys(SPORT_EMOJI) as Sport[];
   const withPoints = sports.filter((s) => (pointsBySport[s] ?? 0) > 0);
   if (withPoints.length === 0) return null;
-  if (withPoints.length === sports.length) {
-    return {
-      id: `elite${idSuffix}`,
-      kind: "elite",
-      label: "Sport-Allrounder (Elite)",
-      icon: ELITE_ICON,
-      colorFrom: ELITE_COLORS.from,
-      colorTo: ELITE_COLORS.to,
-      colorText: ELITE_COLORS.text,
-    };
-  }
+  if (isElite(pointsBySport)) return eliteIcon(idSuffix);
   const best = withPoints.reduce((a, b) => ((pointsBySport[b] ?? 0) > (pointsBySport[a] ?? 0) ? b : a));
   return getSportRankIcon(best, pointsBySport[best] ?? 0, idSuffix);
 }

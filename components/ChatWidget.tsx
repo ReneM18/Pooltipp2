@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, FormEvent } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import { supabase } from "@/lib/supabaseClient";
-import { getMockRankIconForName } from "@/lib/rankTiers";
+import { usePlayerRankIcons } from "@/lib/playerRankIcons";
 import RankBadge from "@/components/RankBadge";
 import PassHonorTags, { useOtherPlayersHonors } from "@/components/PassHonors";
 import { EmotePicker, MessageBody, stickerFromText, stickerText } from "@/components/Emotes";
@@ -84,6 +84,7 @@ export default function ChatWidget() {
   }, [authUserId]);
 
   // Titel/Abzeichen (Saison-Pass) der anderen Schreiber, nach Nutzer-ID.
+  const rankIcons = usePlayerRankIcons();
   const honorsByUser = useOtherPlayersHonors(messages.filter((m) => !m.isMe).map((m) => m.userId));
 
   useEffect(() => {
@@ -170,7 +171,7 @@ export default function ChatWidget() {
                           href={`/spieler/${encodeURIComponent(msg.author)}`}
                           className="flex items-center gap-2 text-xs font-semibold text-gold hover:opacity-80"
                         >
-                          <RankBadge option={getMockRankIconForName(msg.author)} size="sm" />
+                          <RankBadge option={rankIcons.byId(msg.userId)} size="sm" />
                           {msg.author}
                         </Link>
                         {honors && (honors.title || honors.badges.length > 0) && (
