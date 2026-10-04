@@ -1145,8 +1145,14 @@ function MatchManager() {
       showToast("Bitte zuerst einen Wettbewerb auswählen.", "info");
       return;
     }
-    if (!kickoff || !tipDeadline || !homeTeamId || !awayTeamId) return;
-    if (homeTeamId === awayTeamId) return;
+    if (!homeTeamId || !awayTeamId || homeTeamId === awayTeamId) {
+      showToast("Bitte zwei verschiedene Teams auswählen.", "info");
+      return;
+    }
+    if (!kickoff || !tipDeadline) {
+      showToast("Bitte Anpfiff und Tippschluss eintragen.", "info");
+      return;
+    }
     const deadlineProblem = checkDeadline(kickoff, tipDeadline);
     if (deadlineProblem) {
       showToast(deadlineProblem, "info");
@@ -1204,7 +1210,11 @@ function MatchManager() {
     <section>
       <h2 className="mb-4 font-display text-2xl font-semibold text-ink">Spiele</h2>
 
+      {/* noValidate: Safari meldete beim Datumsfeld sonst "Ungültiger Wert"
+          und blockierte das Anlegen, obwohl Anpfiff und Tippschluss
+          korrekt eingetragen waren. Geprüft wird selbst in handleSubmit. */}
       <form
+        noValidate
         onSubmit={handleSubmit}
         className="mb-6 flex flex-col gap-6 rounded-card border border-edge bg-surface p-5 sm:p-6"
       >
@@ -1349,7 +1359,7 @@ function MatchManager() {
               onChange={(v) => {
                 setKickoff(v);
                 // Tippschluss = Anpfiff, bis der Admin ihn selbst ändert
-                if (!deadlineTouched) setTipDeadline(v);
+                if (!deadlineTouched && v) setTipDeadline(v);
               }}
             />
             <QuickDateTimeField
@@ -1782,7 +1792,10 @@ function MatchDetailsEditor({
   const awayTeam = teamsForSport.find((t) => t.id === awayTeamId);
 
   function handleSave() {
-    if (!competition.trim() || !kickoff || !tipDeadline || !homeTeamId || !awayTeamId) return;
+    if (!competition.trim() || !kickoff || !tipDeadline || !homeTeamId || !awayTeamId) {
+      showToast("Bitte Wettbewerb, Teams, Anpfiff und Tippschluss ausfüllen.", "info");
+      return;
+    }
     if (homeTeamId === awayTeamId) return;
     const deadlineProblem = checkDeadline(kickoff, tipDeadline);
     if (deadlineProblem) {
@@ -1877,7 +1890,7 @@ function MatchDetailsEditor({
               value={kickoff}
               onChange={(v) => {
                 setKickoff(v);
-                if (deadlineFollowsKickoff) setTipDeadline(v);
+                if (deadlineFollowsKickoff && v) setTipDeadline(v);
               }}
             />
             <QuickDateTimeField
