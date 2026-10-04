@@ -1123,6 +1123,11 @@ function MatchManager() {
   const [matchday, setMatchday] = useState("");
   const [kickoff, setKickoff] = useState("");
   const [tipDeadline, setTipDeadline] = useState("");
+  // Solange der Admin den Tippschluss nicht selbst ändert, läuft er mit dem
+  // Anpfiff mit. Vorher wurde er nur beim ersten Eintrag kopiert: wer danach
+  // die Anpfiff-Zeit änderte, behielt einen alten (oft schon vorbeien)
+  // Tippschluss – das Spiel stand dann nie bei "Offene Tipps".
+  const [deadlineTouched, setDeadlineTouched] = useState(false);
   const [homeTeamId, setHomeTeamId] = useState("");
   const [awayTeamId, setAwayTeamId] = useState("");
   // undefined = Standard (Heim-/Auswärtstrikot im Team-Stil)
@@ -1142,6 +1147,12 @@ function MatchManager() {
     }
     if (!kickoff || !tipDeadline || !homeTeamId || !awayTeamId) return;
     if (homeTeamId === awayTeamId) return;
+    const deadlineProblem = checkDeadline(kickoff, tipDeadline);
+    if (deadlineProblem) {
+      showToast(deadlineProblem, "info");
+      return;
+    }
+    if (!confirmPastDeadline(tipDeadline)) return;
     if (booster && boostersOnDay(matches, new Date(kickoff).toISOString()) >= BOOSTERS_PER_DAY) {
       showToast(`An diesem Tag gibt es schon ${BOOSTERS_PER_DAY} Booster-Spiele.`, "info");
       return;
@@ -1175,6 +1186,7 @@ function MatchManager() {
     setMatchday("");
     setKickoff("");
     setTipDeadline("");
+    setDeadlineTouched(false);
     setHomeTeamId("");
     setAwayTeamId("");
     setHomeJersey(undefined);
@@ -1336,14 +1348,17 @@ function MatchManager() {
               value={kickoff}
               onChange={(v) => {
                 setKickoff(v);
-                // Vorschlag: Tippschluss = Anpfiff, falls noch nicht gesetzt
-                if (!tipDeadline) setTipDeadline(v);
+                // Tippschluss = Anpfiff, bis der Admin ihn selbst ändert
+                if (!deadlineTouched) setTipDeadline(v);
               }}
             />
             <QuickDateTimeField
               label="Tippschluss (ab dann kein Tipp mehr möglich)"
               value={tipDeadline}
-              onChange={setTipDeadline}
+              onChange={(v) => {
+                setTipDeadline(v);
+                setDeadlineTouched(v !== kickoff);
+              }}
             />
           </div>
         </div>
@@ -1456,6 +1471,9 @@ function MatchManager() {
                     {match.matchday ? ` · Spieltag ${match.matchday}` : ""}
                   </span>
                   <span>· {new Date(match.kickoff).toLocaleString("de-DE")}</span>
+                  {match.tipDeadline !== match.kickoff && (
+                    <span>· Tippschluss {new Date(match.tipDeadline).toLocaleString("de-DE")}</span>
+                  )}
                   {match.booster && (
                     <span className="rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs font-bold text-gold">
                       ⚡ Booster
@@ -1469,6 +1487,14 @@ function MatchManager() {
                 </span>
               </div>
 
+              {match.status === "upcoming" &&
+                new Date(match.tipDeadline).getTime() <= Date.now() &&
+                new Date(match.kickoff).getTime() > Date.now() && (
+                  <p className="mb-4 rounded-lg border border-gold/40 bg-gold/10 px-3 py-2 text-sm text-gold">
+                    Tippschluss ist schon vorbei ({new Date(match.tipDeadline).toLocaleString("de-DE")}) – Spieler
+                    sehen das Spiel nur unter „Geschlossene Tipps“. Über „Bearbeiten“ den Tippschluss neu setzen.
+                  </p>
+                )}
               <div className="mb-5 flex items-center justify-center gap-4 sm:gap-6">
                 <div className="flex flex-1 flex-col items-center gap-1.5 sm:flex-row sm:justify-end sm:gap-3">
                   {left && (
@@ -1595,6 +1621,27 @@ function MatchManager() {
 // <input type="datetime-local"> erwartet (lokale Zeit im Browser, ohne
 // Zeitzone) – nötig, damit der Bearbeiten-Dialog mit dem bisherigen
 // Anpfiff/Tippschluss vorausgefüllt ist statt leer zu starten.
+// Prüft Anpfiff/Tippschluss vor dem Speichern.
+function checkDeadline(kickoff: string, tipDeadline: string): string | null {
+  const kickoffMs = new Date(kickoff).getTime();
+  const deadlineMs = new Date(tipDeadline).getTime();
+  if (Number.isNaN(kickoffMs) || Number.isNaN(deadlineMs)) return "Anpfiff oder Tippschluss ist kein gültiges Datum.";
+  if (deadlineMs > kickoffMs) return "Der Tippschluss darf nicht nach dem Anpfiff liegen.";
+  return null;
+}
+
+// Liegt der Tippschluss schon in der Vergangenheit, sehen Spieler das Spiel
+// nur unter "Geschlossene Tipps" und können nicht tippen – das soll nie aus
+// Versehen passieren, darum fragen wir nach.
+function confirmPastDeadline(tipDeadline: string): boolean {
+  const deadlineMs = new Date(tipDeadline).getTime();
+  if (deadlineMs > Date.now()) return true;
+  return confirm(
+    `Der Tippschluss (${new Date(deadlineMs).toLocaleString("de-DE")}) ist schon vorbei. ` +
+      `Spieler sehen das Spiel dann nur unter "Geschlossene Tipps" und können nicht tippen. Trotzdem speichern?`
+  );
+}
+
 function toLocalInputValue(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -1721,6 +1768,10 @@ function MatchDetailsEditor({
   const [matchday, setMatchday] = useState(match.matchday ? String(match.matchday) : "");
   const [kickoff, setKickoff] = useState(() => toLocalInputValue(match.kickoff));
   const [tipDeadline, setTipDeadline] = useState(() => toLocalInputValue(match.tipDeadline));
+  // Stand Tippschluss = Anpfiff, zieht er beim Verschieben des Anpfiffs mit.
+  const [deadlineFollowsKickoff, setDeadlineFollowsKickoff] = useState(
+    () => toLocalInputValue(match.tipDeadline) === toLocalInputValue(match.kickoff)
+  );
   const [homeTeamId, setHomeTeamId] = useState(match.homeTeamId);
   const [awayTeamId, setAwayTeamId] = useState(match.awayTeamId);
   const [homeJersey, setHomeJersey] = useState<MatchJersey | undefined>(match.homeJersey);
@@ -1733,6 +1784,14 @@ function MatchDetailsEditor({
   function handleSave() {
     if (!competition.trim() || !kickoff || !tipDeadline || !homeTeamId || !awayTeamId) return;
     if (homeTeamId === awayTeamId) return;
+    const deadlineProblem = checkDeadline(kickoff, tipDeadline);
+    if (deadlineProblem) {
+      showToast(deadlineProblem, "info");
+      return;
+    }
+    // Nur nachfragen, wenn sich der Tippschluss ändert (Trikot nachträglich
+    // ändern während des Spiels soll ohne Rückfrage gehen).
+    if (tipDeadline !== toLocalInputValue(match.tipDeadline) && !confirmPastDeadline(tipDeadline)) return;
     if (match.booster && boostersOnDay(matches, new Date(kickoff).toISOString(), match.id) >= BOOSTERS_PER_DAY) {
       showToast(`Am neuen Tag gibt es schon ${BOOSTERS_PER_DAY} Booster-Spiele – erst dort einen ausschalten.`, "info");
       return;
@@ -1813,8 +1872,22 @@ function MatchDetailsEditor({
           </div>
 
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <QuickDateTimeField label="Anpfiff" value={kickoff} onChange={setKickoff} />
-            <QuickDateTimeField label="Tippschluss" value={tipDeadline} onChange={setTipDeadline} />
+            <QuickDateTimeField
+              label="Anpfiff"
+              value={kickoff}
+              onChange={(v) => {
+                setKickoff(v);
+                if (deadlineFollowsKickoff) setTipDeadline(v);
+              }}
+            />
+            <QuickDateTimeField
+              label="Tippschluss"
+              value={tipDeadline}
+              onChange={(v) => {
+                setTipDeadline(v);
+                setDeadlineFollowsKickoff(v === kickoff);
+              }}
+            />
           </div>
 
           <div className="flex items-center gap-2">
