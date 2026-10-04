@@ -12,6 +12,7 @@ import { DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
 import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
 import TeamPicker from "@/components/TeamPicker";
+import DateTimeInput from "@/components/DateTimeInput";
 import TeamBadge, { jerseyFor, matchJerseyProps } from "@/components/TeamBadge";
 import JerseyPicker from "@/components/JerseyPicker";
 import { useFeedback } from "@/lib/FeedbackContext";
@@ -1755,13 +1756,8 @@ function QuickDateTimeField({
   return (
     <div>
       <label className="mb-1.5 block text-sm text-muted">{label}</label>
-      <input
-        type="datetime-local"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mb-1.5 w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
-      />
-      <div className="flex flex-wrap gap-1.5">
+      <DateTimeInput value={value} onChange={onChange} ariaLabel={label} />
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
         <button
           type="button"
           onClick={() => setDayOffset(0)}
@@ -2373,12 +2369,7 @@ function TournamentManager() {
           </div>
           <div>
             <label className="mb-1.5 block text-sm text-muted">Start</label>
-            <input
-              type="datetime-local"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
-            />
+            <DateTimeInput value={startDate} onChange={setStartDate} />
           </div>
           <div className="sm:col-span-3">
             <label className="mb-1.5 block text-sm text-muted">Beschreibung (optional)</label>
@@ -2391,12 +2382,7 @@ function TournamentManager() {
           </div>
           <div>
             <label className="mb-1.5 block text-sm text-muted">Ende</label>
-            <input
-              type="datetime-local"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
-            />
+            <DateTimeInput value={endDate} onChange={setEndDate} />
           </div>
         </div>
         <button
@@ -2495,23 +2481,13 @@ function TournamentRow({
               onChange={(e) => setIcon(e.target.value)}
               className="rounded-lg border border-edge bg-pitch px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
             />
-            <input
-              type="datetime-local"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="rounded-lg border border-edge bg-pitch px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
-            />
+            <DateTimeInput value={startDate} onChange={setStartDate} compact />
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="rounded-lg border border-edge bg-pitch px-2 py-1.5 text-xs text-ink outline-none focus:border-gold sm:col-span-3"
             />
-            <input
-              type="datetime-local"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="rounded-lg border border-edge bg-pitch px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
-            />
+            <DateTimeInput value={endDate} onChange={setEndDate} compact />
           </div>
           <div className="flex gap-2">
             <button
