@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Match, NEWS_SPORT_ICONS, NewsSport, Sport, Team, TipMode } from "./types";
+import { Match, MatchJersey, NEWS_SPORT_ICONS, NewsSport, Sport, Team, TipMode } from "./types";
 import {
   Competition,
   CompetitionsRow,
@@ -29,6 +29,15 @@ export interface SubmittedTip {
   starsDelta?: number;
   beatPercent?: number;
   narration?: string;
+  // Punkte-Modell "Jeder Tipp gegen alle" (supabase/duelle-punkte.sql):
+  // rangDelta = Grundpunkte + Duellpunkte. Fehlt bei alten Tipps, die vor
+  // der Umstellung ausgewertet wurden (dann gab es keine Duelle).
+  basePoints?: number;
+  duelPoints?: number;
+  duelsWon?: number;
+  duelsDrawn?: number;
+  duelsLost?: number;
+  scoredWithoutDuels?: boolean;
   // Endstand, mit dem dieser Tipp ausgewertet wurde – so merkt jeder
   // Spieler beim nächsten Laden selbst, wenn der Admin den Endstand später
   // korrigiert hat, und die Auswertung wird für ihn nachgezogen.
@@ -54,6 +63,12 @@ export function tipFromRow(row: Record<string, unknown>): SubmittedTip {
     starsDelta: (row.stars_delta as number | null) ?? undefined,
     beatPercent: (row.beat_percent as number | null) ?? undefined,
     narration: (row.narration as string | null) ?? undefined,
+    basePoints: (row.base_points as number | null) ?? undefined,
+    duelPoints: (row.duel_points as number | null) ?? undefined,
+    duelsWon: (row.duels_won as number | null) ?? undefined,
+    duelsDrawn: (row.duels_drawn as number | null) ?? undefined,
+    duelsLost: (row.duels_lost as number | null) ?? undefined,
+    scoredWithoutDuels: (row.scored_without_duels as boolean | null) ?? undefined,
     evaluatedHomeScore: (row.evaluated_home_score as number | null) ?? undefined,
     evaluatedAwayScore: (row.evaluated_away_score as number | null) ?? undefined,
     refunded: !!row.refunded_at,
@@ -364,6 +379,8 @@ interface AppDataContextValue {
       tipDeadline: string;
       homeTeamId: string;
       awayTeamId: string;
+      homeJersey?: MatchJersey;
+      awayJersey?: MatchJersey;
     }
   ) => void;
   setSummaryVideo: (matchId: string, url: string) => void;
@@ -996,6 +1013,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       tipDeadline: string;
       homeTeamId: string;
       awayTeamId: string;
+      homeJersey?: MatchJersey;
+      awayJersey?: MatchJersey;
     }
   ) {
     setMatches((current) => current.map((m) => (m.id === matchId ? { ...m, ...updates } : m)));

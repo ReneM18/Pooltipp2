@@ -18,7 +18,7 @@ const SLIDES = [
   {
     icon: "👑",
     title: "Ränge & Saison-Pass",
-    text: "Mit Rangpunkten steigst du in der Rangliste und den Sport-Rängen auf. Den Saison-Pass füllst du mit deinem täglichen Bonus – schau jeden Tag vorbei und schalte Belohnungen frei, die man überall bei deinem Namen sieht.",
+    text: "In jedem Spiel trittst du gegen alle an, die es auch getippt haben: Schlägst du mehr und stärkere Tipper, gibt's mehr Rangpunkte. Damit steigst du in der Rangliste und den Sport-Rängen auf. Den Saison-Pass füllst du mit deinem täglichen Bonus – schau jeden Tag vorbei und schalte Belohnungen frei, die man überall bei deinem Namen sieht.",
   },
   {
     icon: "🔵",

@@ -1,18 +1,19 @@
 "use client";
 
-import { useState, useRef, FormEvent } from "react";
+import { useState, useRef, useEffect, FormEvent } from "react";
 import Link from "next/link";
 import { useAppData, NewsItem } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useTournaments } from "@/lib/TournamentContext";
 import { Tournament } from "@/lib/tournamentTypes";
 import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
-import { Sport, SPORTS, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchStatus, TipMode, Team } from "@/lib/types";
+import { Sport, SPORTS, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchJersey, MatchStatus, TipMode, Team } from "@/lib/types";
 import { DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
 import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
 import TeamPicker from "@/components/TeamPicker";
-import TeamBadge from "@/components/TeamBadge";
+import TeamBadge, { jerseyFor, matchJerseyProps } from "@/components/TeamBadge";
+import JerseyPicker from "@/components/JerseyPicker";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { findDuplicateTeam } from "@/lib/teamName";
 import ScoreInput from "@/components/ScoreInput";
@@ -684,6 +685,10 @@ function TeamManager() {
   const [primaryColor, setPrimaryColor] = useState("#3FA66B");
   const [secondaryColor, setSecondaryColor] = useState("#FFFFFF");
   const [jerseyStyle, setJerseyStyle] = useState<JerseyStyle>("solid");
+  // Eigene Auswärtsfarben; aus = Auswärtstrikot sind die Heimfarben vertauscht.
+  const [awayCustom, setAwayCustom] = useState(false);
+  const [awayPrimaryColor, setAwayPrimaryColor] = useState("#FFFFFF");
+  const [awaySecondaryColor, setAwaySecondaryColor] = useState("#3FA66B");
   const [isNationalTeam, setIsNationalTeam] = useState(false);
   // Gesetzt, solange ein bestehendes Team bearbeitet wird: dasselbe Formular
   // wie beim Anlegen, nur mit den Werten des Teams vorausgefüllt.
@@ -698,6 +703,7 @@ function TeamManager() {
     setPrimaryColor("#3FA66B");
     setSecondaryColor("#FFFFFF");
     setJerseyStyle("solid");
+    setAwayCustom(false);
     setIsNationalTeam(false);
   }
 
@@ -709,6 +715,9 @@ function TeamManager() {
     setPrimaryColor(team.primaryColor);
     setSecondaryColor(team.secondaryColor);
     setJerseyStyle(team.jerseyStyle ?? "solid");
+    setAwayCustom(!!(team.awayPrimaryColor && team.awaySecondaryColor));
+    setAwayPrimaryColor(team.awayPrimaryColor ?? team.secondaryColor);
+    setAwaySecondaryColor(team.awaySecondaryColor ?? team.primaryColor);
     setIsNationalTeam(team.isNationalTeam ?? false);
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -731,6 +740,8 @@ function TeamManager() {
       primaryColor,
       secondaryColor,
       jerseyStyle,
+      // Nur speichern, wenn eigene Auswärtsfarben gewählt sind (NFL: Helm, keine Trikots)
+      ...(awayCustom && sport !== "NFL" ? { awayPrimaryColor, awaySecondaryColor } : {}),
       isNationalTeam,
     };
     if (editingId) {
@@ -849,7 +860,9 @@ function TeamManager() {
             />
             <div>
               <p className="text-sm font-semibold text-ink">{name.trim() || "Vorschau"}</p>
-              <p className="text-xs text-muted">So sieht das Wappen im Spiel aus</p>
+              <p className="text-xs text-muted">
+                {sport === "NFL" || isNationalTeam ? "So sieht das Wappen im Spiel aus" : "Heimtrikot"}
+              </p>
             </div>
           </div>
 
@@ -868,7 +881,7 @@ function TeamManager() {
               </div>
               <div>
                 <label className="mb-1.5 block text-sm text-muted">
-                  {sport === "NFL" ? "Streifen-/Gitterfarbe" : "Kragen-/Saumfarbe"}
+                  {sport === "NFL" ? "Streifen-/Gitterfarbe" : "Kragen-/Streifenfarbe"}
                 </label>
                 <input
                   type="color"
@@ -880,7 +893,7 @@ function TeamManager() {
             </div>
           )}
 
-          {!isNationalTeam && sport === "Fußball" && (
+          {!isNationalTeam && sport !== "NFL" && (
             <div>
               <label className="mb-1.5 block text-sm text-muted">Trikot-Stil</label>
               <select
@@ -898,6 +911,72 @@ function TeamManager() {
           )}
         </div>
 
+        {!isNationalTeam && sport !== "NFL" && (
+          <div className="rounded-lg border border-edge bg-pitch p-4">
+            <p className="mb-1 text-sm font-semibold text-ink">Auswärtstrikot</p>
+            <p className="mb-3 text-xs text-muted">
+              Ohne eigene Farben ist das Auswärtstrikot einfach deine Heimfarben vertauscht.
+            </p>
+            <label className="mb-4 flex w-fit items-center gap-2 text-sm text-muted">
+              <input
+                type="checkbox"
+                checked={awayCustom}
+                onChange={(e) => {
+                  if (e.target.checked && !awayCustom) {
+                    // Startpunkt: die vertauschten Heimfarben, die man bisher sah
+                    setAwayPrimaryColor(secondaryColor);
+                    setAwaySecondaryColor(primaryColor);
+                  }
+                  setAwayCustom(e.target.checked);
+                }}
+                className="h-4 w-4 accent-action"
+              />
+              Eigene Farben für das Auswärtstrikot
+            </label>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="flex items-end justify-center gap-5 rounded-lg border border-edge bg-surface px-5 py-3">
+                {(["heim", "auswaerts"] as const).map((v) => (
+                  <div key={v} className="flex flex-col items-center gap-1">
+                    <TeamBadge
+                      sport={sport}
+                      primaryColor={primaryColor}
+                      secondaryColor={secondaryColor}
+                      jerseyStyle={jerseyStyle}
+                      variant={v}
+                      awayPrimaryColor={awayCustom ? awayPrimaryColor : undefined}
+                      awaySecondaryColor={awayCustom ? awaySecondaryColor : undefined}
+                      size={56}
+                    />
+                    <span className="text-xs text-muted">{v === "heim" ? "Heim" : "Auswärts"}</span>
+                  </div>
+                ))}
+              </div>
+              {awayCustom && (
+                <div className="flex flex-wrap items-end gap-4">
+                  <div>
+                    <label className="mb-1.5 block text-sm text-muted">Trikotfarbe</label>
+                    <input
+                      type="color"
+                      value={awayPrimaryColor}
+                      onChange={(e) => setAwayPrimaryColor(e.target.value)}
+                      className="h-11 w-20 cursor-pointer rounded-lg border border-edge bg-surface p-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm text-muted">Kragen-/Streifenfarbe</label>
+                    <input
+                      type="color"
+                      value={awaySecondaryColor}
+                      onChange={(e) => setAwaySecondaryColor(e.target.value)}
+                      className="h-11 w-20 cursor-pointer rounded-lg border border-edge bg-surface p-1"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="submit"
@@ -910,7 +989,7 @@ function TeamManager() {
             <button
               type="button"
               onClick={resetForm}
-              className="rounded-full border border-edge px-6 py-3 font-display text-base font-semibold text-muted transition-colors hover:text-ink"
+              className="rounded-full border border-muted/50 px-6 py-3 font-display text-base font-semibold text-ink transition-colors hover:border-ink"
             >
               Abbrechen
             </button>
@@ -1044,30 +1123,86 @@ function MatchManager() {
   const [matchday, setMatchday] = useState("");
   const [kickoff, setKickoff] = useState("");
   const [tipDeadline, setTipDeadline] = useState("");
+  // Solange der Admin den Tippschluss nicht selbst ändert, läuft er mit dem
+  // Anpfiff mit. Vorher wurde er nur beim ersten Eintrag kopiert: wer danach
+  // die Anpfiff-Zeit änderte, behielt einen alten (oft schon vorbeien)
+  // Tippschluss – das Spiel stand dann nie bei "Offene Tipps".
+  const [deadlineTouched, setDeadlineTouched] = useState(false);
   const [homeTeamId, setHomeTeamId] = useState("");
   const [awayTeamId, setAwayTeamId] = useState("");
+  // undefined = Standard (Heim-/Auswärtstrikot im Team-Stil)
+  const [homeJersey, setHomeJersey] = useState<MatchJersey | undefined>(undefined);
+  const [awayJersey, setAwayJersey] = useState<MatchJersey | undefined>(undefined);
   const [booster, setBoosterInput] = useState(false);
   const [tvChannel, setTvChannelInput] = useState("");
   const [tipMode, setTipModeInput] = useState<TipMode>("score");
 
   const teamsForSport = teams.filter((t) => t.sport === sport);
+  // Bestätigung direkt im Formular statt Browser-Dialog: Safari/Chrome können
+  // confirm()-Fenster nach mehreren Rückfragen stumm unterdrücken – dann
+  // passierte beim Tippen auf "Spiel anlegen" einfach gar nichts.
+  const [confirming, setConfirming] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  useEffect(() => {
+    setConfirming(false);
+    setFormError(null);
+  }, [sport, competition, kickoff, tipDeadline, homeTeamId, awayTeamId, booster]);
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  // Jeder Fehlerfall zeigt eine Meldung direkt am Knopf (plus Toast) – es
+  // darf nie passieren, dass beim Tippen auf "Spiel anlegen" nichts geschieht.
+  function fail(message: string) {
+    setFormError(message);
+    showToast(message, "info");
+  }
+
+  function handleSubmit(e?: FormEvent) {
+    e?.preventDefault();
+    setFormError(null);
+    try {
+      submitMatch();
+    } catch (err) {
+      fail(`Spiel konnte nicht angelegt werden: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  function submitMatch() {
     if (!competition.trim()) {
-      showToast("Bitte zuerst einen Wettbewerb auswählen.", "info");
+      fail("Bitte zuerst einen Wettbewerb auswählen.");
       return;
     }
-    if (!kickoff || !tipDeadline || !homeTeamId || !awayTeamId) return;
-    if (homeTeamId === awayTeamId) return;
+    if (!homeTeamId || !awayTeamId || homeTeamId === awayTeamId) {
+      fail("Bitte zwei verschiedene Teams auswählen.");
+      return;
+    }
+    // Safari zeigt im leeren Datumsfeld das heutige Datum grau als Vorschlag –
+    // das ist aber noch nicht eingetragen. Ist nur die Uhrzeit gesetzt, liefert
+    // das Feld gar keinen Wert.
+    if (!kickoff) {
+      fail("Beim Anpfiff fehlt noch das Datum (ein grau angezeigtes Datum ist nur ein Vorschlag). Tippe unter dem Feld auf „Heute“ oder „Morgen“ und wähle dann die Uhrzeit.");
+      return;
+    }
+    if (!tipDeadline) {
+      fail("Beim Tippschluss fehlt noch das Datum (ein grau angezeigtes Datum ist nur ein Vorschlag). Tippe unter dem Feld auf „Heute“ oder „Morgen“.");
+      return;
+    }
+    const deadlineProblem = checkDeadline(kickoff, tipDeadline);
+    if (deadlineProblem) {
+      fail(deadlineProblem);
+      return;
+    }
     if (booster && boostersOnDay(matches, new Date(kickoff).toISOString()) >= BOOSTERS_PER_DAY) {
-      showToast(`An diesem Tag gibt es schon ${BOOSTERS_PER_DAY} Booster-Spiele.`, "info");
+      fail(`An diesem Tag gibt es schon ${BOOSTERS_PER_DAY} Booster-Spiele.`);
       return;
     }
 
     const homeName = getTeam(homeTeamId)?.name ?? "?";
     const awayName = getTeam(awayTeamId)?.name ?? "?";
-    if (!confirm(`Spiel "${matchTitle(sport, homeName, awayName)}" (${competition.trim()}) anlegen?`)) return;
+    // Erster Tipp auf den Knopf: Bestätigung im Formular zeigen, zweiter legt an.
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    setConfirming(false);
 
     addMatch({
       sport,
@@ -1085,14 +1220,19 @@ function MatchManager() {
       summaryVideoUrl: null,
       tvChannel: tvChannel.trim() || null,
       tipMode,
+      ...(homeJersey ? { homeJersey } : {}),
+      ...(awayJersey ? { awayJersey } : {}),
     });
 
     setCompetition("");
     setMatchday("");
     setKickoff("");
     setTipDeadline("");
+    setDeadlineTouched(false);
     setHomeTeamId("");
     setAwayTeamId("");
+    setHomeJersey(undefined);
+    setAwayJersey(undefined);
     setBoosterInput(false);
     setTvChannelInput("");
     setTipModeInput("score");
@@ -1106,7 +1246,11 @@ function MatchManager() {
     <section>
       <h2 className="mb-4 font-display text-2xl font-semibold text-ink">Spiele</h2>
 
+      {/* noValidate: Safari meldete beim Datumsfeld sonst "Ungültiger Wert"
+          und blockierte das Anlegen, obwohl Anpfiff und Tippschluss
+          korrekt eingetragen waren. Geprüft wird selbst in handleSubmit. */}
       <form
+        noValidate
         onSubmit={handleSubmit}
         className="mb-6 flex flex-col gap-6 rounded-card border border-edge bg-surface p-5 sm:p-6"
       >
@@ -1124,6 +1268,8 @@ function MatchManager() {
                   setCompetition("");
                   setHomeTeamId("");
                   setAwayTeamId("");
+                  setHomeJersey(undefined);
+                  setAwayJersey(undefined);
                 }}
                 className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
               >
@@ -1144,25 +1290,37 @@ function MatchManager() {
               <TeamPicker
                 teams={teamsForSport}
                 value={homeTeamId}
-                onChange={setHomeTeamId}
+                onChange={(id) => {
+                  setHomeTeamId(id);
+                  setHomeJersey(undefined);
+                }}
                 otherTeamId={awayTeamId}
                 otherLabel="schon als Auswärtsteam gewählt"
               />
+              {previewHome && (
+                <JerseyPicker team={previewHome} value={jerseyFor(previewHome, homeJersey)} onChange={setHomeJersey} />
+              )}
             </div>
             <div>
               <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(sport, "away")}</label>
               <TeamPicker
                 teams={teamsForSport}
                 value={awayTeamId}
-                onChange={setAwayTeamId}
+                onChange={(id) => {
+                  setAwayTeamId(id);
+                  setAwayJersey(undefined);
+                }}
                 otherTeamId={homeTeamId}
                 otherLabel="schon als Heimteam gewählt"
               />
+              {previewAway && (
+                <JerseyPicker team={previewAway} value={jerseyFor(previewAway, awayJersey)} onChange={setAwayJersey} />
+              )}
             </div>
           </div>
 
           {/* Live-Vorschau: sobald beide Teams gewählt sind, sieht man sofort
-              die Trikot-/Helmfarben, statt sie sich aus dem Namen vorstellen
+              die Trikots (Heim und Auswärts), statt sie sich aus dem Namen vorstellen
               zu müssen. */}
           {(previewHome || previewAway) && (
             <div
@@ -1176,7 +1334,10 @@ function MatchManager() {
                     sport={previewHome.sport}
                     primaryColor={previewHome.primaryColor}
                     secondaryColor={previewHome.secondaryColor}
-                    jerseyStyle={previewHome.jerseyStyle}
+                    jerseyStyle={jerseyFor(previewHome, homeJersey).style}
+                    variant={jerseyFor(previewHome, homeJersey).variant}
+                    awayPrimaryColor={previewHome.awayPrimaryColor}
+                    awaySecondaryColor={previewHome.awaySecondaryColor}
                     isNationalTeam={previewHome.isNationalTeam}
                     countryCode={previewHome.countryCode}
                     size={48}
@@ -1197,7 +1358,10 @@ function MatchManager() {
                     sport={previewAway.sport}
                     primaryColor={previewAway.primaryColor}
                     secondaryColor={previewAway.secondaryColor}
-                    jerseyStyle={previewAway.jerseyStyle}
+                    jerseyStyle={jerseyFor(previewAway, awayJersey).style}
+                    variant={jerseyFor(previewAway, awayJersey).variant}
+                    awayPrimaryColor={previewAway.awayPrimaryColor}
+                    awaySecondaryColor={previewAway.awaySecondaryColor}
                     isNationalTeam={previewAway.isNationalTeam}
                     countryCode={previewAway.countryCode}
                     flip
@@ -1230,14 +1394,17 @@ function MatchManager() {
               value={kickoff}
               onChange={(v) => {
                 setKickoff(v);
-                // Vorschlag: Tippschluss = Anpfiff, falls noch nicht gesetzt
-                if (!tipDeadline) setTipDeadline(v);
+                // Tippschluss = Anpfiff, bis der Admin ihn selbst ändert
+                if (!deadlineTouched && v) setTipDeadline(v);
               }}
             />
             <QuickDateTimeField
               label="Tippschluss (ab dann kein Tipp mehr möglich)"
               value={tipDeadline}
-              onChange={setTipDeadline}
+              onChange={(v) => {
+                setTipDeadline(v);
+                setDeadlineTouched(v !== kickoff);
+              }}
             />
           </div>
         </div>
@@ -1282,13 +1449,49 @@ function MatchManager() {
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={teamsForSport.length < 2}
-          className="self-start rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:bg-edge disabled:text-muted"
-        >
-          Spiel anlegen
-        </button>
+        {confirming ? (
+          <div className="rounded-lg border border-gold/40 bg-gold/10 p-4">
+            <p className="text-sm font-semibold text-ink">
+              Spiel „{matchTitle(sport, getTeam(homeTeamId)?.name ?? "?", getTeam(awayTeamId)?.name ?? "?")}“ (
+              {competition.trim()}) am {new Date(kickoff).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}{" "}
+              anlegen?
+            </p>
+            {new Date(tipDeadline).getTime() <= Date.now() && (
+              <p className="mt-1 text-sm text-gold">
+                Achtung: Der Tippschluss ist schon vorbei – Spieler sehen das Spiel nur unter „Geschlossene Tipps“.
+              </p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => handleSubmit()}
+                className="rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
+              >
+                Ja, anlegen
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                className="rounded-full border border-muted/50 px-6 py-3 font-display text-base font-semibold text-ink transition-colors hover:border-ink"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => handleSubmit()}
+            className="self-start rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
+          >
+            Spiel anlegen
+          </button>
+        )}
+        {formError && (
+          <p role="alert" className="-mt-3 rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-300">
+            {formError}
+          </p>
+        )}
       </form>
 
       {(() => {
@@ -1350,6 +1553,9 @@ function MatchManager() {
                     {match.matchday ? ` · Spieltag ${match.matchday}` : ""}
                   </span>
                   <span>· {new Date(match.kickoff).toLocaleString("de-DE")}</span>
+                  {match.tipDeadline !== match.kickoff && (
+                    <span>· Tippschluss {new Date(match.tipDeadline).toLocaleString("de-DE")}</span>
+                  )}
                   {match.booster && (
                     <span className="rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs font-bold text-gold">
                       ⚡ Booster
@@ -1363,6 +1569,14 @@ function MatchManager() {
                 </span>
               </div>
 
+              {match.status === "upcoming" &&
+                new Date(match.tipDeadline).getTime() <= Date.now() &&
+                new Date(match.kickoff).getTime() > Date.now() && (
+                  <p className="mb-4 rounded-lg border border-gold/40 bg-gold/10 px-3 py-2 text-sm text-gold">
+                    Tippschluss ist schon vorbei ({new Date(match.tipDeadline).toLocaleString("de-DE")}) – Spieler
+                    sehen das Spiel nur unter „Geschlossene Tipps“. Über „Bearbeiten“ den Tippschluss neu setzen.
+                  </p>
+                )}
               <div className="mb-5 flex items-center justify-center gap-4 sm:gap-6">
                 <div className="flex flex-1 flex-col items-center gap-1.5 sm:flex-row sm:justify-end sm:gap-3">
                   {left && (
@@ -1370,7 +1584,7 @@ function MatchManager() {
                       sport={left.sport}
                       primaryColor={left.primaryColor}
                       secondaryColor={left.secondaryColor}
-                      jerseyStyle={left.jerseyStyle}
+                      {...matchJerseyProps(match, left)}
                       isNationalTeam={left.isNationalTeam}
                       countryCode={left.countryCode}
                       size={40}
@@ -1395,7 +1609,7 @@ function MatchManager() {
                       sport={right.sport}
                       primaryColor={right.primaryColor}
                       secondaryColor={right.secondaryColor}
-                      jerseyStyle={right.jerseyStyle}
+                      {...matchJerseyProps(match, right)}
                       isNationalTeam={right.isNationalTeam}
                       countryCode={right.countryCode}
                       flip
@@ -1489,6 +1703,15 @@ function MatchManager() {
 // <input type="datetime-local"> erwartet (lokale Zeit im Browser, ohne
 // Zeitzone) – nötig, damit der Bearbeiten-Dialog mit dem bisherigen
 // Anpfiff/Tippschluss vorausgefüllt ist statt leer zu starten.
+// Prüft Anpfiff/Tippschluss vor dem Speichern.
+function checkDeadline(kickoff: string, tipDeadline: string): string | null {
+  const kickoffMs = new Date(kickoff).getTime();
+  const deadlineMs = new Date(tipDeadline).getTime();
+  if (Number.isNaN(kickoffMs) || Number.isNaN(deadlineMs)) return "Anpfiff oder Tippschluss ist kein gültiges Datum.";
+  if (deadlineMs > kickoffMs) return "Der Tippschluss darf nicht nach dem Anpfiff liegen.";
+  return null;
+}
+
 function toLocalInputValue(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -1536,15 +1759,37 @@ function QuickDateTimeField({
     onChange(`${datePart}T${time}`);
   }
 
+  // Nur teilweise ausgefüllt (z. B. in Safari nur die Uhrzeit, das Datum steht
+  // bloß grau als Vorschlag da): das Feld liefert dann keinen Wert.
+  const [incomplete, setIncomplete] = useState(false);
+  function checkComplete(input: HTMLInputElement) {
+    setIncomplete(input.validity.badInput || (input.value === "" && value !== ""));
+  }
+  useEffect(() => {
+    if (value) setIncomplete(false);
+  }, [value]);
+
   return (
     <div>
       <label className="mb-1.5 block text-sm text-muted">{label}</label>
       <input
         type="datetime-local"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mb-1.5 w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+        onChange={(e) => {
+          onChange(e.target.value);
+          checkComplete(e.target);
+        }}
+        onInput={(e) => checkComplete(e.currentTarget)}
+        onBlur={(e) => checkComplete(e.currentTarget)}
+        className={`mb-1.5 w-full rounded-lg border bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold ${
+          incomplete ? "border-red-400" : "border-edge"
+        }`}
       />
+      {incomplete && (
+        <p role="alert" className="mb-1.5 text-sm text-red-300">
+          Datum oder Uhrzeit fehlt noch (grau = nur Vorschlag). Tippe auf „Heute“ oder „Morgen“.
+        </p>
+      )}
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
@@ -1603,6 +1848,8 @@ function MatchDetailsEditor({
       tipDeadline: string;
       homeTeamId: string;
       awayTeamId: string;
+      homeJersey?: MatchJersey;
+      awayJersey?: MatchJersey;
     }
   ) => void;
 }) {
@@ -1613,20 +1860,38 @@ function MatchDetailsEditor({
   const [matchday, setMatchday] = useState(match.matchday ? String(match.matchday) : "");
   const [kickoff, setKickoff] = useState(() => toLocalInputValue(match.kickoff));
   const [tipDeadline, setTipDeadline] = useState(() => toLocalInputValue(match.tipDeadline));
+  // Stand Tippschluss = Anpfiff, zieht er beim Verschieben des Anpfiffs mit.
+  const [deadlineFollowsKickoff, setDeadlineFollowsKickoff] = useState(
+    () => toLocalInputValue(match.tipDeadline) === toLocalInputValue(match.kickoff)
+  );
   const [homeTeamId, setHomeTeamId] = useState(match.homeTeamId);
   const [awayTeamId, setAwayTeamId] = useState(match.awayTeamId);
+  const [homeJersey, setHomeJersey] = useState<MatchJersey | undefined>(match.homeJersey);
+  const [awayJersey, setAwayJersey] = useState<MatchJersey | undefined>(match.awayJersey);
 
   const teamsForSport = teams.filter((t) => t.sport === match.sport);
+  const homeTeam = teamsForSport.find((t) => t.id === homeTeamId);
+  const awayTeam = teamsForSport.find((t) => t.id === awayTeamId);
 
   function handleSave() {
-    if (!competition.trim() || !kickoff || !tipDeadline || !homeTeamId || !awayTeamId) return;
+    if (!competition.trim() || !kickoff || !tipDeadline || !homeTeamId || !awayTeamId) {
+      showToast("Bitte Wettbewerb, Teams, Anpfiff und Tippschluss ausfüllen.", "info");
+      return;
+    }
     if (homeTeamId === awayTeamId) return;
+    const deadlineProblem = checkDeadline(kickoff, tipDeadline);
+    if (deadlineProblem) {
+      showToast(deadlineProblem, "info");
+      return;
+    }
+    // Ohne Browser-Dialog (kann stumm unterdrückt werden): Änderungen lassen
+    // sich jederzeit wieder bearbeiten, ein vorbeier Tippschluss wird nur gemeldet.
+    const deadlineInPast =
+      tipDeadline !== toLocalInputValue(match.tipDeadline) && new Date(tipDeadline).getTime() <= Date.now();
     if (match.booster && boostersOnDay(matches, new Date(kickoff).toISOString(), match.id) >= BOOSTERS_PER_DAY) {
       showToast(`Am neuen Tag gibt es schon ${BOOSTERS_PER_DAY} Booster-Spiele – erst dort einen ausschalten.`, "info");
       return;
     }
-    if (!confirm("Spieldaten wirklich ändern?")) return;
-
     onSave(match.id, {
       competition: competition.trim(),
       matchday: matchday ? Number(matchday) : undefined,
@@ -1634,9 +1899,16 @@ function MatchDetailsEditor({
       tipDeadline: new Date(tipDeadline).toISOString(),
       homeTeamId,
       awayTeamId,
+      homeJersey,
+      awayJersey,
     });
     setEditing(false);
-    showToast("✓ Spieldaten gespeichert.", "success");
+    showToast(
+      deadlineInPast
+        ? "✓ Gespeichert – aber der Tippschluss ist schon vorbei, Spieler sehen das Spiel nur unter „Geschlossene Tipps“."
+        : "✓ Spieldaten gespeichert.",
+      deadlineInPast ? "info" : "success"
+    );
   }
 
   return (
@@ -1669,26 +1941,52 @@ function MatchDetailsEditor({
               <TeamPicker
                 teams={teamsForSport}
                 value={homeTeamId}
-                onChange={setHomeTeamId}
+                onChange={(id) => {
+                  setHomeTeamId(id);
+                  setHomeJersey(undefined);
+                }}
                 otherTeamId={awayTeamId}
                 otherLabel="schon als Auswärtsteam gewählt" compact
               />
+              {homeTeam && (
+                <JerseyPicker team={homeTeam} value={jerseyFor(homeTeam, homeJersey)} onChange={setHomeJersey} />
+              )}
             </div>
             <div>
               <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(match.sport, "away")}</label>
               <TeamPicker
                 teams={teamsForSport}
                 value={awayTeamId}
-                onChange={setAwayTeamId}
+                onChange={(id) => {
+                  setAwayTeamId(id);
+                  setAwayJersey(undefined);
+                }}
                 otherTeamId={homeTeamId}
                 otherLabel="schon als Heimteam gewählt" compact
               />
+              {awayTeam && (
+                <JerseyPicker team={awayTeam} value={jerseyFor(awayTeam, awayJersey)} onChange={setAwayJersey} />
+              )}
             </div>
           </div>
 
           <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <QuickDateTimeField label="Anpfiff" value={kickoff} onChange={setKickoff} />
-            <QuickDateTimeField label="Tippschluss" value={tipDeadline} onChange={setTipDeadline} />
+            <QuickDateTimeField
+              label="Anpfiff"
+              value={kickoff}
+              onChange={(v) => {
+                setKickoff(v);
+                if (deadlineFollowsKickoff && v) setTipDeadline(v);
+              }}
+            />
+            <QuickDateTimeField
+              label="Tippschluss"
+              value={tipDeadline}
+              onChange={(v) => {
+                setTipDeadline(v);
+                setDeadlineFollowsKickoff(v === kickoff);
+              }}
+            />
           </div>
 
           <div className="flex items-center gap-2">

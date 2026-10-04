@@ -78,10 +78,9 @@ export default function DashboardPage() {
   // Hat der Spieler selbst einen Reiter angeklickt, bleibt es dabei.
   const tab =
     chosenTab ?? (offeneMatches.length === 0 && geschlosseneMatches.length > 0 ? "geschlossen" : "offen");
+  // Booster-Spiele stehen ganz normal in der Liste (nach Anpfiff sortiert),
+  // die Karte selbst zeigt oben, dass es ein Booster ist.
   const visibleMatches = tab === "offen" ? offeneMatches : geschlosseneMatches;
-  // Offene Booster-Spiele stehen oben in einem eigenen Block.
-  const openBoosters = tab === "offen" ? offeneMatches.filter((m) => m.booster) : [];
-  const otherMatches = openBoosters.length > 0 ? visibleMatches.filter((m) => !m.booster) : visibleMatches;
 
   function renderCard(match: Match) {
     const homeTeam = getTeam(match.homeTeamId);
@@ -106,6 +105,12 @@ export default function DashboardPage() {
                 rangDelta: tip.rangDelta,
                 starsDelta: tip.starsDelta,
                 narration: tip.narration,
+                basePoints: tip.basePoints,
+                duelPoints: tip.duelPoints,
+                duelsWon: tip.duelsWon,
+                duelsDrawn: tip.duelsDrawn,
+                duelsLost: tip.duelsLost,
+                scoredWithoutDuels: tip.scoredWithoutDuels,
                 stake: tip.stake,
                 refunded: tip.refunded,
               }
@@ -165,30 +170,9 @@ export default function DashboardPage() {
             {tab === "offen" ? "Aktuell keine offenen Spiele." : "Noch keine beendeten Spiele."}
           </p>
         )}
-        {openBoosters.length > 0 && (
-          <>
-            <SectionHeading
-              title="⚡ Booster des Tages"
-              text={`${BOOSTER_STAKE} Sterne Einsatz – exakt getroffen gibt ${BOOSTER_STAKE * 3} zurück.`}
-            />
-            {openBoosters.map(renderCard)}
-            {otherMatches.length > 0 && (
-              <SectionHeading title="Weitere Spiele" text="Gratis – zählen für deine Rangpunkte." />
-            )}
-          </>
-        )}
-        {otherMatches.map(renderCard)}
+        {visibleMatches.map(renderCard)}
       </div>
     </main>
-  );
-}
-
-function SectionHeading({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="-mb-1 lg:col-span-3 lg:mb-0 [&:not(:first-child)]:mt-3">
-      <h2 className="font-display text-base font-bold text-ink">{title}</h2>
-      <p className="text-xs text-muted">{text}</p>
-    </div>
   );
 }
 
