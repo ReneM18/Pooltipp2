@@ -29,6 +29,15 @@ export const JERSEY_STYLES: { value: JerseyStyle; label: string }[] = [
   { value: "aermel", label: "Ärmel andersfarbig" },
 ];
 
+/** Heimtrikot = Teamfarben wie angelegt, Auswärtstrikot = die beiden Teamfarben vertauscht. */
+export type JerseyVariant = "heim" | "auswaerts";
+
+/** Vom Admin pro Spiel gewähltes Trikot eines Teams (Heim/Auswärts + Stil). */
+export interface MatchJersey {
+  variant: JerseyVariant;
+  style: JerseyStyle;
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -36,7 +45,7 @@ export interface Team {
   countryCode: string; // ISO 3166-1 alpha-2, z. B. "DE", "US"
   primaryColor: string; // Hex, z. B. "#DC052D"
   secondaryColor: string; // Hex, z. B. "#FFFFFF"
-  jerseyStyle?: JerseyStyle; // nur relevant für Fußball/NBA, wird bei NFL ignoriert
+  jerseyStyle?: JerseyStyle; // Trikot-Stil, gilt für Heim- und Auswärtstrikot (nicht NFL, dort Helm)
   isNationalTeam?: boolean; // Nationalmannschaft -> Icon zeigt die Landesflagge statt Trikot/Helm
 }
 
@@ -79,6 +88,10 @@ export interface Match {
   tvChannel: string | null; // z. B. "Sky", "DAZN", "ORF1" – wo das Spiel live läuft
   tipMode: TipMode; // vom Admin pro Spiel frei wählbar, unabhängig von der Sportart
   bonusQuestion?: BonusQuestion | null; // optional, vom Admin pro Spiel angelegt
+  // Trikots in diesem Spiel; fehlt es, tragen beide Teams ihr normales
+  // Heimtrikot im Stil aus den Team-Einstellungen (wie vor den Trikots).
+  homeJersey?: MatchJersey;
+  awayJersey?: MatchJersey;
 }
 
 export interface Tip {

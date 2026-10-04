@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Match, NEWS_SPORT_ICONS, NewsSport, Sport, Team, TipMode } from "./types";
+import { Match, MatchJersey, NEWS_SPORT_ICONS, NewsSport, Sport, Team, TipMode } from "./types";
 import {
   Competition,
   CompetitionsRow,
@@ -379,6 +379,8 @@ interface AppDataContextValue {
       tipDeadline: string;
       homeTeamId: string;
       awayTeamId: string;
+      homeJersey?: MatchJersey;
+      awayJersey?: MatchJersey;
     }
   ) => void;
   setSummaryVideo: (matchId: string, url: string) => void;
@@ -1011,6 +1013,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       tipDeadline: string;
       homeTeamId: string;
       awayTeamId: string;
+      homeJersey?: MatchJersey;
+      awayJersey?: MatchJersey;
     }
   ) {
     setMatches((current) => current.map((m) => (m.id === matchId ? { ...m, ...updates } : m)));
