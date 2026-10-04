@@ -3,17 +3,14 @@ import { JerseyStyle, JerseyVariant, Match, MatchJersey, Sport, Team } from "@/l
 import { BASKETBALL_JERSEY_MARKUP } from "@/lib/basketballJerseyMarkup";
 import { flagEmoji } from "@/lib/flags";
 
-/** Trikot eines Teams in einem Spiel: die Wahl des Admins oder sonst Heim/Auswärts im Team-Stil. */
-export function jerseyFor(team: Team, side: "home" | "away", chosen?: MatchJersey): MatchJersey {
-  return chosen ?? { variant: side === "home" ? "heim" : "auswaerts", style: team.jerseyStyle ?? "solid" };
+/** Trikot eines Teams in einem Spiel: die Wahl des Admins, sonst das normale Heimtrikot im Team-Stil (wie bisher). */
+export function jerseyFor(team: Team, chosen?: MatchJersey): MatchJersey {
+  return chosen ?? { variant: "heim", style: team.jerseyStyle ?? "solid" };
 }
 
 /** TeamBadge-Props für ein Team in einem Spiel: <TeamBadge {...matchJerseyProps(match, team)} ... />. */
 export function matchJerseyProps(match: Match, team: Team): { jerseyStyle: JerseyStyle; variant: JerseyVariant } {
-  const j =
-    team.id === match.homeTeamId
-      ? jerseyFor(team, "home", match.homeJersey)
-      : jerseyFor(team, "away", match.awayJersey);
+  const j = jerseyFor(team, team.id === match.homeTeamId ? match.homeJersey : match.awayJersey);
   return { jerseyStyle: j.style, variant: j.variant };
 }
 
@@ -71,7 +68,6 @@ function luminance(hex: string): number {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 }
 
-const AWAY_WHITE = "#F4F3EF";
 const CREAM = "#F3F1EA";
 
 /** body = Grundfarbe, trim = Kragen/Streifen/Ärmel, accent = dritte Farbe (z. B. Eishockey-Streifen). */
@@ -89,25 +85,12 @@ function jerseyColors(
   variant: JerseyVariant,
   style: JerseyStyle
 ): JerseyColors {
-  let body = primary;
-  let trim = secondary;
-  let accent = CREAM;
-  if (variant === "auswaerts") {
-    if (luminance(primary) > 0.68) {
-      // Helle Vereinsfarbe (z. B. Gelb, Weiß): auswärts in der zweiten, dunkleren Farbe.
-      body = secondary;
-      trim = primary;
-    } else {
-      // Sonst wie im echten Sport: weißes Auswärtstrikot mit Vereinsfarben als Besatz.
-      body = AWAY_WHITE;
-      const primaryDarker = luminance(primary) <= luminance(secondary);
-      trim = primaryDarker ? primary : secondary;
-      accent = primaryDarker ? secondary : primary;
-      if (luminance(accent) > 0.68) accent = shadeColor(trim, -35);
-    }
-  }
+  // Nur die beiden vom Admin gewählten Teamfarben, keine erfundenen Farben:
+  // Auswärts sind Trikot- und Kragen-/Streifenfarbe einfach vertauscht.
+  const body = variant === "auswaerts" ? secondary : primary;
+  const trim = variant === "auswaerts" ? primary : secondary;
   const dark = luminance(body) < 0.16 || (style === "aermel" && luminance(trim) < 0.16);
-  return { body, trim, accent, outline: dark ? "rgba(255,255,255,0.45)" : null };
+  return { body, trim, accent: CREAM, outline: dark ? "rgba(255,255,255,0.45)" : null };
 }
 
 export default function TeamBadge({

@@ -1162,7 +1162,7 @@ function MatchManager() {
                 otherLabel="schon als Auswärtsteam gewählt"
               />
               {previewHome && (
-                <JerseyPicker team={previewHome} value={jerseyFor(previewHome, "home", homeJersey)} onChange={setHomeJersey} />
+                <JerseyPicker team={previewHome} value={jerseyFor(previewHome, homeJersey)} onChange={setHomeJersey} />
               )}
             </div>
             <div>
@@ -1178,7 +1178,7 @@ function MatchManager() {
                 otherLabel="schon als Heimteam gewählt"
               />
               {previewAway && (
-                <JerseyPicker team={previewAway} value={jerseyFor(previewAway, "away", awayJersey)} onChange={setAwayJersey} />
+                <JerseyPicker team={previewAway} value={jerseyFor(previewAway, awayJersey)} onChange={setAwayJersey} />
               )}
             </div>
           </div>
@@ -1198,8 +1198,8 @@ function MatchManager() {
                     sport={previewHome.sport}
                     primaryColor={previewHome.primaryColor}
                     secondaryColor={previewHome.secondaryColor}
-                    jerseyStyle={jerseyFor(previewHome, "home", homeJersey).style}
-                    variant={jerseyFor(previewHome, "home", homeJersey).variant}
+                    jerseyStyle={jerseyFor(previewHome, homeJersey).style}
+                    variant={jerseyFor(previewHome, homeJersey).variant}
                     isNationalTeam={previewHome.isNationalTeam}
                     countryCode={previewHome.countryCode}
                     size={48}
@@ -1220,8 +1220,8 @@ function MatchManager() {
                     sport={previewAway.sport}
                     primaryColor={previewAway.primaryColor}
                     secondaryColor={previewAway.secondaryColor}
-                    jerseyStyle={jerseyFor(previewAway, "away", awayJersey).style}
-                    variant={jerseyFor(previewAway, "away", awayJersey).variant}
+                    jerseyStyle={jerseyFor(previewAway, awayJersey).style}
+                    variant={jerseyFor(previewAway, awayJersey).variant}
                     isNationalTeam={previewAway.isNationalTeam}
                     countryCode={previewAway.countryCode}
                     flip
@@ -1709,7 +1709,7 @@ function MatchDetailsEditor({
                 otherLabel="schon als Auswärtsteam gewählt" compact
               />
               {homeTeam && (
-                <JerseyPicker team={homeTeam} value={jerseyFor(homeTeam, "home", homeJersey)} onChange={setHomeJersey} />
+                <JerseyPicker team={homeTeam} value={jerseyFor(homeTeam, homeJersey)} onChange={setHomeJersey} />
               )}
             </div>
             <div>
@@ -1725,7 +1725,7 @@ function MatchDetailsEditor({
                 otherLabel="schon als Heimteam gewählt" compact
               />
               {awayTeam && (
-                <JerseyPicker team={awayTeam} value={jerseyFor(awayTeam, "away", awayJersey)} onChange={setAwayJersey} />
+                <JerseyPicker team={awayTeam} value={jerseyFor(awayTeam, awayJersey)} onChange={setAwayJersey} />
               )}
             </div>
           </div>
