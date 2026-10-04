@@ -1142,31 +1142,49 @@ function MatchManager() {
   // confirm()-Fenster nach mehreren Rückfragen stumm unterdrücken – dann
   // passierte beim Tippen auf "Spiel anlegen" einfach gar nichts.
   const [confirming, setConfirming] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   useEffect(() => {
     setConfirming(false);
+    setFormError(null);
   }, [sport, competition, kickoff, tipDeadline, homeTeamId, awayTeamId, booster]);
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  // Jeder Fehlerfall zeigt eine Meldung direkt am Knopf (plus Toast) – es
+  // darf nie passieren, dass beim Tippen auf "Spiel anlegen" nichts geschieht.
+  function fail(message: string) {
+    setFormError(message);
+    showToast(message, "info");
+  }
+
+  function handleSubmit(e?: FormEvent) {
+    e?.preventDefault();
+    setFormError(null);
+    try {
+      submitMatch();
+    } catch (err) {
+      fail(`Spiel konnte nicht angelegt werden: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  function submitMatch() {
     if (!competition.trim()) {
-      showToast("Bitte zuerst einen Wettbewerb auswählen.", "info");
+      fail("Bitte zuerst einen Wettbewerb auswählen.");
       return;
     }
     if (!homeTeamId || !awayTeamId || homeTeamId === awayTeamId) {
-      showToast("Bitte zwei verschiedene Teams auswählen.", "info");
+      fail("Bitte zwei verschiedene Teams auswählen.");
       return;
     }
     if (!kickoff || !tipDeadline) {
-      showToast("Bitte Anpfiff und Tippschluss eintragen.", "info");
+      fail("Bitte Anpfiff und Tippschluss eintragen.");
       return;
     }
     const deadlineProblem = checkDeadline(kickoff, tipDeadline);
     if (deadlineProblem) {
-      showToast(deadlineProblem, "info");
+      fail(deadlineProblem);
       return;
     }
     if (booster && boostersOnDay(matches, new Date(kickoff).toISOString()) >= BOOSTERS_PER_DAY) {
-      showToast(`An diesem Tag gibt es schon ${BOOSTERS_PER_DAY} Booster-Spiele.`, "info");
+      fail(`An diesem Tag gibt es schon ${BOOSTERS_PER_DAY} Booster-Spiele.`);
       return;
     }
 
@@ -1438,7 +1456,8 @@ function MatchManager() {
             )}
             <div className="mt-3 flex flex-wrap gap-2">
               <button
-                type="submit"
+                type="button"
+                onClick={() => handleSubmit()}
                 className="rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
               >
                 Ja, anlegen
@@ -1454,12 +1473,17 @@ function MatchManager() {
           </div>
         ) : (
           <button
-            type="submit"
-            disabled={teamsForSport.length < 2}
-            className="self-start rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:bg-edge disabled:text-muted"
+            type="button"
+            onClick={() => handleSubmit()}
+            className="self-start rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
           >
             Spiel anlegen
           </button>
+        )}
+        {formError && (
+          <p role="alert" className="-mt-3 rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm text-red-300">
+            {formError}
+          </p>
         )}
       </form>
 
