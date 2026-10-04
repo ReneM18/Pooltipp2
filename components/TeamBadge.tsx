@@ -22,10 +22,12 @@ interface TeamBadgeProps {
   primaryColor: string;
   secondaryColor: string;
   jerseyStyle?: JerseyStyle;
-  /** Heim- oder Auswärtstrikot; ohne Angabe immer das Heimtrikot. */
+  /** Heim- oder Auswärtstrikot; ohne Angabe immer das Heimtrikot. NFL zeigt immer den Helm. */
   variant?: JerseyVariant;
   size?: number;
-  /** Nationalmannschaft -> zeigt die Landesflagge statt Trikot. */
+  /** Spiegelt den NFL-Helm horizontal – z. B. damit der rechte Helm nach links schaut. */
+  flip?: boolean;
+  /** Nationalmannschaft -> zeigt die Landesflagge statt Trikot/Helm. */
   isNationalTeam?: boolean;
   /** Nur nötig, wenn isNationalTeam gesetzt ist. */
   countryCode?: string;
@@ -115,6 +117,7 @@ export default function TeamBadge({
   jerseyStyle = "solid",
   variant = "heim",
   size = 36,
+  flip = false,
   isNationalTeam = false,
   countryCode,
 }: TeamBadgeProps) {
@@ -125,7 +128,10 @@ export default function TeamBadge({
   }
   const colors = jerseyColors(primaryColor, secondaryColor, variant, jerseyStyle);
   const props = { c: colors, style: jerseyStyle, size, uid };
-  if (sport === "NFL") return <FootballJerseyIcon {...props} />;
+  if (sport === "NFL") {
+    // Football bleibt beim Helm (keine Trikots, keine Heim/Auswärts-Stile).
+    return <HelmetIcon primary={primaryColor} secondary={secondaryColor} size={size} flip={flip} />;
+  }
   if (sport === "NBA") return <BasketballJerseyIcon {...props} />;
   if (sport === "NHL") return <HockeyJerseyIcon {...props} />;
   return <SoccerJerseyIcon {...props} />;
@@ -278,53 +284,40 @@ function BasketballJerseyIcon({ c, style, size, uid }: IconProps) {
   );
 }
 
-// ---------------------------------------------------------------- Football (NFL)
-// Kurze, breite Ärmel über den Schulterpolstern, V-Ausschnitt, Rückennummer vorne.
-const FOOTBALL_BODY =
-  "M112 40L66 50C46 55 32 66 26 84L14 124L64 137L74 118L80 258Q150 270 220 258L226 118L236 137L286 124L274 84C268 66 254 55 234 50L188 40L150 86Z";
-const FOOTBALL_SLEEVES = "M0 0H92L75 118L72 300H0Z M300 0H208L225 118L228 300H300Z";
-
-function FootballJerseyIcon({ c, style, size, uid }: IconProps) {
-  const clip = `fb-${uid}`;
-  const bodyShade = shadeColor(c.body, -18);
+function HelmetIcon({
+  primary,
+  secondary,
+  size,
+  flip,
+}: {
+  primary: string;
+  secondary: string;
+  size: number;
+  flip: boolean;
+}) {
+  const dark = shadeColor(primary, -35);
 
   return (
-    <svg width={size} height={size} viewBox="0 0 300 300" aria-hidden="true">
-      <defs>
-        <clipPath id={clip}>
-          <path d={FOOTBALL_BODY} />
-        </clipPath>
-      </defs>
-      <path d={FOOTBALL_BODY} fill={c.body} />
-      <g clipPath={`url(#${clip})`}>
-        {/* leichte Schattierung rechts wie bei den anderen Trikots */}
-        <path d="M196 40L240 50L300 120V300H190Q204 190 196 40Z" fill={bodyShade} opacity="0.55" />
-        {style === "aermel" && <path d={FOOTBALL_SLEEVES} fill={c.trim} />}
-        {style === "streifen" && (
-          <g fill="none" stroke={c.trim} strokeWidth="8">
-            {/* zwei Ärmelstreifen parallel zum Ärmelsaum */}
-            <path d="M0 102L100 127M0 87L100 112" />
-            <path d="M300 102L200 127M300 87L200 112" />
-          </g>
-        )}
-        {/* Ärmelsaum */}
-        <path d="M14 124L64 137M286 124L236 137" stroke={style === "aermel" ? c.body : c.trim} strokeWidth="10" />
-      </g>
-      <Outline d={FOOTBALL_BODY} c={c} width={5} />
-      {/* V-Kragen */}
-      <path d="M112 40L150 86L188 40" fill="none" stroke={c.trim} strokeWidth="10" strokeLinejoin="round" />
-      {/* Nummer */}
-      <text
-        x="150"
-        y="208"
-        textAnchor="middle"
-        fontFamily="Arial Black, Arial, Helvetica, sans-serif"
-        fontWeight="900"
-        fontSize="96"
-        fill={c.trim}
-      >
-        1
-      </text>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 256 256"
+      aria-hidden="true"
+      style={flip ? { transform: "scaleX(-1)" } : undefined}
+    >
+      {/* Helmschale */}
+      <path
+        d="m51.26 194.4808h32.8839l43.719 15.8978a19.0768 19.0768 0 0 0 12.4664.2378q.1352-.0444.27-.0892a19.19 19.19 0 0 0 11.29-26.154l-12.7753-28.1753-.8662-28.2195 77.5918-16.7007-6.2081-26.313-10.4544 2.1384a93.5591 93.5591 0 1 0 -147.9171 107.3777z"
+        fill={primary}
+      />
+      {/* Gittermaske */}
+      <path
+        d="m233.1507 147.144-66.1789-4.9058-7.2641-29.1969 55.8042-12.24a5.636 5.636 0 0 0 -2.3619-11.0213l-91.8635 20.2889a5.6356 5.6356 0 0 0 -4.4531 5.3733l-1.1272 46.2135a5.636 5.636 0 0 0 4.1691 5.58l45.361 14.0334a39.5218 39.5218 0 0 0 13.5683 17.0329l34.33 28.81a5.6357 5.6357 0 0 0 8.6315-2.8674l13.7312-42.6912c.2236-.6959-2.3466-34.4094-2.3466-34.4094zm-10.3456 10.9171 1.2312 16.0043-49.9428-2.0976-3.4935-17.5zm-74.1215-42.0939 5.7595 22.3527-26.6381-10.446.1881-7.7146zm-21.1651 23.652 29.9892 11.4939 4.2 17.5328-34.6254-11.1433zm85.8745 73.8451-28.0556-24.3484a28.151 28.151 0 0 1 -5.9055-5.6692l43.0245 1.8394z"
+        fill={secondary}
+      />
+      {/* Ohr-/Logo-Akzent */}
+      <circle cx="79.731" cy="153.583" fill={secondary} r="25.486" />
+      <circle cx="79.731" cy="153.583" fill={dark} r="11.718" />
     </svg>
   );
 }

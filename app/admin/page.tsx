@@ -832,7 +832,7 @@ function TeamManager() {
             onChange={(e) => setIsNationalTeam(e.target.checked)}
             className="h-4 w-4 accent-action"
           />
-          Nationalmannschaft (Icon zeigt automatisch die Landesflagge statt Trikot)
+          Nationalmannschaft (Icon zeigt automatisch die Landesflagge statt Trikot/Helm)
         </label>
 
         {/* Farben + große Live-Vorschau nebeneinander: man sieht sofort, wie
@@ -858,7 +858,7 @@ function TeamManager() {
             <div className="flex flex-wrap items-end gap-4">
               <div>
                 <label className="mb-1.5 block text-sm text-muted">
-                  Trikotfarbe
+                  {sport === "NFL" ? "Helmfarbe" : "Trikotfarbe"}
                 </label>
                 <input
                   type="color"
@@ -869,7 +869,7 @@ function TeamManager() {
               </div>
               <div>
                 <label className="mb-1.5 block text-sm text-muted">
-                  Kragen-/Streifenfarbe
+                  {sport === "NFL" ? "Streifen-/Gitterfarbe" : "Kragen-/Streifenfarbe"}
                 </label>
                 <input
                   type="color"
@@ -881,7 +881,7 @@ function TeamManager() {
             </div>
           )}
 
-          {!isNationalTeam && (
+          {!isNationalTeam && sport !== "NFL" && (
             <div>
               <label className="mb-1.5 block text-sm text-muted">Trikot-Stil</label>
               <select
@@ -1224,6 +1224,7 @@ function MatchManager() {
                     variant={jerseyFor(previewAway, "away", awayJersey).variant}
                     isNationalTeam={previewAway.isNationalTeam}
                     countryCode={previewAway.countryCode}
+                    flip
                     size={48}
                   />
                 ) : (
@@ -1421,6 +1422,7 @@ function MatchManager() {
                       {...matchJerseyProps(match, right)}
                       isNationalTeam={right.isNationalTeam}
                       countryCode={right.countryCode}
+                      flip
                       size={40}
                     />
                   )}

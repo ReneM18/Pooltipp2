@@ -428,7 +428,7 @@ export default function MatchCard({
           ) : (
             <span className="justify-self-center pt-3 font-display text-xs text-muted sm:text-sm">vs</span>
           )}
-          <TeamColumn match={match} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} />
+          <TeamColumn match={match} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} flip />
 
           {!showResultView && closingSoon && (
             <p className="col-span-3 row-start-2 -mb-1 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">
@@ -982,7 +982,7 @@ function ResultBox({ match, kickedOff }: { match: Match; kickedOff: boolean }) {
 // Teamnamen brechen nur an Leerzeichen um, nie mitten im Wort (kein
 // "Le-/verkusen"). Passt ein langes Einzelwort wie "Mönchengladbach" nicht in
 // die Spalte, wird die Schrift schrittweise verkleinert, bis es passt.
-function TeamColumn({ match, team, tag }: { match: Match; team: Team; tag: string | null }) {
+function TeamColumn({ match, team, tag, flip = false }: { match: Match; team: Team; tag: string | null; flip?: boolean }) {
   return (
     <div className="flex min-w-0 flex-col items-center gap-1.5 self-stretch">
       <TeamBadge
@@ -992,6 +992,7 @@ function TeamColumn({ match, team, tag }: { match: Match; team: Team; tag: strin
         {...matchJerseyProps(match, team)}
         isNationalTeam={team.isNationalTeam}
         countryCode={team.countryCode}
+        flip={flip}
         size={44}
       />
       {/* HEIM/GAST direkt unter dem Wappen: steht so bei beiden Teams auf

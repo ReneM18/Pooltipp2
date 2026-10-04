@@ -45,8 +45,8 @@ export interface Team {
   countryCode: string; // ISO 3166-1 alpha-2, z. B. "DE", "US"
   primaryColor: string; // Hex, z. B. "#DC052D"
   secondaryColor: string; // Hex, z. B. "#FFFFFF"
-  jerseyStyle?: JerseyStyle; // Trikot-Stil, gilt für Heim- und Auswärtstrikot (alle Sportarten)
-  isNationalTeam?: boolean; // Nationalmannschaft -> Icon zeigt die Landesflagge statt Trikot
+  jerseyStyle?: JerseyStyle; // Trikot-Stil, gilt für Heim- und Auswärtstrikot (nicht NFL, dort Helm)
+  isNationalTeam?: boolean; // Nationalmannschaft -> Icon zeigt die Landesflagge statt Trikot/Helm
 }
 
 // "cancelled" = vom Admin abgesagt: alle Einsätze gingen zurück, das Spiel

@@ -8,7 +8,7 @@ const ROWS: { variant: JerseyVariant; label: string }[] = [
   { variant: "auswaerts", label: "Auswärtstrikot" },
 ];
 
-// Trikot-Auswahl beim Spiel anlegen/bearbeiten: alle 6 Trikots des Teams
+// Trikot-Auswahl beim Spiel anlegen/bearbeiten (nicht bei NFL): alle 6 Trikots des Teams
 // (Heim/Auswärts in den 3 Stilen) als Bild zum Antippen.
 export default function JerseyPicker({
   team,
@@ -19,7 +19,8 @@ export default function JerseyPicker({
   value: MatchJersey;
   onChange: (jersey: MatchJersey) => void;
 }) {
-  if (team.isNationalTeam) return null;
+  // Nationalteams zeigen die Flagge, Football immer den Helm: nichts zu wählen.
+  if (team.isNationalTeam || team.sport === "NFL") return null;
   return (
     <div className="mt-2 rounded-lg border border-edge bg-pitch p-2.5">
       <p className="mb-2 text-xs text-muted">Trikot in diesem Spiel</p>
