@@ -46,6 +46,8 @@ export default function JerseyPicker({
                     secondaryColor={team.secondaryColor}
                     jerseyStyle={st.value}
                     variant={row.variant}
+                    awayPrimaryColor={team.awayPrimaryColor}
+                    awaySecondaryColor={team.awaySecondaryColor}
                     size={36}
                   />
                   <span className={`text-center text-[11px] leading-tight ${active ? "font-semibold text-gold" : "text-muted"}`}>
