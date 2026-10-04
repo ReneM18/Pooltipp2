@@ -102,6 +102,12 @@ export default function DashboardPage() {
                 rangDelta: tip.rangDelta,
                 starsDelta: tip.starsDelta,
                 narration: tip.narration,
+                basePoints: tip.basePoints,
+                duelPoints: tip.duelPoints,
+                duelsWon: tip.duelsWon,
+                duelsDrawn: tip.duelsDrawn,
+                duelsLost: tip.duelsLost,
+                scoredWithoutDuels: tip.scoredWithoutDuels,
                 stake: tip.stake,
                 refunded: tip.refunded,
               }

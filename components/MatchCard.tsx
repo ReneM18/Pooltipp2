@@ -45,6 +45,13 @@ interface MyTip {
   rangDelta?: number;
   starsDelta?: number;
   narration?: string;
+  // Grundpunkte + Duellpunkte (Punkte-Modell "Jeder Tipp gegen alle").
+  basePoints?: number;
+  duelPoints?: number;
+  duelsWon?: number;
+  duelsDrawn?: number;
+  duelsLost?: number;
+  scoredWithoutDuels?: boolean;
   stake?: number;
   // Spiel abgesagt, Einsatz kam zurück (keine Wertung).
   refunded?: boolean;
@@ -826,6 +833,15 @@ function TippersList({
   );
 }
 
+// "3 Siege, 1 Remis, 1 Niederlage" – Teile mit 0 fallen weg.
+function duelSummary(won: number, drawn: number, lost: number): string {
+  const parts: string[] = [];
+  if (won > 0) parts.push(`${won} ${won === 1 ? "Sieg" : "Siege"}`);
+  if (drawn > 0) parts.push(`${drawn} Remis`);
+  if (lost > 0) parts.push(`${lost} ${lost === 1 ? "Niederlage" : "Niederlagen"}`);
+  return parts.join(", ");
+}
+
 function PoolScoreResultBox({
   myTip,
   comparison,
@@ -840,21 +856,39 @@ function PoolScoreResultBox({
   const starsDelta = myTip.starsDelta ?? 0;
   // Gratis-Tipp (kein Einsatz): keine Sterne-Zeile, nur Rangpunkte.
   const hasStake = (myTip.stake ?? 0) > 0;
+  // Duelle gibt es erst seit dem neuen Punkte-Modell. Alte Tipps (vorher
+  // ausgewertet) zeigen weiter den einfachen Vergleich.
+  const opponents = (myTip.duelsWon ?? 0) + (myTip.duelsDrawn ?? 0) + (myTip.duelsLost ?? 0);
+  const hasDuels = myTip.duelPoints !== undefined && !myTip.scoredWithoutDuels && opponents > 0;
+  const base = myTip.basePoints ?? rangDelta;
+  const duel = myTip.duelPoints ?? 0;
+  const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
 
   return (
     <div className={`flex flex-col gap-2 rounded-lg border px-4 py-3 ${TIER_BOX_CLASS[tier]}`}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-display text-sm font-semibold text-ink">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <span className="whitespace-nowrap font-display text-sm font-semibold text-ink">
           {isOneXTwo && tier === "tendenz" ? "👍 Richtig getippt" : TIER_LABEL[tier]}
         </span>
+        {/* Minus bewusst sachlich in Grau statt Rot: ein einzelner Tipp
+            ist nur ein Baustein, zählt wird die Woche und die Saison. */}
         <span
-          className={`font-display text-sm font-bold ${rangDelta >= 0 ? "text-action" : "text-red-400"}`}
+          className={`shrink-0 whitespace-nowrap font-display text-base font-bold ${rangDelta >= 0 ? "text-action" : "text-muted"}`}
         >
-          {rangDelta >= 0 ? "+" : ""}
-          {rangDelta} Rangpunkte
+          {signed(rangDelta)} <span className="text-xs font-semibold">Rangpunkte</span>
         </span>
       </div>
-      {(hasStake || comparison) && (
+      {hasDuels && (
+        <div className="flex flex-col gap-0.5 text-xs text-muted">
+          <span>
+            Treffer {signed(base)} · Duelle {signed(duel)}
+          </span>
+          <span>
+            {opponents} {opponents === 1 ? "Duell" : "Duelle"}: {duelSummary(myTip.duelsWon ?? 0, myTip.duelsDrawn ?? 0, myTip.duelsLost ?? 0)}
+          </span>
+        </div>
+      )}
+      {(hasStake || (!hasDuels && comparison)) && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
           {hasStake && (
             <span className={`flex items-center gap-1 font-semibold ${starsDelta >= 0 ? "text-gold" : "text-red-400"}`}>
@@ -863,7 +897,8 @@ function PoolScoreResultBox({
               {starsDelta} Sterne
             </span>
           )}
-          {comparison &&
+          {!hasDuels &&
+            comparison &&
             (comparison.total === 0 ? (
               <span>Außer dir hat niemand getippt.</span>
             ) : (
@@ -875,6 +910,12 @@ function PoolScoreResultBox({
               </span>
             ))}
         </div>
+      )}
+      {hasDuels && (
+        <p className="border-t border-edge/60 pt-2 text-[11px] leading-snug text-muted">
+          Du trittst gegen alle an, die dieses Spiel getippt haben. Siege gegen Stärkere bringen mehr,
+          Niederlagen gegen Schwächere kosten mehr.
+        </p>
       )}
     </div>
   );

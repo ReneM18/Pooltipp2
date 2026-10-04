@@ -8,7 +8,7 @@ import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useMyOverallRank } from "@/lib/myOverallRank";
 import RankBadge from "@/components/RankBadge";
-import { getAllRankIcons, isUnsterblich } from "@/lib/rankTiers";
+import { getAllRankIcons, isUnsterblich, SPORT_EMOJI } from "@/lib/rankTiers";
 import RankProgress from "@/components/RankProgress";
 import SeasonFrame from "@/components/SeasonFrame";
 import RankMeaningBadge from "@/components/RankMeaningBadge";
@@ -23,6 +23,8 @@ import { CURRENT_SEASON } from "@/lib/seasons";
 import { xpForLevel } from "@/lib/seasonPass";
 import { useSeasonDesign } from "@/lib/seasonDesign";
 import { matchTitle, oneXTwoText, scoreText } from "@/lib/teamOrder";
+import { useTipStrength } from "@/lib/tipStrength";
+import { getCurrentWeekWindow, sumWeeklyRangDelta } from "@/lib/weeklyLeaderboard";
 
 const sportIcon: Record<string, string> = {
   "Fußball": "⚽",
@@ -112,6 +114,17 @@ function ProfilInhalt() {
   const playedEarlierSeason = passClaims.some((c) => !c.startsWith(`${CURRENT_SEASON.theme.id}:`));
 
   const evaluatedTips = myTips.filter((t) => t.evaluated && !t.refunded);
+
+  // Rangpunkte dieser Woche und dieser Saison: Ein einzelner Tipp kann ins
+  // Minus gehen, entscheidend ist die Summe. Gleiche Woche wie die
+  // Wochen-Rangliste (Montag bis Sonntag, nach Abgabezeit des Tipps).
+  const weekPoints = sumWeeklyRangDelta(myTips, getCurrentWeekWindow());
+  const seasonPoints = sumWeeklyRangDelta(myTips, {
+    start: new Date(`${CURRENT_SEASON.startsOn}T00:00:00`),
+    end: new Date(new Date(`${CURRENT_SEASON.endsOn}T00:00:00`).getTime() + 24 * 60 * 60 * 1000),
+  });
+  const tipStrength = useTipStrength(authUserId, evaluatedTips.length);
+  const signedPoints = (n: number) => `${n > 0 ? "+" : ""}${n.toLocaleString("de-DE")}`;
   const exaktCount = evaluatedTips.filter((t) => t.resultTier === "exakt").length;
   const trefferquote =
     evaluatedTips.length > 0 ? Math.round((exaktCount / evaluatedTips.length) * 100) : 0;
@@ -431,6 +444,34 @@ function ProfilInhalt() {
         </div>
         <p className="mt-2 text-xs text-muted">
           Fotos werden in deinem Konto gespeichert, sobald du eingeloggt bist.
+        </p>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Rangpunkte</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <StatCard label="Diese Woche" value={signedPoints(weekPoints)} accent={weekPoints >= 0 ? "action" : "ink"} />
+          <StatCard label="Diese Saison" value={signedPoints(seasonPoints)} accent={seasonPoints >= 0 ? "action" : "ink"} />
+          {tipStrength && tipStrength.length > 0 && (
+            <div className="col-span-2 rounded-card border border-edge bg-surface p-4 sm:col-span-1">
+              <p className="text-xs text-muted">Tippstärke</p>
+              <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                {tipStrength.map((e) => (
+                  <span key={e.sport} className="whitespace-nowrap font-display text-2xl font-bold text-gold">
+                    <span className="mr-1 text-lg" aria-label={e.sport}>
+                      {SPORT_EMOJI[e.sport as Sport] ?? "🏅"}
+                    </span>
+                    {e.rating.toLocaleString("de-DE")}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <p className="mt-3 text-xs text-muted">
+          Jeder Tipp tritt gegen alle an, die dasselbe Spiel getippt haben. Ein einzelner Tipp kann dabei ins Minus
+          gehen, entscheidend ist, was über die Woche und die Saison zusammenkommt. Die Tippstärke zeigt, wie gut du
+          im Vergleich zu den anderen tippst (Start 1.000).
         </p>
       </section>
 
