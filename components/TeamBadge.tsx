@@ -9,9 +9,17 @@ export function jerseyFor(team: Team, chosen?: MatchJersey): MatchJersey {
 }
 
 /** TeamBadge-Props für ein Team in einem Spiel: <TeamBadge {...matchJerseyProps(match, team)} ... />. */
-export function matchJerseyProps(match: Match, team: Team): { jerseyStyle: JerseyStyle; variant: JerseyVariant } {
+export function matchJerseyProps(
+  match: Match,
+  team: Team
+): { jerseyStyle: JerseyStyle; variant: JerseyVariant; awayPrimaryColor?: string; awaySecondaryColor?: string } {
   const j = jerseyFor(team, team.id === match.homeTeamId ? match.homeJersey : match.awayJersey);
-  return { jerseyStyle: j.style, variant: j.variant };
+  return {
+    jerseyStyle: j.style,
+    variant: j.variant,
+    awayPrimaryColor: team.awayPrimaryColor,
+    awaySecondaryColor: team.awaySecondaryColor,
+  };
 }
 
 interface TeamBadgeProps {
@@ -21,6 +29,9 @@ interface TeamBadgeProps {
   jerseyStyle?: JerseyStyle;
   /** Heim- oder Auswärtstrikot; ohne Angabe immer das Heimtrikot. NFL zeigt immer den Helm. */
   variant?: JerseyVariant;
+  /** Eigene Auswärtsfarben des Teams; ohne Angabe werden die Heimfarben vertauscht. */
+  awayPrimaryColor?: string;
+  awaySecondaryColor?: string;
   size?: number;
   /** Spiegelt den NFL-Helm horizontal – z. B. damit der rechte Helm nach links schaut. */
   flip?: boolean;
@@ -83,12 +94,14 @@ function jerseyColors(
   primary: string,
   secondary: string,
   variant: JerseyVariant,
-  style: JerseyStyle
+  style: JerseyStyle,
+  awayPrimary?: string,
+  awaySecondary?: string
 ): JerseyColors {
-  // Nur die beiden vom Admin gewählten Teamfarben, keine erfundenen Farben:
-  // Auswärts sind Trikot- und Kragen-/Streifenfarbe einfach vertauscht.
-  const body = variant === "auswaerts" ? secondary : primary;
-  const trim = variant === "auswaerts" ? primary : secondary;
+  // Nur vom Admin gewählte Farben, keine erfundenen: auswärts die eigenen
+  // Auswärtsfarben, sonst Trikot- und Kragen-/Streifenfarbe vertauscht.
+  const body = variant === "auswaerts" ? awayPrimary ?? secondary : primary;
+  const trim = variant === "auswaerts" ? awaySecondary ?? primary : secondary;
   const dark = luminance(body) < 0.16 || (style === "aermel" && luminance(trim) < 0.16);
   return { body, trim, accent: CREAM, outline: dark ? "rgba(255,255,255,0.45)" : null };
 }
@@ -99,6 +112,8 @@ export default function TeamBadge({
   secondaryColor,
   jerseyStyle = "solid",
   variant = "heim",
+  awayPrimaryColor,
+  awaySecondaryColor,
   size = 36,
   flip = false,
   isNationalTeam = false,
@@ -109,7 +124,7 @@ export default function TeamBadge({
   if (isNationalTeam && countryCode) {
     return <NationalFlagBadge countryCode={countryCode} size={size} />;
   }
-  const colors = jerseyColors(primaryColor, secondaryColor, variant, jerseyStyle);
+  const colors = jerseyColors(primaryColor, secondaryColor, variant, jerseyStyle, awayPrimaryColor, awaySecondaryColor);
   const props = { c: colors, style: jerseyStyle, size, uid };
   if (sport === "NFL") {
     // Football bleibt beim Helm (keine Trikots, keine Heim/Auswärts-Stile).

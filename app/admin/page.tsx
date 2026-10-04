@@ -685,6 +685,10 @@ function TeamManager() {
   const [primaryColor, setPrimaryColor] = useState("#3FA66B");
   const [secondaryColor, setSecondaryColor] = useState("#FFFFFF");
   const [jerseyStyle, setJerseyStyle] = useState<JerseyStyle>("solid");
+  // Eigene Auswärtsfarben; aus = Auswärtstrikot sind die Heimfarben vertauscht.
+  const [awayCustom, setAwayCustom] = useState(false);
+  const [awayPrimaryColor, setAwayPrimaryColor] = useState("#FFFFFF");
+  const [awaySecondaryColor, setAwaySecondaryColor] = useState("#3FA66B");
   const [isNationalTeam, setIsNationalTeam] = useState(false);
   // Gesetzt, solange ein bestehendes Team bearbeitet wird: dasselbe Formular
   // wie beim Anlegen, nur mit den Werten des Teams vorausgefüllt.
@@ -699,6 +703,7 @@ function TeamManager() {
     setPrimaryColor("#3FA66B");
     setSecondaryColor("#FFFFFF");
     setJerseyStyle("solid");
+    setAwayCustom(false);
     setIsNationalTeam(false);
   }
 
@@ -710,6 +715,9 @@ function TeamManager() {
     setPrimaryColor(team.primaryColor);
     setSecondaryColor(team.secondaryColor);
     setJerseyStyle(team.jerseyStyle ?? "solid");
+    setAwayCustom(!!(team.awayPrimaryColor && team.awaySecondaryColor));
+    setAwayPrimaryColor(team.awayPrimaryColor ?? team.secondaryColor);
+    setAwaySecondaryColor(team.awaySecondaryColor ?? team.primaryColor);
     setIsNationalTeam(team.isNationalTeam ?? false);
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -732,6 +740,8 @@ function TeamManager() {
       primaryColor,
       secondaryColor,
       jerseyStyle,
+      // Nur speichern, wenn eigene Auswärtsfarben gewählt sind (NFL: Helm, keine Trikots)
+      ...(awayCustom && sport !== "NFL" ? { awayPrimaryColor, awaySecondaryColor } : {}),
       isNationalTeam,
     };
     if (editingId) {
@@ -850,7 +860,9 @@ function TeamManager() {
             />
             <div>
               <p className="text-sm font-semibold text-ink">{name.trim() || "Vorschau"}</p>
-              <p className="text-xs text-muted">So sieht das Wappen im Spiel aus</p>
+              <p className="text-xs text-muted">
+                {sport === "NFL" || isNationalTeam ? "So sieht das Wappen im Spiel aus" : "Heimtrikot"}
+              </p>
             </div>
           </div>
 
@@ -898,6 +910,72 @@ function TeamManager() {
             </div>
           )}
         </div>
+
+        {!isNationalTeam && sport !== "NFL" && (
+          <div className="rounded-lg border border-edge bg-pitch p-4">
+            <p className="mb-1 text-sm font-semibold text-ink">Auswärtstrikot</p>
+            <p className="mb-3 text-xs text-muted">
+              Ohne eigene Farben ist das Auswärtstrikot einfach deine Heimfarben vertauscht.
+            </p>
+            <label className="mb-4 flex w-fit items-center gap-2 text-sm text-muted">
+              <input
+                type="checkbox"
+                checked={awayCustom}
+                onChange={(e) => {
+                  if (e.target.checked && !awayCustom) {
+                    // Startpunkt: die vertauschten Heimfarben, die man bisher sah
+                    setAwayPrimaryColor(secondaryColor);
+                    setAwaySecondaryColor(primaryColor);
+                  }
+                  setAwayCustom(e.target.checked);
+                }}
+                className="h-4 w-4 accent-action"
+              />
+              Eigene Farben für das Auswärtstrikot
+            </label>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="flex items-end justify-center gap-5 rounded-lg border border-edge bg-surface px-5 py-3">
+                {(["heim", "auswaerts"] as const).map((v) => (
+                  <div key={v} className="flex flex-col items-center gap-1">
+                    <TeamBadge
+                      sport={sport}
+                      primaryColor={primaryColor}
+                      secondaryColor={secondaryColor}
+                      jerseyStyle={jerseyStyle}
+                      variant={v}
+                      awayPrimaryColor={awayCustom ? awayPrimaryColor : undefined}
+                      awaySecondaryColor={awayCustom ? awaySecondaryColor : undefined}
+                      size={56}
+                    />
+                    <span className="text-xs text-muted">{v === "heim" ? "Heim" : "Auswärts"}</span>
+                  </div>
+                ))}
+              </div>
+              {awayCustom && (
+                <div className="flex flex-wrap items-end gap-4">
+                  <div>
+                    <label className="mb-1.5 block text-sm text-muted">Trikotfarbe</label>
+                    <input
+                      type="color"
+                      value={awayPrimaryColor}
+                      onChange={(e) => setAwayPrimaryColor(e.target.value)}
+                      className="h-11 w-20 cursor-pointer rounded-lg border border-edge bg-surface p-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm text-muted">Kragen-/Streifenfarbe</label>
+                    <input
+                      type="color"
+                      value={awaySecondaryColor}
+                      onChange={(e) => setAwaySecondaryColor(e.target.value)}
+                      className="h-11 w-20 cursor-pointer rounded-lg border border-edge bg-surface p-1"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-3">
           <button
@@ -1200,6 +1278,8 @@ function MatchManager() {
                     secondaryColor={previewHome.secondaryColor}
                     jerseyStyle={jerseyFor(previewHome, homeJersey).style}
                     variant={jerseyFor(previewHome, homeJersey).variant}
+                    awayPrimaryColor={previewHome.awayPrimaryColor}
+                    awaySecondaryColor={previewHome.awaySecondaryColor}
                     isNationalTeam={previewHome.isNationalTeam}
                     countryCode={previewHome.countryCode}
                     size={48}
@@ -1222,6 +1302,8 @@ function MatchManager() {
                     secondaryColor={previewAway.secondaryColor}
                     jerseyStyle={jerseyFor(previewAway, awayJersey).style}
                     variant={jerseyFor(previewAway, awayJersey).variant}
+                    awayPrimaryColor={previewAway.awayPrimaryColor}
+                    awaySecondaryColor={previewAway.awaySecondaryColor}
                     isNationalTeam={previewAway.isNationalTeam}
                     countryCode={previewAway.countryCode}
                     flip
