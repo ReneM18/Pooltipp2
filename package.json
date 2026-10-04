@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:sterne": "node --experimental-strip-types --no-warnings scripts/sterne-test.mjs",
-    "test:saison": "node --experimental-strip-types --no-warnings scripts/saison-test.mjs"
+    "test:saison": "node --experimental-strip-types --no-warnings scripts/saison-test.mjs",
+    "test:reiter": "node --experimental-strip-types --no-warnings scripts/reiter-test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

@@ -8,6 +8,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { BOOSTER_STAKE } from "@/lib/poolScore";
 import { Match } from "@/lib/types";
+import { splitMatchesByTab } from "@/lib/matchTabs";
 
 export default function DashboardPage() {
   const { placeTip, streakCount } = useUser();
@@ -54,25 +55,9 @@ export default function DashboardPage() {
     }
   }
 
-  // Das Spiel mit dem nächsten Anpfiff steht immer ganz oben.
-  const byKickoffAsc = (a: (typeof matches)[number], b: (typeof matches)[number]) =>
-    new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
-
-  // Geschlossen erst, wenn der Admin das Spiel abgeschlossen hat: Endstand
-  // eingetragen (beendet) oder abgesagt. Ein Spiel nach Tippschluss oder
-  // während es läuft bleibt bei den offenen, nur Tippen geht dann nicht mehr
-  // (das sperrt die Datenbank). Spiele, auf die man noch tippen kann, stehen
-  // vorne, danach die, bei denen der Endstand noch fehlt.
-  const pastDeadline = (m: (typeof matches)[number]) =>
-    now !== null && new Date(m.tipDeadline).getTime() <= now;
-  const isClosed = (m: (typeof matches)[number]) => m.status === "finished" || m.status === "cancelled";
-  const offeneMatches = matches
-    .filter((m) => !isClosed(m))
-    .sort((a, b) => Number(pastDeadline(a)) - Number(pastDeadline(b)) || byKickoffAsc(a, b));
-  // Bei den geschlossenen der zuletzt geschlossene Tipp zuerst.
-  const geschlosseneMatches = matches
-    .filter(isClosed)
-    .sort((a, b) => new Date(b.tipDeadline).getTime() - new Date(a.tipDeadline).getTime());
+  // Geschlossen erst, wenn der Admin den Endstand eingetragen oder das Spiel
+  // abgesagt hat, nie nach Uhrzeit (Regel und Test in lib/matchTabs.ts).
+  const { offen: offeneMatches, geschlossen: geschlosseneMatches } = splitMatchesByTab(matches, now);
   // Kein offenes Spiel mehr: gleich die geschlossenen zeigen statt einer
   // leeren Seite. Sobald wieder eins offen ist, stehen die offenen vorne.
   // Hat der Spieler selbst einen Reiter angeklickt, bleibt es dabei.
