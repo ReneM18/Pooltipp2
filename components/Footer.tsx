@@ -19,18 +19,29 @@ export default function Footer() {
         <h2 className="mb-2 font-display text-base font-bold text-ink sm:mb-1 sm:text-sm">
           Über PoolTipp
         </h2>
-        <p className="text-sm leading-relaxed text-muted sm:text-xs sm:leading-normal">
-          PoolTipp ist das kostenlose Social-Tippspiel für echte Sportfans: Tippe live vor jedem
-          Spiel deiner Lieblingsligen (Fußball, NFL, NBA, NHL) das Ergebnis. Jeder Tipp ist gratis
-          und bringt Rangliste-Punkte – je genauer, desto mehr. Jeden Tag gibt es bis zu drei
-          Booster-Spiele, bei denen du 20 Sterne einsetzt: exakt getroffen bekommst du 60 zurück,
-          bei der richtigen Tendenz deinen Einsatz, bei einem Fehltipp die Hälfte. Sterne gibt's
-          außerdem mit dem täglichen Bonus, eintauschen kannst du sie im Shop gegen Joker. Dazu gibt's echte
-          Live-Ergebnisse und Tabellen im Matchcenter, einen Saison-Pass mit Belohnungen fürs
-          tägliche Reinschauen, eine Rangliste pro Sportart und private Tipprunden für Freunde,
-          Verein oder Kollegen. Alles komplett kostenlos – gespielt wird nur um virtuelle Sterne,
-          nie um echtes Geld.
-        </p>
+        {/* Drei kurze Absätze statt einem Block: Punkte-Modell, Sterne, Extras. */}
+        <div className="flex flex-col gap-2 text-sm leading-relaxed text-muted sm:gap-1 sm:text-xs sm:leading-normal">
+          <p>
+            PoolTipp ist das kostenlose Social-Tippspiel für echte Sportfans: Tippe live vor jedem
+            Spiel deiner Lieblingsligen (Fußball, NFL, NBA, NHL) das Ergebnis. Jeder Tipp ist gratis
+            und bringt Rangliste-Punkte – je genauer, desto mehr. Dabei tippst du nie allein: In
+            jedem Spiel trittst du gegen alle an, die es auch getippt haben. Setzt du dich gegen mehr
+            und stärkere Tipper durch, gibt's umso mehr Punkte; liegst du hinter schwächeren, kostet
+            das mehr, als wenn dich stärkere schlagen.
+          </p>
+          <p>
+            Jeden Tag gibt es bis zu drei Booster-Spiele, bei denen du 20 Sterne einsetzt: exakt
+            getroffen bekommst du 60 zurück, bei der richtigen Tendenz deinen Einsatz, bei einem
+            Fehltipp die Hälfte. Sterne gibt's außerdem mit dem täglichen Bonus, eintauschen kannst
+            du sie im Shop gegen Joker.
+          </p>
+          <p>
+            Dazu gibt's echte Live-Ergebnisse und Tabellen im Matchcenter, einen Saison-Pass mit
+            Belohnungen fürs tägliche Reinschauen, eine Rangliste pro Sportart und private
+            Tipprunden für Freunde, Verein oder Kollegen. Alles komplett kostenlos – gespielt wird
+            nur um virtuelle Sterne, nie um echtes Geld.
+          </p>
+        </div>
 
         <div className="mt-5 flex flex-col gap-4 border-t border-edge pt-4 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:pt-3">
           <nav className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
