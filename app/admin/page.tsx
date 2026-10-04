@@ -1175,8 +1175,13 @@ function MatchManager() {
       fail("Bitte zwei verschiedene Teams auswählen.");
       return;
     }
-    if (!kickoff || !tipDeadline) {
-      fail("Bitte Anpfiff und Tippschluss eintragen.");
+    // Unvollständige Datum/Uhrzeit-Felder liefern keinen Wert (siehe DateTimeInput).
+    if (!kickoff) {
+      fail("Beim Anpfiff fehlen noch Datum oder Uhrzeit. Tippe unter dem Feld auf „Heute“ oder „Morgen“ oder trage beides ein.");
+      return;
+    }
+    if (!tipDeadline) {
+      fail("Beim Tippschluss fehlen noch Datum oder Uhrzeit. Tippe unter dem Feld auf „Heute“ oder „Morgen“ oder trage beides ein.");
       return;
     }
     const deadlineProblem = checkDeadline(kickoff, tipDeadline);
