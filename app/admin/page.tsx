@@ -831,7 +831,7 @@ function TeamManager() {
             onChange={(e) => setIsNationalTeam(e.target.checked)}
             className="h-4 w-4 accent-action"
           />
-          Nationalmannschaft (Icon zeigt automatisch die Landesflagge statt Trikot/Helm)
+          Nationalmannschaft (Icon zeigt automatisch die Landesflagge statt Trikot)
         </label>
 
         {/* Farben + große Live-Vorschau nebeneinander: man sieht sofort, wie
@@ -857,7 +857,7 @@ function TeamManager() {
             <div className="flex flex-wrap items-end gap-4">
               <div>
                 <label className="mb-1.5 block text-sm text-muted">
-                  {sport === "NFL" ? "Helmfarbe" : "Trikotfarbe"}
+                  Trikotfarbe
                 </label>
                 <input
                   type="color"
@@ -868,7 +868,7 @@ function TeamManager() {
               </div>
               <div>
                 <label className="mb-1.5 block text-sm text-muted">
-                  {sport === "NFL" ? "Streifen-/Gitterfarbe" : "Kragen-/Saumfarbe"}
+                  Kragen-/Streifenfarbe
                 </label>
                 <input
                   type="color"
@@ -880,7 +880,7 @@ function TeamManager() {
             </div>
           )}
 
-          {!isNationalTeam && sport === "Fußball" && (
+          {!isNationalTeam && (
             <div>
               <label className="mb-1.5 block text-sm text-muted">Trikot-Stil</label>
               <select
@@ -1162,7 +1162,7 @@ function MatchManager() {
           </div>
 
           {/* Live-Vorschau: sobald beide Teams gewählt sind, sieht man sofort
-              die Trikot-/Helmfarben, statt sie sich aus dem Namen vorstellen
+              die Trikots (Heim und Auswärts), statt sie sich aus dem Namen vorstellen
               zu müssen. */}
           {(previewHome || previewAway) && (
             <div
@@ -1200,7 +1200,7 @@ function MatchManager() {
                     jerseyStyle={previewAway.jerseyStyle}
                     isNationalTeam={previewAway.isNationalTeam}
                     countryCode={previewAway.countryCode}
-                    flip
+                    variant="auswaerts"
                     size={48}
                   />
                 ) : (
@@ -1373,6 +1373,7 @@ function MatchManager() {
                       jerseyStyle={left.jerseyStyle}
                       isNationalTeam={left.isNationalTeam}
                       countryCode={left.countryCode}
+                      variant={isAwayFirst(left.sport) ? "auswaerts" : "heim"}
                       size={40}
                     />
                   )}
@@ -1398,7 +1399,7 @@ function MatchManager() {
                       jerseyStyle={right.jerseyStyle}
                       isNationalTeam={right.isNationalTeam}
                       countryCode={right.countryCode}
-                      flip
+                      variant={isAwayFirst(right.sport) ? "heim" : "auswaerts"}
                       size={40}
                     />
                   )}
