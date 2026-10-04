@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, FormEvent } from "react";
+import { useState, useRef, useEffect, FormEvent } from "react";
 import Link from "next/link";
 import { useAppData, NewsItem } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
@@ -989,7 +989,7 @@ function TeamManager() {
             <button
               type="button"
               onClick={resetForm}
-              className="rounded-full border border-edge px-6 py-3 font-display text-base font-semibold text-muted transition-colors hover:text-ink"
+              className="rounded-full border border-muted/50 px-6 py-3 font-display text-base font-semibold text-ink transition-colors hover:border-ink"
             >
               Abbrechen
             </button>
@@ -1138,6 +1138,13 @@ function MatchManager() {
   const [tipMode, setTipModeInput] = useState<TipMode>("score");
 
   const teamsForSport = teams.filter((t) => t.sport === sport);
+  // Bestätigung direkt im Formular statt Browser-Dialog: Safari/Chrome können
+  // confirm()-Fenster nach mehreren Rückfragen stumm unterdrücken – dann
+  // passierte beim Tippen auf "Spiel anlegen" einfach gar nichts.
+  const [confirming, setConfirming] = useState(false);
+  useEffect(() => {
+    setConfirming(false);
+  }, [sport, competition, kickoff, tipDeadline, homeTeamId, awayTeamId, booster]);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -1158,7 +1165,6 @@ function MatchManager() {
       showToast(deadlineProblem, "info");
       return;
     }
-    if (!confirmPastDeadline(tipDeadline)) return;
     if (booster && boostersOnDay(matches, new Date(kickoff).toISOString()) >= BOOSTERS_PER_DAY) {
       showToast(`An diesem Tag gibt es schon ${BOOSTERS_PER_DAY} Booster-Spiele.`, "info");
       return;
@@ -1166,7 +1172,12 @@ function MatchManager() {
 
     const homeName = getTeam(homeTeamId)?.name ?? "?";
     const awayName = getTeam(awayTeamId)?.name ?? "?";
-    if (!confirm(`Spiel "${matchTitle(sport, homeName, awayName)}" (${competition.trim()}) anlegen?`)) return;
+    // Erster Tipp auf den Knopf: Bestätigung im Formular zeigen, zweiter legt an.
+    if (!confirming) {
+      setConfirming(true);
+      return;
+    }
+    setConfirming(false);
 
     addMatch({
       sport,
@@ -1413,13 +1424,43 @@ function MatchManager() {
           </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={teamsForSport.length < 2}
-          className="self-start rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:bg-edge disabled:text-muted"
-        >
-          Spiel anlegen
-        </button>
+        {confirming ? (
+          <div className="rounded-lg border border-gold/40 bg-gold/10 p-4">
+            <p className="text-sm font-semibold text-ink">
+              Spiel „{matchTitle(sport, getTeam(homeTeamId)?.name ?? "?", getTeam(awayTeamId)?.name ?? "?")}“ (
+              {competition.trim()}) am {new Date(kickoff).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}{" "}
+              anlegen?
+            </p>
+            {new Date(tipDeadline).getTime() <= Date.now() && (
+              <p className="mt-1 text-sm text-gold">
+                Achtung: Der Tippschluss ist schon vorbei – Spieler sehen das Spiel nur unter „Geschlossene Tipps“.
+              </p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="submit"
+                className="rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
+              >
+                Ja, anlegen
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                className="rounded-full border border-muted/50 px-6 py-3 font-display text-base font-semibold text-ink transition-colors hover:border-ink"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="submit"
+            disabled={teamsForSport.length < 2}
+            className="self-start rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:bg-edge disabled:text-muted"
+          >
+            Spiel anlegen
+          </button>
+        )}
       </form>
 
       {(() => {
@@ -1640,18 +1681,6 @@ function checkDeadline(kickoff: string, tipDeadline: string): string | null {
   return null;
 }
 
-// Liegt der Tippschluss schon in der Vergangenheit, sehen Spieler das Spiel
-// nur unter "Geschlossene Tipps" und können nicht tippen – das soll nie aus
-// Versehen passieren, darum fragen wir nach.
-function confirmPastDeadline(tipDeadline: string): boolean {
-  const deadlineMs = new Date(tipDeadline).getTime();
-  if (deadlineMs > Date.now()) return true;
-  return confirm(
-    `Der Tippschluss (${new Date(deadlineMs).toLocaleString("de-DE")}) ist schon vorbei. ` +
-      `Spieler sehen das Spiel dann nur unter "Geschlossene Tipps" und können nicht tippen. Trotzdem speichern?`
-  );
-}
-
 function toLocalInputValue(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -1802,15 +1831,14 @@ function MatchDetailsEditor({
       showToast(deadlineProblem, "info");
       return;
     }
-    // Nur nachfragen, wenn sich der Tippschluss ändert (Trikot nachträglich
-    // ändern während des Spiels soll ohne Rückfrage gehen).
-    if (tipDeadline !== toLocalInputValue(match.tipDeadline) && !confirmPastDeadline(tipDeadline)) return;
+    // Ohne Browser-Dialog (kann stumm unterdrückt werden): Änderungen lassen
+    // sich jederzeit wieder bearbeiten, ein vorbeier Tippschluss wird nur gemeldet.
+    const deadlineInPast =
+      tipDeadline !== toLocalInputValue(match.tipDeadline) && new Date(tipDeadline).getTime() <= Date.now();
     if (match.booster && boostersOnDay(matches, new Date(kickoff).toISOString(), match.id) >= BOOSTERS_PER_DAY) {
       showToast(`Am neuen Tag gibt es schon ${BOOSTERS_PER_DAY} Booster-Spiele – erst dort einen ausschalten.`, "info");
       return;
     }
-    if (!confirm("Spieldaten wirklich ändern?")) return;
-
     onSave(match.id, {
       competition: competition.trim(),
       matchday: matchday ? Number(matchday) : undefined,
@@ -1822,7 +1850,12 @@ function MatchDetailsEditor({
       awayJersey,
     });
     setEditing(false);
-    showToast("✓ Spieldaten gespeichert.", "success");
+    showToast(
+      deadlineInPast
+        ? "✓ Gespeichert – aber der Tippschluss ist schon vorbei, Spieler sehen das Spiel nur unter „Geschlossene Tipps“."
+        : "✓ Spieldaten gespeichert.",
+      deadlineInPast ? "info" : "success"
+    );
   }
 
   return (
