@@ -11,7 +11,7 @@ import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { xpForLevel } from "@/lib/seasonPass";
 import { displayOrder, isAwayFirst, oneXTwoText, pickNumber } from "@/lib/teamOrder";
-import TeamBadge from "./TeamBadge";
+import TeamBadge, { matchJerseyProps } from "./TeamBadge";
 import PassHonorTags, { useOtherPlayersHonors } from "./PassHonors";
 import { EmotePicker, MessageBody, stickerFromText, stickerText } from "./Emotes";
 import Countdown from "./Countdown";
@@ -415,7 +415,7 @@ export default function MatchCard({
             needsWideMiddle ? "grid-cols-[1fr_1rem_1fr] sm:grid-cols-[1fr_1.5rem_1fr]" : "grid-cols-[1fr_auto_1fr]"
           }`}
         >
-          <TeamColumn sport={match.sport} team={leftTeam} tag={isUsSport ? "Gast" : "Heim"} />
+          <TeamColumn match={match} team={leftTeam} tag={isUsSport ? "Gast" : "Heim"} />
           {finalScore ? (
             // Beendet: oben zwischen den Teams steht direkt der Endstand
             // (unten in der Karte steht er nicht mehr extra).
@@ -428,7 +428,7 @@ export default function MatchCard({
           ) : (
             <span className="justify-self-center pt-3 font-display text-xs text-muted sm:text-sm">vs</span>
           )}
-          <TeamColumn sport={match.sport} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} />
+          <TeamColumn match={match} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} />
 
           {!showResultView && closingSoon && (
             <p className="col-span-3 row-start-2 -mb-1 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">
@@ -982,17 +982,16 @@ function ResultBox({ match, kickedOff }: { match: Match; kickedOff: boolean }) {
 // Teamnamen brechen nur an Leerzeichen um, nie mitten im Wort (kein
 // "Le-/verkusen"). Passt ein langes Einzelwort wie "Mönchengladbach" nicht in
 // die Spalte, wird die Schrift schrittweise verkleinert, bis es passt.
-function TeamColumn({ sport, team, tag }: { sport: Sport; team: Team; tag: string | null }) {
+function TeamColumn({ match, team, tag }: { match: Match; team: Team; tag: string | null }) {
   return (
     <div className="flex min-w-0 flex-col items-center gap-1.5 self-stretch">
       <TeamBadge
-        sport={sport}
+        sport={match.sport}
         primaryColor={team.primaryColor}
         secondaryColor={team.secondaryColor}
-        jerseyStyle={team.jerseyStyle}
+        {...matchJerseyProps(match, team)}
         isNationalTeam={team.isNationalTeam}
         countryCode={team.countryCode}
-        variant={tag === "Gast" ? "auswaerts" : "heim"}
         size={44}
       />
       {/* HEIM/GAST direkt unter dem Wappen: steht so bei beiden Teams auf

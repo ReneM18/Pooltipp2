@@ -7,12 +7,13 @@ import { useUser } from "@/lib/UserContext";
 import { useTournaments } from "@/lib/TournamentContext";
 import { Tournament } from "@/lib/tournamentTypes";
 import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
-import { Sport, SPORTS, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchStatus, TipMode, Team } from "@/lib/types";
+import { Sport, SPORTS, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchJersey, MatchStatus, TipMode, Team } from "@/lib/types";
 import { DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
 import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
 import TeamPicker from "@/components/TeamPicker";
-import TeamBadge from "@/components/TeamBadge";
+import TeamBadge, { jerseyFor, matchJerseyProps } from "@/components/TeamBadge";
+import JerseyPicker from "@/components/JerseyPicker";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { findDuplicateTeam } from "@/lib/teamName";
 import ScoreInput from "@/components/ScoreInput";
@@ -1046,6 +1047,9 @@ function MatchManager() {
   const [tipDeadline, setTipDeadline] = useState("");
   const [homeTeamId, setHomeTeamId] = useState("");
   const [awayTeamId, setAwayTeamId] = useState("");
+  // undefined = Standard (Heim-/Auswärtstrikot im Team-Stil)
+  const [homeJersey, setHomeJersey] = useState<MatchJersey | undefined>(undefined);
+  const [awayJersey, setAwayJersey] = useState<MatchJersey | undefined>(undefined);
   const [booster, setBoosterInput] = useState(false);
   const [tvChannel, setTvChannelInput] = useState("");
   const [tipMode, setTipModeInput] = useState<TipMode>("score");
@@ -1085,6 +1089,8 @@ function MatchManager() {
       summaryVideoUrl: null,
       tvChannel: tvChannel.trim() || null,
       tipMode,
+      ...(homeJersey ? { homeJersey } : {}),
+      ...(awayJersey ? { awayJersey } : {}),
     });
 
     setCompetition("");
@@ -1093,6 +1099,8 @@ function MatchManager() {
     setTipDeadline("");
     setHomeTeamId("");
     setAwayTeamId("");
+    setHomeJersey(undefined);
+    setAwayJersey(undefined);
     setBoosterInput(false);
     setTvChannelInput("");
     setTipModeInput("score");
@@ -1124,6 +1132,8 @@ function MatchManager() {
                   setCompetition("");
                   setHomeTeamId("");
                   setAwayTeamId("");
+                  setHomeJersey(undefined);
+                  setAwayJersey(undefined);
                 }}
                 className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
               >
@@ -1144,20 +1154,32 @@ function MatchManager() {
               <TeamPicker
                 teams={teamsForSport}
                 value={homeTeamId}
-                onChange={setHomeTeamId}
+                onChange={(id) => {
+                  setHomeTeamId(id);
+                  setHomeJersey(undefined);
+                }}
                 otherTeamId={awayTeamId}
                 otherLabel="schon als Auswärtsteam gewählt"
               />
+              {previewHome && (
+                <JerseyPicker team={previewHome} value={jerseyFor(previewHome, "home", homeJersey)} onChange={setHomeJersey} />
+              )}
             </div>
             <div>
               <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(sport, "away")}</label>
               <TeamPicker
                 teams={teamsForSport}
                 value={awayTeamId}
-                onChange={setAwayTeamId}
+                onChange={(id) => {
+                  setAwayTeamId(id);
+                  setAwayJersey(undefined);
+                }}
                 otherTeamId={homeTeamId}
                 otherLabel="schon als Heimteam gewählt"
               />
+              {previewAway && (
+                <JerseyPicker team={previewAway} value={jerseyFor(previewAway, "away", awayJersey)} onChange={setAwayJersey} />
+              )}
             </div>
           </div>
 
@@ -1176,7 +1198,8 @@ function MatchManager() {
                     sport={previewHome.sport}
                     primaryColor={previewHome.primaryColor}
                     secondaryColor={previewHome.secondaryColor}
-                    jerseyStyle={previewHome.jerseyStyle}
+                    jerseyStyle={jerseyFor(previewHome, "home", homeJersey).style}
+                    variant={jerseyFor(previewHome, "home", homeJersey).variant}
                     isNationalTeam={previewHome.isNationalTeam}
                     countryCode={previewHome.countryCode}
                     size={48}
@@ -1197,10 +1220,10 @@ function MatchManager() {
                     sport={previewAway.sport}
                     primaryColor={previewAway.primaryColor}
                     secondaryColor={previewAway.secondaryColor}
-                    jerseyStyle={previewAway.jerseyStyle}
+                    jerseyStyle={jerseyFor(previewAway, "away", awayJersey).style}
+                    variant={jerseyFor(previewAway, "away", awayJersey).variant}
                     isNationalTeam={previewAway.isNationalTeam}
                     countryCode={previewAway.countryCode}
-                    variant="auswaerts"
                     size={48}
                   />
                 ) : (
@@ -1370,10 +1393,9 @@ function MatchManager() {
                       sport={left.sport}
                       primaryColor={left.primaryColor}
                       secondaryColor={left.secondaryColor}
-                      jerseyStyle={left.jerseyStyle}
+                      {...matchJerseyProps(match, left)}
                       isNationalTeam={left.isNationalTeam}
                       countryCode={left.countryCode}
-                      variant={isAwayFirst(left.sport) ? "auswaerts" : "heim"}
                       size={40}
                     />
                   )}
@@ -1396,10 +1418,9 @@ function MatchManager() {
                       sport={right.sport}
                       primaryColor={right.primaryColor}
                       secondaryColor={right.secondaryColor}
-                      jerseyStyle={right.jerseyStyle}
+                      {...matchJerseyProps(match, right)}
                       isNationalTeam={right.isNationalTeam}
                       countryCode={right.countryCode}
-                      variant={isAwayFirst(right.sport) ? "heim" : "auswaerts"}
                       size={40}
                     />
                   )}
@@ -1604,6 +1625,8 @@ function MatchDetailsEditor({
       tipDeadline: string;
       homeTeamId: string;
       awayTeamId: string;
+      homeJersey?: MatchJersey;
+      awayJersey?: MatchJersey;
     }
   ) => void;
 }) {
@@ -1616,8 +1639,12 @@ function MatchDetailsEditor({
   const [tipDeadline, setTipDeadline] = useState(() => toLocalInputValue(match.tipDeadline));
   const [homeTeamId, setHomeTeamId] = useState(match.homeTeamId);
   const [awayTeamId, setAwayTeamId] = useState(match.awayTeamId);
+  const [homeJersey, setHomeJersey] = useState<MatchJersey | undefined>(match.homeJersey);
+  const [awayJersey, setAwayJersey] = useState<MatchJersey | undefined>(match.awayJersey);
 
   const teamsForSport = teams.filter((t) => t.sport === match.sport);
+  const homeTeam = teamsForSport.find((t) => t.id === homeTeamId);
+  const awayTeam = teamsForSport.find((t) => t.id === awayTeamId);
 
   function handleSave() {
     if (!competition.trim() || !kickoff || !tipDeadline || !homeTeamId || !awayTeamId) return;
@@ -1635,6 +1662,8 @@ function MatchDetailsEditor({
       tipDeadline: new Date(tipDeadline).toISOString(),
       homeTeamId,
       awayTeamId,
+      homeJersey,
+      awayJersey,
     });
     setEditing(false);
     showToast("✓ Spieldaten gespeichert.", "success");
@@ -1670,20 +1699,32 @@ function MatchDetailsEditor({
               <TeamPicker
                 teams={teamsForSport}
                 value={homeTeamId}
-                onChange={setHomeTeamId}
+                onChange={(id) => {
+                  setHomeTeamId(id);
+                  setHomeJersey(undefined);
+                }}
                 otherTeamId={awayTeamId}
                 otherLabel="schon als Auswärtsteam gewählt" compact
               />
+              {homeTeam && (
+                <JerseyPicker team={homeTeam} value={jerseyFor(homeTeam, "home", homeJersey)} onChange={setHomeJersey} />
+              )}
             </div>
             <div>
               <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(match.sport, "away")}</label>
               <TeamPicker
                 teams={teamsForSport}
                 value={awayTeamId}
-                onChange={setAwayTeamId}
+                onChange={(id) => {
+                  setAwayTeamId(id);
+                  setAwayJersey(undefined);
+                }}
                 otherTeamId={homeTeamId}
                 otherLabel="schon als Heimteam gewählt" compact
               />
+              {awayTeam && (
+                <JerseyPicker team={awayTeam} value={jerseyFor(awayTeam, "away", awayJersey)} onChange={setAwayJersey} />
+              )}
             </div>
           </div>
 

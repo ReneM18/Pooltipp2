@@ -29,6 +29,15 @@ export const JERSEY_STYLES: { value: JerseyStyle; label: string }[] = [
   { value: "aermel", label: "Ärmel andersfarbig" },
 ];
 
+/** Heimtrikot = Vereinsfarben, Auswärtstrikot = helle (bzw. bei hellen Vereinen dunkle) Variante. */
+export type JerseyVariant = "heim" | "auswaerts";
+
+/** Vom Admin pro Spiel gewähltes Trikot eines Teams (Heim/Auswärts + Stil). */
+export interface MatchJersey {
+  variant: JerseyVariant;
+  style: JerseyStyle;
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -79,6 +88,10 @@ export interface Match {
   tvChannel: string | null; // z. B. "Sky", "DAZN", "ORF1" – wo das Spiel live läuft
   tipMode: TipMode; // vom Admin pro Spiel frei wählbar, unabhängig von der Sportart
   bonusQuestion?: BonusQuestion | null; // optional, vom Admin pro Spiel angelegt
+  // Trikots in diesem Spiel; fehlt es, trägt das Heimteam sein Heim- und das
+  // Gastteam sein Auswärtstrikot im Stil aus den Team-Einstellungen.
+  homeJersey?: MatchJersey;
+  awayJersey?: MatchJersey;
 }
 
 export interface Tip {

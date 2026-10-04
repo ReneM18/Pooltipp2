@@ -1,10 +1,21 @@
 import { useId } from "react";
-import { JerseyStyle, Sport } from "@/lib/types";
+import { JerseyStyle, JerseyVariant, Match, MatchJersey, Sport, Team } from "@/lib/types";
 import { BASKETBALL_JERSEY_MARKUP } from "@/lib/basketballJerseyMarkup";
 import { flagEmoji } from "@/lib/flags";
 
-/** Heimtrikot = Vereinsfarben, Auswärtstrikot = helle (bzw. bei hellen Vereinen dunkle) Variante. */
-export type JerseyVariant = "heim" | "auswaerts";
+/** Trikot eines Teams in einem Spiel: die Wahl des Admins oder sonst Heim/Auswärts im Team-Stil. */
+export function jerseyFor(team: Team, side: "home" | "away", chosen?: MatchJersey): MatchJersey {
+  return chosen ?? { variant: side === "home" ? "heim" : "auswaerts", style: team.jerseyStyle ?? "solid" };
+}
+
+/** TeamBadge-Props für ein Team in einem Spiel: <TeamBadge {...matchJerseyProps(match, team)} ... />. */
+export function matchJerseyProps(match: Match, team: Team): { jerseyStyle: JerseyStyle; variant: JerseyVariant } {
+  const j =
+    team.id === match.homeTeamId
+      ? jerseyFor(team, "home", match.homeJersey)
+      : jerseyFor(team, "away", match.awayJersey);
+  return { jerseyStyle: j.style, variant: j.variant };
+}
 
 interface TeamBadgeProps {
   sport: Sport;
