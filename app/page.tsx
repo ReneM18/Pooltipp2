@@ -58,13 +58,17 @@ export default function DashboardPage() {
   const byKickoffAsc = (a: (typeof matches)[number], b: (typeof matches)[number]) =>
     new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
 
-  // Geschlossen = Tippschluss vorbei (auch wenn das Spiel noch läuft),
-  // beendet oder abgesagt. Offen sind nur Spiele, auf die man noch tippen kann.
+  // Geschlossen erst, wenn der Admin das Spiel abgeschlossen hat: Endstand
+  // eingetragen (beendet) oder abgesagt. Ein Spiel nach Tippschluss oder
+  // während es läuft bleibt bei den offenen, nur Tippen geht dann nicht mehr
+  // (das sperrt die Datenbank). Spiele, auf die man noch tippen kann, stehen
+  // vorne, danach die, bei denen der Endstand noch fehlt.
   const pastDeadline = (m: (typeof matches)[number]) =>
     now !== null && new Date(m.tipDeadline).getTime() <= now;
-  const isClosed = (m: (typeof matches)[number]) =>
-    m.status === "finished" || m.status === "cancelled" || m.status === "live" || pastDeadline(m);
-  const offeneMatches = matches.filter((m) => !isClosed(m)).sort(byKickoffAsc);
+  const isClosed = (m: (typeof matches)[number]) => m.status === "finished" || m.status === "cancelled";
+  const offeneMatches = matches
+    .filter((m) => !isClosed(m))
+    .sort((a, b) => Number(pastDeadline(a)) - Number(pastDeadline(b)) || byKickoffAsc(a, b));
   // Bei den geschlossenen der zuletzt geschlossene Tipp zuerst.
   const geschlosseneMatches = matches
     .filter(isClosed)
