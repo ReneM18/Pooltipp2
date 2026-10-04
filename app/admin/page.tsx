@@ -1174,8 +1174,15 @@ function MatchManager() {
       fail("Bitte zwei verschiedene Teams auswählen.");
       return;
     }
-    if (!kickoff || !tipDeadline) {
-      fail("Bitte Anpfiff und Tippschluss eintragen.");
+    // Safari zeigt im leeren Datumsfeld das heutige Datum grau als Vorschlag –
+    // das ist aber noch nicht eingetragen. Ist nur die Uhrzeit gesetzt, liefert
+    // das Feld gar keinen Wert.
+    if (!kickoff) {
+      fail("Beim Anpfiff fehlt noch das Datum (ein grau angezeigtes Datum ist nur ein Vorschlag). Tippe unter dem Feld auf „Heute“ oder „Morgen“ und wähle dann die Uhrzeit.");
+      return;
+    }
+    if (!tipDeadline) {
+      fail("Beim Tippschluss fehlt noch das Datum (ein grau angezeigtes Datum ist nur ein Vorschlag). Tippe unter dem Feld auf „Heute“ oder „Morgen“.");
       return;
     }
     const deadlineProblem = checkDeadline(kickoff, tipDeadline);
@@ -1752,15 +1759,37 @@ function QuickDateTimeField({
     onChange(`${datePart}T${time}`);
   }
 
+  // Nur teilweise ausgefüllt (z. B. in Safari nur die Uhrzeit, das Datum steht
+  // bloß grau als Vorschlag da): das Feld liefert dann keinen Wert.
+  const [incomplete, setIncomplete] = useState(false);
+  function checkComplete(input: HTMLInputElement) {
+    setIncomplete(input.validity.badInput || (input.value === "" && value !== ""));
+  }
+  useEffect(() => {
+    if (value) setIncomplete(false);
+  }, [value]);
+
   return (
     <div>
       <label className="mb-1.5 block text-sm text-muted">{label}</label>
       <input
         type="datetime-local"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mb-1.5 w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+        onChange={(e) => {
+          onChange(e.target.value);
+          checkComplete(e.target);
+        }}
+        onInput={(e) => checkComplete(e.currentTarget)}
+        onBlur={(e) => checkComplete(e.currentTarget)}
+        className={`mb-1.5 w-full rounded-lg border bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold ${
+          incomplete ? "border-red-400" : "border-edge"
+        }`}
       />
+      {incomplete && (
+        <p role="alert" className="mb-1.5 text-sm text-red-300">
+          Datum oder Uhrzeit fehlt noch (grau = nur Vorschlag). Tippe auf „Heute“ oder „Morgen“.
+        </p>
+      )}
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
