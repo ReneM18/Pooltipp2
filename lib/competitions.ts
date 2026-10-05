@@ -45,6 +45,7 @@ const DEFAULT_NAMES: Record<Sport, string[]> = {
   NFL: ["NFL Regular Season", "NFL Playoffs", "Super Bowl"],
   NBA: ["NBA Regular Season", "NBA Playoffs", "NBA Finals"],
   NHL: ["NHL Regular Season", "NHL Playoffs", "Stanley Cup Finale"],
+  Handball: [],
 };
 
 export function newCompetitionId(): string {

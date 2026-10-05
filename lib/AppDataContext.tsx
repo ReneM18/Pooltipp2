@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Match, MatchJersey, NEWS_SPORT_ICONS, NewsSport, Sport, Team, TipMode } from "./types";
+import { Match, MatchJersey, NEWS_SPORT_ICONS, NewsSport, Sport, SPORT_ICONS, Team, TipMode } from "./types";
 import {
   Competition,
   CompetitionsRow,
@@ -856,7 +856,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // Eigene Tipps pro Sportart (Seite "Fortschritt") – aus den eigenen
   // Tipps berechnet, damit die Zahl auch nach dem Neuladen stimmt.
   const tipsBySport = useMemo(() => {
-    const counts: Record<Sport, number> = { "Fußball": 0, NFL: 0, NBA: 0, NHL: 0 };
+    const counts: Record<Sport, number> = { "Fußball": 0, NFL: 0, NBA: 0, NHL: 0, Handball: 0 };
     for (const tip of myTips) {
       const match = matches.find((m) => m.id === tip.matchId);
       if (match) counts[match.sport] = (counts[match.sport] ?? 0) + 1;
@@ -913,10 +913,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (match) {
       const home = getTeam(match.homeTeamId);
       const away = getTeam(match.awayTeamId);
-      const sportIcon: Record<Sport, string> = { "Fußball": "⚽", NFL: "🏈", NBA: "🏀", NHL: "🏒" };
       const matchLabel = `${home?.name ?? "?"} vs. ${away?.name ?? "?"}`;
       addActivity(
-        sportIcon[match.sport],
+        SPORT_ICONS[match.sport],
         `Du hast beim Spiel ${matchLabel} getippt.`,
         authorName ? { author: authorName, text: `${authorName} hat beim Spiel ${matchLabel} getippt.` } : undefined
       );

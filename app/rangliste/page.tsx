@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import FitText from "@/components/FitText";
-import { SPORTS, Sport } from "@/lib/types";
+import { SPORTS, Sport, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { getChosenIconForPoints, getSportRankIcon, RankIconOption } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
 import ClubLeaderboard from "@/components/ClubLeaderboard";
@@ -12,12 +12,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { getCurrentWeekWindow, sumWeeklyRangDelta } from "@/lib/weeklyLeaderboard";
 import { GlobalPlayer, sumPoints, useGlobalLeaderboard } from "@/lib/globalLeaderboard";
 
-const sportIcon: Record<Sport, string> = {
-  "Fußball": "⚽",
-  NFL: "🏈",
-  NBA: "🏀",
-  NHL: "🏒",
-};
+const sportIcon: Record<string, string> = SPORT_ICONS;
 
 type ViewTab = "Gesamt" | "Spieltag" | "Vereine" | Sport;
 
@@ -141,13 +136,14 @@ export default function RanglistePage() {
         )}
       </div>
 
-      {/* Tab-Umschalter: Gesamt + Spieltag + je Sportart */}
-      <div className="mb-5 flex gap-2 overflow-x-auto">
+      {/* Tab-Umschalter: Gesamt + Spieltag + je Sportart. Handy: eine Zeile
+          zum Wischen; ab Tablet zwei gleich breite Reihen à 4 (alles sichtbar). */}
+      <div className="mb-5 flex gap-2 overflow-x-auto sm:grid sm:grid-cols-4 sm:overflow-visible">
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+            className={`flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition-colors sm:justify-center sm:px-2 ${
               tab === t
                 ? "border-gold bg-gold/15 text-gold"
                 : "border-edge bg-surface text-muted hover:text-ink"
@@ -156,7 +152,7 @@ export default function RanglistePage() {
             {t === "Spieltag" && <span aria-hidden>⏱️</span>}
             {t === "Vereine" && <span aria-hidden>🛡️</span>}
             {t !== "Gesamt" && t !== "Spieltag" && t !== "Vereine" && <span>{sportIcon[t as Sport]}</span>}
-            {t}
+            {sportLabel(t)}
           </button>
         ))}
       </div>

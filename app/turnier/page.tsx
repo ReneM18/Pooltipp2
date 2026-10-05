@@ -7,15 +7,10 @@ import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { Tournament, TournamentStatus } from "@/lib/tournamentTypes";
 import { getTournamentStatus, useTournamentStandings } from "@/lib/tournamentLeaderboard";
-import { Sport } from "@/lib/types";
+import { Sport, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { matchTitle, scoreText } from "@/lib/teamOrder";
 
-const sportIcon: Record<Sport, string> = {
-  "Fußball": "⚽",
-  NFL: "🏈",
-  NBA: "🏀",
-  NHL: "🏒",
-};
+const sportIcon: Record<string, string> = SPORT_ICONS;
 
 const statusLabel: Record<TournamentStatus, string> = {
   aktiv: "Aktiv",

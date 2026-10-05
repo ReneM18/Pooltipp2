@@ -6,15 +6,10 @@ import FitText from "@/components/FitText";
 import TeamBadge from "@/components/TeamBadge";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
-import { SPORTS, Sport } from "@/lib/types";
+import { SPORTS, Sport, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { CLUB_MIN_ACTIVE_FANS, ClubTableRow, useClubTable, useMyClubs } from "@/lib/clubs";
 
-const sportIcon: Record<Sport, string> = {
-  "Fußball": "⚽",
-  NFL: "🏈",
-  NBA: "🏀",
-  NHL: "🏒",
-};
+const sportIcon: Record<string, string> = SPORT_ICONS;
 
 // Vereinstabelle je Sportart (Reiter "Vereine" auf der Rangliste). Die Werte
 // rechnet die Datenbank (supabase/vereinswertung.sql, club_table).
@@ -47,7 +42,7 @@ export default function ClubLeaderboard() {
             }`}
           >
             <span aria-hidden>{sportIcon[s]}</span>
-            {s}
+            {sportLabel(s)}
           </button>
         ))}
       </div>
@@ -85,7 +80,7 @@ export default function ClubLeaderboard() {
           <p className="mb-2 text-3xl" aria-hidden>
             {sportIcon[sport]}
           </p>
-          <h2 className="mb-1 font-display text-lg font-semibold text-ink">Noch keine Fans in {sport}</h2>
+          <h2 className="mb-1 font-display text-lg font-semibold text-ink">Noch keine Fans in {sportLabel(sport)}</h2>
           <p className="mx-auto mb-5 max-w-sm text-sm text-muted">
             Wähle im Profil deinen Herzensverein und sammle mit deinen Tipps Punkte für ihn.
           </p>

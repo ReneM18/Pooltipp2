@@ -1,4 +1,4 @@
-import { Sport } from "@/lib/types";
+import { Sport, SPORTS, SPORT_ICONS, sportLabel } from "@/lib/types";
 
 export type RankName = "Bronze" | "Silber" | "Gold" | "Platin" | "Diamant" | "Meister" | "GOAT";
 export type SubTier = "III" | "II" | "I";
@@ -64,12 +64,7 @@ export const RANK_TITLES: Record<RankName, string> = {
   GOAT: "Größter aller Zeiten",
 };
 
-export const SPORT_EMOJI: Record<Sport, string> = {
-  "Fußball": "⚽",
-  NFL: "🏈",
-  NBA: "🏀",
-  NHL: "🏒",
-};
+export const SPORT_EMOJI: Record<Sport, string> = SPORT_ICONS;
 
 export function getTierForPoints(points: number): RankTierDef {
   let current = RANK_LADDER[0];
@@ -190,18 +185,18 @@ export function getAllRankIcons(
     return {
       option: getSportRankIcon(sport, points),
       unlocked: points > 0,
-      hint: `Gib deinen ersten ${sport}-Tipp ab`,
+      hint: `Gib deinen ersten ${sportLabel(sport)}-Tipp ab`,
     };
   });
   list.push({
     option: eliteIcon(),
     unlocked: isElite(pointsBySport),
-    hint: `Gold (${ELITE_MIN_POINTS.toLocaleString("de-DE")} P) in allen 4 Sportarten`,
+    hint: `Gold (${ELITE_MIN_POINTS.toLocaleString("de-DE")} P) in allen ${SPORTS.length} Sportarten`,
   });
   list.push({
     option: unsterblichIcon(),
     unlocked: isUnsterblich(pointsBySport),
-    hint: `GOAT (${GOAT_MIN_POINTS.toLocaleString("de-DE")} P) in allen 4 Sportarten`,
+    hint: `GOAT (${GOAT_MIN_POINTS.toLocaleString("de-DE")} P) in allen ${SPORTS.length} Sportarten`,
   });
   return list;
 }
@@ -229,7 +224,7 @@ export function getSportRankIcon(sport: Sport, points: number, idSuffix = ""): R
     id: `sport-${sport}${idSuffix}`,
     kind: "sport",
     sport,
-    label: `${sport} ${tierLabel(tier)}`,
+    label: `${sportLabel(sport)} ${tierLabel(tier)}`,
     icon: SPORT_EMOJI[sport],
     points,
     colorFrom: colors.from,

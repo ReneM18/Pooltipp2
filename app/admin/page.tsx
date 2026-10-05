@@ -7,7 +7,7 @@ import { useUser } from "@/lib/UserContext";
 import { useTournaments } from "@/lib/TournamentContext";
 import { Tournament } from "@/lib/tournamentTypes";
 import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
-import { Sport, SPORTS, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchJersey, MatchStatus, TipMode, Team } from "@/lib/types";
+import { Sport, SPORTS, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchJersey, MatchStatus, TipMode, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
 import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
@@ -352,12 +352,7 @@ function NewsItemRow({
   );
 }
 
-const sportIcon: Record<Sport, string> = {
-  "Fußball": "⚽",
-  NFL: "🏈",
-  NBA: "🏀",
-  NHL: "🏒",
-};
+const sportIcon: Record<string, string> = SPORT_ICONS;
 
 const matchStatusLabel: Record<MatchStatus, string> = {
   upcoming: "Bevorstehend",
@@ -460,7 +455,7 @@ function CompetitionSelect({
       {creating && (
         <div className="mt-2 flex flex-col gap-2 rounded-lg border border-gold/60 bg-gold/5 p-3">
           <label className="text-sm text-muted">
-            Neuer Wettbewerb für {sportIcon[sport]} {sport}
+            Neuer Wettbewerb für {sportIcon[sport]} {sportLabel(sport)}
           </label>
           <input
             autoFocus
@@ -602,7 +597,7 @@ function CompetitionManager() {
             >
               {SPORTS.map((s) => (
                 <option key={s} value={s}>
-                  {sportIcon[s]} {s}
+                  {sportIcon[s]} {sportLabel(s)}
                 </option>
               ))}
             </select>
@@ -619,7 +614,7 @@ function CompetitionManager() {
             </span>
             <span className="min-w-0">
               <span className="block font-semibold text-red-300">Diesen Wettbewerb gibt es schon!</span>
-              „{duplicate.name}“ ist bei {sportIcon[duplicate.sport]} {duplicate.sport} bereits angelegt.
+              „{duplicate.name}“ ist bei {sportIcon[duplicate.sport]} {sportLabel(duplicate.sport)} bereits angelegt.
             </span>
           </div>
         )}
@@ -644,7 +639,7 @@ function CompetitionManager() {
                 : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
             }`}
           >
-            {sportIcon[s]} {s} ({competitions.filter((c) => c.sport === s).length})
+            {sportIcon[s]} {sportLabel(s)} ({competitions.filter((c) => c.sport === s).length})
           </button>
         ))}
       </div>
@@ -795,7 +790,7 @@ function TeamManager() {
     e.preventDefault();
     if (!name.trim()) return;
     if (duplicate) {
-      showToast(`„${duplicate.name}“ gibt es bei ${duplicate.sport} schon.`, "info");
+      showToast(`„${duplicate.name}“ gibt es bei ${sportLabel(duplicate.sport)} schon.`, "info");
       return;
     }
     const data = {
@@ -860,7 +855,7 @@ function TeamManager() {
             >
               {SPORTS.map((s) => (
                 <option key={s} value={s}>
-                  {sportIcon[s]} {s}
+                  {sportIcon[s]} {sportLabel(s)}
                 </option>
               ))}
             </select>
@@ -881,7 +876,7 @@ function TeamManager() {
             </span>
             <span className="min-w-0">
               <span className="block font-semibold text-red-300">Dieses Team gibt es schon!</span>
-              „{duplicate.name}“ ist bei {sportIcon[duplicate.sport]} {duplicate.sport} bereits
+              „{duplicate.name}“ ist bei {sportIcon[duplicate.sport]} {sportLabel(duplicate.sport)} bereits
               angelegt. Bitte nicht doppelt anlegen, sondern das vorhandene Team verwenden oder
               bearbeiten.
               {!editingId && (
@@ -1075,7 +1070,7 @@ function TeamManager() {
                   : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
               }`}
             >
-              {sportIcon[s]} {s} ({countForSport})
+              {sportIcon[s]} {sportLabel(s)} ({countForSport})
             </button>
           );
         })}
@@ -1109,7 +1104,7 @@ function TeamManager() {
                     {!team.isNationalTeam && flagEmoji(team.countryCode)} {team.name}
                   </span>
                   <span className="text-xs text-muted">
-                    {team.sport}
+                    {sportLabel(team.sport)}
                     {team.isNationalTeam ? " · Nationalmannschaft" : ""}
                   </span>
                 </span>
@@ -1340,7 +1335,7 @@ function MatchManager() {
               >
                 {SPORTS.map((s) => (
                   <option key={s} value={s}>
-                    {sportIcon[s]} {s}
+                    {sportIcon[s]} {sportLabel(s)}
                   </option>
                 ))}
               </select>
@@ -1446,7 +1441,7 @@ function MatchManager() {
 
           {teamsForSport.length < 2 && (
             <p className="mt-2 text-sm text-muted">
-              Für {sport} brauchst du zuerst mindestens zwei Teams (siehe Tab "Teams").
+              Für {sportLabel(sport)} brauchst du zuerst mindestens zwei Teams (siehe Tab "Teams").
             </p>
           )}
         </div>

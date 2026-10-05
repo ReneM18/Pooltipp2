@@ -1,13 +1,39 @@
-export type Sport = "Fußball" | "NFL" | "NBA" | "NHL";
+// Interne Schlüssel der Sportarten (stehen so in der Datenbank: Spiele,
+// Teams, Rangpunkte). NIE umbenennen – angezeigt wird SPORT_LABELS.
+export type Sport = "Fußball" | "NFL" | "NBA" | "NHL" | "Handball";
 
-export const SPORTS: Sport[] = ["Fußball", "NFL", "NBA", "NHL"];
+export const SPORTS: Sport[] = ["Fußball", "NFL", "NBA", "NHL", "Handball"];
+
+// Anzeige-Namen der Sportarten. Ligen/Wettbewerbe (z. B. "NFL Regular
+// Season") bleiben eigene Namen und werden hier nicht berührt.
+export const SPORT_LABELS: Record<Sport, string> = {
+  "Fußball": "Fußball",
+  NFL: "Football",
+  NBA: "Basketball",
+  NHL: "Eishockey",
+  Handball: "Handball",
+};
+
+export const SPORT_ICONS: Record<Sport, string> = {
+  "Fußball": "⚽",
+  NFL: "🏈",
+  NBA: "🏀",
+  NHL: "🏒",
+  Handball: "🤾",
+};
+
+/** Anzeige-Name einer Sportart (auch für News-Sportarten). */
+export function sportLabel(sport: string | null | undefined): string {
+  if (!sport) return "";
+  return (SPORT_LABELS as Record<string, string>)[sport] ?? sport;
+}
 
 // Sportarten für den News-Ticker: die Tipp-Sportarten plus weitere, zu denen
 // es nur News gibt (keine Spiele, keine Rangpunkte). News liegen als JSON in
 // der Datenbank, neue Sportarten brauchen deshalb kein SQL.
-export type NewsSport = Sport | "Formel 1" | "MotoGP" | "Tennis" | "Handball" | "Darts";
+export type NewsSport = Sport | "Formel 1" | "MotoGP" | "Tennis" | "Darts";
 
-export const NEWS_SPORTS: NewsSport[] = [...SPORTS, "Formel 1", "MotoGP", "Tennis", "Handball", "Darts"];
+export const NEWS_SPORTS: NewsSport[] = [...SPORTS, "Formel 1", "MotoGP", "Tennis", "Darts"];
 
 export const NEWS_SPORT_ICONS: Record<NewsSport, string> = {
   "Fußball": "⚽",

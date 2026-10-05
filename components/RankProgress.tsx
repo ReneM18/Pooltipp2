@@ -1,4 +1,4 @@
-import { Sport } from "@/lib/types";
+import { Sport, SPORTS, sportLabel } from "@/lib/types";
 import RankEmblem from "@/components/RankEmblem";
 import { RANK_LADDER, RANK_COLORS, SPORT_EMOJI, getTierForPoints, getNextTier, tierLabel } from "@/lib/rankTiers";
 
@@ -23,7 +23,7 @@ export default function RankProgress({
       <div className="mb-3 flex items-center justify-between">
         <span className="flex items-center gap-2 font-display text-sm font-semibold text-ink">
           <span>{SPORT_EMOJI[sport]}</span>
-          {sport} · {tierLabel(current)}
+          {sportLabel(sport)} · {tierLabel(current)}
         </span>
         <span className="text-xs text-muted">{points.toLocaleString("de-DE")} P</span>
       </div>
@@ -67,7 +67,7 @@ export default function RankProgress({
         })}
         {/* Ganz zum Schluss, über allen Sportarten: Unsterblich. */}
         <span
-          title={`Unsterblich: ${GOAT_TIER.rank} in allen 4 Sportarten`}
+          title={`Unsterblich: ${GOAT_TIER.rank} in allen ${SPORTS.length} Sportarten`}
           className={`flex items-center justify-center rounded-lg p-0.5 ${unsterblich ? "ring-2 ring-gold" : "opacity-30 grayscale"}`}
         >
           <RankEmblem unsterblich colors={RANK_COLORS[GOAT_TIER.rank]} size={26} />
@@ -80,7 +80,7 @@ export default function RankProgress({
           {points < GOAT_TIER.minPoints
             ? `Ganz oben wartet der ${GOAT_TIER.rank}: ab ${GOAT_TIER.minPoints.toLocaleString("de-DE")} Punkten in einer Sportart. `
             : ""}
-          Unsterblich wird, wer in allen 4 Sportarten {GOAT_TIER.rank} ist.
+          Unsterblich wird, wer in allen {SPORTS.length} Sportarten {GOAT_TIER.rank} ist.
         </p>
       )}
     </div>

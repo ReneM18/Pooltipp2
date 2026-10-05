@@ -6,18 +6,13 @@ import { useAppData } from "@/lib/AppDataContext";
 import { PASS_LEVELS, PREMIUM_PASS_PRICE } from "@/lib/passLevels";
 import { xpForLevel } from "@/lib/seasonPass";
 import { SEASON_THEME } from "@/lib/seasonTheme";
-import { SPORTS } from "@/lib/types";
+import { SPORTS, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { CURRENT_SEASON, seasonCountdownText, seasonPeriodText } from "@/lib/seasons";
 import { EmoteSticker } from "@/components/Emotes";
 import { SeasonHeroLeaves } from "@/components/SeasonDeco";
 import { useFeedback } from "@/lib/FeedbackContext";
 
-const sportIcon: Record<string, string> = {
-  "Fußball": "⚽",
-  NFL: "🏈",
-  NBA: "🏀",
-  NHL: "🏒",
-};
+const sportIcon: Record<string, string> = SPORT_ICONS;
 
 // Deterministisch simulierter Community-Durchschnitt fürs Tiefen-Statistik-
 // Feature (Level 7 Premium) – gleiches hashString+mulberry32-Muster wie in
@@ -313,7 +308,7 @@ export default function FortschrittPage() {
                 <div key={sport} className="rounded-card border border-edge bg-surface p-4">
                   <div className="mb-2 flex items-center justify-between">
                     <span className="flex items-center gap-1.5 font-display text-sm font-semibold text-ink">
-                      {sportIcon[sport]} {sport}
+                      {sportIcon[sport]} {sportLabel(sport)}
                     </span>
                     <span className="text-xs text-muted">{stat?.total ?? 0} ausgewertete Tipps</span>
                   </div>
@@ -425,7 +420,7 @@ export default function FortschrittPage() {
             <div key={sport} className="rounded-card border border-edge bg-surface p-4 text-center">
               <div className="mb-1 text-2xl">{sportIcon[sport]}</div>
               <p className="font-display text-xl font-bold text-ink">{tipsBySport[sport] ?? 0}</p>
-              <p className="text-xs text-muted">{sport}</p>
+              <p className="text-xs text-muted">{sportLabel(sport)}</p>
             </div>
           ))}
         </div>

@@ -35,3 +35,6 @@ psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/rankingsystem-test.
 
 # Joker-Shop (kaufen, einsetzen, Schalter)
 psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/joker-shop-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'
+
+# Handball als neue Tipp-Sportart
+psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/handball-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'

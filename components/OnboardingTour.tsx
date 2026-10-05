@@ -9,7 +9,7 @@ const SLIDES = [
   {
     icon: "⚽",
     title: "Willkommen bei PoolTipp!",
-    text: "Tippe kostenlos auf echte Spiele aus Fußball, NFL, NBA und NHL – mit Gratis-Sternen, kein Echtgeld nötig.",
+    text: "Tippe kostenlos auf echte Spiele aus Fußball, Football, Basketball, Eishockey und Handball – mit Gratis-Sternen, kein Echtgeld nötig.",
   },
   {
     icon: "⭐",

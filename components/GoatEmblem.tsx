@@ -6,7 +6,7 @@ import { Sport } from "@/lib/types";
 // Seitenansicht auf einem goldenen Medaillon, unten rechts eine goldene
 // Plakette mit dem Sportsymbol. Ein Glanz-Streifen wandert alle paar Sekunden
 // darüber, ab mittlerer Größe funkeln kleine Sterne drumherum.
-// "Unsterblich" (GOAT in allen Sportarten): dieselbe Ziege, um die die vier
+// "Unsterblich" (GOAT in allen Sportarten): dieselbe Ziege, um die die
 // Sportsymbole langsam kreisen.
 // Bei "Bewegung reduzieren" bleibt alles still (siehe .goat-fx in globals.css).
 
@@ -152,12 +152,11 @@ export function UnsterblichEmblem({ size }: { size: number }) {
   // Die Plaketten sitzen auf dem Ring, damit das Abzeichen nicht größer wird
   // als die anderen Rang-Icons.
   const small = size < 24;
-  const plates = [
-    { x: 20, y: 3.6 },
-    { x: 36.4, y: 20 },
-    { x: 20, y: 36.4 },
-    { x: 3.6, y: 20 },
-  ];
+  // Gleichmäßig auf dem Ring verteilt, eine Plakette pro Sportart (oben beginnend).
+  const plates = SPORTS.map((_, i) => {
+    const a = (i / SPORTS.length) * 2 * Math.PI - Math.PI / 2;
+    return { x: 20 + 16.4 * Math.cos(a), y: 20 + 16.4 * Math.sin(a) };
+  });
 
   return (
     <svg viewBox="0 0 40 40" width={size} height={size} aria-hidden className="goat-fx shrink-0 overflow-visible">
