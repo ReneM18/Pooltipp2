@@ -39,9 +39,10 @@ async function loadProfiles(ids: string[]): Promise<ProfileRow[]> {
 
 /**
  * Lädt die Tipps zu einem Spiel, sobald `enabled` true ist. `refreshKey`
- * (z. B. die Anzahl Tipps) lädt neu, wenn jemand dazukommt.
+ * (z. B. die Anzahl Tipps) lädt neu, wenn jemand dazukommt oder einen
+ * Tipp zurücknimmt.
  */
-export function useMatchTips(matchId: string, enabled: boolean, refreshKey: number) {
+export function useMatchTips(matchId: string, enabled: boolean, refreshKey: number | string) {
   const [tippers, setTippers] = useState<MatchTipper[] | null>(null);
   const [failed, setFailed] = useState(false);
 

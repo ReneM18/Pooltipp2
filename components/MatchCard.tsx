@@ -228,7 +228,9 @@ export default function MatchCard({
   const { tippers, failed: tippersFailed } = useMatchTips(
     match.id,
     tippersOpen || !!myTip?.evaluated,
-    tipCount
+    // Auch der eigene Tipp zählt: nimmt man ihn zurück und tippt auf einem
+    // anderen Gerät gleich neu, bleibt die Zahl gleich, die Liste nicht.
+    `${tipCount}:${myTip ? `${myTip.predictedHomeScore}-${myTip.predictedAwayScore}` : "-"}`
   );
   const finalScore =
     match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null
