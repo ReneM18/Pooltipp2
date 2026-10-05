@@ -390,7 +390,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // anlegen, falls die Zeile fehlt – z. B. bei sehr alten Konten). Die
   // Datenbank setzt dabei selbst die Startwerte (100 Sterne, 0 Punkte).
   const [profileLoaded, setProfileLoaded] = useState(false);
-  // Sterne, Rangpunkte und XP ändern sich auch durch andere Geräte und die
+  // Coins, Rangpunkte und XP ändern sich auch durch andere Geräte und die
   // Auswertung: beim Zurückkehren in die App und jede Minute neu holen
   // (siehe lib/appRefresh.ts). Erst nach dem ersten Laden des Profils.
   useAppRefresh(
