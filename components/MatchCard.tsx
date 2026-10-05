@@ -395,7 +395,7 @@ export default function MatchCard({
               Abgesagt
             </span>
           ) : (
-            <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
+            <Countdown kickoff={match.tipDeadline} remind={!hasTipped || isChanging} />
           )}
         </span>
       </div>
