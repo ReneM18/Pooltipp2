@@ -278,7 +278,8 @@ export default function MatchCard({
     return (
       <button
         key={option}
-        onClick={() => setNflPick(option)}
+        // Nochmal antippen wählt wieder ab (vor dem Abgeben, löscht keinen Tipp).
+        onClick={() => setNflPick((current) => (current === option ? null : option))}
         aria-label={pickLabel(option)}
         aria-pressed={nflPick === option}
         className={`flex h-12 w-[4.5rem] max-w-full items-center justify-center rounded-lg border text-center transition-colors ${
