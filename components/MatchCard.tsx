@@ -39,7 +39,10 @@ interface MyTip {
   // Spiel beendet und der Tipp ausgewertet wurde.
   evaluated?: boolean;
   resultTier?: TipResultTier;
+  // Wirklich gebuchte Rangpunkte; rangCalculated = gerechnet (kann kleiner
+  // sein, weil Rangpunkte nie unter 0 fallen).
   rangDelta?: number;
+  rangCalculated?: number;
   starsDelta?: number;
   narration?: string;
   // Rankingsystem: feste Punkte (basePoints) + Bonus gegen die Mittipper.
@@ -916,6 +919,7 @@ function PoolScoreResultBox({
 }) {
   const tier = myTip.resultTier ?? "falsch";
   const rangDelta = myTip.rangDelta ?? 0;
+  const calculated = myTip.rangCalculated ?? rangDelta;
   const starsDelta = myTip.starsDelta ?? 0;
   // Gratis-Tipp (kein Einsatz): keine Sterne-Zeile, nur Rangpunkte.
   const hasStake = (myTip.stake ?? 0) > 0;
@@ -963,7 +967,18 @@ function PoolScoreResultBox({
           ) : (
             <span>Außer dir hat niemand getippt, darum kein Bonus.</span>
           )}
-          {myTip.joker && <span>{JOKER_LABEL[myTip.joker]} eingesetzt</span>}
+          {myTip.joker && (
+            <span>
+              {JOKER_LABEL[myTip.joker]} eingesetzt
+              {breakdown.fixed + breakdown.bonus < calculated ? ": kein Minus" : ""}
+            </span>
+          )}
+          {calculated !== rangDelta && (
+            <span>
+              Gerechnet {signed(calculated)}. Rangpunkte fallen nie unter 0, darum{" "}
+              {rangDelta === 0 ? "wurde nichts abgezogen" : `nur ${-rangDelta} abgezogen`}.
+            </span>
+          )}
         </div>
       )}
       {(hasStake || (!breakdown && comparison)) && (

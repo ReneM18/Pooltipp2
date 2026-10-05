@@ -25,7 +25,10 @@ export interface SubmittedTip {
   // Endstand speichert (supabase/auswertung-server.sql).
   evaluated?: boolean;
   resultTier?: TipResultTier;
+  // Wirklich gebuchte Rangpunkte (Rangpunkte fallen nie unter 0, dann ist
+  // das Minus kleiner als gerechnet). rangCalculated = gerechnet.
   rangDelta?: number;
+  rangCalculated?: number;
   starsDelta?: number;
   beatPercent?: number;
   narration?: string;
@@ -69,7 +72,8 @@ export function tipFromRow(row: Record<string, unknown>): SubmittedTip {
     submittedAt: row.submitted_at as string,
     evaluated: (row.evaluated as boolean | null) ?? false,
     resultTier: (row.result_tier as TipResultTier | null) ?? undefined,
-    rangDelta: (row.rang_delta as number | null) ?? undefined,
+    rangDelta: (row.rang_booked as number | null) ?? (row.rang_delta as number | null) ?? undefined,
+    rangCalculated: (row.rang_delta as number | null) ?? undefined,
     starsDelta: (row.stars_delta as number | null) ?? undefined,
     beatPercent: (row.beat_percent as number | null) ?? undefined,
     narration: (row.narration as string | null) ?? undefined,

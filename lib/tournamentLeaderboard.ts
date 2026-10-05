@@ -53,7 +53,7 @@ export function useTournamentStandings(matchIds: string[]): { entries: Tournamen
     (async () => {
       const { data: tips, error: tipsError } = await supabase
         .from("tips")
-        .select("user_id, rang_delta")
+        .select("user_id, rang_delta, rang_booked")
         .in("match_id", key.split(","))
         .eq("evaluated", true);
 
@@ -66,8 +66,9 @@ export function useTournamentStandings(matchIds: string[]): { entries: Tournamen
       }
 
       const totalsByUser = new Map<string, number>();
-      for (const row of tips as { user_id: string; rang_delta: number | null }[]) {
-        totalsByUser.set(row.user_id, (totalsByUser.get(row.user_id) ?? 0) + (row.rang_delta ?? 0));
+      for (const row of tips as { user_id: string; rang_delta: number | null; rang_booked: number | null }[]) {
+        // Wirklich gebuchte Punkte (nie unter 0), bei alten Tipps die gerechneten.
+        totalsByUser.set(row.user_id, (totalsByUser.get(row.user_id) ?? 0) + (row.rang_booked ?? row.rang_delta ?? 0));
       }
       const userIds = [...totalsByUser.keys()];
       if (userIds.length === 0) {

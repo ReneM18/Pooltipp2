@@ -45,7 +45,7 @@ export const TIP_JOKER_LABEL: Record<TipJoker, string> = {
 export const TIP_JOKER_EFFECT: Record<TipJoker, string> = {
   schutz: "Liegst du daneben, zählt der Tipp 0 statt Minus.",
   doppel: "Feste Punkte zählen doppelt: 20 / 14 / 10.",
-  toleranz: "Nur 1 Tor daneben zählt 0 statt −3.",
+  toleranz: "Nur 1 Tor daneben zählt 0 statt Minus.",
 };
 
 interface JokerContextValue {

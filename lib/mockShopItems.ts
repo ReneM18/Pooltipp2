@@ -55,7 +55,7 @@ export const mockShopItems: ShopItem[] = [
     joker: "toleranz",
     category: "In-Game",
     name: "Toleranz-Joker",
-    description: "Liegst du bei einem Spiel nur 1 Tor daneben, kostet dich der Tipp 0 statt −3 Punkte.",
+    description: "Liegst du bei einem Spiel nur 1 Tor daneben, kostet dich der Tipp keine Rangpunkte: 0 statt Minus.",
     cost: 150,
   },
   {
