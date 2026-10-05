@@ -392,7 +392,7 @@ export default function MatchCard({
               Abgesagt
             </span>
           ) : (
-            <Countdown kickoff={match.tipDeadline} />
+            <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
           )}
         </span>
       </div>
@@ -690,7 +690,7 @@ export default function MatchCard({
                 ? "Kommentieren"
                 : `${matchComments.length} ${matchComments.length === 1 ? "Kommentar" : "Kommentare"}`}
             </button>
-            {hasTipped && <span className="whitespace-nowrap text-[13px] font-bold text-action">✓ Getippt</span>}
+            {hasTipped && <span className="whitespace-nowrap text-sm font-black text-action-hover">✓ Getippt</span>}
           </div>
         </div>
 
