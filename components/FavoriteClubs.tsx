@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import FitText from "@/components/FitText";
-import TeamBadge from "@/components/TeamBadge";
+import TeamBadge, { teamColorProps } from "@/components/TeamBadge";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
@@ -129,8 +129,7 @@ export default function FavoriteClubs() {
                   {team ? (
                     <TeamBadge
                       sport={sport}
-                      primaryColor={team.primaryColor}
-                      secondaryColor={team.secondaryColor}
+                      {...teamColorProps(team)}
                       jerseyStyle={team.jerseyStyle}
                       size={32}
                     />
@@ -177,8 +176,7 @@ export default function FavoriteClubs() {
                         >
                           <TeamBadge
                             sport={sport}
-                            primaryColor={t.primaryColor}
-                            secondaryColor={t.secondaryColor}
+                            {...teamColorProps(t)}
                             jerseyStyle={t.jerseyStyle}
                             size={26}
                           />

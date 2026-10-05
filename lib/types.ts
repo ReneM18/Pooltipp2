@@ -71,11 +71,17 @@ export interface Team {
   countryCode: string; // ISO 3166-1 alpha-2, z. B. "DE", "US"
   primaryColor: string; // Hex, z. B. "#DC052D"
   secondaryColor: string; // Hex, z. B. "#FFFFFF"
-  jerseyStyle?: JerseyStyle;
+  jerseyStyle?: JerseyStyle; // Trikot-Stil des Heimtrikots (nicht NFL, dort Helm)
+  // Dritte Farbe (optional) für Kragen, Ärmelenden und Zierstreifen. Fehlt
+  // sie, sieht das Trikot aus wie bisher mit zwei Farben.
+  tertiaryColor?: string;
   // Eigene Auswärtstrikot-Farben (optional). Fehlen sie, ist das
-  // Auswärtstrikot die Heimfarben vertauscht.
+  // Auswärtstrikot die Heimfarben vertauscht (dritte Farbe wie daheim).
   awayPrimaryColor?: string;
-  awaySecondaryColor?: string; // Trikot-Stil, gilt für Heim- und Auswärtstrikot (nicht NFL, dort Helm)
+  awaySecondaryColor?: string;
+  awayTertiaryColor?: string;
+  // Eigener Stil fürs Auswärtstrikot; fehlt er, gilt der Heim-Stil.
+  awayJerseyStyle?: JerseyStyle;
   isNationalTeam?: boolean; // Nationalmannschaft -> Icon zeigt die Landesflagge statt Trikot/Helm
 }
 

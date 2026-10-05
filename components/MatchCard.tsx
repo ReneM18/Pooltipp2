@@ -1244,8 +1244,6 @@ function TeamColumn({ match, team, tag, flip = false }: { match: Match; team: Te
     <div className="flex min-w-0 flex-col items-center gap-1.5 self-stretch">
       <TeamBadge
         sport={match.sport}
-        primaryColor={team.primaryColor}
-        secondaryColor={team.secondaryColor}
         {...matchJerseyProps(match, team)}
         isNationalTeam={team.isNationalTeam}
         countryCode={team.countryCode}

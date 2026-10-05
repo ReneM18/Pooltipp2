@@ -534,6 +534,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // NICHT zurückgeschrieben – sonst würde ein einziger Ladefehler beim Admin
   // die echten Daten in der Datenbank mit dem Demo-Stand überschreiben.
   const [loadedFromDb, setLoadedFromDb] = useState({ teams: false, matches: false, news: false });
+  // Stand der Teams, wie er zuletzt aus der Datenbank kam bzw. gespeichert wurde.
+  const syncedTeamsRef = useRef<Map<string, Team>>(new Map());
   // true erst, wenn die Spiele wirklich aus Supabase kommen (die Auswertung
   // in UserContext darf nie mit Demo-Spielen rechnen).
   const contentLoaded = loadedFromDb.matches;
@@ -551,9 +553,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         // Die Wettbewerbe liegen als eigene Zeile in derselben Tabelle –
         // die gehört nicht zu den Teams.
         const compRow = teamsRes.data.find((row) => row.id === COMPETITIONS_ROW_ID);
-        setTeams(
-          teamsRes.data.filter((row) => row.id !== COMPETITIONS_ROW_ID).map((row) => row.data as Team)
-        );
+        const loadedTeams = teamsRes.data
+          .filter((row) => row.id !== COMPETITIONS_ROW_ID)
+          .map((row) => row.data as Team);
+        syncedTeamsRef.current = new Map(loadedTeams.map((t) => [t.id, t]));
+        setTeams(loadedTeams);
         const savedList = (compRow?.data as CompetitionsRow | undefined)?.list;
         if (Array.isArray(savedList)) {
           setCompetitions(savedList);
@@ -614,6 +618,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setTeams((current) => {
         if (sameJson(current, nextTeams)) return current;
         remoteContentRef.current.teams = nextTeams;
+        syncedTeamsRef.current = new Map(nextTeams.map((t) => [t.id, t]));
         return nextTeams;
       });
       const savedList = (compRow?.data as CompetitionsRow | undefined)?.list;
@@ -648,11 +653,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (!loadedFromDb.teams || teams.length === 0) return;
     // Nur neu aus der Datenbank geholt (Aktualisieren unten) – nichts zurückschreiben.
     if (teams === remoteContentRef.current.teams) return;
+    // Nur die Teams schreiben, die hier wirklich neu angelegt oder bearbeitet
+    // wurden – sonst würde ein Gerät mit älterem Stand beim Speichern eines
+    // Teams alle anderen Teams mit seinen alten Daten überschreiben.
+    const known = syncedTeamsRef.current;
+    syncedTeamsRef.current = new Map(teams.map((t) => [t.id, t]));
+    const changed = teams.filter((t) => known.get(t.id) !== t);
+    if (changed.length === 0) return;
     adminWriteAtRef.current = Date.now();
     supabase
       .from("teams")
       .upsert(
-        teams.map((t) => ({ id: t.id, data: t, updated_at: new Date().toISOString() })),
+        changed.map((t) => ({ id: t.id, data: t, updated_at: new Date().toISOString() })),
         { onConflict: "id" }
       )
       .then(({ error }) => {

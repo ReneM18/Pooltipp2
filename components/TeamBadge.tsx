@@ -3,6 +3,18 @@ import { JerseyStyle, JerseyVariant, Match, MatchJersey, Sport, Team } from "@/l
 import { BASKETBALL_JERSEY_MARKUP } from "@/lib/basketballJerseyMarkup";
 import { flagEmoji } from "@/lib/flags";
 
+/** Alle Trikotfarben eines Teams als TeamBadge-Props: <TeamBadge {...teamColorProps(team)} ... />. */
+export function teamColorProps(team: Team) {
+  return {
+    primaryColor: team.primaryColor,
+    secondaryColor: team.secondaryColor,
+    tertiaryColor: team.tertiaryColor,
+    awayPrimaryColor: team.awayPrimaryColor,
+    awaySecondaryColor: team.awaySecondaryColor,
+    awayTertiaryColor: team.awayTertiaryColor,
+  };
+}
+
 /** Trikot eines Teams in einem Spiel: die Wahl des Admins, sonst das normale Heimtrikot im Team-Stil (wie bisher). */
 export function jerseyFor(team: Team, chosen?: MatchJersey): MatchJersey {
   return chosen ?? { variant: "heim", style: team.jerseyStyle ?? "solid" };
@@ -12,26 +24,24 @@ export function jerseyFor(team: Team, chosen?: MatchJersey): MatchJersey {
 export function matchJerseyProps(
   match: Match,
   team: Team
-): { jerseyStyle: JerseyStyle; variant: JerseyVariant; awayPrimaryColor?: string; awaySecondaryColor?: string } {
+) {
   const j = jerseyFor(team, team.id === match.homeTeamId ? match.homeJersey : match.awayJersey);
-  return {
-    jerseyStyle: j.style,
-    variant: j.variant,
-    awayPrimaryColor: team.awayPrimaryColor,
-    awaySecondaryColor: team.awaySecondaryColor,
-  };
+  return { ...teamColorProps(team), jerseyStyle: j.style, variant: j.variant };
 }
 
 interface TeamBadgeProps {
   sport: Sport;
   primaryColor: string;
   secondaryColor: string;
+  /** Dritte Farbe (Kragen/Ärmelenden/Zierstreifen); ohne Angabe wie bisher zweifarbig. */
+  tertiaryColor?: string;
   jerseyStyle?: JerseyStyle;
   /** Heim- oder Auswärtstrikot; ohne Angabe immer das Heimtrikot. NFL zeigt immer den Helm. */
   variant?: JerseyVariant;
   /** Eigene Auswärtsfarben des Teams; ohne Angabe werden die Heimfarben vertauscht. */
   awayPrimaryColor?: string;
   awaySecondaryColor?: string;
+  awayTertiaryColor?: string;
   size?: number;
   /** Spiegelt den NFL-Helm horizontal – z. B. damit der rechte Helm nach links schaut. */
   flip?: boolean;
@@ -81,11 +91,16 @@ function luminance(hex: string): number {
 
 const CREAM = "#F3F1EA";
 
-/** body = Grundfarbe, trim = Kragen/Streifen/Ärmel, accent = dritte Farbe (z. B. Eishockey-Streifen). */
+/** Bisherige Farbe der Helm-Logo-Mitte (dunkle Helmfarbe), solange keine dritte Farbe gewählt ist. */
+export function helmetLogoColor(primary: string): string {
+  return shadeColor(primary, -35);
+}
+
+/** body = Grundfarbe, trim = Kragen/Streifen/Ärmel, accent = dritte Farbe (null = keine, dann wie bisher). */
 interface JerseyColors {
   body: string;
   trim: string;
-  accent: string;
+  accent: string | null;
   /** Sehr dunkles Trikot -> heller Rand, damit es auf dem dunklen Hintergrund sichtbar bleibt. */
   outline: string | null;
 }
@@ -96,24 +111,31 @@ function jerseyColors(
   variant: JerseyVariant,
   style: JerseyStyle,
   awayPrimary?: string,
-  awaySecondary?: string
+  awaySecondary?: string,
+  tertiary?: string,
+  awayTertiary?: string
 ): JerseyColors {
   // Nur vom Admin gewählte Farben, keine erfundenen: auswärts die eigenen
-  // Auswärtsfarben, sonst Trikot- und Kragen-/Streifenfarbe vertauscht.
+  // Auswärtsfarben, sonst Trikot- und Kragen-/Streifenfarbe vertauscht
+  // (die dritte Farbe bleibt dann wie beim Heimtrikot).
+  const ownAway = variant === "auswaerts" && !!awayPrimary && !!awaySecondary;
   const body = variant === "auswaerts" ? awayPrimary ?? secondary : primary;
   const trim = variant === "auswaerts" ? awaySecondary ?? primary : secondary;
+  const accent = (ownAway ? awayTertiary : tertiary) || null;
   const dark = luminance(body) < 0.16 || (style === "aermel" && luminance(trim) < 0.16);
-  return { body, trim, accent: CREAM, outline: dark ? "rgba(255,255,255,0.45)" : null };
+  return { body, trim, accent, outline: dark ? "rgba(255,255,255,0.45)" : null };
 }
 
 export default function TeamBadge({
   sport,
   primaryColor,
   secondaryColor,
+  tertiaryColor,
   jerseyStyle = "solid",
   variant = "heim",
   awayPrimaryColor,
   awaySecondaryColor,
+  awayTertiaryColor,
   size = 36,
   flip = false,
   isNationalTeam = false,
@@ -124,11 +146,22 @@ export default function TeamBadge({
   if (isNationalTeam && countryCode) {
     return <NationalFlagBadge countryCode={countryCode} size={size} />;
   }
-  const colors = jerseyColors(primaryColor, secondaryColor, variant, jerseyStyle, awayPrimaryColor, awaySecondaryColor);
+  const colors = jerseyColors(
+    primaryColor,
+    secondaryColor,
+    variant,
+    jerseyStyle,
+    awayPrimaryColor,
+    awaySecondaryColor,
+    tertiaryColor,
+    awayTertiaryColor
+  );
   const props = { c: colors, style: jerseyStyle, size, uid };
   if (sport === "NFL") {
     // Football bleibt beim Helm (keine Trikots, keine Heim/Auswärts-Stile).
-    return <HelmetIcon primary={primaryColor} secondary={secondaryColor} size={size} flip={flip} />;
+    return (
+      <HelmetIcon primary={primaryColor} secondary={secondaryColor} tertiary={tertiaryColor} size={size} flip={flip} />
+    );
   }
   if (sport === "NBA") return <BasketballJerseyIcon {...props} />;
   if (sport === "NHL") return <HockeyJerseyIcon {...props} />;
@@ -155,11 +188,14 @@ const SOCCER_SLEEVES = "M0 0H118L140 205L0 330Z M512 0H394L372 205L512 330Z";
 
 function SoccerJerseyIcon({ c, style, size, uid }: IconProps) {
   const sleeveColor = style === "aermel" ? c.trim : c.body;
-  const cuff = style === "aermel" ? c.body : c.trim;
+  // Dritte Farbe: Kragen und Ärmelenden; ohne sie wie bisher.
+  const cuff = c.accent ?? (style === "aermel" ? c.body : c.trim);
+  const collar = c.accent ?? c.trim;
   const bodyShade = shadeColor(c.body, -18);
   const trimShade = shadeColor(c.trim, -18);
   const cuffShade = shadeColor(cuff, -18);
-  const collarDark = shadeColor(c.trim, -42);
+  const collarShade = shadeColor(collar, -18);
+  const collarDark = shadeColor(collar, -42);
   const clip = `soc-${uid}`;
 
   return (
@@ -184,10 +220,10 @@ function SoccerJerseyIcon({ c, style, size, uid }: IconProps) {
         <path d="m133.831 450.587v29.331c0 4.471 3.642 8.113 8.115 8.113h228.303c4.445 0 8.085-3.642 8.085-8.113v-29.331z" fill={c.trim} />
         <path d="m344.962 488.031h25.287c4.445 0 8.085-3.642 8.085-8.113v-29.331h-25.288v29.331c0 4.471-3.64 8.113-8.084 8.113z" fill={trimShade} />
         <path d="m488.544 139.885 20.757 20.758c3.526 3.526 3.671 7.77 0 11.438l-62.187 62.187c-3.641 3.642-7.569 3.872-11.439 0l-6.91-6.911 55.248-55.276c3.671-3.669 3.526-7.912 0-11.438l-8.112-8.115z" fill={cuffShade} />
-        <path d="m165.971 62.703 20.528-38.734 46.218 80.737-34.577 30.993c-3.614 3.212-7.083 2.208-8.602-2.294z" fill={c.trim} />
-        <path d="m174.341 46.906 12.158-22.938 46.218 80.737-34.577 30.993c-3.614 3.212-7.083 2.208-8.602-2.294l-3.24-9.777 15.941-14.279c3.555-3.21 3.901-6.879 1.061-11.84z" fill={trimShade} />
-        <path d="m346.195 62.703-20.528-38.734-46.189 80.737 34.576 30.993c3.756 3.354 6.939 2.608 8.573-2.294z" fill={c.trim} />
-        <path d="m346.195 62.703-20.528-38.734-13.133 22.938 3.756 7.052c4.014 7.597 2.667 14.621.861 20.069l-16.544 49.601 13.446 12.071c3.756 3.354 6.939 2.608 8.573-2.294z" fill={trimShade} />
+        <path d="m165.971 62.703 20.528-38.734 46.218 80.737-34.577 30.993c-3.614 3.212-7.083 2.208-8.602-2.294z" fill={collar} />
+        <path d="m174.341 46.906 12.158-22.938 46.218 80.737-34.577 30.993c-3.614 3.212-7.083 2.208-8.602-2.294l-3.24-9.777 15.941-14.279c3.555-3.21 3.901-6.879 1.061-11.84z" fill={collarShade} />
+        <path d="m346.195 62.703-20.528-38.734-46.189 80.737 34.576 30.993c3.756 3.354 6.939 2.608 8.573-2.294z" fill={collar} />
+        <path d="m346.195 62.703-20.528-38.734-13.133 22.938 3.756 7.052c4.014 7.597 2.667 14.621.861 20.069l-16.544 49.601 13.446 12.071c3.756 3.354 6.939 2.608 8.573-2.294z" fill={collarShade} />
         <path d="m254.191 104.706h-21.474l10.723 16.714 7.999-6.794z" fill="#f9f7f8" />
         <path d="m260.469 134.292 19.009-29.586h-25.287l-10.751 16.714 8.286 12.872c2.808 4.388 5.876 4.445 8.743 0z" fill="#ebe8fa" />
         <path d="m336.39 196.021v43.379c0 14.564-10.981 20.182-25.689 27.122-4.875 2.007-9.748 2.036-14.624 0-14.706-6.939-25.687-12.557-25.687-27.122v-43.379c0-4.444 3.64-8.085 8.084-8.085h49.829c4.445 0 8.087 3.641 8.087 8.085z" fill={style === "streifen" ? c.body : c.trim} />
@@ -207,6 +243,8 @@ function HockeyJerseyIcon({ c, style, size, uid }: IconProps) {
   const clip = `hoc-${uid}`;
   // Bei andersfarbigen Ärmeln laufen die Ärmelstreifen in der Trikotfarbe.
   const sleeveStripe = style === "aermel" ? c.body : c.trim;
+  // Die Zierstreifen waren schon immer eine dritte Farbe (Creme); jetzt wählbar.
+  const accent = c.accent ?? CREAM;
 
   return (
     <svg width={size} height={size} viewBox="0 0 300 300" aria-hidden="true">
@@ -222,24 +260,24 @@ function HockeyJerseyIcon({ c, style, size, uid }: IconProps) {
           <>
             {/* Brust-/Schulterband quer über Trikot und Ärmel */}
             <rect x="0" y="92" width="300" height="34" fill={c.trim} />
-            <rect x="0" y="103" width="300" height="12" fill={c.accent} />
+            <rect x="0" y="103" width="300" height="12" fill={accent} />
           </>
         )}
       </g>
       <Outline d={HOCKEY_BODY} c={c} width={6} />
       {/* Rippkragen */}
       <path d="M114 36 Q150 68 186 36" fill="none" stroke={c.trim} strokeWidth="7" strokeLinecap="round" />
-      <path d="M120 34 Q150 58 180 34" fill="none" stroke={c.accent} strokeWidth="3.5" strokeLinecap="round" />
+      <path d="M120 34 Q150 58 180 34" fill="none" stroke={accent} strokeWidth="3.5" strokeLinecap="round" />
       {/* Bund-Streifen */}
       <rect x="86.9" y="194.6" width="126.2" height="12.9" fill={c.trim} />
-      <rect x="86.9" y="215.0" width="126.2" height="12.9" fill={c.accent} />
+      <rect x="86.9" y="215.0" width="126.2" height="12.9" fill={accent} />
       <rect x="86.9" y="235.4" width="126.2" height="12.9" fill={c.trim} />
       {/* Ärmel-Streifen links */}
       <rect x="24.9" y="176.5" width="49.9" height="18.1" fill={sleeveStripe} />
-      <rect x="22.6" y="195.0" width="47.2" height="17.4" fill={c.accent} />
+      <rect x="22.6" y="195.0" width="47.2" height="17.4" fill={accent} />
       {/* Ärmel-Streifen rechts */}
       <rect x="225.2" y="176.5" width="49.9" height="18.1" fill={sleeveStripe} />
-      <rect x="230.2" y="195.0" width="47.2" height="17.4" fill={c.accent} />
+      <rect x="230.2" y="195.0" width="47.2" height="17.4" fill={accent} />
     </svg>
   );
 }
@@ -274,6 +312,8 @@ function BasketballJerseyIcon({ c, style, size, uid }: IconProps) {
     markup = markup.slice(0, BASKETBALL_BODY_END) + overlay + markup.slice(BASKETBALL_BODY_END);
   }
   markup = markup.replace(/__PRIMARY__/g, c.body).replace(/__SECONDARY__/g, c.trim);
+  // Dritte Farbe: Rückennummer und die feinen Innenlinien an Kragen/Armlöchern (sonst hell wie bisher).
+  if (c.accent) markup = markup.replace(/#fceded/g, c.accent);
 
   return (
     <svg width={size} height={size} viewBox="130 103 100 154" aria-hidden="true">
@@ -285,15 +325,18 @@ function BasketballJerseyIcon({ c, style, size, uid }: IconProps) {
 function HelmetIcon({
   primary,
   secondary,
+  tertiary,
   size,
   flip,
 }: {
   primary: string;
   secondary: string;
+  /** Dritte Farbe = Logo-Mitte; ohne sie dunkle Helmfarbe wie bisher. */
+  tertiary?: string;
   size: number;
   flip: boolean;
 }) {
-  const dark = shadeColor(primary, -35);
+  const dark = tertiary || helmetLogoColor(primary);
 
   return (
     <svg
