@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import MatchCard from "@/components/MatchCard";
 import AdBanner from "@/components/AdBanner";
 import { useUser } from "@/lib/UserContext";
+import { useJokers } from "@/lib/JokerContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { BOOSTER_STAKE } from "@/lib/poolScore";
@@ -11,8 +12,9 @@ import { Match } from "@/lib/types";
 import { splitMatchesByTab } from "@/lib/matchTabs";
 
 export default function DashboardPage() {
-  const { placeTip, streakCount } = useUser();
-  const { matches, getTeam, tipCounts, changeTip, myTips, contentLoaded, matchesLoadFailed } = useAppData();
+  const { placeTip, streakCount, refreshStars } = useUser();
+  const { reloadJokers } = useJokers();
+  const { matches, getTeam, tipCounts, withdrawTip, myTips, contentLoaded, matchesLoadFailed } = useAppData();
   const { showToast, celebrate } = useFeedback();
   // Vom Spieler angeklickter Reiter (null = noch nicht gewählt). Solange
   // nichts gewählt ist, entscheidet die Seite selbst, siehe "tab" unten.
@@ -46,13 +48,25 @@ export default function DashboardPage() {
     showToast(match.booster ? `✓ Booster-Tipp gespeichert – ${BOOSTER_STAKE} Coins eingesetzt, viel Glück!` : "✓ Tipp gespeichert – viel Glück!");
   }
 
-  function handleChangeTip(matchId: string, homeScore: number, awayScore: number) {
-    // Kein neuer Einsatz: der wurde schon bei der Abgabe bezahlt.
-    if (changeTip(matchId, homeScore, awayScore)) {
-      showToast("✓ Tipp geändert – keine Coins abgezogen.");
-    } else {
+  // "Ändern": der Tipp wird in der Datenbank zurückgenommen, die Karte ist
+  // danach auf jedem Gerät leer. Einsatz und Joker kommen zurück.
+  async function handleWithdrawTip(matchId: string) {
+    const result = await withdrawTip(matchId);
+    if (!result) {
       showToast("Tippschluss – der Tipp kann nicht mehr geändert werden.", "info");
+      return false;
     }
+    refreshStars();
+    void reloadJokers();
+    const extras = [
+      result.refunded > 0 ? `${result.refunded} Coins sind zurück` : null,
+      result.joker ? "dein Joker liegt wieder im Vorrat" : null,
+    ].filter(Boolean);
+    showToast(
+      `Tipp zurückgenommen${extras.length ? ` – ${extras.join(", ")}` : ""}. Gib jetzt deinen neuen Tipp ab.`,
+      "info"
+    );
+    return true;
   }
 
   // Geschlossen erst, wenn der Admin den Endstand eingetragen oder das Spiel
@@ -111,7 +125,7 @@ export default function DashboardPage() {
             : undefined
         }
         onSubmitTip={(homeScore, awayScore) => handleSubmitTip(match, homeScore, awayScore)}
-        onChangeTip={(homeScore, awayScore) => handleChangeTip(match.id, homeScore, awayScore)}
+        onWithdrawTip={() => handleWithdrawTip(match.id)}
       />
     );
   }

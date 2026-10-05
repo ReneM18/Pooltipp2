@@ -16,6 +16,15 @@ import {
 import { TipResultTier, BOOSTER_STAKE } from "./poolScore";
 import { matchTitle } from "./teamOrder";
 
+export interface WithdrawResult {
+  // false: der Tipp war schon weg (z. B. auf einem anderen Gerät zurückgenommen)
+  withdrawn: boolean;
+  // zurückgebuchte Coins (Booster-Einsatz), sonst 0
+  refunded: number;
+  // Joker, der wieder im Vorrat liegt
+  joker: string | null;
+}
+
 export interface SubmittedTip {
   id: string;
   matchId: string;
@@ -375,13 +384,11 @@ interface AppDataContextValue {
     stake: number,
     authorName?: string
   ) => Promise<SubmittedTip | null>;
-  // Korrigiert den eigenen, noch offenen Tipp zu einem Spiel bis zum
-  // Tippschluss. Ändert NUR das Ergebnis: der Einsatz ist schon bezahlt und
-  // bleibt gleich, es werden also keine Sterne abgezogen oder gutgeschrieben
-  // und der Tipp zählt nicht doppelt. Nach Anpfiff sperrt zusätzlich die
-  // Datenbank (Trigger freeze_tip_after_kickoff). Gibt false zurück, wenn
-  // nichts geändert werden durfte.
-  changeTip: (matchId: string, predictedHomeScore: number, predictedAwayScore: number) => boolean;
+  // "Ändern": nimmt den eigenen, noch offenen Tipp in der Datenbank zurück
+  // (supabase/tipp-zuruecknehmen.sql). Danach ist die Karte auf jedem Gerät
+  // leer; Booster-Einsatz und Joker gehen zurück. Der neue Tipp wird ganz
+  // normal abgegeben. null = ging nicht (z. B. Tippschluss).
+  withdrawTip: (matchId: string) => Promise<WithdrawResult | null>;
   // Lädt die eigenen Tipps aus der Datenbank neu (z. B. nach einer
   // Auswertung) – die Datenbank hat immer recht.
   reloadMyTips: () => Promise<void>;
@@ -482,6 +489,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // Tipp-Zähler aller Spieler laden: beim Start, wenn die Seite wieder in
   // den Vordergrund kommt, und jede Minute. Gelesen wird nur die Spalte
   // match_id, seitenweise (Supabase liefert höchstens 1000 Zeilen am Stück).
+  const loadTipCountsRef = useRef<() => Promise<void>>(async () => {});
   useEffect(() => {
     let cancelled = false;
     async function loadTipCounts() {
@@ -504,6 +512,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
       if (!cancelled) setTipCounts(counts);
     }
+    loadTipCountsRef.current = loadTipCounts;
     loadTipCounts();
     const interval = window.setInterval(loadTipCounts, 60_000);
     function onVisible() {
@@ -959,6 +968,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
     registerTip(matchId);
     tipWriteRef.current++;
+    pendingTipIdsRef.current.add(localTip.id);
     setMyTips((current) => [...current, localTip]);
 
     let saved = localTip;
@@ -978,6 +988,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         })
         .select()
         .maybeSingle();
+      pendingTipIdsRef.current.delete(localTip.id);
       if (error || !data) {
         if (error) console.warn("Tipp konnte nicht gespeichert werden:", error.message);
         setMyTips((current) => current.filter((t) => t.id !== localTip.id));
@@ -986,10 +997,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       }
       saved = tipFromRow(data);
       setMyTips((current) => current.map((t) => (t.id === localTip.id ? saved : t)));
+    } else {
+      pendingTipIdsRef.current.delete(localTip.id);
     }
 
     const match = matches.find((m) => m.id === matchId);
-    if (match) {
+    // Nach "Ändern" ist das kein neuer Tipp für den Feed.
+    const changed = withdrawnMatchesRef.current.delete(matchId);
+    if (match && !changed) {
       const home = getTeam(match.homeTeamId);
       const away = getTeam(match.awayTeamId);
       const matchLabel = `${home?.name ?? "?"} vs. ${away?.name ?? "?"}`;
@@ -1002,7 +1017,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return saved;
   }
 
-  function changeTip(matchId: string, predictedHomeScore: number, predictedAwayScore: number) {
+  // Spiele, deren Tipp auf diesem Gerät zurückgenommen wurde: ein neuer
+  // Tipp darauf schreibt keinen zweiten "hat getippt"-Eintrag in den Feed.
+  const withdrawnMatchesRef = useRef(new Set<string>());
+
+  async function withdrawTip(matchId: string): Promise<WithdrawResult | null> {
     const match = matches.find((m) => m.id === matchId);
     if (
       !match ||
@@ -1010,29 +1029,29 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       match.status === "cancelled" ||
       new Date(match.tipDeadline).getTime() <= Date.now()
     )
-      return false;
+      return null;
     const tip = [...myTips].reverse().find((t) => t.matchId === matchId);
-    if (!tip || tip.evaluated) return false;
-    tipWriteRef.current++;
-    setMyTips((current) =>
-      current.map((t) => (t.id === tip.id ? { ...t, predictedHomeScore, predictedAwayScore } : t))
-    );
-    if (authUserId) {
-      // Die Datenbank lässt die Änderung nur bis Tippschluss zu; was sie
-      // zurückgibt, gilt.
-      supabase
-        .from("tips")
-        .update({ predicted_home_score: predictedHomeScore, predicted_away_score: predictedAwayScore })
-        .eq("id", tip.id)
-        .select()
-        .maybeSingle()
-        .then(({ data, error }) => {
-          if (error) console.warn("Tipp konnte nicht geändert werden:", error.message);
-          const stored = data ? tipFromRow(data) : tip;
-          setMyTips((current) => current.map((t) => (t.id === tip.id ? stored : t)));
-        });
+    if (!tip || tip.evaluated) return null;
+    if (!authUserId) {
+      setMyTips((current) => current.filter((t) => t.matchId !== matchId));
+      setTipCounts((current) => ({ ...current, [matchId]: Math.max(0, (current[matchId] ?? 1) - 1) }));
+      return { withdrawn: true, refunded: 0, joker: null };
     }
-    return true;
+    tipWriteRef.current++;
+    const { data, error } = await supabase.rpc("withdraw_tip", { p_match_id: matchId });
+    if (error || !data) {
+      if (error) console.warn("Tipp konnte nicht zurückgenommen werden:", error.message);
+      void reloadMyTips();
+      return null;
+    }
+    const result = data as { withdrawn: boolean; refunded: number; joker: string | null };
+    tipWriteRef.current++;
+    setMyTips((current) => current.filter((t) => t.matchId !== matchId));
+    if (result.withdrawn) {
+      withdrawnMatchesRef.current.add(matchId);
+      setTipCounts((current) => ({ ...current, [matchId]: Math.max(0, (current[matchId] ?? 1) - 1) }));
+    }
+    return { withdrawn: result.withdrawn, refunded: result.refunded ?? 0, joker: result.joker ?? null };
   }
 
   // Eigene Tipps und Bonus-Antworten aus der Datenbank: beim Login laden,
@@ -1043,6 +1062,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // Hintergrund, während dessen getippt wurde, wird verworfen – sonst könnte
   // es den gerade abgegebenen Tipp kurz mit dem alten Stand überschreiben.
   const tipWriteRef = useRef(0);
+  // Tipps, die gerade gespeichert werden (Antwort der Datenbank steht noch
+  // aus). Nur die bleiben beim Neuladen stehen – ein auf einem anderen Gerät
+  // zurückgenommener Tipp verschwindet dagegen sofort.
+  const pendingTipIdsRef = useRef(new Set<string>());
 
   async function reloadMyTips(onlyIfNoWriteSince?: number) {
     if (!authUserId) return;
@@ -1058,7 +1081,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     // bleiben stehen.
     setMyTips((current) => {
       const dbIds = new Set(fromDb.map((t) => t.id));
-      const pending = current.filter((t) => !dbIds.has(t.id) && !fromDb.some((d) => d.matchId === t.matchId));
+      const pending = current.filter(
+        (t) =>
+          pendingTipIdsRef.current.has(t.id) &&
+          !dbIds.has(t.id) &&
+          !fromDb.some((d) => d.matchId === t.matchId)
+      );
       const next = [...fromDb, ...pending];
       return sameJson(current, next) ? current : next;
     });
@@ -1082,6 +1110,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     (reason) => {
       const writes = tipWriteRef.current;
       const jobs: Promise<unknown>[] = [refreshContent()];
+      // "X getippt" auch beim Zurückkehren (Fokus) frisch, nicht erst nach einer Minute.
+      if (reason === "resume") jobs.push(loadTipCountsRef.current());
       if (myTipsLoaded) jobs.push(reloadMyTips(writes), reloadMyBonusAnswers(writes));
       if (reason === "resume") jobs.push(loadComments(), loadActivity());
       return Promise.all(jobs);
@@ -1102,6 +1132,51 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUserId]);
+
+  // Sofort-Abgleich: tippt, ändert oder nimmt man auf einem anderen Gerät
+  // einen Tipp zurück, meldet Supabase das hier binnen Sekunden
+  // (supabase/tipp-zuruecknehmen.sql). Mehrere Meldungen kurz hintereinander
+  // (Auswertung, Joker) laden nur einmal. Verpasst der Handy-Browser im
+  // Hintergrund etwas, holt das Aktualisieren oben es nach.
+  const reloadMyTipsRef = useRef(reloadMyTips);
+  reloadMyTipsRef.current = reloadMyTips;
+  const myTipIdsRef = useRef(new Set<string>());
+  myTipIdsRef.current = new Set(myTips.map((t) => t.id));
+  useEffect(() => {
+    if (!authUserId) return;
+    let timer: number | undefined;
+    const reload = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        void reloadMyTipsRef.current(tipWriteRef.current);
+        // "X getippt" auf der Karte gleich mitziehen.
+        void loadTipCountsRef.current();
+      }, 300);
+    };
+    const channel = supabase
+      .channel(`my_tips_live_${authUserId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "tips", filter: `user_id=eq.${authUserId}` },
+        reload
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "tips", filter: `user_id=eq.${authUserId}` },
+        reload
+      )
+      // Löschen lässt sich bei Supabase nicht filtern und liefert nur die
+      // Tipp-ID: neu laden, wenn es einer der eigenen Tipps war.
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "tips" }, (payload) => {
+        const id = (payload.old as { id?: string } | null)?.id;
+        if (id && myTipIdsRef.current.has(id)) reload();
+      })
+      .subscribe();
+    return () => {
+      window.clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
   }, [authUserId]);
 
   function updateMatchScore(
@@ -1352,7 +1427,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         tipsBySport,
         myTips,
         submitTip,
-        changeTip,
+        withdrawTip,
         reloadMyTips,
         myTipsLoaded,
         updateMatchScore,

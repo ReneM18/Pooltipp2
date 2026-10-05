@@ -74,9 +74,10 @@ interface MatchCardProps {
   // Darf ein Promise zurückgeben (Speichern in der Datenbank): Danach wird
   // der Knopf wieder frei, falls der Tipp nicht angenommen wurde.
   onSubmitTip: (homeScore: number, awayScore: number) => void | Promise<unknown>;
-  // Abgegebenen Tipp bis Tippschluss korrigieren. Ohne diese Funktion
-  // (z. B. auf Seiten ohne Speicher-Logik) gibt es keinen "Ändern"-Knopf.
-  onChangeTip?: (homeScore: number, awayScore: number) => void;
+  // "Ändern": nimmt den Tipp bis Tippschluss zurück (auf allen Geräten),
+  // danach ist die Karte wieder leer. true = zurückgenommen. Ohne diese
+  // Funktion (z. B. auf Seiten ohne Speicher-Logik) gibt es keinen Knopf.
+  onWithdrawTip?: () => Promise<boolean>;
 }
 
 // 1X2-Spiele werden nur per Sieger (1 / X / 2 nach Position, siehe
@@ -104,7 +105,7 @@ export default function MatchCard({
   tipCount,
   myTip,
   onSubmitTip,
-  onChangeTip,
+  onWithdrawTip,
 }: MatchCardProps) {
   const isOneXTwo = match.tipMode === "1x2";
   // US-Sport: Gast links, Heim rechts ("Gast @ Heim"). NBA und NHL kennen
@@ -126,10 +127,8 @@ export default function MatchCard({
   // umschaltet.
   const submittedRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
-  // Tipp wird gerade korrigiert: Formular wieder offen, mit dem alten Tipp
-  // vorausgefüllt. Der Einsatz ist schon bezahlt und wird nicht nochmal
-  // abgezogen.
-  const [changingTip, setChangingTip] = useState(false);
+  // "Ändern" läuft gerade (Tipp wird in der Datenbank zurückgenommen).
+  const [withdrawing, setWithdrawing] = useState(false);
   // Startet mit "false" statt sofort mit Date.now() zu vergleichen – Server
   // und Browser haben beim allerersten Rendern nie exakt dieselbe Uhrzeit,
   // das würde sonst zu einem Hydration-Fehler führen (siehe
@@ -212,9 +211,8 @@ export default function MatchCard({
   });
 
   const hasTipped = !!myTip;
-  const canChangeTip = hasTipped && !tippingClosed && !isCancelled && !myTip?.evaluated && !!onChangeTip;
-  const isChanging = changingTip && canChangeTip;
-  const showResultView = (hasTipped && !isChanging) || tippingClosed || isCancelled;
+  const canChangeTip = hasTipped && !tippingClosed && !isCancelled && !myTip?.evaluated && !!onWithdrawTip;
+  const showResultView = hasTipped || tippingClosed || isCancelled;
   // 1X2-Spiel ohne Auswahl: Knopf ist noch gesperrt.
   const missingPick = isOneXTwo && !nflPick;
   // Ergebnis-Tipp mit leerem Feld: Knopf ebenfalls gesperrt.
@@ -222,7 +220,7 @@ export default function MatchCard({
   // Booster-Spiel: Tipp nur mit vollem Einsatz (20 Sterne). Normale Spiele
   // sind gratis und bringen nur Rangpunkte.
   const isBooster = !!match.booster;
-  const notEnoughStars = isBooster && !isChanging && freeStars < BOOSTER_STAKE;
+  const notEnoughStars = isBooster && freeStars < BOOSTER_STAKE;
   const notReady = missingPick || missingScore || notEnoughStars;
   const limit = scoreLimit[match.sport] ?? scoreLimit["Fußball"];
   // Echte Tipps aller Spieler: für die Liste und für den Vergleich nach der
@@ -303,16 +301,23 @@ export default function MatchCard({
     return isOneXTwo ? pickLabel(scoreToOneXTwo(home, away)) : formatScore(home, away);
   }
 
-  function startChangingTip() {
-    if (!myTip) return;
-    // Karte wie vor dem ersten Tippen: leere Felder, keine Auswahl. Der
-    // gespeicherte Tipp bleibt gültig, bis eine Änderung gespeichert wird.
-    setHomeScore(null);
-    setAwayScore(null);
-    setNflPick(null);
-    submittedRef.current = false;
-    setSubmitting(false);
-    setChangingTip(true);
+  // "Ändern": Tipp zurücknehmen, danach ist die Karte wie vor dem ersten
+  // Tippen (leere Felder, keine Auswahl) – auf jedem Gerät. Booster-Einsatz
+  // und Joker kommen zurück, der neue Tipp wird ganz normal abgegeben.
+  async function withdrawMyTip() {
+    if (!myTip || !onWithdrawTip || withdrawing) return;
+    setWithdrawing(true);
+    try {
+      if (await onWithdrawTip()) {
+        setHomeScore(null);
+        setAwayScore(null);
+        setNflPick(null);
+        submittedRef.current = false;
+        setSubmitting(false);
+      }
+    } finally {
+      setWithdrawing(false);
+    }
   }
 
   function handleSubmit() {
@@ -334,13 +339,6 @@ export default function MatchCard({
     }
     const [h, a] = isOneXTwo && nflPick ? oneXTwoToScore(nflPick) : [homeScore ?? 0, awayScore ?? 0];
 
-    if (isChanging) {
-      onChangeTip?.(h, a);
-      setChangingTip(false);
-      submittedRef.current = false;
-      setSubmitting(false);
-      return;
-    }
     Promise.resolve(onSubmitTip(h, a)).finally(() => {
       submittedRef.current = false;
       setSubmitting(false);
@@ -395,7 +393,7 @@ export default function MatchCard({
               Abgesagt
             </span>
           ) : (
-            <Countdown kickoff={match.tipDeadline} remind={!hasTipped || isChanging} />
+            <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
           )}
         </span>
       </div>
@@ -533,11 +531,6 @@ export default function MatchCard({
             <div className="mb-4 flex justify-center">
               <PointsInfoButton isOneXTwo={isOneXTwo} isBooster={isBooster} />
             </div>
-            {isChanging && isBooster && (
-              <p className="-mt-3 mb-4 text-center text-xs text-muted">
-                Einsatz schon bezahlt – beim Ändern werden keine Coins abgezogen.
-              </p>
-            )}
 
             {/* Knopf-Zustände klar unterscheidbar: tippbereit = kräftiges
                 Grün mit Leuchten, noch nicht tippbereit = grau (vorher nur
@@ -551,20 +544,12 @@ export default function MatchCard({
                   : "bg-action-hover text-pitch shadow-[0_0_22px_rgb(var(--c-action-hover)/0.45)] enabled:hover:brightness-110 enabled:hover:shadow-[0_0_30px_rgb(var(--c-action-hover)/0.6)] disabled:cursor-wait"
               }`}
             >
-              {submitting ? "Wird gespeichert…" : isChanging ? "Änderung speichern" : "Tipp abgeben"}
+              {submitting ? "Wird gespeichert…" : "Tipp abgeben"}
             </button>
             {notEnoughStars && (
               <p className="mt-2 text-center text-xs text-[#FF9B5C]">
                 Für einen Booster brauchst du {BOOSTER_STAKE} Coins – du hast {freeStars}.
               </p>
-            )}
-            {isChanging && (
-              <button
-                onClick={() => setChangingTip(false)}
-                className="mt-2 w-full rounded-full py-2 text-sm font-semibold text-muted transition-colors hover:text-ink"
-              >
-                Abbrechen
-              </button>
             )}
           </>
         )}
@@ -599,10 +584,11 @@ export default function MatchCard({
                   )}
                   {canChangeTip && (
                     <button
-                      onClick={startChangingTip}
-                      className="shrink-0 rounded-full border border-edge px-3 py-1 text-xs font-semibold text-gold transition-colors hover:border-gold"
+                      onClick={withdrawMyTip}
+                      disabled={withdrawing}
+                      className="shrink-0 rounded-full border border-edge px-3 py-1 text-xs font-semibold text-gold transition-colors hover:border-gold disabled:cursor-wait disabled:opacity-60"
                     >
-                      Ändern
+                      {withdrawing ? "…" : "Ändern"}
                     </button>
                   )}
                 </span>

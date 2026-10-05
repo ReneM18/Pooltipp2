@@ -120,6 +120,30 @@ export function JokerProvider({ children }: { children: ReactNode }) {
   // Joker-Bestand kann sich auf einem anderen Gerät geändert haben.
   useAppRefresh(() => reloadJokers());
 
+  // Sofort-Abgleich: Kauf, Einsatz oder Rückgabe (z. B. Tipp geändert) auf
+  // einem anderen Gerät kommt binnen Sekunden an (supabase/tipp-zuruecknehmen.sql).
+  const reloadJokersRef = useRef(reloadJokers);
+  reloadJokersRef.current = reloadJokers;
+  useEffect(() => {
+    if (!authUserId) return;
+    let timer: number | undefined;
+    const channel = supabase
+      .channel(`my_jokers_live_${authUserId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "joker_vorrat", filter: `user_id=eq.${authUserId}` },
+        () => {
+          window.clearTimeout(timer);
+          timer = window.setTimeout(() => void reloadJokersRef.current(), 300);
+        }
+      )
+      .subscribe();
+    return () => {
+      window.clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [authUserId]);
+
   async function buyJoker(joker: ShopJoker): Promise<string | null> {
     const { data, error } = await supabase.rpc("buy_joker", { p_joker: joker });
     refreshStars();
