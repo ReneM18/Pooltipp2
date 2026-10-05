@@ -6,7 +6,6 @@ import RankBadge from "@/components/RankBadge";
 import SeasonFrame from "@/components/SeasonFrame";
 import SeasonDeco from "@/components/SeasonDeco";
 import { useMyOverallRank } from "@/lib/myOverallRank";
-import { SHOP_ENABLED, SHOP_PREVIEW } from "@/lib/mockShopItems";
 import { StarIcon, TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
 
 export default function Navbar() {
@@ -54,15 +53,13 @@ export default function Navbar() {
             und Ranglisten-Punkte) stehen jetzt bewusst zusammen direkt vorm
             Profilbild, statt durch den Warenkorb getrennt zu sein. */}
         <div className="flex items-center gap-1 sm:gap-3">
-          {(SHOP_ENABLED || SHOP_PREVIEW) && (
-            <Link
-              href="/shop"
-              title="Prämien-Shop"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold/60 bg-surface text-gold transition-colors hover:border-gold hover:bg-gold/10 sm:h-9 sm:w-9"
-            >
-              <CartIcon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
-            </Link>
-          )}
+          <Link
+            href="/shop"
+            title="Prämien-Shop"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold/60 bg-surface text-gold transition-colors hover:border-gold hover:bg-gold/10 sm:h-9 sm:w-9"
+          >
+            <CartIcon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+          </Link>
 
           {/* Admin-Knopf nur für den Admin-Account (Prüfung über die
               Datenbank, siehe isAdmin in lib/UserContext.tsx). */}

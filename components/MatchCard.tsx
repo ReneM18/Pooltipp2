@@ -9,6 +9,7 @@ import { flagEmoji } from "@/lib/flags";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
+import { TIP_JOKER_EFFECT, TIP_JOKER_LABEL, TipJoker, TrendResult, useJokers } from "@/lib/JokerContext";
 import { xpForLevel } from "@/lib/seasonPass";
 import { displayOrder, isAwayFirst, oneXTwoText, pickNumber } from "@/lib/teamOrder";
 import TeamBadge, { matchJerseyProps } from "./TeamBadge";
@@ -503,6 +504,10 @@ export default function MatchCard({
               </div>
             )}
 
+            {!tippingClosed && !isCancelled && (
+              <TrendRow matchId={match.id} homeName={homeTeam.name} awayName={awayTeam.name} awayFirst={isUsSport} className="mb-3" />
+            )}
+
             {/* Gleicher Aufbau auf jeder Karte (Ergebnis oder 1X2, mit oder
                 ohne Booster, auch beim Ändern): die Rangpunkte immer in der
                 normal umrandeten Box. Nur der Booster (Einsatz und Gewinn
@@ -617,6 +622,18 @@ export default function MatchCard({
                 <PointsLine title="Rangpunkte" items={rankingPointsTable(isOneXTwo)} extra="plus Bonus" />
                 {isBooster && <PointsLine title="Sterne" items={boosterPayouts(isOneXTwo)} />}
               </div>
+            )}
+
+            {hasTipped && !myTip?.evaluated && !isCancelled && (
+              <JokerRow
+                matchId={match.id}
+                joker={myTip?.joker ?? null}
+                canChange={!tippingClosed}
+                isOneXTwo={isOneXTwo}
+              />
+            )}
+            {hasTipped && !tippingClosed && !isCancelled && !myTip?.evaluated && (
+              <TrendRow matchId={match.id} homeName={homeTeam.name} awayName={awayTeam.name} awayFirst={isUsSport} />
             )}
 
             {hasTipped && myTip?.evaluated && !myTip.refunded && !isCancelled && (
@@ -1107,3 +1124,166 @@ function TeamLabel({ name }: { name: string }) {
 
 const scoreInputClass =
   "h-12 w-[4.5rem] max-w-full rounded-lg border border-edge bg-pitch text-center font-display text-xl font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
+
+// Joker auf dem eigenen Tipp (supabase/joker-shop.sql): gesetzten Joker
+// zeigen und bis Tippschluss abnehmen, sonst die Joker aus dem Vorrat zum
+// Antippen. Wer keine Joker hat, sieht hier nichts.
+function JokerRow({
+  matchId,
+  joker,
+  canChange,
+  isOneXTwo,
+}: {
+  matchId: string;
+  joker: TipJoker | null;
+  canChange: boolean;
+  isOneXTwo: boolean;
+}) {
+  const { ready, stock, setTipJoker } = useJokers();
+  const { showToast } = useFeedback();
+  const [saving, setSaving] = useState(false);
+
+  async function choose(next: TipJoker | null) {
+    if (saving) return;
+    setSaving(true);
+    const failed = await setTipJoker(matchId, next);
+    setSaving(false);
+    if (failed) showToast(`✗ ${failed}`, "info");
+    else showToast(next ? `✓ ${TIP_JOKER_LABEL[next]} gesetzt.` : "✓ Joker abgenommen, er liegt wieder in deinem Vorrat.");
+  }
+
+  if (joker) {
+    return (
+      <div className="rounded-lg border border-gold/40 bg-gold/[0.07] px-4 py-2.5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-semibold text-ink">🃏 {TIP_JOKER_LABEL[joker]}</span>
+          {canChange && (
+            <button
+              onClick={() => choose(null)}
+              disabled={saving}
+              className="shrink-0 rounded-full border border-edge px-3 py-1 text-xs font-semibold text-muted transition-colors hover:border-gold hover:text-ink disabled:cursor-wait"
+            >
+              Abnehmen
+            </button>
+          )}
+        </div>
+        <p className="mt-0.5 text-xs text-muted">{TIP_JOKER_EFFECT[joker]}</p>
+      </div>
+    );
+  }
+
+  if (!ready || !canChange) return null;
+  const options = (["schutz", "doppel", "toleranz"] as TipJoker[]).filter(
+    (j) => stock[j] > 0 && !(j === "toleranz" && isOneXTwo)
+  );
+  if (options.length === 0) return null;
+
+  return (
+    <div className="rounded-lg border border-edge bg-pitch/60 px-4 py-2.5">
+      <p className="text-[11px] uppercase tracking-wide text-muted">Joker setzen</p>
+      <div className={`mt-1.5 grid gap-1.5 ${["grid-cols-1", "grid-cols-2", "grid-cols-3"][options.length - 1]}`}>
+        {options.map((j) => (
+          <button
+            key={j}
+            onClick={() => choose(j)}
+            disabled={saving}
+            className="whitespace-nowrap rounded-full border border-gold/40 bg-gold/[0.07] px-1 py-1 text-xs font-semibold text-gold transition-colors hover:border-gold disabled:cursor-wait"
+          >
+            {TIP_JOKER_LABEL[j].replace("-Joker", "")}
+            <span className="ml-0.5 text-muted">×{stock[j]}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Trend-Joker: wie haben die anderen bisher getippt? Nur sichtbar, wenn man
+// einen Trend-Joker hat oder ihn für dieses Spiel schon eingesetzt hat.
+function TrendRow({
+  matchId,
+  homeName,
+  awayName,
+  awayFirst,
+  className = "",
+}: {
+  matchId: string;
+  homeName: string;
+  awayName: string;
+  awayFirst: boolean;
+  className?: string;
+}) {
+  const { ready, stock, trendMatches, revealTrend } = useJokers();
+  const { showToast } = useFeedback();
+  const [trend, setTrend] = useState<TrendResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const used = trendMatches.includes(matchId);
+
+  // Schon bezahlt: Verteilung beim Anzeigen kostenlos neu laden.
+  useEffect(() => {
+    if (!used || trend) return;
+    let cancelled = false;
+    revealTrend(matchId).then((result) => {
+      if (!cancelled && typeof result !== "string") setTrend(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [used, matchId]);
+
+  async function reveal() {
+    if (loading) return;
+    setLoading(true);
+    const result = await revealTrend(matchId);
+    setLoading(false);
+    if (typeof result === "string") showToast(`✗ ${result}`, "info");
+    else setTrend(result);
+  }
+
+  if (!ready || (!used && stock.trend === 0)) return null;
+
+  if (!trend) {
+    return (
+      <button
+        onClick={reveal}
+        disabled={loading || used}
+        className={`flex w-full items-center justify-between gap-3 rounded-lg border border-edge bg-pitch/60 px-4 py-2.5 text-left transition-colors hover:border-gold/40 disabled:cursor-wait ${className}`}
+      >
+        <span className="whitespace-nowrap text-sm font-semibold text-ink">📊 Trend ansehen</span>
+        <span className="min-w-0 text-right text-xs text-muted">
+          {used ? "Wird geladen…" : `Trend-Joker ×${stock.trend}`}
+        </span>
+      </button>
+    );
+  }
+
+  const pct = (n: number) => (trend.tipps > 0 ? Math.round((n * 100) / trend.tipps) : 0);
+  const parts = [
+    { label: homeName, value: trend.heim },
+    { label: "Remis", value: trend.remis },
+    { label: awayName, value: trend.gast },
+  ];
+  if (awayFirst) parts.reverse();
+  const shown = parts.filter((p) => p.label !== "Remis" || p.value > 0);
+
+  return (
+    <div className={`rounded-lg border border-edge bg-pitch/60 px-4 py-2.5 ${className}`}>
+      <p className="text-[11px] uppercase tracking-wide text-muted">
+        📊 Trend der anderen ({trend.tipps} {trend.tipps === 1 ? "Tipp" : "Tipps"})
+      </p>
+      {trend.tipps === 0 ? (
+        <p className="mt-1 text-xs text-muted">Noch hat niemand sonst getippt.</p>
+      ) : (
+        <div className={`mt-1 grid gap-1.5 text-center ${shown.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+          {shown.map((p) => (
+            <div key={p.label} className="min-w-0 rounded-md bg-surface/60 px-1 py-1">
+              <p className="font-display text-sm font-bold text-ink">{pct(p.value)}%</p>
+              <p className="text-[11px] leading-tight text-muted [overflow-wrap:anywhere]">{p.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
