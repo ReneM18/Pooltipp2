@@ -527,7 +527,7 @@ export default function MatchCard({
                 Nur der Booster (was der Tipp an Coins kostet, Gewinn oder
                 Verlust) bleibt als goldene Box auf der Karte, der Hinweis
                 steht immer direkt über dem Knopf. */}
-            <div className="mb-4 flex justify-end">
+            <div className="mb-4 flex justify-center">
               <PointsInfoButton isOneXTwo={isOneXTwo} isBooster={isBooster} />
             </div>
             {isChanging && isBooster && (
