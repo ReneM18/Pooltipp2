@@ -504,34 +504,34 @@ export default function MatchCard({
             )}
 
             {/* Gleicher Aufbau auf jeder Karte (Ergebnis oder 1X2, mit oder
-                ohne Booster, auch beim Ändern): immer die Rangpunkte, beim
-                Booster zusätzlich Gewinn oder Verlust an Sternen. */}
-            <div
-              className={`mb-5 rounded-lg border px-4 py-2.5 ${
-                isBooster ? "border-gold/40 bg-gold/[0.07]" : "border-edge bg-pitch/60"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-ink">{isBooster ? "Booster-Einsatz" : "Gratis-Tipp"}</span>
-                {isBooster ? (
+                ohne Booster, auch beim Ändern): die Rangpunkte immer in der
+                normal umrandeten Box. Nur der Booster (Einsatz und Gewinn
+                oder Verlust an Sternen) bekommt darunter eine eigene goldene
+                Box. */}
+            <div className={`${isBooster ? "mb-3" : "mb-5"} rounded-lg border border-edge bg-pitch/60 px-4 py-2.5`}>
+              {!isBooster && (
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-ink">Gratis-Tipp</span>
+                  <span className="text-xs text-muted">kostet keine Sterne</span>
+                </div>
+              )}
+              <p className="text-[11px] uppercase tracking-wide text-muted">Deine Rangpunkte</p>
+              <PointsGrid items={rankingPointsTable(isOneXTwo)} />
+              <p className="mt-1 text-[11px] text-muted">Plus Bonus gegen die Mittipper (bis{"\u00a0"}±10)</p>
+            </div>
+            {isBooster && (
+              <div className="mb-5 rounded-lg border border-gold/40 bg-gold/[0.07] px-4 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-ink">Booster-Einsatz</span>
                   <span className="flex items-center gap-1 font-display font-semibold text-gold">
                     <StarIcon className="h-4 w-4" />
                     {BOOSTER_STAKE}
                   </span>
-                ) : (
-                  <span className="text-xs text-muted">kostet keine Sterne</span>
-                )}
+                </div>
+                <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">Sterne: dein Gewinn oder Verlust</p>
+                <PointsGrid items={boosterPayouts(isOneXTwo)} />
               </div>
-              <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">Deine Rangpunkte</p>
-              <PointsGrid items={rankingPointsTable(isOneXTwo)} />
-              <p className="mt-1 text-[11px] text-muted">Plus Bonus gegen die Mittipper (bis{"\u00a0"}±10)</p>
-              {isBooster && (
-                <>
-                  <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">Sterne: dein Gewinn oder Verlust</p>
-                  <PointsGrid items={boosterPayouts(isOneXTwo)} />
-                </>
-              )}
-            </div>
+            )}
             {isChanging && (
               <p className="-mt-3 mb-4 text-center text-xs text-muted">
                 {isBooster
