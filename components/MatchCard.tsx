@@ -129,6 +129,11 @@ export default function MatchCard({
   const [submitting, setSubmitting] = useState(false);
   // "Ändern" läuft gerade (Tipp wird in der Datenbank zurückgenommen).
   const [withdrawing, setWithdrawing] = useState(false);
+  // Nach "Tipp abgeben"/"Ändern" bleibt die Karte im Blick, siehe keepCardInView.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const tipRowRef = useRef<HTMLDivElement>(null);
+  const keepInViewRef = useRef(false);
+  const hasTippedRef = useRef(false);
   // Startet mit "false" statt sofort mit Date.now() zu vergleichen – Server
   // und Browser haben beim allerersten Rendern nie exakt dieselbe Uhrzeit,
   // das würde sonst zu einem Hydration-Fehler führen (siehe
@@ -211,6 +216,39 @@ export default function MatchCard({
   });
 
   const hasTipped = !!myTip;
+  hasTippedRef.current = hasTipped;
+
+  // Am Handy springt die Seite nach "Tipp abgeben" sonst weg: die Karte wird
+  // kleiner/größer, und schließt sich gleichzeitig die Tastatur, verschiebt
+  // iOS die Seite. Darum nach dem Umschalten (auch nach "Ändern") prüfen, ob
+  // "Dein Tipp" bzw. die Karte noch gut zu sehen ist, und sie sonst in die
+  // Mitte holen – mehrmals, bis die Tastatur sicher zu ist.
+  useEffect(() => {
+    if (!keepInViewRef.current) return;
+    keepInViewRef.current = false;
+    const timers = [60, 400, 800].map((delay) => window.setTimeout(() => keepCardInView(hasTipped), delay));
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [hasTipped]);
+
+  function keepCardInView(tipped: boolean) {
+    const target = (tipped && tipRowRef.current) || cardRef.current;
+    if (!target) return;
+    const viewHeight = window.visualViewport?.height ?? window.innerHeight;
+    const rect = target.getBoundingClientRect();
+    // Gut zu sehen = komplett im mittleren Bereich des Bildschirms.
+    if (rect.top >= viewHeight * 0.12 && rect.bottom <= viewHeight * 0.88) return;
+    const delta =
+      rect.height > viewHeight * 0.9
+        ? rect.top - viewHeight * 0.05
+        : rect.top + rect.height / 2 - viewHeight / 2;
+    window.scrollBy({ top: delta, behavior: "smooth" });
+  }
+
+  // Tastatur zu, bevor das Eingabefeld verschwindet (iOS springt sonst).
+  function closeKeyboard() {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && cardRef.current?.contains(active)) active.blur();
+  }
   const canChangeTip = hasTipped && !tippingClosed && !isCancelled && !myTip?.evaluated && !!onWithdrawTip;
   const showResultView = hasTipped || tippingClosed || isCancelled;
   // 1X2-Spiel ohne Auswahl: Knopf ist noch gesperrt.
@@ -228,7 +266,9 @@ export default function MatchCard({
   const { tippers, failed: tippersFailed } = useMatchTips(
     match.id,
     tippersOpen || !!myTip?.evaluated,
-    tipCount
+    // Auch der eigene Tipp zählt: nimmt man ihn zurück und tippt auf einem
+    // anderen Gerät gleich neu, bleibt die Zahl gleich, die Liste nicht.
+    `${tipCount}:${myTip ? `${myTip.predictedHomeScore}-${myTip.predictedAwayScore}` : "-"}`
   );
   const finalScore =
     match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null
@@ -307,8 +347,11 @@ export default function MatchCard({
   async function withdrawMyTip() {
     if (!myTip || !onWithdrawTip || withdrawing) return;
     setWithdrawing(true);
+    keepInViewRef.current = true;
     try {
-      if (await onWithdrawTip()) {
+      const ok = await onWithdrawTip();
+      if (!ok) keepInViewRef.current = false;
+      if (ok) {
         setHomeScore(null);
         setAwayScore(null);
         setNflPick(null);
@@ -338,10 +381,14 @@ export default function MatchCard({
       return;
     }
     const [h, a] = isOneXTwo && nflPick ? oneXTwoToScore(nflPick) : [homeScore ?? 0, awayScore ?? 0];
+    closeKeyboard();
+    keepInViewRef.current = true;
 
     Promise.resolve(onSubmitTip(h, a)).finally(() => {
       submittedRef.current = false;
       setSubmitting(false);
+      // Nicht gespeichert: Karte bleibt offen, nichts zu verschieben.
+      if (!hasTippedRef.current) keepInViewRef.current = false;
     });
   }
 
@@ -367,7 +414,10 @@ export default function MatchCard({
   );
 
   return (
-    <div className="relative isolate flex h-full flex-col overflow-hidden match-card-rand rounded-card border bg-surface">
+    <div
+      ref={cardRef}
+      className="relative isolate flex h-full flex-col overflow-hidden match-card-rand rounded-card border bg-surface"
+    >
       {/* Saison-Design: verblasstes Blatt hinter dem Karteninhalt. */}
       <SeasonCardWatermark variant={match.id.length + match.id.charCodeAt(match.id.length - 1)} />
       {/* Booster-Spiel: eigene goldene Leiste ganz oben, damit man es auch
@@ -557,7 +607,10 @@ export default function MatchCard({
         {showResultView && (
           <div className="flex flex-col gap-3">
             {hasTipped && (
-              <div className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-pitch px-4 py-2.5">
+              <div
+                ref={tipRowRef}
+                className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-pitch px-4 py-2.5"
+              >
                 <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-muted">
                   <span aria-hidden className="font-bold text-action-hover">✓</span>
                   Dein Tipp
