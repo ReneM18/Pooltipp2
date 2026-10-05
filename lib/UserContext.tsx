@@ -586,6 +586,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
       });
   }, [authUserId, extrasLoaded, photos, photoVisibility, selectedRankIconId, customFrameColors]);
 
+  // Die Auswahl zusätzlich im öffentlichen Profil speichern, damit auch
+  // andere Spieler sie in Rangliste, Chat und auf der Spielerseite sehen
+  // (supabase/rang-icon-auswahl.sql). Erst nach dem Laden der gespeicherten
+  // Auswahl, sonst würde die Standardauswahl sie überschreiben. Fehlt die
+  // Spalte noch, bleibt es still bei der bisherigen Anzeige.
+  useEffect(() => {
+    if (!authUserId || !extrasLoaded || !profileLoaded || !selectedRankIconId) return;
+    supabase
+      .from("profiles")
+      .update({ rank_icon_id: selectedRankIconId })
+      .eq("id", authUserId)
+      .then(({ error }) => {
+        if (error) console.warn("Rang-Icon konnte nicht fürs Profil gespeichert werden:", error.message);
+      });
+  }, [authUserId, extrasLoaded, profileLoaded, selectedRankIconId]);
+
   const activeRankIcon =
     rankIconOptions.find((o) => o.id === selectedRankIconId) ?? getBestRankIcon(rankIconOptions);
 
