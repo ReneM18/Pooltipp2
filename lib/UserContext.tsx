@@ -21,8 +21,8 @@ import {
 
 function bonusActivityText(stars: number) {
   return stars > 0
-    ? `Täglicher Bonus abgeholt: +${stars} Sterne, +${DAILY_BONUS_XP} Pass-XP.`
-    : `Täglicher Bonus abgeholt: +${DAILY_BONUS_XP} Pass-XP (ab 500 Sternen gibt es nur noch XP).`;
+    ? `Täglicher Bonus abgeholt: +${stars} Coins, +${DAILY_BONUS_XP} Pass-XP.`
+    : `Täglicher Bonus abgeholt: +${DAILY_BONUS_XP} Pass-XP (ab 500 Coins gibt es nur noch XP).`;
 }
 
 // Start bei 0 statt Demo-Punkten: sonst zeigte die Kopfzeile kurz (oder
@@ -494,7 +494,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (next <= 0 && actual > 0 && !guestRescueUsedRef.current) {
         next += RESCUE_BONUS_STARS;
         guestRescueUsedRef.current = true;
-        addActivity("🎁", `Deine Sterne waren aufgebraucht – hier ${RESCUE_BONUS_STARS} Sterne geschenkt, damit's weitergeht.`);
+        addActivity("🎁", `Deine Coins waren aufgebraucht – hier ${RESCUE_BONUS_STARS} Coins geschenkt, damit's weitergeht.`);
       }
       setFreeStars(next);
       return submitTip(matchId, homeScore, awayScore, actual, displayName);

@@ -36,20 +36,20 @@ export default function DashboardPage() {
     if (!saved) {
       showToast(
         match.booster
-          ? `Tipp konnte nicht gespeichert werden – Tippschluss erreicht, schon getippt oder weniger als ${BOOSTER_STAKE} Sterne.`
+          ? `Tipp konnte nicht gespeichert werden – Tippschluss erreicht, schon getippt oder weniger als ${BOOSTER_STAKE} Coins.`
           : "Tipp konnte nicht gespeichert werden – Tippschluss erreicht oder schon getippt.",
         "info"
       );
       return;
     }
     celebrate();
-    showToast(match.booster ? `✓ Booster-Tipp gespeichert – ${BOOSTER_STAKE} Sterne eingesetzt, viel Glück!` : "✓ Tipp gespeichert – viel Glück!");
+    showToast(match.booster ? `✓ Booster-Tipp gespeichert – ${BOOSTER_STAKE} Coins eingesetzt, viel Glück!` : "✓ Tipp gespeichert – viel Glück!");
   }
 
   function handleChangeTip(matchId: string, homeScore: number, awayScore: number) {
     // Kein neuer Einsatz: der wurde schon bei der Abgabe bezahlt.
     if (changeTip(matchId, homeScore, awayScore)) {
-      showToast("✓ Tipp geändert – keine Sterne abgezogen.");
+      showToast("✓ Tipp geändert – keine Coins abgezogen.");
     } else {
       showToast("Tippschluss – der Tipp kann nicht mehr geändert werden.", "info");
     }

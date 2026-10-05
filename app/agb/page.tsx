@@ -11,7 +11,7 @@ export default function AgbPage() {
           <h2 className="mb-1 font-display text-base font-semibold text-ink">Nutzung der App</h2>
           <p>
             PoolTipp ist ein kostenloses Social-Tippspiel. Es wird ausschließlich um virtuelle
-            Punkte, Rangliste-Plätze und Sterne gespielt – niemals um echtes Geld. Sterne sind
+            Punkte, Rangliste-Plätze und Coins gespielt – niemals um echtes Geld. Coins sind
             kostenlos, können nicht gekauft, verkauft, an andere übertragen oder in Geld getauscht
             werden. Ein Rechtsanspruch auf bestimmte Prämien im Shop besteht nicht.
           </p>

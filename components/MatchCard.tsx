@@ -17,7 +17,8 @@ import PassHonorTags, { useOtherPlayersHonors } from "./PassHonors";
 import { EmotePicker, MessageBody, stickerFromText, stickerText } from "./Emotes";
 import Countdown from "./Countdown";
 import ScoreInput from "./ScoreInput";
-import { StarIcon, TvIcon, PlayIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
+import { CoinIcon } from "./CoinIcon";
+import { TvIcon, PlayIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
 import { SeasonCardWatermark } from "./SeasonDeco";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
@@ -476,7 +477,7 @@ export default function MatchCard({
                     <span aria-hidden>🎁</span> {match.bonusQuestion.question}
                   </span>
                   <span className="shrink-0 text-xs font-semibold text-gold">
-                    +{match.bonusQuestion.bonusStars} Sterne
+                    +{match.bonusQuestion.bonusStars} Coins
                   </span>
                 </div>
                 {myBonusAnswer ? (
@@ -516,7 +517,7 @@ export default function MatchCard({
               {!isBooster && (
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span className="text-sm font-semibold text-ink">Gratis-Tipp</span>
-                  <span className="text-xs text-muted">kostet keine Sterne</span>
+                  <span className="text-xs text-muted">kostet keine Coins</span>
                 </div>
               )}
               <p className="text-[11px] uppercase tracking-wide text-muted">Deine Rangpunkte</p>
@@ -528,18 +529,18 @@ export default function MatchCard({
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-semibold text-ink">Booster-Einsatz</span>
                   <span className="flex items-center gap-1 font-display font-semibold text-gold">
-                    <StarIcon className="h-4 w-4" />
+                    <CoinIcon className="h-[18px] w-[18px]" />
                     {BOOSTER_STAKE}
                   </span>
                 </div>
-                <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">Sterne: dein Gewinn oder Verlust</p>
+                <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">Coins: dein Gewinn oder Verlust</p>
                 <PointsGrid items={boosterPayouts(isOneXTwo)} />
               </div>
             )}
             {isChanging && (
               <p className="-mt-3 mb-4 text-center text-xs text-muted">
                 {isBooster
-                  ? "Einsatz schon bezahlt – beim Ändern werden keine Sterne abgezogen."
+                  ? "Einsatz schon bezahlt – beim Ändern werden keine Coins abgezogen."
                   : "Ändern kostet nichts."}
               </p>
             )}
@@ -560,7 +561,7 @@ export default function MatchCard({
             </button>
             {notEnoughStars && (
               <p className="mt-2 text-center text-xs text-[#FF9B5C]">
-                Für einen Booster brauchst du {BOOSTER_STAKE} Sterne – du hast {freeStars}.
+                Für einen Booster brauchst du {BOOSTER_STAKE} Coins – du hast {freeStars}.
               </p>
             )}
             {isChanging && (
@@ -619,7 +620,7 @@ export default function MatchCard({
             {hasTipped && !myTip?.evaluated && !isCancelled && (
               <div className="flex flex-col gap-0.5 text-center text-xs text-muted">
                 <PointsLine title="Rangpunkte" items={rankingPointsTable(isOneXTwo)} extra="plus Bonus" />
-                {isBooster && <PointsLine title="Sterne" items={boosterPayouts(isOneXTwo)} />}
+                {isBooster && <PointsLine title="Coins" items={boosterPayouts(isOneXTwo)} />}
               </div>
             )}
 
@@ -985,9 +986,9 @@ function PoolScoreResultBox({
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
           {hasStake && (
             <span className={`flex items-center gap-1 font-semibold ${starsDelta >= 0 ? "text-gold" : "text-red-400"}`}>
-              <StarIcon className="h-3.5 w-3.5" />
+              <CoinIcon className="h-4 w-4" />
               {starsDelta >= 0 ? "+" : ""}
-              {starsDelta} Sterne
+              {starsDelta} Coins
             </span>
           )}
           {!breakdown &&
@@ -1021,7 +1022,7 @@ function CancelledBox({ stake }: { stake: number | null }) {
         {stake === null
           ? "Dieses Spiel wird nicht gewertet."
           : stake > 0
-          ? `Dein Einsatz von ${stake.toLocaleString("de-DE")} Sternen ist zurück auf deinem Konto.`
+          ? `Dein Einsatz von ${stake.toLocaleString("de-DE")} Coins ist zurück auf deinem Konto.`
           : "Dein Tipp wird nicht gewertet."}
       </span>
     </div>

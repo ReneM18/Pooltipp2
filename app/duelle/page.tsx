@@ -8,7 +8,7 @@ import { useFeedback } from "@/lib/FeedbackContext";
 import { xpForLevel } from "@/lib/seasonPass";
 import { Duel } from "@/lib/duelTypes";
 import { Team } from "@/lib/types";
-import { StarIcon } from "@/components/Icons";
+import { CoinIcon } from "@/components/CoinIcon";
 import { matchTitle } from "@/lib/teamOrder";
 
 export default function DuellePage() {
@@ -87,7 +87,7 @@ export default function DuellePage() {
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <h1 className="mb-1 font-display text-xl font-bold text-ink sm:text-2xl">Kopf-an-Kopf-Duelle</h1>
       <p className="mb-6 text-xs text-muted">
-        Fordere einen registrierten Mitspieler direkt mit Sterne-Einsatz heraus – wer beim Spiel besser
+        Fordere einen registrierten Mitspieler direkt mit Coin-Einsatz heraus – wer beim Spiel besser
         tippt, gewinnt beide Einsätze. Dein Gegner muss annehmen, bevor der Einsatz auf beiden Seiten
         fällig wird; lehnt er ab (oder reagiert nicht), bekommst du deinen Einsatz zurück.
       </p>
@@ -211,7 +211,7 @@ function InviteRow({ duel, home, away }: { duel: Duel; home?: Team; away?: Team 
         <p className="text-xs text-muted">
           {matchTitle(home?.sport ?? "", home?.name ?? "?", away?.name ?? "?")} · Einsatz{" "}
           <span className="inline-flex items-center gap-1 text-gold">
-            <StarIcon className="h-3 w-3" /> {duel.stake}
+            <CoinIcon className="h-3.5 w-3.5" /> {duel.stake}
           </span>
         </p>
       </div>
@@ -278,7 +278,7 @@ function DuelRow({ duel, home, away }: { duel: Duel; home?: Team; away?: Team })
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="font-display text-sm font-semibold text-ink">Du vs. {opponentLabel}</span>
         <span className="flex items-center gap-1 font-display text-sm font-semibold text-gold">
-          <StarIcon className="h-3.5 w-3.5" /> {duel.stake}
+          <CoinIcon className="h-4 w-4" /> {duel.stake}
         </span>
       </div>
       <p className="text-xs text-muted">
@@ -292,8 +292,8 @@ function DuelRow({ duel, home, away }: { duel: Duel; home?: Team; away?: Team })
             won ? "text-gold" : lost ? "text-red-400" : "text-action"
           }`}
         >
-          {won && `🏆 Gewonnen – +${(duel.starsCredited ?? 0) - duel.stake} Sterne`}
-          {lost && `Verloren – ${duel.stake} Sterne weg`}
+          {won && `🏆 Gewonnen – +${(duel.starsCredited ?? 0) - duel.stake} Coins`}
+          {lost && `Verloren – ${duel.stake} Coins weg`}
           {duel.result === "unentschieden" && "Unentschieden – Einsatz zurück"}
         </p>
       )}

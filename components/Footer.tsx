@@ -19,7 +19,7 @@ export default function Footer() {
         <h2 className="mb-2 font-display text-base font-bold text-ink sm:mb-1 sm:text-sm">
           Über PoolTipp
         </h2>
-        {/* Drei kurze Absätze statt einem Block: Rankingsystem, Sterne und Joker, Extras. */}
+        {/* Drei kurze Absätze statt einem Block: Rankingsystem, Coins und Joker, Extras. */}
         <div className="flex flex-col gap-2 text-sm leading-relaxed text-muted sm:gap-1 sm:text-xs sm:leading-normal">
           <p>
             PoolTipp ist das kostenlose Social-Tippspiel für echte Sportfans: Tippe vor jedem Spiel
@@ -31,9 +31,9 @@ export default function Footer() {
             aber nie unter 0. Ein Tipp genügt, und die Strafe ist weg.
           </p>
           <p>
-            Bei den Booster-Spielen setzt du 20 Sterne ein: exakt gewinnst du 40 dazu, mit der
+            Bei den Booster-Spielen setzt du 20 Coins ein: exakt gewinnst du 40 dazu, mit der
             richtigen Tordifferenz 10, bei der richtigen Tendenz behältst du deinen Einsatz, ein
-            Fehltipp kostet 10. Sterne gibt's außerdem mit dem täglichen Bonus, eintauschen kannst
+            Fehltipp kostet 10. Coins gibt's außerdem mit dem täglichen Bonus, eintauschen kannst
             du sie im Shop gegen Joker: Mit dem Doppel-Joker zählen bei einem Spiel deiner Wahl die
             festen Punkte doppelt (exakt 20, Tordifferenz 14, Tendenz 10), ein Pause-Joker schützt
             dich eine Woche lang vor der Strafe.
@@ -42,7 +42,7 @@ export default function Footer() {
             Dazu gibt's echte Live-Ergebnisse und Tabellen im Matchcenter, einen Saison-Pass mit
             Belohnungen fürs tägliche Reinschauen, eine Rangliste pro Sportart und private
             Tipprunden für Freunde, Verein oder Kollegen. Alles komplett kostenlos – gespielt wird
-            nur um virtuelle Sterne, nie um echtes Geld.
+            nur um virtuelle Coins, nie um echtes Geld.
           </p>
         </div>
 

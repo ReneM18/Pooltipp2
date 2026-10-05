@@ -6,7 +6,8 @@ import RankBadge from "@/components/RankBadge";
 import SeasonFrame from "@/components/SeasonFrame";
 import SeasonDeco from "@/components/SeasonDeco";
 import { useMyOverallRank } from "@/lib/myOverallRank";
-import { StarIcon, TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
+import { CoinIcon } from "@/components/CoinIcon";
+import { TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
 
 export default function Navbar() {
   const { displayName, freeStars, activeRankIcon, isRegistered, sessionChecked, isLowOnStars, photos, isAdmin } =
@@ -74,14 +75,14 @@ export default function Navbar() {
           )}
 
           <div
-            className={`flex items-center gap-0.5 rounded-full px-0.5 py-1 sm:gap-2 sm:border sm:px-3 sm:py-1.5 ${
+            className={`flex items-center gap-1 rounded-full px-0.5 py-1 sm:gap-2 sm:border sm:px-3 sm:py-1.5 ${
               isLowOnStars
                 ? "sm:border-red-400/60 sm:bg-red-400/10"
                 : "sm:border-edge sm:bg-surface"
             }`}
-            title={isLowOnStars ? "Deine Gratis-Sterne werden knapp" : "Deine Gratis-Sterne"}
+            title={isLowOnStars ? "Deine Coins werden knapp" : "Deine PoolTipp Coins"}
           >
-            <StarIcon className={`h-4 w-4 sm:h-[18px] sm:w-[18px] ${isLowOnStars ? "text-red-400" : "text-gold"}`} />
+            <CoinIcon className="h-5 w-5 sm:h-[22px] sm:w-[22px]" />
             <span
               className={`font-display text-base font-semibold sm:text-lg ${
                 isLowOnStars ? "text-red-400" : "text-ink"

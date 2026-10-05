@@ -74,8 +74,8 @@ export default function FortschrittPage() {
     celebrate();
     showToast(
       starsAdded > 0
-        ? `🎁 Täglicher Bonus abgeholt: +${starsAdded} Sterne, +100 Pass-XP!`
-        : "🎁 Täglicher Bonus abgeholt: +100 Pass-XP! (Ab 500 Sternen gibt es nur noch XP.)",
+        ? `🎁 Täglicher Bonus abgeholt: +${starsAdded} Coins, +100 Pass-XP!`
+        : "🎁 Täglicher Bonus abgeholt: +100 Pass-XP! (Ab 500 Coins gibt es nur noch XP.)",
       "gold"
     );
   }
@@ -179,7 +179,7 @@ export default function FortschrittPage() {
               <span className="text-lg">🎁</span> Täglicher Bonus
             </p>
             <p className="mt-0.5 text-xs text-muted">
-              Einmal pro Tag: +8 Sterne (bis 500 auf dem Konto) und +100 Pass-XP. Der
+              Einmal pro Tag: +8 Coins (bis 500 auf dem Konto) und +100 Pass-XP. Der
               Saison-Pass klettert nur so – nicht durch Tipp-Ergebnisse.
             </p>
           </div>
@@ -206,7 +206,7 @@ export default function FortschrittPage() {
             haben mit dem Pass nichts zu tun.
           </li>
           <li>
-            <span className="font-semibold text-ink">Sterne</span> setzt du bei den Booster-Spielen ein und
+            <span className="font-semibold text-ink">Coins</span> setzt du bei den Booster-Spielen ein und
             tauschst sie im Shop gegen Joker. Normale Tipps sind gratis. Der Pass gibt nur auf Level 10 ein
             paar dazu.
           </li>

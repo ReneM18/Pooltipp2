@@ -65,7 +65,7 @@ export default function FavoriteClubs() {
     <section className="mb-8">
       <h2 className="mb-1 font-display text-lg font-semibold text-ink">Herzensvereine</h2>
       <p className="mb-3 text-xs text-muted">
-        Mit deinen Tipps sammelst du Punkte für deinen Verein in der Vereinstabelle. Freiwillig, Sterne und
+        Mit deinen Tipps sammelst du Punkte für deinen Verein in der Vereinstabelle. Freiwillig, Coins und
         Ranglistenpunkte bekommst du so oder so.{" "}
         <button onClick={() => setShowRules((v) => !v)} className="font-semibold text-gold hover:underline">
           {showRules ? "Regeln ausblenden" : "So funktioniert’s"}
