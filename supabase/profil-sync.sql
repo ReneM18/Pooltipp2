@@ -2,9 +2,11 @@
 --
 -- Was dieses Skript einrichtet:
 --  1) Der Schalter "Saison-Design an/aus" wird fürs Konto gespeichert (bisher
---     nur im Browser, galt also nur auf einem Gerät).
+--     nur im Browser, galt also nur auf einem Gerät), ebenso "Premium
+--     kostenlos testen" (bisher nach jedem Neuladen wieder aus). Bezahlt wird
+--     weiterhin nichts.
 --  2) Sofort-Abgleich: Änderungen an Profil-Einstellungen (Fotos,
---     Foto-Sichtbarkeit, Rang-Icon, Rahmenfarben, Saison-Design) und am
+--     Foto-Sichtbarkeit, Rang-Icon, Rahmenfarben, Saison-Design, Premium-Test) und am
 --     Herzensverein melden sich binnen Sekunden auf allen offenen Geräten
 --     (Supabase Realtime). Jeder sieht dabei nur seine eigenen Zeilen
 --     (bestehende Zugriffsregeln). Name, Coins und Tipps kommen schon über
@@ -18,6 +20,7 @@
 -- komplette Skript einfügen -> "Run".
 
 alter table public.profile_extras add column if not exists season_design_off boolean;
+alter table public.profile_extras add column if not exists premium_trial boolean not null default false;
 
 -- Rechte wie bisher: nur der Besitzer liest und schreibt seine Zeile.
 grant select, insert, update on public.profile_extras to authenticated;

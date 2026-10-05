@@ -265,7 +265,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [hasPremiumPass, setHasPremiumPass] = useState(false);
 
   // Platzhalter für die echte Zahlungsanbindung (z. B. Stripe/RevenueCat) –
-  // schaltet die Premium-Spur des Saison-Passes lokal frei.
+  // "Kostenlos testen" schaltet die Premium-Spur des Saison-Passes frei. Das
+  // bleibt fürs Konto gespeichert (profile_extras.premium_trial), gilt also
+  // auch nach einem Update und auf jedem Gerät.
   function buyPremiumPass() {
     setHasPremiumPass(true);
   }
@@ -622,7 +624,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const extrasWriteRef = useRef(0);
   // Speicherungen, auf deren Antwort noch gewartet wird.
   const extrasPendingRef = useRef(0);
-  // Spalte season_design_off gibt es erst nach supabase/profil-sync.sql.
+  // Spalten season_design_off und premium_trial gibt es erst nach
+  // supabase/profil-sync.sql.
   const seasonColumnRef = useRef(false);
 
   function readLocalSeasonOff() {
@@ -654,7 +657,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     let hasSeason = true;
     let res = await supabase
       .from("profile_extras")
-      .select(`${columns}, season_design_off`)
+      .select(`${columns}, season_design_off, premium_trial`)
       .eq("id", userId)
       .maybeSingle();
     if (res.error) {
@@ -676,6 +679,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       rank_icon_id?: string | null;
       frame_colors?: { from: string; to: string } | null;
       season_design_off?: boolean | null;
+      premium_trial?: boolean | null;
     } | null;
     const synced = extrasSyncedRef.current;
     if (data) {
@@ -698,6 +702,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setCustomFrameColorsState((current) => (JSON.stringify(current) === synced.frame_colors ? current : next));
       }
     }
+    if (hasSeason && data?.premium_trial) {
+      synced.premium_trial = "true";
+      setHasPremiumPass(true);
+    }
     if (hasSeason) {
       const off = data?.season_design_off;
       if (typeof off === "boolean") {
@@ -715,6 +723,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setExtrasLoaded(false);
     setSeasonDesignOffState(null);
+    setHasPremiumPass(false);
     extrasSyncedRef.current = {};
     seasonColumnRef.current = false;
     if (!authUserId) return;
@@ -757,6 +766,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       frame_colors: customFrameColors,
     };
     if (seasonColumnRef.current && seasonDesignOff !== null) current.season_design_off = seasonDesignOff;
+    // Premium-Test wird nur eingeschaltet, nie von einem alten Gerät aus.
+    if (seasonColumnRef.current && hasPremiumPass) current.premium_trial = true;
     const synced = extrasSyncedRef.current;
     const changed: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(current)) {
@@ -780,7 +791,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           else synced[key] = previous[key];
         }
       });
-  }, [authUserId, extrasLoaded, photos, photoVisibility, selectedRankIconId, customFrameColors, seasonDesignOff]);
+  }, [authUserId, extrasLoaded, photos, photoVisibility, selectedRankIconId, customFrameColors, seasonDesignOff, hasPremiumPass]);
 
   // Die Auswahl zusätzlich im öffentlichen Profil speichern, damit auch
   // andere Spieler sie in Rangliste, Chat und auf der Spielerseite sehen
