@@ -10,7 +10,9 @@ import type { SeasonDesign } from "./types";
 // Saison-Farben überschrieben. Ein Spieler bekommt das Design automatisch,
 // sobald er im Saison-Pass das Level design.unlockLevel erreicht; Gäste und
 // Spieler darunter sehen das normale Grün. Abschalten kann man es im Profil.
-// Beides merkt sich der Browser (pro Gerät), deshalb ist kein SQL nötig.
+// Den Schalter speichert das Konto (profile_extras.season_design_off), er gilt
+// also auf jedem Gerät; der Browser merkt ihn sich zusätzlich, damit das
+// Skript unten schon vor dem ersten Zeichnen weiß, ob das Design an ist.
 // Freischalten + Schalter: lib/seasonDesign.ts, components/SeasonDesignGate.tsx.
 
 export const SEASON_DESIGN_STORAGE_KEY = "pooltipp_saison_design";
@@ -19,6 +21,9 @@ export const SEASON_DESIGN_STORAGE_KEY = "pooltipp_saison_design";
  *  Profils; das Skript unten liest es, damit das Design ab dem zweiten
  *  Seitenaufruf ohne grünes Aufblitzen erscheint. */
 export const SEASON_DESIGN_UNLOCK_KEY = "pooltipp_saison_design_frei";
+/** Wird ausgelöst, wenn sich der Schalter an/aus ändert (auch von einem
+ *  anderen Gerät, siehe lib/UserContext.tsx). */
+export const SEASON_DESIGN_OFF_EVENT = "pooltipp-saison-design-geaendert";
 
 function rgbTriplet(hex: string): string {
   const n = parseInt(hex.replace("#", ""), 16);

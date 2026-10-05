@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import { SEASON_THEME } from "@/lib/seasonTheme";
 import { applySeasonDesign, readSwitchedOff, rememberUnlocked, useSeasonDesignUnlock } from "@/lib/seasonDesign";
+import { SEASON_DESIGN_OFF_EVENT } from "@/lib/seasons/design";
 
 // Schaltet das Saison-Design ein, sobald der Spieler das Level aus der
 // Saison-Datei (design.unlockLevel) erreicht hat, und zeigt dann EINMAL einen
@@ -17,6 +18,14 @@ export default function SeasonDesignGate({ showNotice = true }: { showNotice?: b
   const { authUserId } = useUser();
   const unlock = useSeasonDesignUnlock();
   const [noticeVisible, setNoticeVisible] = useState(false);
+
+  // Schalter an/aus auf einem anderen Gerät geändert: gleich übernehmen.
+  useEffect(() => {
+    if (unlock === "unknown") return;
+    const onChange = () => applySeasonDesign(unlock === "unlocked" && !readSwitchedOff());
+    window.addEventListener(SEASON_DESIGN_OFF_EVENT, onChange);
+    return () => window.removeEventListener(SEASON_DESIGN_OFF_EVENT, onChange);
+  }, [unlock]);
 
   useEffect(() => {
     if (unlock === "unknown") return;

@@ -4,6 +4,7 @@ import { createContext, useContext, useState, ReactNode, useMemo, useEffect, use
 import { supabase } from "@/lib/supabaseClient";
 import { setFlashToast } from "@/lib/flashToast";
 import { useAppRefresh } from "@/lib/appRefresh";
+import { SEASON_DESIGN_OFF_EVENT, SEASON_DESIGN_STORAGE_KEY } from "@/lib/seasons/design";
 import { mockUser } from "@/lib/mockData";
 import { getAvailableRankIcons, getBestRankIcon, RankIconOption } from "@/lib/rankTiers";
 import { PhotoVisibility } from "@/lib/mockUsers";
@@ -139,6 +140,10 @@ interface UserContextValue {
   rankIconOptions: RankIconOption[];
   selectedRankIconId: string | null;
   setSelectedRankIconId: (id: string) => void;
+  // Schalter "Saison-Design an/aus" fürs Konto (gilt auf jedem Gerät).
+  // null = noch nicht geladen.
+  seasonDesignOff: boolean | null;
+  setSeasonDesignOff: (off: boolean) => void;
   activeRankIcon: RankIconOption | null;
   hasPremiumPass: boolean;
   buyPremiumPass: () => void;
@@ -260,7 +265,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [hasPremiumPass, setHasPremiumPass] = useState(false);
 
   // Platzhalter für die echte Zahlungsanbindung (z. B. Stripe/RevenueCat) –
-  // schaltet die Premium-Spur des Saison-Passes lokal frei.
+  // "Kostenlos testen" schaltet die Premium-Spur des Saison-Passes frei. Das
+  // bleibt fürs Konto gespeichert (profile_extras.premium_trial), gilt also
+  // auch nach einem Update und auf jedem Gerät.
   function buyPremiumPass() {
     setHasPremiumPass(true);
   }
@@ -415,7 +422,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
         { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${authUserId}` },
         () => {
           window.clearTimeout(timer);
-          timer = window.setTimeout(() => void reloadWalletRef.current(), 300);
+          timer = window.setTimeout(() => {
+            void reloadWalletRef.current();
+            void reloadNameRef.current();
+          }, 300);
         }
       )
       .subscribe();
@@ -424,6 +434,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
       supabase.removeChannel(channel);
     };
   }, [authUserId, profileLoaded]);
+
+  // Name auf einem anderen Gerät geändert: übernehmen (Sofort-Abgleich oben,
+  // sonst beim Zurückkehren in die App).
+  const syncedNameRef = useRef<string | null>(null);
+  const nameWriteRef = useRef(0);
+  async function reloadName() {
+    if (!authUserId || !profileLoaded) return;
+    const userId = authUserId;
+    const writes = nameWriteRef.current;
+    const { data, error } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle();
+    if (error || !data || authUserIdRef.current !== userId || nameWriteRef.current !== writes) return;
+    const name = data.display_name as string;
+    if (!name || name === syncedNameRef.current) return;
+    syncedNameRef.current = name;
+    setDisplayName(name);
+  }
+  const reloadNameRef = useRef(reloadName);
+  reloadNameRef.current = reloadName;
+  useAppRefresh(() => reloadName());
 
   useEffect(() => {
     setProfileLoaded(false);
@@ -447,8 +476,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       if (profile) {
+        syncedNameRef.current = profile.display_name;
         setDisplayName(profile.display_name);
       } else {
+        syncedNameRef.current = displayName;
         await supabase.from("profiles").insert({ id: authUserId, display_name: displayName });
       }
       if (cancelled) return;
@@ -483,8 +514,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // Den Anzeigenamen schreibt der Browser weiterhin selbst zurück – alles
   // andere im Profil (Sterne, Punkte, XP, Serie) ignoriert die Datenbank.
+  // Nur wenn er auf DIESEM Gerät geändert wurde: ein zweites Gerät mit altem
+  // Stand überschreibt so nie einen neueren Namen.
   useEffect(() => {
     if (!isRegistered || !authUserId || !profileLoaded) return;
+    if (displayName === syncedNameRef.current) return;
+    syncedNameRef.current = displayName;
+    nameWriteRef.current++;
     supabase
       .from("profiles")
       .update({ display_name: displayName, updated_at: new Date().toISOString() })
@@ -576,62 +612,197 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Rahmenfarben) in einer eigenen Tabelle "profile_extras", die nur der
   // Besitzer selbst lesen darf (siehe supabase/profil-extras.sql). Fehlt die
   // Tabelle noch, bleibt alles wie bisher nur im Browser.
+  // Gilt auf jedem Gerät: geschrieben werden nur Felder, die auf DIESEM
+  // Gerät geändert wurden (ein zweites Gerät mit altem Stand überschreibt so
+  // nie einen neueren Wert), und Änderungen von anderen Geräten kommen
+  // binnen Sekunden an (supabase/profil-sync.sql). Dazu gehört auch der
+  // Schalter "Saison-Design an/aus".
   const [extrasLoaded, setExtrasLoaded] = useState(false);
+  const [seasonDesignOff, setSeasonDesignOffState] = useState<boolean | null>(null);
+  // Zuletzt mit der Datenbank abgeglichener Wert je Spalte (als JSON).
+  const extrasSyncedRef = useRef<Record<string, string>>({});
+  const extrasWriteRef = useRef(0);
+  // Speicherungen, auf deren Antwort noch gewartet wird.
+  const extrasPendingRef = useRef(0);
+  // Spalten season_design_off und premium_trial gibt es erst nach
+  // supabase/profil-sync.sql.
+  const seasonColumnRef = useRef(false);
+
+  function readLocalSeasonOff() {
+    try {
+      return localStorage.getItem(SEASON_DESIGN_STORAGE_KEY) === "aus";
+    } catch {
+      return false;
+    }
+  }
+  function writeLocalSeasonOff(off: boolean) {
+    if (readLocalSeasonOff() === off) return;
+    try {
+      if (off) localStorage.setItem(SEASON_DESIGN_STORAGE_KEY, "aus");
+      else localStorage.removeItem(SEASON_DESIGN_STORAGE_KEY);
+    } catch {
+      // nicht speicherbar: gilt dann bis zum Neuladen
+    }
+    window.dispatchEvent(new Event(SEASON_DESIGN_OFF_EVENT));
+  }
+  function setSeasonDesignOff(off: boolean) {
+    setSeasonDesignOffState(off);
+  }
+
+  async function reloadExtras() {
+    if (!authUserId) return;
+    const userId = authUserId;
+    const writes = extrasWriteRef.current;
+    const columns = "photos, photo_visibility, rank_icon_id, frame_colors";
+    let hasSeason = true;
+    let res = await supabase
+      .from("profile_extras")
+      .select(`${columns}, season_design_off, premium_trial`)
+      .eq("id", userId)
+      .maybeSingle();
+    if (res.error) {
+      hasSeason = false;
+      res = await supabase.from("profile_extras").select(columns).eq("id", userId).maybeSingle();
+    }
+    if (authUserIdRef.current !== userId) return;
+    if (res.error) {
+      console.warn("Profil-Einstellungen konnten nicht geladen werden:", res.error.message);
+      return;
+    }
+    // Während des Ladens auf diesem Gerät etwas geändert: nicht mit dem
+    // älteren Stand überschreiben (der Sofort-Abgleich lädt gleich neu).
+    if (extrasWriteRef.current !== writes || extrasPendingRef.current > 0) return;
+    seasonColumnRef.current = hasSeason;
+    const data = res.data as {
+      photos?: unknown;
+      photo_visibility?: string | null;
+      rank_icon_id?: string | null;
+      frame_colors?: { from: string; to: string } | null;
+      season_design_off?: boolean | null;
+      premium_trial?: boolean | null;
+    } | null;
+    const synced = extrasSyncedRef.current;
+    if (data) {
+      if (Array.isArray(data.photos)) {
+        const next = data.photos as (string | null)[];
+        synced.photos = JSON.stringify(next);
+        setPhotos((current) => (JSON.stringify(current) === synced.photos ? current : next));
+      }
+      if (data.photo_visibility) {
+        synced.photo_visibility = JSON.stringify(data.photo_visibility);
+        setPhotoVisibility(data.photo_visibility as PhotoVisibility);
+      }
+      if (data.rank_icon_id) {
+        synced.rank_icon_id = JSON.stringify(data.rank_icon_id);
+        setSelectedRankIconId(data.rank_icon_id);
+      }
+      if (data.frame_colors) {
+        const next = data.frame_colors;
+        synced.frame_colors = JSON.stringify(next);
+        setCustomFrameColorsState((current) => (JSON.stringify(current) === synced.frame_colors ? current : next));
+      }
+    }
+    if (hasSeason && data?.premium_trial) {
+      synced.premium_trial = "true";
+      setHasPremiumPass(true);
+    }
+    if (hasSeason) {
+      const off = data?.season_design_off;
+      if (typeof off === "boolean") {
+        synced.season_design_off = JSON.stringify(off);
+        setSeasonDesignOffState(off);
+        writeLocalSeasonOff(off);
+      } else {
+        // Noch nie fürs Konto gespeichert: die Wahl dieses Geräts übernehmen.
+        setSeasonDesignOffState(readLocalSeasonOff());
+      }
+    }
+    setExtrasLoaded(true);
+  }
+
   useEffect(() => {
     setExtrasLoaded(false);
+    setSeasonDesignOffState(null);
+    setHasPremiumPass(false);
+    extrasSyncedRef.current = {};
+    seasonColumnRef.current = false;
     if (!authUserId) return;
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from("profile_extras")
-        .select("photos, photo_visibility, rank_icon_id, frame_colors")
-        .eq("id", authUserId)
-        .maybeSingle();
-      if (cancelled) return;
-      if (error) {
-        console.warn("Profil-Einstellungen konnten nicht geladen werden:", error.message);
-        return;
-      }
-      if (data) {
-        if (Array.isArray(data.photos)) setPhotos(data.photos as (string | null)[]);
-        if (data.photo_visibility) setPhotoVisibility(data.photo_visibility as PhotoVisibility);
-        if (data.rank_icon_id) setSelectedRankIconId(data.rank_icon_id);
-        if (data.frame_colors) setCustomFrameColorsState(data.frame_colors as { from: string; to: string });
-      }
-      setExtrasLoaded(true);
-    })();
+    void reloadExtras();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUserId]);
+
+  // Sofort-Abgleich und beim Zurückkehren in die App.
+  const reloadExtrasRef = useRef(reloadExtras);
+  reloadExtrasRef.current = reloadExtras;
+  useAppRefresh(() => {
+    if (extrasLoaded) return reloadExtras();
+  });
+  useEffect(() => {
+    if (!authUserId) return;
+    let timer: number | undefined;
+    const channel = supabase
+      .channel(`my_extras_live_${authUserId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profile_extras", filter: `id=eq.${authUserId}` },
+        () => {
+          window.clearTimeout(timer);
+          timer = window.setTimeout(() => void reloadExtrasRef.current(), 300);
+        }
+      )
+      .subscribe();
     return () => {
-      cancelled = true;
+      window.clearTimeout(timer);
+      supabase.removeChannel(channel);
     };
   }, [authUserId]);
 
   useEffect(() => {
     if (!authUserId || !extrasLoaded) return;
+    const current: Record<string, unknown> = {
+      photos,
+      photo_visibility: photoVisibility,
+      rank_icon_id: selectedRankIconId,
+      frame_colors: customFrameColors,
+    };
+    if (seasonColumnRef.current && seasonDesignOff !== null) current.season_design_off = seasonDesignOff;
+    // Premium-Test wird nur eingeschaltet, nie von einem alten Gerät aus.
+    if (seasonColumnRef.current && hasPremiumPass) current.premium_trial = true;
+    const synced = extrasSyncedRef.current;
+    const changed: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(current)) {
+      if (synced[key] !== JSON.stringify(value ?? null)) changed[key] = value ?? null;
+    }
+    if (Object.keys(changed).length === 0) return;
+    const previous = { ...synced };
+    for (const [key, value] of Object.entries(changed)) synced[key] = JSON.stringify(value);
+    extrasWriteRef.current++;
+    extrasPendingRef.current++;
     supabase
       .from("profile_extras")
-      .upsert(
-        {
-          id: authUserId,
-          photos,
-          photo_visibility: photoVisibility,
-          rank_icon_id: selectedRankIconId,
-          frame_colors: customFrameColors,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "id" }
-      )
+      .upsert({ id: authUserId, ...changed, updated_at: new Date().toISOString() }, { onConflict: "id" })
       .then(({ error }) => {
-        if (error) console.warn("Profil-Einstellungen konnten nicht gespeichert werden:", error.message);
+        extrasPendingRef.current--;
+        if (!error) return;
+        console.warn("Profil-Einstellungen konnten nicht gespeichert werden:", error.message);
+        // Beim nächsten Ändern nochmal versuchen.
+        for (const key of Object.keys(changed)) {
+          if (previous[key] === undefined) delete synced[key];
+          else synced[key] = previous[key];
+        }
       });
-  }, [authUserId, extrasLoaded, photos, photoVisibility, selectedRankIconId, customFrameColors]);
+  }, [authUserId, extrasLoaded, photos, photoVisibility, selectedRankIconId, customFrameColors, seasonDesignOff, hasPremiumPass]);
 
   // Die Auswahl zusätzlich im öffentlichen Profil speichern, damit auch
   // andere Spieler sie in Rangliste, Chat und auf der Spielerseite sehen
   // (supabase/rang-icon-auswahl.sql). Erst nach dem Laden der gespeicherten
   // Auswahl, sonst würde die Standardauswahl sie überschreiben. Fehlt die
   // Spalte noch, bleibt es still bei der bisherigen Anzeige.
+  const profileRankIconRef = useRef<string | null>(null);
   useEffect(() => {
     if (!authUserId || !extrasLoaded || !profileLoaded || !selectedRankIconId) return;
+    if (profileRankIconRef.current === `${authUserId}:${selectedRankIconId}`) return;
+    profileRankIconRef.current = `${authUserId}:${selectedRankIconId}`;
     supabase
       .from("profiles")
       .update({ rank_icon_id: selectedRankIconId })
@@ -882,6 +1053,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         rankIconOptions,
         selectedRankIconId,
         setSelectedRankIconId,
+        seasonDesignOff,
+        setSeasonDesignOff,
         activeRankIcon,
         hasPremiumPass,
         buyPremiumPass,
