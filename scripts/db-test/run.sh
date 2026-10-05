@@ -29,3 +29,6 @@ after=$(q "select md5(string_agg(id || coalesce(rang_punkte::text, ''), ',' orde
 [ "$(q "select migrated_at is null from public.scoring_settings")" = "t" ] && echo "ok   Ü2 Abbruch: nichts gespeichert" || { echo "FAIL Ü2"; exit 1; }
 q "drop trigger sabotage on public.tips; update public.scoring_settings set migrated_at = now();"
 echo ÜBERNAHME-SCHUTZ GRÜN
+
+# Rankingsystem (neue Auswertung, Strafe, Neustart der Rangpunkte)
+psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/rankingsystem-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'
