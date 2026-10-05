@@ -81,6 +81,22 @@ export const RANKING_POINTS: Record<TipResultTier, number> = {
   falsch: -3,
 };
 
+/** Feste Rangpunkte für die Anzeige auf der Tipp-Karte (ohne Bonus). */
+export function rankingPointsTable(isOneXTwo: boolean): { label: string; net: number }[] {
+  if (isOneXTwo) {
+    return [
+      { label: "Richtig", net: RANKING_POINTS.tendenz },
+      { label: "Falsch", net: RANKING_POINTS.falsch },
+    ];
+  }
+  return [
+    { label: "Exakt", net: RANKING_POINTS.exakt },
+    { label: "Differenz", net: RANKING_POINTS.differenz },
+    { label: "Tendenz", net: RANKING_POINTS.tendenz },
+    { label: "Falsch", net: RANKING_POINTS.falsch },
+  ];
+}
+
 /** Höchster Bonus pro Tipp (plus oder minus), nie mehr als Mittipper. */
 export const RANKING_BONUS_CAP = 10;
 
