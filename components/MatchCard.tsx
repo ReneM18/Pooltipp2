@@ -555,7 +555,7 @@ export default function MatchCard({
               <p className="mt-2 text-center text-xs text-muted">{allowsDraw ? "Erst oben 1, X oder 2 antippen" : "Erst oben 1 oder 2 antippen"}</p>
             )}
             {missingScore && !notEnoughStars && (
-              <p className="mt-2 text-center text-xs text-muted">Erst oben beide Ergebnisse eintragen</p>
+              <p className="mt-2 text-center text-xs text-muted">Erst oben dein exaktes Ergebnis eintragen</p>
             )}
             {isChanging && (
               <button
