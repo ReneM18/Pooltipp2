@@ -47,3 +47,6 @@ psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/feinschliff-test.sq
 
 # "Ändern" nimmt den Tipp zurück (Coins/Joker zurück), Sofort-Abgleich
 psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/tipp-zuruecknehmen-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'
+
+# Einstellungen auf jedem Gerät (Saison-Design-Schalter, Sofort-Abgleich)
+psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/profil-sync-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'

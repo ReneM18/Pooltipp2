@@ -5,8 +5,9 @@
 // über die Datenbank-Funktionen gespeichert – so kann sich niemand im
 // Browser Vereinspunkte geben.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useAppRefresh } from "@/lib/appRefresh";
 import { Sport, SPORTS } from "@/lib/types";
 
 /** Ab so vielen aktiven Fans wird ein Verein in der Tabelle gewertet. */
@@ -122,6 +123,30 @@ export function useMyClubs(authUserId: string | null) {
     setLoading(true);
     load();
   }, [load]);
+
+  // Auf einem anderen Gerät gewählt: sofort übernehmen (supabase/profil-sync.sql),
+  // verpasst das Handy im Hintergrund etwas, beim Zurückkehren in die App.
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  useAppRefresh(() => loadRef.current());
+  useEffect(() => {
+    if (!authUserId) return;
+    let timer: number | undefined;
+    const reload = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void loadRef.current(), 300);
+    };
+    // Eigener Kanal je Hook (die Seite kann ihn mehrfach nutzen).
+    const channel = supabase
+      .channel(`my_clubs_live_${authUserId}_${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "club_fans", filter: `user_id=eq.${authUserId}` }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "club_settings", filter: `user_id=eq.${authUserId}` }, reload)
+      .subscribe();
+    return () => {
+      window.clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [authUserId]);
 
   /** Gibt bei Erfolg null zurück, sonst die (deutsche) Fehlermeldung. */
   async function chooseClub(sport: Sport, teamId: string | null): Promise<string | null> {

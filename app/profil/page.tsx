@@ -83,6 +83,10 @@ function ProfilInhalt() {
   const { matches, getTeam, myTips } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [nameInput, setNameInput] = useState(displayName);
+  // Name auf einem anderen Gerät geändert: Eingabefeld mitziehen.
+  useEffect(() => {
+    setNameInput(displayName);
+  }, [displayName]);
   const [saved, setSaved] = useState(false);
   const [profileTab, setProfileTab] = useState<"Übersicht" | "Rang">("Übersicht");
 

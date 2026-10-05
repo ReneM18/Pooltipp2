@@ -5,6 +5,7 @@ import { CURRENT_SEASON } from "@/lib/seasons";
 import { useUser } from "@/lib/UserContext";
 import { xpForLevel } from "@/lib/seasonPass";
 import {
+  SEASON_DESIGN_OFF_EVENT,
   SEASON_DESIGN_STORAGE_KEY,
   SEASON_DESIGN_UNLOCK_KEY,
   seasonDesignVars,
@@ -14,7 +15,7 @@ import {
 // und der Schalter "Saison-Design an/aus" im Profil. Wie das Design selbst
 // funktioniert, steht in lib/seasons/design.ts.
 
-const OFF_EVENT = "pooltipp-saison-design-geaendert";
+const OFF_EVENT = SEASON_DESIGN_OFF_EVENT;
 
 /** Setzt oder entfernt die Saison-Farben an <html>. */
 export function applySeasonDesign(on: boolean) {
@@ -67,6 +68,7 @@ export function useSeasonDesignUnlock(): "unknown" | "locked" | "unlocked" {
 /** Für den Schalter im Profil. */
 export function useSeasonDesign() {
   const design = CURRENT_SEASON.design;
+  const { setSeasonDesignOff } = useUser();
   const unlock = useSeasonDesignUnlock();
   const [off, setOff] = useState(false);
   useEffect(() => {
@@ -86,6 +88,8 @@ export function useSeasonDesign() {
     }
     applySeasonDesign(on && unlock === "unlocked");
     window.dispatchEvent(new Event(OFF_EVENT));
+    // Fürs Konto speichern: gilt dann auch auf den anderen Geräten.
+    setSeasonDesignOff(!on);
   }
 
   return {
