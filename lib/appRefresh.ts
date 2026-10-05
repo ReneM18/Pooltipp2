@@ -49,6 +49,15 @@ function trigger(reason: RefreshReason) {
   });
 }
 
+/**
+ * Sofort alles neu laden (Runterwischen, components/PullToRefresh.tsx) –
+ * ohne Mindestabstand. Wartet, bis alle Bereiche fertig sind.
+ */
+export async function refreshNow() {
+  lastRun = Date.now();
+  await Promise.allSettled(Array.from(listeners, (listener) => Promise.resolve().then(() => listener.run("resume"))));
+}
+
 function install() {
   if (installed || typeof window === "undefined") return;
   installed = true;
