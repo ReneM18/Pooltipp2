@@ -131,7 +131,6 @@ export default function MatchCard({
   const [withdrawing, setWithdrawing] = useState(false);
   // Nach "Tipp abgeben"/"Ändern" bleibt die Karte im Blick, siehe keepCardInView.
   const cardRef = useRef<HTMLDivElement>(null);
-  const tipRowRef = useRef<HTMLDivElement>(null);
   const keepInViewRef = useRef(false);
   const hasTippedRef = useRef(false);
   // Startet mit "false" statt sofort mit Date.now() zu vergleichen – Server
@@ -221,27 +220,44 @@ export default function MatchCard({
   // Am Handy springt die Seite nach "Tipp abgeben" sonst weg: die Karte wird
   // kleiner/größer, und schließt sich gleichzeitig die Tastatur, verschiebt
   // iOS die Seite. Darum nach dem Umschalten (auch nach "Ändern") prüfen, ob
-  // "Dein Tipp" bzw. die Karte noch gut zu sehen ist, und sie sonst in die
-  // Mitte holen – mehrmals, bis die Tastatur sicher zu ist.
+  // die GANZE Karte (Wettbewerb, Flaggen, Teams und "Dein Tipp") unter der
+  // angehefteten Kopfzeile zu sehen ist, und sie sonst dorthin holen –
+  // mehrmals, bis die Tastatur sicher zu ist und die Höhe feststeht.
   useEffect(() => {
     if (!keepInViewRef.current) return;
     keepInViewRef.current = false;
-    const timers = [60, 400, 800].map((delay) => window.setTimeout(() => keepCardInView(hasTipped), delay));
-    return () => timers.forEach((t) => window.clearTimeout(t));
+    let frame = 0;
+    const run = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(keepCardInView);
+    };
+    const timers = [0, 350, 700, 1100].map((delay) => window.setTimeout(run, delay));
+    // Tastatur geht zu (iOS): sichtbarer Bereich wird größer.
+    const viewport = window.visualViewport;
+    viewport?.addEventListener("resize", run);
+    const stop = window.setTimeout(() => viewport?.removeEventListener("resize", run), 1500);
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t));
+      window.clearTimeout(stop);
+      cancelAnimationFrame(frame);
+      viewport?.removeEventListener("resize", run);
+    };
   }, [hasTipped]);
 
-  function keepCardInView(tipped: boolean) {
-    const target = (tipped && tipRowRef.current) || cardRef.current;
-    if (!target) return;
-    const viewHeight = window.visualViewport?.height ?? window.innerHeight;
-    const rect = target.getBoundingClientRect();
-    // Gut zu sehen = komplett im mittleren Bereich des Bildschirms.
-    if (rect.top >= viewHeight * 0.12 && rect.bottom <= viewHeight * 0.88) return;
-    const delta =
-      rect.height > viewHeight * 0.9
-        ? rect.top - viewHeight * 0.05
-        : rect.top + rect.height / 2 - viewHeight / 2;
-    window.scrollBy({ top: delta, behavior: "smooth" });
+  function keepCardInView() {
+    const card = cardRef.current;
+    if (!card) return;
+    // Unterkante der angehefteten Kopfzeile (Logo + Reiter, components/AppChrome.tsx).
+    const header = document.querySelector("[data-pull-anchor]");
+    const top = Math.max(0, header?.getBoundingClientRect().bottom ?? 0) + 8;
+    const bottom = (window.visualViewport?.height ?? window.innerHeight) - 8;
+    const rect = card.getBoundingClientRect();
+    if (rect.top >= top - 1 && rect.bottom <= bottom + 1) return;
+    // Passt die Karte ganz hinein: mittig darunter. Sonst Kartenanfang
+    // (Wettbewerb, Flaggen, Teams) knapp unter die Kopfzeile.
+    const space = bottom - top;
+    const targetTop = rect.height <= space ? top + (space - rect.height) / 2 : top;
+    window.scrollBy({ top: rect.top - targetTop, behavior: "smooth" });
   }
 
   // Tastatur zu, bevor das Eingabefeld verschwindet (iOS springt sonst).
@@ -608,7 +624,6 @@ export default function MatchCard({
           <div className="flex flex-col gap-3">
             {hasTipped && (
               <div
-                ref={tipRowRef}
                 className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-pitch px-4 py-2.5"
               >
                 <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-muted">
