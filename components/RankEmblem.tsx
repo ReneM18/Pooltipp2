@@ -6,7 +6,9 @@ import { Sport } from "@/lib/types";
 // Rang-Abzeichen: jeder Hauptrang hat eine eigene Form (nicht nur eine
 // Farbe), damit man ihn auch klein auf einen Blick erkennt. Die Unterstufe
 // zeigen 1–3 Winkel (III = 1, II = 2, I = 3 – mehr Winkel = höher), die
-// Sportart steht als kleiner Punkt unten rechts.
+// Sportart steht als kleiner Punkt unten rechts. Klein am Profilbild ist
+// dafür kein Platz: dort steht das Sportsymbol IM Abzeichen statt der
+// Winkel, damit man die gewählte Sportart trotzdem erkennt.
 
 const STAR =
   "M20 1 L24.2 9.9 L33.4 6.6 L30.1 15.8 L39 20 L30.1 24.2 L33.4 33.4 L24.2 30.1 L20 39 L15.8 30.1 L6.6 33.4 L9.9 24.2 L1 20 L9.9 15.8 L6.6 6.6 L15.8 9.9 Z";
@@ -64,9 +66,11 @@ export default function RankEmblem({
   const shape = elite || !rank || rank === "GOAT" ? STAR : SHAPES[rank];
   const c = !elite && rank ? RANK_COLORS[rank] : colors;
   // Sportart-Punkt erst ab mittlerer Größe – am Profilbild in der Kopfzeile
-  // wäre er nur ein unlesbarer Fleck. Der GOAT trägt sein Sportsymbol schon
-  // als Plakette im Abzeichen.
-  const showSport = !elite && !unsterblich && !isGoat && sport && size >= 24;
+  // wäre er nur ein unlesbarer Fleck, dort steht das Symbol stattdessen
+  // mittig im Abzeichen. Der GOAT trägt sein Sportsymbol schon als Plakette.
+  const hasSport = !elite && !unsterblich && !isGoat && !!sport;
+  const showSport = hasSport && size >= 24;
+  const sportInside = hasSport && size < 24;
   const sportSize = Math.max(11, Math.round(size * 0.42));
 
   return (
@@ -97,6 +101,10 @@ export default function RankEmblem({
             <text x="20" y="25.5" textAnchor="middle" fontSize="15">
               {eliteIcon}
             </text>
+          ) : sportInside ? (
+            <text x="20" y="27.5" textAnchor="middle" fontSize="21">
+              {SPORT_EMOJI[sport]}
+            </text>
           ) : (
             sub &&
             chevrons(SUB_COUNT[sub]).map((d, i) => (
@@ -113,7 +121,7 @@ export default function RankEmblem({
           )}
         </svg>
       )}
-      {showSport && (
+      {showSport && sport && (
         <span
           className="absolute flex items-center justify-center rounded-full border border-edge bg-pitch leading-none"
           style={{

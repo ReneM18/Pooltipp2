@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import FitText from "@/components/FitText";
 import { SPORTS, Sport } from "@/lib/types";
-import { getIconForPoints, getSportRankIcon, RankIconOption } from "@/lib/rankTiers";
+import { getChosenIconForPoints, getSportRankIcon, RankIconOption } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
 import ClubLeaderboard from "@/components/ClubLeaderboard";
 import { useUser } from "@/lib/UserContext";
@@ -38,7 +38,7 @@ interface RowEntry {
 
 export default function RanglistePage() {
   const [tab, setTab] = useState<ViewTab>("Gesamt");
-  const { rangPunkte, displayName, authUserId, profileLoaded } = useUser();
+  const { rangPunkte, displayName, authUserId, profileLoaded, selectedRankIconId } = useUser();
   const { myTips } = useAppData();
 
   // Spieltags-Rangliste: nur die Rangpunkte-Änderung aus dieser Kalenderwoche
@@ -61,10 +61,11 @@ export default function RanglistePage() {
       name: displayName,
       pointsBySport: { ...rangPunkte },
       total: sumPoints(rangPunkte),
+      rankIconId: selectedRankIconId,
     };
     const others = players.filter((p) => p.id !== authUserId);
     return [...others, me];
-  }, [players, authUserId, profileLoaded, displayName, rangPunkte]);
+  }, [players, authUserId, profileLoaded, displayName, rangPunkte, selectedRankIconId]);
 
   const ranked: RowEntry[] = useMemo(() => {
     let rows: Omit<RowEntry, "rank">[];
@@ -75,7 +76,7 @@ export default function RanglistePage() {
           id: p.id,
           name: p.name,
           points: p.id === authUserId ? sumWeeklyRangDelta(myTips, weekWindow) : weeklyByUser.get(p.id) ?? 0,
-          icon: getIconForPoints(p.pointsBySport, `-${p.id}`),
+          icon: getChosenIconForPoints(p.pointsBySport, p.rankIconId, `-${p.id}`),
           isCurrentUser: p.id === authUserId,
         }));
     } else if (tab === "Gesamt") {
@@ -83,7 +84,7 @@ export default function RanglistePage() {
         id: p.id,
         name: p.name,
         points: p.total,
-        icon: getIconForPoints(p.pointsBySport, `-${p.id}`),
+        icon: getChosenIconForPoints(p.pointsBySport, p.rankIconId, `-${p.id}`),
         isCurrentUser: p.id === authUserId,
       }));
     } else if (tab === "Vereine") {

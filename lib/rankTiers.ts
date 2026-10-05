@@ -257,3 +257,20 @@ export function getIconForPoints(
   if (bestIcon.rank !== "GOAT" && isElite(pointsBySport)) return eliteIcon(idSuffix);
   return bestIcon;
 }
+
+/**
+ * Rang-Icon eines Spielers mit SEINER Auswahl aus dem Profil ("Dein
+ * Rang-Icon"). Ist die gewählte Auswahl (noch) nicht freigeschaltet oder
+ * fehlt sie, gilt wie bisher automatisch das stärkste Icon.
+ */
+export function getChosenIconForPoints(
+  pointsBySport: Partial<Record<Sport, number>>,
+  chosenId: string | null | undefined,
+  idSuffix = ""
+): RankIconOption | null {
+  if (chosenId) {
+    const chosen = getAvailableRankIcons(pointsBySport).find((o) => o.id === chosenId);
+    if (chosen) return { ...chosen, id: `${chosen.id}${idSuffix}` };
+  }
+  return getIconForPoints(pointsBySport, idSuffix);
+}
