@@ -37,7 +37,7 @@ const DuelsContext = createContext<DuelsContextValue | null>(null);
 // Fehlermeldung der Datenbank in einen einfachen Satz übersetzen.
 function duelErrorMessage(error: { message?: string }, fallback: string) {
   const message = error.message ?? "";
-  if (/Nicht genug Sterne/.test(message)) return "Nicht genug Sterne (oder Tages-Limit erreicht) für diesen Einsatz.";
+  if (/Nicht genug Sterne/.test(message)) return "Nicht genug Coins (oder Tages-Limit erreicht) für diesen Einsatz.";
   if (/Tippschluss/.test(message)) return "Tippschluss für dieses Spiel ist schon vorbei.";
   return fallback;
 }
@@ -196,9 +196,9 @@ export function DuelsProvider({ children }: { children: ReactNode }) {
       ...current,
     ]);
 
-    addActivity("⚔️", `Du hast ${opponentProfile.display_name} zum Duell herausgefordert (${actualStake} Sterne).`, {
+    addActivity("⚔️", `Du hast ${opponentProfile.display_name} zum Duell herausgefordert (${actualStake} Coins).`, {
       author: displayName,
-      text: `${displayName} hat ${opponentProfile.display_name} zum Duell herausgefordert (${actualStake} Sterne).`,
+      text: `${displayName} hat ${opponentProfile.display_name} zum Duell herausgefordert (${actualStake} Coins).`,
     });
     return { ok: true };
   }
@@ -221,9 +221,9 @@ export function DuelsProvider({ children }: { children: ReactNode }) {
     }
 
     setDuels((current) => current.map((d) => (d.id === duelId ? { ...d, status: "offen" } : d)));
-    addActivity("⚔️", `Du hast die Herausforderung von ${duel.challengerName} angenommen (${duel.stake} Sterne).`, {
+    addActivity("⚔️", `Du hast die Herausforderung von ${duel.challengerName} angenommen (${duel.stake} Coins).`, {
       author: displayName,
-      text: `${displayName} hat die Herausforderung von ${duel.challengerName} angenommen (${duel.stake} Sterne).`,
+      text: `${displayName} hat die Herausforderung von ${duel.challengerName} angenommen (${duel.stake} Coins).`,
     });
     return { ok: true };
   }

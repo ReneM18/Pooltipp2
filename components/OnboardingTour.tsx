@@ -9,12 +9,12 @@ const SLIDES = [
   {
     icon: "⚽",
     title: "Willkommen bei PoolTipp!",
-    text: "Tippe kostenlos auf echte Spiele aus Fußball, Football, Basketball, Eishockey und Handball – mit Gratis-Sternen, kein Echtgeld nötig.",
+    text: "Tippe kostenlos auf echte Spiele aus Fußball, Football, Basketball, Eishockey und Handball – mit Gratis-Coins, kein Echtgeld nötig.",
   },
   {
-    icon: "⭐",
-    title: "So funktionieren Sterne",
-    text: "Alle Tipps sind gratis und bringen Rangpunkte für die Rangliste. Bei den Booster-Spielen des Tages setzt du 20 Gratis-Sterne ein: exakt +40, Tordifferenz +10, Tendenz ±0, falsch −10. Mit Sternen holst du dir Joker im Shop.",
+    icon: "🪙",
+    title: "So funktionieren Coins",
+    text: "Alle Tipps sind gratis und bringen Rangpunkte für die Rangliste. Bei den Booster-Spielen des Tages setzt du 20 Gratis-Coins ein: exakt +40, Tordifferenz +10, Tendenz ±0, falsch −10. Mit Coins holst du dir Joker im Shop.",
   },
   {
     icon: "👑",

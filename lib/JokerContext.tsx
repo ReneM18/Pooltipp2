@@ -66,7 +66,7 @@ const JokerContext = createContext<JokerContextValue | null>(null);
 // Fehlertext der Datenbank in einen kurzen Satz für den Hinweis übersetzen.
 function errorText(message: string | undefined): string {
   if (!message) return "Hat nicht geklappt – bitte nochmal versuchen.";
-  if (message.includes("Nicht genug Sterne")) return "Nicht genug Sterne.";
+  if (message.includes("Nicht genug Sterne")) return "Nicht genug Coins.";
   const known = [
     "Der Joker-Shop ist noch gesperrt.",
     "Kein Joker dieser Art im Vorrat",

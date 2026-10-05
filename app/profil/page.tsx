@@ -24,6 +24,7 @@ import { xpForLevel } from "@/lib/seasonPass";
 import { useSeasonDesign } from "@/lib/seasonDesign";
 import { matchTitle, oneXTwoText, scoreText } from "@/lib/teamOrder";
 import { getCurrentWeekWindow, sumWeeklyRangDelta } from "@/lib/weeklyLeaderboard";
+import { CoinIcon } from "@/components/CoinIcon";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -457,7 +458,7 @@ function ProfilInhalt() {
       <section className="mb-8">
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Statistik</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <StatCard label="Gratis-Sterne" value={freeStars.toLocaleString("de-DE")} accent="gold" />
+          <StatCard label="Coins" value={freeStars.toLocaleString("de-DE")} accent="gold" />
           <StatCard label="Pass-XP" value={passXP.toLocaleString("de-DE")} accent="action" />
           <StatCard label="Abgegebene Tipps" value={tipsSubmitted.toLocaleString("de-DE")} accent="ink" />
           <StatCard label="Tipp-Streak" value={`🔥 ${streakCount.toLocaleString("de-DE")}`} accent="gold" />
@@ -674,7 +675,7 @@ function ProfilInhalt() {
                     · {new Date(tip.submittedAt).toLocaleString("de-DE")}
                   </p>
                 </div>
-                <span className="font-display font-semibold text-gold">⭐ {tip.stake}</span>
+                <span className="flex items-center gap-1 font-display font-semibold text-gold"><CoinIcon className="h-4 w-4" />{tip.stake}</span>
               </div>
             );
           })}

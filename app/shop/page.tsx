@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { CoinIcon } from "@/components/CoinIcon";
 import { mockShopItems, ShopItem } from "@/lib/mockShopItems";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
@@ -39,19 +40,19 @@ export default function ShopPage() {
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <div className="mb-4">
         <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Prämien-Shop</h1>
-        <p className="mt-0.5 text-xs text-muted">Sterne gegen Joker für deine Tipps – kein Echtgeld nötig.</p>
+        <p className="mt-0.5 text-xs text-muted">Coins gegen Joker für deine Tipps – kein Echtgeld nötig.</p>
       </div>
 
       {!ready || (!shopOpen && !isAdmin) ? (
         <div className="mb-4 rounded-card border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-ink">
           <span className="font-semibold text-gold">Bald verfügbar:</span> So sieht der Shop aus. Kaufen ist noch
-          gesperrt, es werden keine Sterne abgebucht.
+          gesperrt, es werden keine Coins abgebucht.
         </div>
       ) : (
         !shopOpen && (
           <div className="mb-4 rounded-card border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-ink">
             <span className="font-semibold text-gold">Nur für dich als Admin:</span> Für alle Spieler ist Kaufen noch
-            gesperrt. Du kannst schon testen, das kostet deine echten Sterne. Freigeben kannst du den Shop im{" "}
+            gesperrt. Du kannst schon testen, das kostet deine echten Coins. Freigeben kannst du den Shop im{" "}
             <Link href="/admin" className="font-semibold text-gold underline-offset-2 hover:underline">
               Admin-Bereich
             </Link>
@@ -115,7 +116,7 @@ function ShopItemCard({
     : buying
       ? "Wird gekauft…"
       : !canAfford
-        ? "Zu wenig Sterne"
+        ? "Zu wenig Coins"
         : confirming
           ? "Jetzt kaufen"
           : "Kaufen";
@@ -135,7 +136,7 @@ function ShopItemCard({
       </div>
 
       <div className="mt-4 flex items-center justify-between gap-2">
-        <span className="font-display font-semibold text-gold">⭐ {item.cost.toLocaleString("de-DE")}</span>
+        <span className="flex items-center gap-1.5 font-display font-semibold text-gold"><CoinIcon className="h-5 w-5" />{item.cost.toLocaleString("de-DE")}</span>
         <div className="flex items-center gap-2">
           {confirming && !buying && (
             <button onClick={onCancel} className="text-sm font-semibold text-muted transition-colors hover:text-ink">

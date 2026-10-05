@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { coinText } from "@/lib/coinText";
 import { Match, MatchJersey, NEWS_SPORT_ICONS, NewsSport, Sport, SPORT_ICONS, Team, TipMode } from "./types";
 import {
   Competition,
@@ -76,7 +77,7 @@ export function tipFromRow(row: Record<string, unknown>): SubmittedTip {
     rangCalculated: (row.rang_delta as number | null) ?? undefined,
     starsDelta: (row.stars_delta as number | null) ?? undefined,
     beatPercent: (row.beat_percent as number | null) ?? undefined,
-    narration: (row.narration as string | null) ?? undefined,
+    narration: row.narration ? coinText(row.narration as string) : undefined,
     basePoints: (row.base_points as number | null) ?? undefined,
     duelPoints: (row.duel_points as number | null) ?? undefined,
     duelsWon: (row.duels_won as number | null) ?? undefined,
@@ -328,7 +329,7 @@ interface ActivityRow {
 // Datenbank in dritter Person ("Rene hat …") und werden für einen selbst
 // wieder zu "Du hast …".
 function activityRowToItem(row: ActivityRow, me: string | null): ActivityItem | null {
-  let text = row.text;
+  let text = coinText(row.text);
   if (row.user_id && row.user_id === me) {
     const prefix = row.author_name ? `${row.author_name} hat ` : null;
     if (prefix && text.startsWith(prefix)) text = `Du hast ${text.slice(prefix.length)}`;

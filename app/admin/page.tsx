@@ -139,7 +139,7 @@ function ShopSwitch() {
           {!ready
             ? "Noch nicht eingerichtet: zuerst supabase/joker-shop.sql ausführen."
             : shopOpen
-              ? "Freigegeben: alle Spieler können Joker mit Sternen kaufen."
+              ? "Freigegeben: alle Spieler können Joker mit Coins kaufen."
               : confirming
                 ? "Wirklich freigeben? Danach können alle Spieler Joker kaufen."
                 : "Gesperrt: nur du kannst schon testen, alle anderen sehen \u201eBald verfügbar\u201c."}
@@ -2209,7 +2209,7 @@ function BonusQuestionEditor({
               min={1}
               value={bonusStars}
               onChange={(e) => setBonusStars(e.target.value)}
-              title="Sterne-Bonus bei richtiger Antwort"
+              title="Coin-Bonus bei richtiger Antwort"
               className="w-20 rounded-lg border border-edge bg-surface px-2 py-1.5 text-xs text-ink outline-none focus:border-gold"
             />
           </div>
@@ -2360,7 +2360,7 @@ function LiveScoreEditor({
         onClick={handleFinish}
         title={
           alreadyFinished
-            ? "Endstand erneut übernehmen korrigiert die bereits vergebenen Rangpunkte/Sterne."
+            ? "Endstand erneut übernehmen korrigiert die bereits vergebenen Rangpunkte/Coins."
             : undefined
         }
         className="min-w-[9rem] rounded-lg bg-action px-3 py-2.5 text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
@@ -2716,7 +2716,7 @@ function BoosterCheckbox({
         <span className="block text-xs text-muted">
           {full
             ? `An diesem Tag gibt es schon ${BOOSTERS_PER_DAY} Booster.`
-            : `${BOOSTER_STAKE} Sterne Einsatz, ohne Haken gratis. Schon ${taken} von ${BOOSTERS_PER_DAY} an diesem Tag.`}
+            : `${BOOSTER_STAKE} Coins Einsatz, ohne Haken gratis. Schon ${taken} von ${BOOSTERS_PER_DAY} an diesem Tag.`}
         </span>
       </span>
     </label>
@@ -2743,7 +2743,7 @@ function BoosterToggleButton({
     }
     const text = on
       ? "Booster ausschalten? Neue Tipps sind dann gratis."
-      : `Zum Booster machen? Neue Tipps kosten dann ${BOOSTER_STAKE} Sterne Einsatz.`;
+      : `Zum Booster machen? Neue Tipps kosten dann ${BOOSTER_STAKE} Coins Einsatz.`;
     if (!confirm(`${text}\n\nWer schon getippt hat, behält seinen bisherigen Einsatz.`)) return;
     onToggle(match.id, !on);
     showToast(on ? "✓ Booster ausgeschaltet." : "✓ Booster eingeschaltet.", "success");
