@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, ReactNode, useMemo, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { setFlashToast } from "@/lib/flashToast";
+import { useAppRefresh } from "@/lib/appRefresh";
 import { mockUser } from "@/lib/mockData";
 import { getAvailableRankIcons, getBestRankIcon, RankIconOption } from "@/lib/rankTiers";
 import { PhotoVisibility } from "@/lib/mockUsers";
@@ -356,13 +357,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setFreeStars(wallet.free_stars);
     setStakeBudgetRemainingToday(wallet.stake_budget_remaining ?? DAILY_STAKE_BUDGET);
     // Fehlt eine Sportart, steht dort 0.
-    setRangPunkte({
+    const nextPoints = {
       ...(Object.fromEntries(SPORTS.map((s) => [s, 0])) as Record<Sport, number>),
       ...((wallet.rang_punkte as Partial<Record<Sport, number>> | null) ?? {}),
-    });
+    };
+    // Unveränderte Werte behalten (das Aktualisieren läuft jede Minute).
+    setRangPunkte((current) => (JSON.stringify(current) === JSON.stringify(nextPoints) ? current : nextPoints));
     setPassXP(wallet.pass_xp ?? 0);
     setStreakCount(wallet.streak_count ?? 0);
-    setPassClaims(splitClaimedMilestones(wallet.claimed_milestones).pass);
+    const nextClaims = splitClaimedMilestones(wallet.claimed_milestones).pass;
+    setPassClaims((current) => (JSON.stringify(current) === JSON.stringify(nextClaims) ? current : nextClaims));
     setLastClaimedAt(wallet.last_claimed_at ?? null);
   }
 
@@ -386,6 +390,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // anlegen, falls die Zeile fehlt – z. B. bei sehr alten Konten). Die
   // Datenbank setzt dabei selbst die Startwerte (100 Sterne, 0 Punkte).
   const [profileLoaded, setProfileLoaded] = useState(false);
+  // Coins, Rangpunkte und XP ändern sich auch durch andere Geräte und die
+  // Auswertung: beim Zurückkehren in die App und jede Minute neu holen
+  // (siehe lib/appRefresh.ts). Erst nach dem ersten Laden des Profils.
+  useAppRefresh(
+    () => {
+      if (profileLoaded) return reloadWallet();
+    },
+    { interval: true }
+  );
+
   useEffect(() => {
     setProfileLoaded(false);
     setPassClaims([]);
@@ -732,6 +746,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUserId]);
+
+  // Realtime kann im Hintergrund (Handy gesperrt) Meldungen verpassen.
+  useAppRefresh(() => {
+    if (authUserId) return refreshFriends();
+  });
 
   const friends = useMemo(
     () => friendEntries.filter((f) => f.relation === "friend").map((f) => f.name),

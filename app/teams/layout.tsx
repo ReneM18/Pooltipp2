@@ -10,7 +10,7 @@ export default function TeamsLayout({ children }: { children: React.ReactNode })
           andere App, weil sie komplett verschwand. Die blaue Unterzeile
           darunter kennzeichnet weiterhin optisch, dass man in einem
           eigenen Unterbereich ist. */}
-      <div className="sticky top-0 z-20">
+      <div className="sticky top-0 z-20" data-pull-anchor>
         <Navbar />
         <header className="border-b border-blue-400/20 bg-gradient-to-r from-[#0b1220] to-[#0d1512]">
           <div className="mx-auto flex max-w-3xl lg:max-w-6xl items-center justify-between px-5 py-3">

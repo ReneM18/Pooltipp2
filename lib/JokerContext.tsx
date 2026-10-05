@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
+import { useAppRefresh } from "@/lib/appRefresh";
 import { supabase } from "@/lib/supabaseClient";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
@@ -115,6 +116,9 @@ export function JokerProvider({ children }: { children: ReactNode }) {
     void reloadJokers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUserId]);
+
+  // Joker-Bestand kann sich auf einem anderen Gerät geändert haben.
+  useAppRefresh(() => reloadJokers());
 
   async function buyJoker(joker: ShopJoker): Promise<string | null> {
     const { data, error } = await supabase.rpc("buy_joker", { p_joker: joker });

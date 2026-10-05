@@ -9,6 +9,7 @@ import OnboardingTour from "./OnboardingTour";
 import Footer from "./Footer";
 import SeasonDesignGate from "./SeasonDesignGate";
 import { SeasonBackdrop } from "./SeasonDeco";
+import PullToRefresh from "./PullToRefresh";
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -19,6 +20,7 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
     return (
       <>
         <SeasonDesignGate showNotice={false} />
+        <PullToRefresh />
         {children}
       </>
     );
@@ -34,7 +36,7 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
           GPU-Ebene – ohne das neigt position:sticky in Kombination mit dem
           seitlichen Wischen der Menüleiste direkt darunter auf dem Handy
           (v. a. iOS Safari) zu sichtbarem vertikalen Ruckeln/"Schwimmen". */}
-      <div className="sticky top-0 z-20 [transform:translateZ(0)]">
+      <div className="sticky top-0 z-20 [transform:translateZ(0)]" data-pull-anchor>
         <Navbar />
         <NewsTicker />
         <NavTabs />
@@ -50,6 +52,7 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
       </div>
       <ChatWidget />
       <OnboardingTour />
+      <PullToRefresh />
     </>
   );
 }

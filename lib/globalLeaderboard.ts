@@ -5,8 +5,9 @@
 // supabase/social-features.sql) und für die Spieltags-Ansicht die in dieser
 // Woche ausgewerteten Tipps aller Spieler. Ersetzt die früheren Mock-Daten.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useResumeTick } from "@/lib/appRefresh";
 import { Sport, SPORTS } from "@/lib/types";
 import { WeekWindow } from "@/lib/weeklyLeaderboard";
 
@@ -69,10 +70,16 @@ export function useGlobalLeaderboard(weekWindow: WeekWindow) {
   const [attempt, setAttempt] = useState(0);
   const weekStart = weekWindow.start.toISOString();
   const weekEnd = weekWindow.end.toISOString();
+  // Beim Zurückkehren in die App still im Hintergrund neu laden: ohne
+  // Lade-Anzeige, und ein Fehler dabei lässt die angezeigte Liste stehen.
+  const resumeTick = useResumeTick();
+  const shownKeyRef = useRef("");
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    const key = `${weekStart}|${weekEnd}|${attempt}`;
+    const silent = shownKeyRef.current === key;
+    if (!silent) setLoading(true);
     (async () => {
       const [profilesResult, tipsRes] = await Promise.all([
         loadProfiles(() => cancelled),
@@ -82,6 +89,7 @@ export function useGlobalLeaderboard(weekWindow: WeekWindow) {
 
       if ("error" in profilesResult) {
         console.warn("Rangliste konnte nicht geladen werden:", profilesResult.error);
+        if (silent) return;
         setError(profilesResult.error);
         setPlayers([]);
         setLoading(false);
@@ -115,11 +123,12 @@ export function useGlobalLeaderboard(weekWindow: WeekWindow) {
       }
       setWeeklyByUser(weekly);
       setLoading(false);
+      shownKeyRef.current = key;
     })();
     return () => {
       cancelled = true;
     };
-  }, [weekStart, weekEnd, attempt]);
+  }, [weekStart, weekEnd, attempt, resumeTick]);
 
   return {
     players,

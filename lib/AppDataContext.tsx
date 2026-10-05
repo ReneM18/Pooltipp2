@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useMemo, useRef, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { coinText } from "@/lib/coinText";
+import { useAppRefresh } from "./appRefresh";
 import { Match, MatchJersey, NEWS_SPORT_ICONS, NewsSport, Sport, SPORT_ICONS, Team, TipMode } from "./types";
 import {
   Competition,
@@ -442,6 +443,12 @@ interface AppDataContextValue {
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
+// Beim Aktualisieren nur dann neu zeichnen, wenn sich wirklich etwas geändert
+// hat – sonst würde jede Minute die ganze App neu rendern.
+function sameJson(a: unknown, b: unknown) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const [teams, setTeams] = useState<Team[]>(initialTeams);
   const [matches, setMatches] = useState<Match[]>(initialMatches);
@@ -571,6 +578,56 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Aktualisieren im laufenden Betrieb (siehe lib/appRefresh.ts): holt
+  // Teams/Spiele/News/Wettbewerbe neu, damit z. B. ein Endstand oder ein neues
+  // Spiel auch ohne Neustart der App erscheint. Was so ankommt, wird nicht
+  // wieder zurückgeschrieben (remoteContentRef). Hat der Admin gerade selbst
+  // etwas geändert, bleibt sein Stand stehen, bis die Datenbank ihn hat.
+  const remoteContentRef = useRef<{ teams: Team[] | null; matches: Match[] | null; news: NewsItem[] | null }>({
+    teams: null,
+    matches: null,
+    news: null,
+  });
+  const adminWriteAtRef = useRef(0);
+  async function refreshContent() {
+    if (!loadedFromDb.matches) return;
+    const startedAt = Date.now();
+    if (startedAt - adminWriteAtRef.current < 10_000) return;
+    const [teamsRes, matchesRes, newsRes] = await Promise.all([
+      supabase.from("teams").select("id, data"),
+      supabase.from("matches").select("data"),
+      supabase.from("news").select("data"),
+    ]);
+    if (adminWriteAtRef.current >= startedAt) return;
+    if (loadedFromDb.teams && !teamsRes.error && teamsRes.data) {
+      const compRow = teamsRes.data.find((row) => row.id === COMPETITIONS_ROW_ID);
+      const nextTeams = teamsRes.data.filter((row) => row.id !== COMPETITIONS_ROW_ID).map((row) => row.data as Team);
+      setTeams((current) => {
+        if (sameJson(current, nextTeams)) return current;
+        remoteContentRef.current.teams = nextTeams;
+        return nextTeams;
+      });
+      const savedList = (compRow?.data as CompetitionsRow | undefined)?.list;
+      if (Array.isArray(savedList)) setCompetitions((current) => (sameJson(current, savedList) ? current : savedList));
+    }
+    if (!matchesRes.error && matchesRes.data) {
+      const nextMatches = matchesRes.data.map((row) => row.data as Match);
+      setMatches((current) => {
+        if (sameJson(current, nextMatches)) return current;
+        remoteContentRef.current.matches = nextMatches;
+        return nextMatches;
+      });
+    }
+    if (loadedFromDb.news && !newsRes.error && newsRes.data) {
+      const nextNews = newsRes.data.map((row) => row.data as NewsItem);
+      setNewsItems((current) => {
+        if (sameJson(current, nextNews)) return current;
+        remoteContentRef.current.news = nextNews;
+        return nextNews;
+      });
+    }
+  }
+
   // Schreibt Teams/Spiele/News automatisch zurück nach Supabase, sobald sich
   // etwas ändert (Admin legt an/bearbeitet/entfernt) – ein einziger
   // Sync-Punkt pro Sammlung statt in jeder einzelnen Änderungs-Funktion
@@ -580,6 +637,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // nur als Hinweis geloggt, ohne die Ansicht zu stören.
   useEffect(() => {
     if (!loadedFromDb.teams || teams.length === 0) return;
+    // Nur neu aus der Datenbank geholt (Aktualisieren unten) – nichts zurückschreiben.
+    if (teams === remoteContentRef.current.teams) return;
+    adminWriteAtRef.current = Date.now();
     supabase
       .from("teams")
       .upsert(
@@ -593,6 +653,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loadedFromDb.matches || matches.length === 0) return;
+    // Nur neu aus der Datenbank geholt (Aktualisieren unten) – nichts zurückschreiben.
+    if (matches === remoteContentRef.current.matches) return;
+    adminWriteAtRef.current = Date.now();
     supabase
       .from("matches")
       .upsert(
@@ -606,6 +669,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loadedFromDb.news || newsItems.length === 0) return;
+    // Nur neu aus der Datenbank geholt (Aktualisieren unten) – nichts zurückschreiben.
+    if (newsItems === remoteContentRef.current.news) return;
+    adminWriteAtRef.current = Date.now();
     supabase
       .from("news")
       .upsert(
@@ -625,25 +691,26 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // addActivity unten). Beim Laden wird einmalig der komplette, von allen
   // geteilte Stand übernommen; danach halten Supabase-Realtime-Abos beide
   // Listen live aktuell, auch wenn ANDERE User etwas hinzufügen.
+  async function loadComments(isCancelled: () => boolean = () => false) {
+    const commentsRes = await supabase.from("match_comments").select("*").order("created_at", { ascending: true });
+    if (isCancelled()) return;
+    if (!commentsRes.error && commentsRes.data) {
+      const next: Comment[] = commentsRes.data.map((row) => ({
+        id: row.id,
+        matchId: row.match_id,
+        author: row.author_name,
+        text: row.text,
+        createdAt: row.created_at,
+        likedBy: (row.liked_by as string[]) ?? [],
+        userId: row.user_id,
+      }));
+      setComments((current) => (sameJson(current, next) ? current : next));
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const commentsRes = await supabase.from("match_comments").select("*").order("created_at", { ascending: true });
-      if (cancelled) return;
-      if (!commentsRes.error && commentsRes.data) {
-        setComments(
-          commentsRes.data.map((row) => ({
-            id: row.id,
-            matchId: row.match_id,
-            author: row.author_name,
-            text: row.text,
-            createdAt: row.created_at,
-            likedBy: (row.liked_by as string[]) ?? [],
-            userId: row.user_id,
-          }))
-        );
-      }
-    })();
+    void loadComments(() => cancelled);
 
     const commentsChannel = supabase
       .channel("match_comments_live")
@@ -688,33 +755,37 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       supabase.removeChannel(commentsChannel);
     };
+    // loadComments/loadActivity lesen bewusst den aktuellen Render-Stand.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Feed: eigene Einträge sieht man immer, fremde nur, wenn sie für alle
   // gedacht sind (author_name gesetzt, Text in dritter Person) – private
   // Meldungen wie "Du hast …" oder "Deine Sterne …" bleiben beim Besitzer.
   // Hängt an authUserId, weil erst mit der Sitzung klar ist, was "eigen" ist.
+  async function loadActivity(isCancelled: () => boolean = () => false) {
+    const userId = authUserId;
+    const visibleFilter = userId
+      ? `user_id.is.null,author_name.not.is.null,user_id.eq.${userId}`
+      : "user_id.is.null,author_name.not.is.null";
+    const { data, error } = await supabase
+      .from("activity_feed")
+      .select("*")
+      .or(visibleFilter)
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (isCancelled()) return;
+    if (!error && data) {
+      const next = data
+        .map((row) => activityRowToItem(row as ActivityRow, userId))
+        .filter((item): item is ActivityItem => item !== null);
+      setActivity((current) => (sameJson(current, next) ? current : next));
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const visibleFilter = authUserId
-        ? `user_id.is.null,author_name.not.is.null,user_id.eq.${authUserId}`
-        : "user_id.is.null,author_name.not.is.null";
-      const { data, error } = await supabase
-        .from("activity_feed")
-        .select("*")
-        .or(visibleFilter)
-        .order("created_at", { ascending: false })
-        .limit(300);
-      if (cancelled) return;
-      if (!error && data) {
-        setActivity(
-          data
-            .map((row) => activityRowToItem(row as ActivityRow, authUserId))
-            .filter((item): item is ActivityItem => item !== null)
-        );
-      }
-    })();
+    void loadActivity(() => cancelled);
 
     const activityChannel = supabase
       .channel(`activity_feed_live_${authUserId ?? "gast"}`)
@@ -729,6 +800,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       supabase.removeChannel(activityChannel);
     };
+    // loadComments/loadActivity lesen bewusst den aktuellen Render-Stand.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUserId]);
 
   function addTeam(team: Omit<Team, "id">) {
@@ -885,6 +958,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       submittedAt: new Date().toISOString(),
     };
     registerTip(matchId);
+    tipWriteRef.current++;
     setMyTips((current) => [...current, localTip]);
 
     let saved = localTip;
@@ -939,6 +1013,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       return false;
     const tip = [...myTips].reverse().find((t) => t.matchId === matchId);
     if (!tip || tip.evaluated) return false;
+    tipWriteRef.current++;
     setMyTips((current) =>
       current.map((t) => (t.id === tip.id ? { ...t, predictedHomeScore, predictedAwayScore } : t))
     );
@@ -964,8 +1039,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // beim Logout leeren. Gespeichert wird nicht mehr "alles auf einmal",
   // sondern jeder Tipp einzeln beim Abgeben/Ändern (siehe oben).
   const [myTipsLoaded, setMyTipsLoaded] = useState(false);
+  // Zählt jede eigene Tipp-/Bonus-Eingabe hoch. Ein Aktualisieren im
+  // Hintergrund, während dessen getippt wurde, wird verworfen – sonst könnte
+  // es den gerade abgegebenen Tipp kurz mit dem alten Stand überschreiben.
+  const tipWriteRef = useRef(0);
 
-  async function reloadMyTips() {
+  async function reloadMyTips(onlyIfNoWriteSince?: number) {
     if (!authUserId) return;
     const userId = authUserId;
     const { data, error } = await supabase.from("tips").select("*").eq("user_id", userId);
@@ -973,25 +1052,42 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       console.warn("Tipps konnten nicht geladen werden:", error.message);
       return;
     }
+    if (onlyIfNoWriteSince !== undefined && tipWriteRef.current !== onlyIfNoWriteSince) return;
     const fromDb = (data ?? []).map((row) => tipFromRow(row));
     // Lokal gerade erst abgegebene Tipps, die noch auf die Datenbank warten,
     // bleiben stehen.
     setMyTips((current) => {
       const dbIds = new Set(fromDb.map((t) => t.id));
       const pending = current.filter((t) => !dbIds.has(t.id) && !fromDb.some((d) => d.matchId === t.matchId));
-      return [...fromDb, ...pending];
+      const next = [...fromDb, ...pending];
+      return sameJson(current, next) ? current : next;
     });
   }
 
-  async function reloadMyBonusAnswers() {
+  async function reloadMyBonusAnswers(onlyIfNoWriteSince?: number) {
     if (!authUserId) return;
     const { data, error } = await supabase.from("bonus_answers").select("*").eq("user_id", authUserId);
     if (error) {
       console.warn("Bonus-Antworten konnten nicht geladen werden:", error.message);
       return;
     }
-    setMyBonusAnswers((data ?? []).map((row) => bonusAnswerFromRow(row)));
+    if (onlyIfNoWriteSince !== undefined && tipWriteRef.current !== onlyIfNoWriteSince) return;
+    const next = (data ?? []).map((row) => bonusAnswerFromRow(row));
+    setMyBonusAnswers((current) => (sameJson(current, next) ? current : next));
   }
+
+  // Tipps von einem anderen Gerät, neue Endstände usw. auch ohne Neustart:
+  // beim Zurückkehren in die App und jede Minute, solange sie sichtbar ist.
+  useAppRefresh(
+    (reason) => {
+      const writes = tipWriteRef.current;
+      const jobs: Promise<unknown>[] = [refreshContent()];
+      if (myTipsLoaded) jobs.push(reloadMyTips(writes), reloadMyBonusAnswers(writes));
+      if (reason === "resume") jobs.push(loadComments(), loadActivity());
+      return Promise.all(jobs);
+    },
+    { interval: true }
+  );
 
   useEffect(() => {
     setMyTipsLoaded(false);
@@ -1104,6 +1200,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       optionIndex,
       submittedAt: new Date().toISOString(),
     };
+    tipWriteRef.current++;
     setMyBonusAnswers((current) => [...current, answer]);
     if (!authUserId) return;
     // Nur bis Tippschluss und solange die richtige Antwort offen ist – sonst

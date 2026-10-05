@@ -27,6 +27,17 @@ body {
   }
 }
 
+/* Runterwischen zum Aktualisieren macht die App selbst
+   (components/PullToRefresh.tsx, lädt nur die Daten neu, halbe Eingaben
+   bleiben). Das browsereigene Runterwischen (lädt die ganze Seite neu) ist
+   darum auf Touch-Geräten aus, sonst liefe beides gleichzeitig. */
+@media (pointer: coarse) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+  }
+}
+
 html {
   /* Verhindert das Hineinzoomen per Doppeltipp (z. B. schnelles Tippen auf
      Knöpfe am iPhone), Zoomen mit zwei Fingern bleibt erlaubt. */
