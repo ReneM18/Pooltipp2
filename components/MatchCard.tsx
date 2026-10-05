@@ -541,8 +541,8 @@ export default function MatchCard({
             )}
 
             {/* Knopf-Zustände klar unterscheidbar: tippbereit = kräftiges
-                Grün mit Leuchten, noch nicht tippbereit = grau mit Grund
-                darunter (vorher nur halb durchsichtig, sah aus wie "kaputt"). */}
+                Grün mit Leuchten, noch nicht tippbereit = grau (vorher nur
+                halb durchsichtig, sah aus wie "kaputt"). */}
             <button
               onClick={handleSubmit}
               disabled={submitting || notReady}
@@ -558,12 +558,6 @@ export default function MatchCard({
               <p className="mt-2 text-center text-xs text-[#FF9B5C]">
                 Für einen Booster brauchst du {BOOSTER_STAKE} Sterne – du hast {freeStars}.
               </p>
-            )}
-            {missingPick && !notEnoughStars && (
-              <p className="mt-2 text-center text-xs text-muted">{allowsDraw ? "Erst oben 1, X oder 2 antippen" : "Erst oben 1 oder 2 antippen"}</p>
-            )}
-            {missingScore && !notEnoughStars && (
-              <p className="mt-2 text-center text-xs text-muted">Erst oben dein exaktes Ergebnis eintragen</p>
             )}
             {isChanging && (
               <button
