@@ -512,11 +512,17 @@ export default function MatchCard({
                     {BOOSTER_STAKE}
                   </span>
                 </div>
-                <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">So viel kommt zurück</p>
+                <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">Dein Gewinn oder Verlust</p>
                 <div className={`mt-1 grid gap-2 text-center ${isOneXTwo ? "grid-cols-2" : "grid-cols-3"}`}>
                   {boosterPayouts(isOneXTwo).map((p) => (
                     <div key={p.label} className="rounded-md bg-pitch/60 px-1 py-1">
-                      <div className="font-display text-sm font-bold text-gold">{p.stars}</div>
+                      <div
+                        className={`font-display text-sm font-bold ${
+                          p.net > 0 ? "text-action" : p.net < 0 ? "text-[#FF9B5C]" : "text-ink"
+                        }`}
+                      >
+                        {p.net > 0 ? `+${p.net}` : p.net < 0 ? `−${-p.net}` : "±0"}
+                      </div>
                       <div className="text-[11px] text-muted">{p.label}</div>
                     </div>
                   ))}

@@ -161,18 +161,23 @@ export const REFERENCE_STAKE = 20;
 export const BOOSTER_STAKE = REFERENCE_STAKE;
 export const BOOSTERS_PER_DAY = 3;
 
-/** Was bei einem Booster zurückkommt, für die Anzeige auf der Karte. */
-export function boosterPayouts(isOneXTwo: boolean): { label: string; stars: number }[] {
+/**
+ * Gewinn bzw. Verlust eines Boosters gegenüber dem Einsatz, für die Anzeige
+ * auf der Karte (Exakt +40, Tendenz ±0, Falsch −10). Bewusst nicht die
+ * Gutschrift ("10 zurück" bei Falsch klang wie ein Gewinn).
+ */
+export function boosterPayouts(isOneXTwo: boolean): { label: string; net: number }[] {
+  const net = (tier: TipResultTier) => starsDeltaForTier(tier, BOOSTER_STAKE, isOneXTwo, true) - BOOSTER_STAKE;
   if (isOneXTwo) {
     return [
-      { label: "Richtig", stars: starsDeltaForTier("tendenz", BOOSTER_STAKE, true, true) },
-      { label: "Falsch", stars: starsDeltaForTier("falsch", BOOSTER_STAKE, true, true) },
+      { label: "Richtig", net: net("tendenz") },
+      { label: "Falsch", net: net("falsch") },
     ];
   }
   return [
-    { label: "Exakt", stars: starsDeltaForTier("exakt", BOOSTER_STAKE, false, true) },
-    { label: "Tendenz", stars: starsDeltaForTier("tendenz", BOOSTER_STAKE, false, true) },
-    { label: "Falsch", stars: starsDeltaForTier("falsch", BOOSTER_STAKE, false, true) },
+    { label: "Exakt", net: net("exakt") },
+    { label: "Tendenz", net: net("tendenz") },
+    { label: "Falsch", net: net("falsch") },
   ];
 }
 

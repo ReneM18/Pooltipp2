@@ -31,9 +31,9 @@ export default function Footer() {
           </p>
           <p>
             Jeden Tag gibt es bis zu drei Booster-Spiele, bei denen du 20 Sterne einsetzt: exakt
-            getroffen bekommst du 60 zurück, bei der richtigen Tendenz deinen Einsatz, bei einem
-            Fehltipp die Hälfte. Sterne gibt's außerdem mit dem täglichen Bonus, eintauschen kannst
-            du sie im Shop gegen Joker.
+            getroffen gewinnst du 40 Sterne dazu, bei der richtigen Tendenz behältst du deinen
+            Einsatz, bei einem Fehltipp verlierst du 10. Sterne gibt's außerdem mit dem täglichen
+            Bonus, eintauschen kannst du sie im Shop gegen Joker.
           </p>
           <p>
             Dazu gibt's echte Live-Ergebnisse und Tabellen im Matchcenter, einen Saison-Pass mit
