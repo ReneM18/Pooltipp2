@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, ReactNode } from "react";
+import { useAppRefresh } from "@/lib/appRefresh";
 import { supabase } from "@/lib/supabaseClient";
 import { useUser } from "@/lib/UserContext";
 
@@ -182,6 +183,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       clearInterval(poll);
     };
   }, [authUserId, isRegistered, refreshChats, loadChats]);
+
+  // Beim Zurückkehren in die App gleich auffrischen (Realtime kann im
+  // Hintergrund Nachrichten verpassen).
+  useAppRefresh(() => loadChats());
 
   // Hinweis-Blase verschwindet nach ein paar Sekunden von selbst.
   useEffect(() => {

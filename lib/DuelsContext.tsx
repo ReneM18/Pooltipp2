@@ -11,6 +11,7 @@
 // Browser heraus lässt sich kein Sterne-Guthaben mehr verändern.
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useAppRefresh } from "./appRefresh";
 import { supabase } from "./supabaseClient";
 import { useAppData } from "./AppDataContext";
 import { useUser } from "./UserContext";
@@ -70,25 +71,31 @@ export function DuelsProvider({ children }: { children: ReactNode }) {
   // als Herausforderer oder Gegner), und hält sie per Realtime aktuell –
   // wichtig, damit z. B. eine Annahme/Ablehnung sofort im Browser der
   // GEGENSEITE auftaucht, ohne dass die Seite neu geladen werden muss.
+  async function loadDuels(isCancelled: () => boolean = () => false) {
+    if (!authUserId) return;
+    const { data, error } = await supabase
+      .from("duels")
+      .select("*")
+      .or(`challenger_id.eq.${authUserId},opponent_id.eq.${authUserId}`)
+      .order("created_at", { ascending: false });
+    if (isCancelled()) return;
+    if (error) {
+      console.warn("Duelle konnten nicht geladen werden:", error.message);
+      return;
+    }
+    if (data) setDuels(data.map(mapRow));
+  }
+
+  // Realtime kann im Hintergrund (Handy gesperrt) Meldungen verpassen.
+  useAppRefresh(() => loadDuels());
+
   useEffect(() => {
     if (!authUserId) {
       setDuels([]);
       return;
     }
     let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from("duels")
-        .select("*")
-        .or(`challenger_id.eq.${authUserId},opponent_id.eq.${authUserId}`)
-        .order("created_at", { ascending: false });
-      if (cancelled) return;
-      if (error) {
-        console.warn("Duelle konnten nicht geladen werden:", error.message);
-        return;
-      }
-      if (data) setDuels(data.map(mapRow));
-    })();
+    void loadDuels(() => cancelled);
 
     const channel = supabase
       .channel(`duels_live_${authUserId}`)
@@ -124,6 +131,8 @@ export function DuelsProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       supabase.removeChannel(channel);
     };
+    // loadDuels liest bewusst den aktuellen Render-Stand.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUserId]);
 
   const pendingForMe = duels.filter((d) => d.status === "pending" && d.opponentId === authUserId);

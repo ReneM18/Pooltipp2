@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useResumeTick } from "@/lib/appRefresh";
 import { useUser } from "@/lib/UserContext";
 import { loadProfiles, sumPoints, toPointsBySport } from "@/lib/globalLeaderboard";
 
@@ -23,9 +24,11 @@ export function useMyOverallRank(): MyOverallRank {
   // Gesamtpunkte der anderen Spieler (null = noch nicht geladen / Fehler).
   const [others, setOthers] = useState<number[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const resumeTick = useResumeTick();
 
   // Neu laden beim Seitenwechsel und wenn sich die eigenen Punkte ändern
-  // (dann haben sich oft auch andere Spieler bewegt).
+  // (dann haben sich oft auch andere Spieler bewegt) – und beim Zurückkehren
+  // in die App.
   useEffect(() => {
     if (!authUserId) return;
     let cancelled = false;
@@ -46,7 +49,7 @@ export function useMyOverallRank(): MyOverallRank {
     return () => {
       cancelled = true;
     };
-  }, [authUserId, pathname, myTotal]);
+  }, [authUserId, pathname, myTotal, resumeTick]);
 
   if (!authUserId) return { status: "none", reason: "guest" };
   if (!profileLoaded) return { status: "loading" };

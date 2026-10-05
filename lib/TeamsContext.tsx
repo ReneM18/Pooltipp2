@@ -9,6 +9,7 @@
 // die Liga-Punkte rechnet league_leaderboard() – die App zeigt nur an.
 
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
+import { useAppRefresh } from "./appRefresh";
 import { supabase } from "./supabaseClient";
 import { useUser } from "./UserContext";
 import { League, LeagueMatch, LeagueMember, LeagueTip, ScoringMode } from "./teamsTypes";
@@ -138,6 +139,9 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refreshLeagues();
   }, [refreshLeagues]);
+
+  // Beim Zurückkehren in die App neu laden (siehe lib/appRefresh.ts).
+  useAppRefresh(() => refreshLeagues());
 
   async function createLeague(name: string, description: string, scoringMode: ScoringMode) {
     if (!authUserId) return { ok: false, error: "Bitte logge dich zuerst ein." };
@@ -291,6 +295,8 @@ export function useLeagueDetail(leagueId: string | undefined) {
     setLoaded(false);
     reload();
   }, [reload]);
+
+  useAppRefresh(() => reload());
 
   return { matches, tips, members, loaded, reload };
 }
