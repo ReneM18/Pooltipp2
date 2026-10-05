@@ -40,6 +40,22 @@ export function sumPoints(points: Record<Sport, number>): number {
   return SPORTS.reduce((sum, sport) => sum + points[sport], 0);
 }
 
+interface WeeklyTipRow {
+  user_id: string;
+  rang_delta: number | null;
+  ranking_legacy?: boolean | null;
+}
+
+// Ausgewertete Tipps der Woche. Fehlt die Spalte ranking_legacy noch (SQL
+// rankingsystem.sql noch nicht ausgeführt), ohne sie laden.
+async function loadWeeklyTips(weekStart: string, weekEnd: string) {
+  const query = (columns: string) =>
+    supabase.from("tips").select(columns).eq("evaluated", true).gte("submitted_at", weekStart).lt("submitted_at", weekEnd);
+  const res = await query("user_id, rang_delta, ranking_legacy");
+  if (res.error && /ranking_legacy/.test(res.error.message)) return query("user_id, rang_delta");
+  return res;
+}
+
 export function useGlobalLeaderboard(weekWindow: WeekWindow) {
   const [players, setPlayers] = useState<GlobalPlayer[]>([]);
   // Rangpunkte-Änderung dieser Woche je Spieler-ID (nur Spieler mit Tipps).
@@ -59,12 +75,7 @@ export function useGlobalLeaderboard(weekWindow: WeekWindow) {
     (async () => {
       const [profilesResult, tipsRes] = await Promise.all([
         loadProfiles(() => cancelled),
-        supabase
-          .from("tips")
-          .select("user_id, rang_delta")
-          .eq("evaluated", true)
-          .gte("submitted_at", weekStart)
-          .lt("submitted_at", weekEnd),
+        loadWeeklyTips(weekStart, weekEnd),
       ]);
       if (cancelled) return;
 
@@ -94,7 +105,9 @@ export function useGlobalLeaderboard(weekWindow: WeekWindow) {
       if (tipsRes.error) {
         console.warn("Spieltags-Rangliste konnte nicht geladen werden:", tipsRes.error.message);
       } else {
-        for (const row of (tipsRes.data ?? []) as { user_id: string; rang_delta: number | null }[]) {
+        for (const row of (tipsRes.data ?? []) as unknown as WeeklyTipRow[]) {
+          // Tipps von vor dem Neustart der Rangpunkte zählen nicht mehr.
+          if (row.ranking_legacy) continue;
           weekly.set(row.user_id, (weekly.get(row.user_id) ?? 0) + (row.rang_delta ?? 0));
         }
       }

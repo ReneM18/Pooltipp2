@@ -130,9 +130,14 @@ export default function RanglistePage() {
         ) : tab === "Vereine" ? (
           <p className="mt-0.5 text-xs text-muted">Herzensvereine im Vergleich, eine Tabelle pro Sportart</p>
         ) : (
-          <p className="mt-0.5 text-xs text-muted">
-            {loading ? "Lädt…" : failed ? "\u00a0" : `${ranked.length} Spieler`}
-          </p>
+          <>
+            <p className="mt-0.5 text-xs text-muted">
+              {loading ? "Lädt…" : failed ? "\u00a0" : `${ranked.length} Spieler`}
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              Je weiter oben du stehst, desto weniger Bonus gibt ein Sieg und desto mehr kostet eine Niederlage.
+            </p>
+          </>
         )}
       </div>
 

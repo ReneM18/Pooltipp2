@@ -99,6 +99,11 @@ export default function DashboardPage() {
                 duelsDrawn: tip.duelsDrawn,
                 duelsLost: tip.duelsLost,
                 scoredWithoutDuels: tip.scoredWithoutDuels,
+                bonusPoints: tip.bonusPoints,
+                opponents: tip.opponents,
+                beaten: tip.beaten,
+                joker: tip.joker,
+                rankingScored: tip.rankingScored,
                 stake: tip.stake,
                 refunded: tip.refunded,
               }

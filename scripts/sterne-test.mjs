@@ -30,9 +30,12 @@ for (const [stake, exakt, falsch] of [
 ]) {
   const base = { actualHome: 2, actualAway: 1, stake };
   check(`Ergebnis ${stake} exakt`, { ...base, predictedHome: 2, predictedAway: 1 }, { tier: "exakt", credit: exakt, net: exakt - stake, rang: 10 });
-  check(`Ergebnis ${stake} Tendenz`, { ...base, predictedHome: 3, predictedAway: 0 }, { tier: "tendenz", credit: stake, net: 0, rang: 6 });
-  check(`Ergebnis ${stake} falsch`, { ...base, predictedHome: 0, predictedAway: 2 }, { tier: "falsch", credit: falsch, net: falsch - stake, rang: 0 });
-  check(`Ergebnis ${stake} Remis Tendenz`, { ...base, actualHome: 1, actualAway: 1, predictedHome: 0, predictedAway: 0 }, { tier: "tendenz", credit: stake, net: 0, rang: 6 });
+  // Älterer Tipp mit Einsatz (kein Booster): Tordifferenz zählt bei den Sternen wie Tendenz.
+  check(`Ergebnis ${stake} Tordifferenz`, { ...base, predictedHome: 3, predictedAway: 2 }, { tier: "differenz", credit: stake, net: 0, rang: 7 });
+  check(`Ergebnis ${stake} Tendenz`, { ...base, predictedHome: 3, predictedAway: 0 }, { tier: "tendenz", credit: stake, net: 0, rang: 5 });
+  check(`Ergebnis ${stake} falsch`, { ...base, predictedHome: 0, predictedAway: 2 }, { tier: "falsch", credit: falsch, net: falsch - stake, rang: -3 });
+  // Remis: nur exakt oder Tendenz, keine Tordifferenz-Stufe.
+  check(`Ergebnis ${stake} Remis Tendenz`, { ...base, actualHome: 1, actualAway: 1, predictedHome: 0, predictedAway: 0 }, { tier: "tendenz", credit: stake, net: 0, rang: 5 });
 }
 
 // 1X2: Tipp "1" wird als 1:0 gespeichert, "X" als 0:0, "2" als 0:1.
@@ -44,26 +47,27 @@ for (const [stake, richtig, falsch] of [
   [40, 60, 20],
 ]) {
   const t = { stake, isOneXTwo: true };
-  check(`1X2 ${stake} Heimsieg 3:1`, { ...t, predictedHome: 1, predictedAway: 0, actualHome: 3, actualAway: 1 }, { tier: "tendenz", credit: richtig, net: richtig - stake, rang: 6 });
-  check(`1X2 ${stake} Heimsieg genau 1:0`, { ...t, predictedHome: 1, predictedAway: 0, actualHome: 1, actualAway: 0 }, { tier: "tendenz", credit: richtig, net: richtig - stake, rang: 6 });
-  check(`1X2 ${stake} Remis genau 0:0`, { ...t, predictedHome: 0, predictedAway: 0, actualHome: 0, actualAway: 0 }, { tier: "tendenz", credit: richtig, net: richtig - stake, rang: 6 });
-  check(`1X2 ${stake} Auswärts genau 0:1`, { ...t, predictedHome: 0, predictedAway: 1, actualHome: 0, actualAway: 1 }, { tier: "tendenz", credit: richtig, net: richtig - stake, rang: 6 });
-  check(`1X2 ${stake} falsch`, { ...t, predictedHome: 1, predictedAway: 0, actualHome: 2, actualAway: 2 }, { tier: "falsch", credit: falsch, net: falsch - stake, rang: 0 });
+  check(`1X2 ${stake} Heimsieg 3:1`, { ...t, predictedHome: 1, predictedAway: 0, actualHome: 3, actualAway: 1 }, { tier: "tendenz", credit: richtig, net: richtig - stake, rang: 5 });
+  check(`1X2 ${stake} Heimsieg genau 1:0`, { ...t, predictedHome: 1, predictedAway: 0, actualHome: 1, actualAway: 0 }, { tier: "tendenz", credit: richtig, net: richtig - stake, rang: 5 });
+  check(`1X2 ${stake} Remis genau 0:0`, { ...t, predictedHome: 0, predictedAway: 0, actualHome: 0, actualAway: 0 }, { tier: "tendenz", credit: richtig, net: richtig - stake, rang: 5 });
+  check(`1X2 ${stake} Auswärts genau 0:1`, { ...t, predictedHome: 0, predictedAway: 1, actualHome: 0, actualAway: 1 }, { tier: "tendenz", credit: richtig, net: richtig - stake, rang: 5 });
+  check(`1X2 ${stake} falsch`, { ...t, predictedHome: 1, predictedAway: 0, actualHome: 2, actualAway: 2 }, { tier: "falsch", credit: falsch, net: falsch - stake, rang: -3 });
 }
 
-// Booster (Einsatz 20): exakt = dreifach zurück, Tendenz = Einsatz, falsch =
-// Hälfte. 1X2 beim Booster wie immer: richtig x1,5, falsch die Hälfte.
+// Booster (Einsatz 20): exakt = dreifach zurück, Tordifferenz x1,5,
+// Tendenz = Einsatz, falsch = Hälfte. 1X2 beim Booster wie immer: richtig x1,5, falsch die Hälfte.
 {
   const b = { stake: 20, booster: true, actualHome: 2, actualAway: 1 };
   check("Booster exakt", { ...b, predictedHome: 2, predictedAway: 1 }, { tier: "exakt", credit: 60, net: 40, rang: 10 });
-  check("Booster Tendenz", { ...b, predictedHome: 1, predictedAway: 0 }, { tier: "tendenz", credit: 20, net: 0, rang: 6 });
-  check("Booster falsch", { ...b, predictedHome: 0, predictedAway: 1 }, { tier: "falsch", credit: 10, net: -10, rang: 0 });
+  check("Booster Tordifferenz", { ...b, predictedHome: 1, predictedAway: 0 }, { tier: "differenz", credit: 30, net: 10, rang: 7 });
+  check("Booster Tendenz", { ...b, predictedHome: 3, predictedAway: 0 }, { tier: "tendenz", credit: 20, net: 0, rang: 5 });
+  check("Booster falsch", { ...b, predictedHome: 0, predictedAway: 1 }, { tier: "falsch", credit: 10, net: -10, rang: -3 });
   const o = { stake: 20, booster: true, isOneXTwo: true };
-  check("Booster 1X2 richtig", { ...o, predictedHome: 1, predictedAway: 0, actualHome: 1, actualAway: 0 }, { tier: "tendenz", credit: 30, net: 10, rang: 6 });
-  check("Booster 1X2 falsch", { ...o, predictedHome: 1, predictedAway: 0, actualHome: 0, actualAway: 0 }, { tier: "falsch", credit: 10, net: -10, rang: 0 });
+  check("Booster 1X2 richtig", { ...o, predictedHome: 1, predictedAway: 0, actualHome: 1, actualAway: 0 }, { tier: "tendenz", credit: 30, net: 10, rang: 5 });
+  check("Booster 1X2 falsch", { ...o, predictedHome: 1, predictedAway: 0, actualHome: 0, actualAway: 0 }, { tier: "falsch", credit: 10, net: -10, rang: -3 });
 }
-assert.deepEqual(boosterPayouts(false).map((p) => p.stars), [60, 20, 10], "Booster-Anzeige Ergebnis");
-assert.deepEqual(boosterPayouts(true).map((p) => p.stars), [30, 10], "Booster-Anzeige 1X2");
+assert.deepEqual(boosterPayouts(false).map((p) => p.net), [40, 10, 0, -10], "Booster-Anzeige Ergebnis");
+assert.deepEqual(boosterPayouts(true).map((p) => p.net), [10, -10], "Booster-Anzeige 1X2");
 // Tagesbonus nur bis 500 Sterne.
 assert.equal(dailyBonusStarsFor(100), 8);
 assert.equal(dailyBonusStarsFor(495), 5);
@@ -74,7 +78,7 @@ assert.equal(dailyBonusStarsFor(700), 0);
 check("Einsatz 0 exakt", { stake: 0, predictedHome: 1, predictedAway: 1, actualHome: 1, actualAway: 1 }, { tier: "exakt", credit: 0, net: 0, rang: 10 });
 // Gekürzter, ungerader Einsatz wird auf ganze Sterne gerundet.
 check("Einsatz 7 exakt", { stake: 7, predictedHome: 1, predictedAway: 0, actualHome: 1, actualAway: 0 }, { tier: "exakt", credit: 11, net: 4, rang: 10 });
-check("Einsatz 7 falsch", { stake: 7, predictedHome: 1, predictedAway: 0, actualHome: 0, actualAway: 1 }, { tier: "falsch", credit: 4, net: -3, rang: 0 });
+check("Einsatz 7 falsch", { stake: 7, predictedHome: 1, predictedAway: 0, actualHome: 0, actualAway: 1 }, { tier: "falsch", credit: 4, net: -3, rang: -3 });
 
 // Vergleich mit Mitspielern bei 1X2: zwei gleiche Tipps sind gleich gut,
 // auch wenn das Spiel genau 1:0 endet.
