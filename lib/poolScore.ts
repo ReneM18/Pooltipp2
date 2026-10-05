@@ -3,9 +3,10 @@
 //
 // Drei komplett entkoppelte Zähler:
 //   1. Rangliste-Punkte (pro Sportart) – Summe der Punkte aus den eigenen
-//      Tipps, treibt die Bronze→Diamant-Ränge. Wird NUR bei der Auswertung eines
-//      Tipps verändert (siehe evaluatePoolScore) sowie durch Inaktivitäts-
-//      Abklingen (siehe applyInactivityDecay).
+//      Tipps (Rankingsystem: feste Punkte + Bonus gegen die Mittipper), treibt
+//      die Bronze→GOAT-Ränge. Ändert sich NUR bei der Auswertung eines Tipps
+//      und durch die Strafe fürs Nicht-Tippen – beides rechnet die Datenbank
+//      (supabase/rankingsystem.sql).
 //   2. Saison-Pass-XP – steigt NUR durch den täglichen Login-Bonus, niemals
 //      durch Tipp-Ergebnisse. Lebt als "passXP" in UserContext.
 //   3. Sterne – die Einsatz-/Shop-Währung. Wird bei Tipp-Abgabe eingesetzt
@@ -15,17 +16,22 @@
 // echten Tipps aus der Datenbank (siehe compareWithOthers).
 // ============================================================================
 
-export type TipResultTier = "exakt" | "tendenz" | "falsch";
+// "differenz" (richtige Tordifferenz) gibt es seit dem Rankingsystem
+// (supabase/rankingsystem.sql). Ältere Tipps und die Kopf-an-Kopf-Duelle
+// kennen nur exakt / tendenz / falsch.
+export type TipResultTier = "exakt" | "differenz" | "tendenz" | "falsch";
 
 /** Reihenfolge der Tipp-Ergebnisse von schlechtestem zu bestem Ergebnis. */
 export const TIER_ORDER: Record<TipResultTier, number> = {
   falsch: 0,
   tendenz: 1,
-  exakt: 2,
+  differenz: 2,
+  exakt: 3,
 };
 
 /**
- * Bestimmt, ob ein Tipp exakt, in der Tendenz oder falsch war.
+ * Bestimmt, ob ein Tipp exakt, in der Tendenz oder falsch war (alte Regel
+ * ohne Tordifferenz – für ältere Tipps und die Kopf-an-Kopf-Duelle).
  *
  * Bei 1X2-Spielen gibt es kein "exakt": Der Tipp wird intern als 1:0, 0:0
  * oder 0:1 gespeichert. Endet das Spiel zufällig genau so, wäre er sonst
@@ -45,41 +51,64 @@ export function classifyTip(
   return "falsch";
 }
 
-// Rangliste-Punkte pro Ergebnis-Typ. Hängen NUR vom eigenen Tipp ab, damit
-// gleiche Tipps immer gleich viele Punkte bringen. "Falsch" gibt 0 statt
-// Abzug: Bei einem Abzug hinge die Summe von der Reihenfolge der Spiele ab,
-// weil niemand unter 0 fallen kann. (Früher kam noch ein Bonus/Malus gegen
-// simulierte Gegner dazu – entfernt, weil er nichts mit echten Mitspielern
-// zu tun hatte.)
-export const RANG_BASE_POINTS: Record<TipResultTier, number> = {
+/**
+ * Stufe im Rankingsystem: exakt > Tordifferenz > Tendenz > falsch. Ein
+ * Remis-Tipp ist exakt oder Tendenz (beim Remis gibt es keine eigene
+ * Tordifferenz-Stufe). Gleiche Regel wie ranking_stage in
+ * supabase/rankingsystem.sql.
+ */
+export function classifyRankingTip(
+  predictedHome: number,
+  predictedAway: number,
+  actualHome: number,
+  actualAway: number,
+  isOneXTwo = false
+): TipResultTier {
+  const sameTrend = Math.sign(predictedHome - predictedAway) === Math.sign(actualHome - actualAway);
+  if (isOneXTwo) return sameTrend ? "tendenz" : "falsch";
+  if (predictedHome === actualHome && predictedAway === actualAway) return "exakt";
+  if (!sameTrend) return "falsch";
+  if (actualHome !== actualAway && predictedHome - predictedAway === actualHome - actualAway) return "differenz";
+  return "tendenz";
+}
+
+// Rankingsystem: feste Punkte pro Tipp (dazu kommt der Bonus gegen die
+// Mittipper, den rechnet die Datenbank). 1X2: richtig +5, falsch -3.
+export const RANKING_POINTS: Record<TipResultTier, number> = {
   exakt: 10,
-  tendenz: 6,
-  falsch: 0,
+  differenz: 7,
+  tendenz: 5,
+  falsch: -3,
 };
+
+/** Höchster Bonus pro Tipp (plus oder minus), nie mehr als Mittipper. */
+export const RANKING_BONUS_CAP = 10;
 
 /**
  * Sterne-Gutschrift bei der Auswertung (wird auf das Guthaben aufgeschlagen,
  * nachdem der Einsatz bei Tipp-Abgabe bereits abgezogen wurde). Einsatz gibt
  * es nur noch bei Booster-Spielen (siehe lib/booster.ts), normale Tipps haben
  * Einsatz 0 und bewegen keine Sterne.
- *   - Exakt beim Booster: dreifacher Einsatz zurück (20 -> 60). Ein exaktes
- *     Ergebnis trifft man selten, darum lohnt es sich richtig.
- *   - Exakt bei älteren Tipps (vor den Boostern abgegeben): Einsatz + 50 %.
+ *   - Exakt beim Booster: dreifacher Einsatz zurück (20 -> 60).
+ *   - Tordifferenz beim Booster: Einsatz + 50 % (20 -> 30).
+ *   - Exakt bei älteren Tipps (vor den Boostern abgegeben): Einsatz + 50 %,
+ *     Tordifferenz zählt dort wie Tendenz.
  *   - Tendenz (bei Ergebnis-Tipps): Einsatz zurück.
  *   - Richtig bei 1X2-Tipps: Einsatz + 50 % (ein exaktes Ergebnis kann man
  *     hier gar nicht abgeben). Gewinn und Verlust sind gleich groß.
  *   - Falsch: die Hälfte des Einsatzes kommt zurück.
- * Gleiche Regeln wie evaluate_match_tips in supabase/booster.sql.
+ * Gleiche Regeln wie evaluate_match_tips in supabase/rankingsystem.sql.
  */
 export function starsDeltaForTier(tier: TipResultTier, stake: number, isOneXTwo = false, booster = false): number {
   if (tier === "exakt") return Math.round(stake * (booster ? 3 : 1.5));
+  if (tier === "differenz") return Math.round(stake * (booster ? 1.5 : 1));
   if (tier === "tendenz") return Math.round(stake * (isOneXTwo ? 1.5 : 1));
   return Math.round(stake * 0.5);
 }
 
 export interface PoolScoreResult {
   tier: TipResultTier;
-  /** Änderung der Rangliste-Punkte – hängt NUR vom eigenen Tipp-Ergebnis ab. */
+  /** Feste Rangpunkte des Tipps (ohne Bonus, den rechnet die Datenbank). */
   rangDelta: number;
   /** Sterne, die dem Guthaben gutgeschrieben werden (Einsatz war schon abgezogen). */
   starsCredit: number;
@@ -97,11 +126,10 @@ export function evaluatePoolScore(params: {
   booster?: boolean;
 }): PoolScoreResult {
   const isOneXTwo = params.isOneXTwo ?? false;
-  const tier = classifyTip(params.predictedHome, params.predictedAway, params.actualHome, params.actualAway, isOneXTwo);
-  const rangDelta = RANG_BASE_POINTS[tier];
+  const tier = classifyRankingTip(params.predictedHome, params.predictedAway, params.actualHome, params.actualAway, isOneXTwo);
+  const rangDelta = RANKING_POINTS[tier];
   const starsCredit = starsDeltaForTier(tier, params.stake, isOneXTwo, params.booster ?? false);
-  const starsNet = starsCredit - params.stake;
-  return { tier, rangDelta, starsCredit, starsNet };
+  return { tier, rangDelta, starsCredit, starsNet: starsCredit - params.stake };
 }
 
 /**
@@ -129,7 +157,7 @@ export function compareWithOthers(
 }
 
 // ============================================================================
-// Täglicher Bonus & Inaktivitäts-Abklingen
+// Täglicher Bonus & Strafe fürs Nicht-Tippen
 // ============================================================================
 
 /** Sterne, die der tägliche Login-Bonus auszahlt. */
@@ -163,7 +191,7 @@ export const BOOSTERS_PER_DAY = 3;
 
 /**
  * Gewinn bzw. Verlust eines Boosters gegenüber dem Einsatz, für die Anzeige
- * auf der Karte (Exakt +40, Tendenz ±0, Falsch −10). Bewusst nicht die
+ * auf der Karte (Exakt +40, Tordifferenz +10, Tendenz ±0, Falsch −10). Bewusst nicht die
  * Gutschrift ("10 zurück" bei Falsch klang wie ein Gewinn).
  */
 export function boosterPayouts(isOneXTwo: boolean): { label: string; net: number }[] {
@@ -176,6 +204,7 @@ export function boosterPayouts(isOneXTwo: boolean): { label: string; net: number
   }
   return [
     { label: "Exakt", net: net("exakt") },
+    { label: "Differenz", net: net("differenz") },
     { label: "Tendenz", net: net("tendenz") },
     { label: "Falsch", net: net("falsch") },
   ];
@@ -221,10 +250,15 @@ export const RESCUE_BONUS_STARS = REFERENCE_STAKE;
 export const LOW_STARS_THRESHOLD = REFERENCE_STAKE;
 /** Saison-Pass-XP, die der tägliche Login-Bonus auszahlt (einziger Weg, wie der Pass steigt). */
 export const DAILY_BONUS_XP = 100;
-/** So viele Tage Inaktivität sind erlaubt, bevor Rangliste-Punkte abzuklingen beginnen. */
-export const INACTIVITY_GRACE_DAYS = 14;
-/** Danach: so viele Punkte Abzug pro weiterer inaktiver Woche (langsam, betrifft alle Ränge). */
-export const INACTIVITY_DECAY_PER_WEEK = 5;
+/**
+ * Strafe fürs Nicht-Tippen (rechnet die Datenbank, siehe
+ * apply_inactivity_penalties in supabase/rankingsystem.sql): Wer in der ganzen
+ * App so viele Wochen keinen Tipp abgibt, verliert ab der Woche danach jede
+ * Woche INACTIVITY_PENALTY_PER_WEEK Rangpunkte in jeder Sportart (nie unter
+ * 0). Ein Pause-Joker schützt eine Woche.
+ */
+export const INACTIVITY_FREE_WEEKS = 2;
+export const INACTIVITY_PENALTY_PER_WEEK = 5;
 
 // ============================================================================
 // Tipp-Streak
@@ -247,12 +281,4 @@ export function daysBetween(aIso: string, bIso: string): number {
   const a = new Date(aIso).getTime();
   const b = new Date(bIso).getTime();
   return Math.floor(Math.abs(b - a) / (1000 * 60 * 60 * 24));
-}
-
-/** Wendet das langsame Abklingen auf einen einzelnen Rangliste-Punktestand an, nie unter 0. */
-export function applyInactivityDecay(currentRang: number, daysInactive: number): number {
-  if (daysInactive <= INACTIVITY_GRACE_DAYS) return currentRang;
-  const inactiveWeeksAfterGrace = Math.floor((daysInactive - INACTIVITY_GRACE_DAYS) / 7);
-  const decay = inactiveWeeksAfterGrace * INACTIVITY_DECAY_PER_WEEK;
-  return Math.max(0, currentRang - decay);
 }

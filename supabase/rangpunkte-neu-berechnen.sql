@@ -1,3 +1,13 @@
+-- VERALTET – NICHT MEHR AUSFÜHREN. Seit dem Rankingsystem
+-- (supabase/rankingsystem.sql) würde dieses Skript die neuen Rangpunkte mit
+-- der alten Regel 10/6/0 überschreiben. Es bricht deshalb ab, sobald das
+-- Rankingsystem eingespielt ist.
+do $$ begin
+  if to_regclass('public.ranking_settings') is not null then
+    raise exception 'Veraltet: Seit dem Rankingsystem nicht mehr ausführen.';
+  end if;
+end $$;
+
 -- Rangpunkte aller Spieler neu berechnen – nach der neuen, einfachen Regel:
 --   Exakt getroffen = 10, Tendenz richtig = 6, daneben = 0.
 -- Früher wurde zusätzlich mit erfundenen "Gegnern" und dem eigenen

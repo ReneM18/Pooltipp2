@@ -86,8 +86,8 @@ interface UserContextValue {
   passClaims: string[];
   // Eigene Titel/Abzeichen/Emotes aus dem Saison-Pass.
   passHonors: PassHonors;
-  // Rangliste-Punkte je Sportart – Elo-artig, kann durch PoolScore steigen
-  // UND fallen (inkl. Inaktivitäts-Abklingen). Komplett von passXP entkoppelt.
+  // Rangliste-Punkte je Sportart (Rankingsystem), können steigen
+  // UND fallen (auch durch die Strafe fürs Nicht-Tippen). Komplett von passXP entkoppelt.
   rangPunkte: Record<Sport, number>;
   canClaimDailyBonus: boolean;
   // Täglicher Bonus – rechnet die Datenbank (claim_daily_bonus). claimed:

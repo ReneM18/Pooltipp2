@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-const STORAGE_KEY = "pooltipp_onboarding_v1";
+// v2: neue Punkte-Regeln (Rankingsystem), darum sieht jeder die Tour einmal neu.
+const STORAGE_KEY = "pooltipp_onboarding_v2";
 
 const SLIDES = [
   {
@@ -13,12 +14,12 @@ const SLIDES = [
   {
     icon: "⭐",
     title: "So funktionieren Sterne",
-    text: "Alle Tipps sind gratis und bringen Rangpunkte für die Rangliste. Bei den Booster-Spielen des Tages setzt du zusätzlich 20 Gratis-Sterne ein: exakt getroffen gewinnst du 40 dazu, die richtige Tendenz lässt deinen Stand gleich, ein Fehltipp kostet 10. Mit Sternen holst du dir Joker im Shop.",
+    text: "Alle Tipps sind gratis und bringen Rangpunkte für die Rangliste. Bei den Booster-Spielen des Tages setzt du 20 Gratis-Sterne ein: exakt +40, Tordifferenz +10, Tendenz ±0, falsch −10. Mit Sternen holst du dir Joker im Shop.",
   },
   {
     icon: "👑",
     title: "Ränge & Saison-Pass",
-    text: "In jedem Spiel trittst du gegen alle an, die es auch getippt haben: Schlägst du mehr und stärkere Tipper, gibt's mehr Rangpunkte. Damit steigst du in der Rangliste und den Sport-Rängen auf. Den Saison-Pass füllst du mit deinem täglichen Bonus – schau jeden Tag vorbei und schalte Belohnungen frei, die man überall bei deinem Namen sieht.",
+    text: "Exakt +10, Tordifferenz +7, Tendenz +5, falsch −3. Dazu kommt ein Bonus gegen alle, die dasselbe Spiel getippt haben: Schlägst du Bessere, gibt es doppelten Bonus. Damit steigst du in der Rangliste und den Sport-Rängen auf. Den Saison-Pass füllst du mit deinem täglichen Bonus – schau jeden Tag vorbei und schalte Belohnungen frei, die man überall bei deinem Namen sieht.",
   },
   {
     icon: "🔵",

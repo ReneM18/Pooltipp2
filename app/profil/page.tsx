@@ -23,7 +23,6 @@ import { CURRENT_SEASON } from "@/lib/seasons";
 import { xpForLevel } from "@/lib/seasonPass";
 import { useSeasonDesign } from "@/lib/seasonDesign";
 import { matchTitle, oneXTwoText, scoreText } from "@/lib/teamOrder";
-import { useTipStrength } from "@/lib/tipStrength";
 import { getCurrentWeekWindow, sumWeeklyRangDelta } from "@/lib/weeklyLeaderboard";
 
 const sportIcon: Record<string, string> = {
@@ -123,7 +122,6 @@ function ProfilInhalt() {
     start: new Date(`${CURRENT_SEASON.startsOn}T00:00:00`),
     end: new Date(new Date(`${CURRENT_SEASON.endsOn}T00:00:00`).getTime() + 24 * 60 * 60 * 1000),
   });
-  const tipStrength = useTipStrength(authUserId, evaluatedTips.length);
   const signedPoints = (n: number) => `${n > 0 ? "+" : ""}${n.toLocaleString("de-DE")}`;
   const exaktCount = evaluatedTips.filter((t) => t.resultTier === "exakt").length;
   const trefferquote =
@@ -449,29 +447,15 @@ function ProfilInhalt() {
 
       <section className="mb-8">
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Rangpunkte</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3">
           <StatCard label="Diese Woche" value={signedPoints(weekPoints)} accent={weekPoints >= 0 ? "action" : "ink"} />
           <StatCard label="Diese Saison" value={signedPoints(seasonPoints)} accent={seasonPoints >= 0 ? "action" : "ink"} />
-          {tipStrength && tipStrength.length > 0 && (
-            <div className="col-span-2 rounded-card border border-edge bg-surface p-4 sm:col-span-1">
-              <p className="text-xs text-muted">Tippstärke</p>
-              <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                {tipStrength.map((e) => (
-                  <span key={e.sport} className="whitespace-nowrap font-display text-2xl font-bold text-gold">
-                    <span className="mr-1 text-lg" aria-label={e.sport}>
-                      {SPORT_EMOJI[e.sport as Sport] ?? "🏅"}
-                    </span>
-                    {e.rating.toLocaleString("de-DE")}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
         <p className="mt-3 text-xs text-muted">
-          Jeder Tipp tritt gegen alle an, die dasselbe Spiel getippt haben. Ein einzelner Tipp kann dabei ins Minus
-          gehen, entscheidend ist, was über die Woche und die Saison zusammenkommt. Die Tippstärke zeigt, wie gut du
-          im Vergleich zu den anderen tippst (Start 1.000).
+          Jeder Tipp bringt feste Punkte plus Bonus: exakt +10, Tordifferenz +7, Tendenz +5, falsch −3. Den Bonus
+          gibt es, wenn du dich gegen die anderen Tipper desselben Spiels durchsetzt. Ein einzelner Tipp kann ins
+          Minus gehen, entscheidend ist, was über die Woche und die Saison zusammenkommt. Wer 2 Wochen gar nicht
+          tippt, verliert 5 Punkte pro Woche.
         </p>
       </section>
 

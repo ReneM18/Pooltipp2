@@ -62,13 +62,17 @@ export function getSimulatedWeeklyEntries(weekStart: Date): WeeklyEntry[] {
     });
 }
 
-/** Summe der Rangliste-Punkte-Änderung aus allen in diesem Zeitfenster ausgewerteten eigenen Tipps. */
+/**
+ * Summe der Rangliste-Punkte-Änderung aus allen in diesem Zeitfenster
+ * ausgewerteten eigenen Tipps. Tipps von vor dem Neustart der Rangpunkte
+ * (rankingLegacy) zählen nicht mehr.
+ */
 export function sumWeeklyRangDelta(
-  tips: { evaluated?: boolean; rangDelta?: number; submittedAt: string }[],
+  tips: { evaluated?: boolean; rangDelta?: number; submittedAt: string; rankingLegacy?: boolean }[],
   window: WeekWindow
 ): number {
   return tips
-    .filter((t) => t.evaluated && t.rangDelta !== undefined)
+    .filter((t) => t.evaluated && t.rangDelta !== undefined && !t.rankingLegacy)
     .filter((t) => {
       const submitted = new Date(t.submittedAt).getTime();
       return submitted >= window.start.getTime() && submitted < window.end.getTime();

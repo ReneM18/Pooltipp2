@@ -19,21 +19,24 @@ export default function Footer() {
         <h2 className="mb-2 font-display text-base font-bold text-ink sm:mb-1 sm:text-sm">
           Über PoolTipp
         </h2>
-        {/* Drei kurze Absätze statt einem Block: Punkte-Modell, Sterne, Extras. */}
+        {/* Drei kurze Absätze statt einem Block: Rankingsystem, Sterne und Joker, Extras. */}
         <div className="flex flex-col gap-2 text-sm leading-relaxed text-muted sm:gap-1 sm:text-xs sm:leading-normal">
           <p>
-            PoolTipp ist das kostenlose Social-Tippspiel für echte Sportfans: Tippe live vor jedem
-            Spiel deiner Lieblingsligen (Fußball, NFL, NBA, NHL) das Ergebnis. Jeder Tipp ist gratis
-            und bringt Rangliste-Punkte – je genauer, desto mehr. Dabei tippst du nie allein: In
-            jedem Spiel trittst du gegen alle an, die es auch getippt haben. Setzt du dich gegen mehr
-            und stärkere Tipper durch, gibt's umso mehr Punkte; liegst du hinter schwächeren, kostet
-            das mehr, als wenn dich stärkere schlagen.
+            PoolTipp ist das kostenlose Social-Tippspiel für echte Sportfans: Tippe vor jedem Spiel
+            deiner Lieblingsligen (Fußball, NFL, NBA, NHL) das Ergebnis. Jeder Tipp ist gratis und
+            bringt Rangpunkte: exakt +10, richtige Tordifferenz +7, richtige Tendenz +5, falsch −3.
+            Dazu kommt ein Bonus gegen alle, die dasselbe Spiel getippt haben: Bessere zu schlagen
+            bringt doppelt, gegen Schwächere zu verlieren kostet doppelt. Wer zwei Wochen lang gar
+            nicht tippt, verliert ab der dritten Woche jede Woche 5 Rangpunkte in jeder Sportart,
+            aber nie unter 0. Ein Tipp genügt, und die Strafe ist weg.
           </p>
           <p>
-            Jeden Tag gibt es bis zu drei Booster-Spiele, bei denen du 20 Sterne einsetzt: exakt
-            getroffen gewinnst du 40 Sterne dazu, bei der richtigen Tendenz behältst du deinen
-            Einsatz, bei einem Fehltipp verlierst du 10. Sterne gibt's außerdem mit dem täglichen
-            Bonus, eintauschen kannst du sie im Shop gegen Joker.
+            Bei den Booster-Spielen setzt du 20 Sterne ein: exakt gewinnst du 40 dazu, mit der
+            richtigen Tordifferenz 10, bei der richtigen Tendenz behältst du deinen Einsatz, ein
+            Fehltipp kostet 10. Sterne gibt's außerdem mit dem täglichen Bonus, eintauschen kannst
+            du sie im Shop gegen Joker: Mit dem Doppel-Joker zählen bei einem Spiel deiner Wahl die
+            festen Punkte doppelt (exakt 20, Tordifferenz 14, Tendenz 10), ein Pause-Joker schützt
+            dich eine Woche lang vor der Strafe.
           </p>
           <p>
             Dazu gibt's echte Live-Ergebnisse und Tabellen im Matchcenter, einen Saison-Pass mit

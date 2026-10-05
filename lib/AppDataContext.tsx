@@ -38,6 +38,16 @@ export interface SubmittedTip {
   duelsDrawn?: number;
   duelsLost?: number;
   scoredWithoutDuels?: boolean;
+  // Rankingsystem (supabase/rankingsystem.sql): rangDelta = feste Punkte
+  // (basePoints) + Bonus gegen die Mittipper. rankingScored fehlt bei Tipps,
+  // die noch nach den alten Regeln ausgewertet wurden; rankingLegacy = vor
+  // dem Neustart der Rangpunkte ausgewertet (zählt nicht mehr in Woche/Saison).
+  bonusPoints?: number;
+  opponents?: number;
+  beaten?: number;
+  joker?: "doppel" | "schutz" | "toleranz";
+  rankingScored?: boolean;
+  rankingLegacy?: boolean;
   // Endstand, mit dem dieser Tipp ausgewertet wurde – so merkt jeder
   // Spieler beim nächsten Laden selbst, wenn der Admin den Endstand später
   // korrigiert hat, und die Auswertung wird für ihn nachgezogen.
@@ -69,6 +79,12 @@ export function tipFromRow(row: Record<string, unknown>): SubmittedTip {
     duelsDrawn: (row.duels_drawn as number | null) ?? undefined,
     duelsLost: (row.duels_lost as number | null) ?? undefined,
     scoredWithoutDuels: (row.scored_without_duels as boolean | null) ?? undefined,
+    bonusPoints: (row.bonus_points as number | null) ?? undefined,
+    opponents: (row.opponents as number | null) ?? undefined,
+    beaten: (row.beaten as number | null) ?? undefined,
+    joker: (row.joker as SubmittedTip["joker"] | null) ?? undefined,
+    rankingScored: (row.ranking_scored as boolean | null) ?? undefined,
+    rankingLegacy: (row.ranking_legacy as boolean | null) ?? undefined,
     evaluatedHomeScore: (row.evaluated_home_score as number | null) ?? undefined,
     evaluatedAwayScore: (row.evaluated_away_score as number | null) ?? undefined,
     refunded: !!row.refunded_at,

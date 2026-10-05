@@ -45,8 +45,14 @@ interface MyTip {
   rangDelta?: number;
   starsDelta?: number;
   narration?: string;
-  // Grundpunkte + Duellpunkte (Punkte-Modell "Jeder Tipp gegen alle").
+  // Rankingsystem: feste Punkte (basePoints) + Bonus gegen die Mittipper.
+  // Die duel*-Felder stammen von Tipps aus dem früheren Punkte-Modell.
   basePoints?: number;
+  bonusPoints?: number;
+  opponents?: number;
+  beaten?: number;
+  joker?: "doppel" | "schutz" | "toleranz";
+  rankingScored?: boolean;
   duelPoints?: number;
   duelsWon?: number;
   duelsDrawn?: number;
@@ -513,7 +519,7 @@ export default function MatchCard({
                   </span>
                 </div>
                 <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">Dein Gewinn oder Verlust</p>
-                <div className={`mt-1 grid gap-2 text-center ${isOneXTwo ? "grid-cols-2" : "grid-cols-3"}`}>
+                <div className={`mt-1 grid gap-1.5 text-center ${isOneXTwo ? "grid-cols-2" : "grid-cols-4"}`}>
                   {boosterPayouts(isOneXTwo).map((p) => (
                     <div key={p.label} className="rounded-md bg-pitch/60 px-1 py-1">
                       <div
@@ -529,7 +535,12 @@ export default function MatchCard({
                 </div>
               </div>
             ) : (
-              <p className="mb-4 text-center text-xs text-muted">Gratis-Tipp · zählt für deine Rangpunkte</p>
+              <div className="mb-4 text-center text-xs text-muted">
+                <p>Gratis-Tipp · zählt für deine Rangpunkte</p>
+                <p className="mt-0.5">
+                  {isOneXTwo ? "Richtig +5 · falsch −3" : "Exakt +10 · Differenz +7 · Tendenz +5 · falsch −3"}
+                </p>
+              </div>
             )}
 
             {/* Knopf-Zustände klar unterscheidbar: tippbereit = kräftiges
@@ -776,15 +787,19 @@ export default function MatchCard({
 
 const TIER_LABEL: Record<TipResultTier, string> = {
   exakt: "🎯 Exakt getroffen!",
+  differenz: "👍 Tordifferenz richtig",
   tendenz: "👍 Tendenz richtig",
   falsch: "😬 Daneben getippt",
 };
 
 const TIER_BOX_CLASS: Record<TipResultTier, string> = {
   exakt: "border-gold bg-gold/10",
+  differenz: "border-action bg-action/10",
   tendenz: "border-action bg-action/10",
   falsch: "border-edge bg-pitch",
 };
+
+const JOKER_LABEL = { doppel: "Doppel-Joker", schutz: "Schutz-Joker", toleranz: "Toleranz-Joker" } as const;
 
 function TippersList({
   tippers,
@@ -839,15 +854,6 @@ function TippersList({
   );
 }
 
-// "3 Siege, 1 Remis, 1 Niederlage" – Teile mit 0 fallen weg.
-function duelSummary(won: number, drawn: number, lost: number): string {
-  const parts: string[] = [];
-  if (won > 0) parts.push(`${won} ${won === 1 ? "Sieg" : "Siege"}`);
-  if (drawn > 0) parts.push(`${drawn} Remis`);
-  if (lost > 0) parts.push(`${lost} ${lost === 1 ? "Niederlage" : "Niederlagen"}`);
-  return parts.join(", ");
-}
-
 function PoolScoreResultBox({
   myTip,
   comparison,
@@ -862,13 +868,21 @@ function PoolScoreResultBox({
   const starsDelta = myTip.starsDelta ?? 0;
   // Gratis-Tipp (kein Einsatz): keine Sterne-Zeile, nur Rangpunkte.
   const hasStake = (myTip.stake ?? 0) > 0;
-  // Duelle gibt es erst seit dem neuen Punkte-Modell. Alte Tipps (vorher
-  // ausgewertet) zeigen weiter den einfachen Vergleich.
-  const opponents = (myTip.duelsWon ?? 0) + (myTip.duelsDrawn ?? 0) + (myTip.duelsLost ?? 0);
-  const hasDuels = myTip.duelPoints !== undefined && !myTip.scoredWithoutDuels && opponents > 0;
-  const base = myTip.basePoints ?? rangDelta;
-  const duel = myTip.duelPoints ?? 0;
-  const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
+  const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0");
+  // Aufschlüsselung "Treffer + Bonus": im Rankingsystem immer, bei Tipps aus
+  // dem früheren Punkte-Modell (Duelle) mit dessen Zahlen. Ganz alte Tipps
+  // zeigen weiter den einfachen Vergleich mit den Mitspielern.
+  const oldDuelOpponents = (myTip.duelsWon ?? 0) + (myTip.duelsDrawn ?? 0) + (myTip.duelsLost ?? 0);
+  const breakdown = myTip.rankingScored
+    ? {
+        fixed: myTip.basePoints ?? rangDelta,
+        bonus: myTip.bonusPoints ?? 0,
+        beaten: myTip.beaten ?? 0,
+        opponents: myTip.opponents ?? 0,
+      }
+    : myTip.duelPoints !== undefined && !myTip.scoredWithoutDuels && oldDuelOpponents > 0
+    ? { fixed: myTip.basePoints ?? rangDelta, bonus: myTip.duelPoints, beaten: myTip.duelsWon ?? 0, opponents: oldDuelOpponents }
+    : null;
 
   return (
     <div className={`flex flex-col gap-2 rounded-lg border px-4 py-3 ${TIER_BOX_CLASS[tier]}`}>
@@ -884,17 +898,24 @@ function PoolScoreResultBox({
           {signed(rangDelta)} <span className="text-xs font-semibold">Rangpunkte</span>
         </span>
       </div>
-      {hasDuels && (
+      {breakdown && (
         <div className="flex flex-col gap-0.5 text-xs text-muted">
           <span>
-            Treffer {signed(base)} · Duelle {signed(duel)}
+            Treffer {signed(breakdown.fixed)}
+            {breakdown.opponents > 0 && <> · Bonus {signed(breakdown.bonus)}</>}
           </span>
-          <span>
-            {opponents} {opponents === 1 ? "Duell" : "Duelle"}: {duelSummary(myTip.duelsWon ?? 0, myTip.duelsDrawn ?? 0, myTip.duelsLost ?? 0)}
-          </span>
+          {breakdown.opponents > 0 ? (
+            <span>
+              Gegen {breakdown.beaten} von {breakdown.opponents}{" "}
+              {breakdown.opponents === 1 ? "Mittipper" : "Mittippern"} durchgesetzt
+            </span>
+          ) : (
+            <span>Außer dir hat niemand getippt, darum kein Bonus.</span>
+          )}
+          {myTip.joker && <span>{JOKER_LABEL[myTip.joker]} eingesetzt</span>}
         </div>
       )}
-      {(hasStake || (!hasDuels && comparison)) && (
+      {(hasStake || (!breakdown && comparison)) && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
           {hasStake && (
             <span className={`flex items-center gap-1 font-semibold ${starsDelta >= 0 ? "text-gold" : "text-red-400"}`}>
@@ -903,7 +924,7 @@ function PoolScoreResultBox({
               {starsDelta} Sterne
             </span>
           )}
-          {!hasDuels &&
+          {!breakdown &&
             comparison &&
             (comparison.total === 0 ? (
               <span>Außer dir hat niemand getippt.</span>
@@ -917,10 +938,9 @@ function PoolScoreResultBox({
             ))}
         </div>
       )}
-      {hasDuels && (
+      {breakdown && breakdown.opponents > 0 && (
         <p className="border-t border-edge/60 pt-2 text-[11px] leading-snug text-muted">
-          Du trittst gegen alle an, die dieses Spiel getippt haben. Siege gegen Stärkere bringen mehr,
-          Niederlagen gegen Schwächere kosten mehr.
+          Bonus: Bessere zu schlagen bringt doppelt, gegen Schwächere zu verlieren kostet doppelt.
         </p>
       )}
     </div>
