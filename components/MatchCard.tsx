@@ -512,10 +512,10 @@ export default function MatchCard({
             {isBooster && (
               <div className="mb-3 rounded-lg border border-gold/40 bg-gold/[0.07] px-4 py-2.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-ink">Booster-Einsatz</span>
-                  <span className="flex items-center gap-1 font-display font-semibold text-gold">
+                  <span className="text-sm font-semibold text-ink">Dieser Tipp kostet</span>
+                  <span className="flex shrink-0 items-center gap-1 whitespace-nowrap font-display font-semibold text-gold">
                     <CoinIcon className="h-[18px] w-[18px]" />
-                    {BOOSTER_STAKE}
+                    {BOOSTER_STAKE} Coins
                   </span>
                 </div>
                 <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">Coins: dein Gewinn oder Verlust</p>
@@ -524,18 +524,12 @@ export default function MatchCard({
             )}
             {/* Statt der Punkte-Tabelle nur ein kleiner Hinweis, die
                 Punkteverteilung öffnet sich beim Antippen in einem Fenster.
-                Nur der Booster (Einsatz und Gewinn oder Verlust an Coins)
-                bleibt als goldene Box auf der Karte, der Hinweis steht immer
-                direkt über dem Knopf. */}
-            <div className={`mb-4 flex items-center ${isBooster ? "justify-end" : "justify-between"} gap-3`}>
-              {!isBooster && (
-                <span className="min-w-0 whitespace-nowrap text-xs text-muted">
-                  <span className="font-semibold text-ink">Gratis-Tipp</span> · kostet nichts
-                </span>
-              )}
+                Nur der Booster (was der Tipp an Coins kostet, Gewinn oder
+                Verlust) bleibt als goldene Box auf der Karte, der Hinweis
+                steht immer direkt über dem Knopf. */}
+            <div className="mb-4 flex justify-end">
               <PointsInfoButton isOneXTwo={isOneXTwo} isBooster={isBooster} />
             </div>
-            {/* Ohne Booster sagt "Gratis-Tipp · kostet nichts" schon alles. */}
             {isChanging && isBooster && (
               <p className="-mt-3 mb-4 text-center text-xs text-muted">
                 Einsatz schon bezahlt – beim Ändern werden keine Coins abgezogen.
@@ -696,7 +690,7 @@ export default function MatchCard({
                 ? "Kommentieren"
                 : `${matchComments.length} ${matchComments.length === 1 ? "Kommentar" : "Kommentare"}`}
             </button>
-            {hasTipped && <span className="font-semibold text-action">✓ Getippt</span>}
+            {hasTipped && <span className="whitespace-nowrap text-[13px] font-bold text-action">✓ Getippt</span>}
           </div>
         </div>
 
