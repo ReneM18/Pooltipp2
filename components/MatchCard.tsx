@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, FormEvent } from "react";
 import Link from "next/link";
 import { Match, Sport, Team } from "@/lib/types";
-import { TipResultTier, compareWithOthers, BOOSTER_STAKE, boosterPayouts } from "@/lib/poolScore";
+import { TipResultTier, compareWithOthers, BOOSTER_STAKE, boosterPayouts, rankingPointsTable } from "@/lib/poolScore";
 import { MatchTipper, useMatchTips } from "@/lib/matchTips";
 import { flagEmoji } from "@/lib/flags";
 import { useAppData } from "@/lib/AppDataContext";
@@ -503,44 +503,41 @@ export default function MatchCard({
               </div>
             )}
 
-            {isChanging ? (
-              <p className="mb-5 rounded-lg border border-edge bg-pitch px-4 py-2.5 text-center text-sm text-muted">
-                {isBooster
-                  ? "Einsatz schon bezahlt – beim Ändern werden keine Sterne abgezogen."
-                  : "Gratis-Tipp – Ändern kostet nichts."}
-              </p>
-            ) : isBooster ? (
-              <div className="mb-5 rounded-lg border border-gold/40 bg-gold/[0.07] px-4 py-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-ink">Booster-Einsatz</span>
+            {/* Gleicher Aufbau auf jeder Karte (Ergebnis oder 1X2, mit oder
+                ohne Booster, auch beim Ändern): immer die Rangpunkte, beim
+                Booster zusätzlich Gewinn oder Verlust an Sternen. */}
+            <div
+              className={`mb-5 rounded-lg border px-4 py-2.5 ${
+                isBooster ? "border-gold/40 bg-gold/[0.07]" : "border-edge bg-pitch/60"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-ink">{isBooster ? "Booster-Einsatz" : "Gratis-Tipp"}</span>
+                {isBooster ? (
                   <span className="flex items-center gap-1 font-display font-semibold text-gold">
                     <StarIcon className="h-4 w-4" />
                     {BOOSTER_STAKE}
                   </span>
-                </div>
-                <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">Dein Gewinn oder Verlust</p>
-                <div className={`mt-1 grid gap-1.5 text-center ${isOneXTwo ? "grid-cols-2" : "grid-cols-4"}`}>
-                  {boosterPayouts(isOneXTwo).map((p) => (
-                    <div key={p.label} className="rounded-md bg-pitch/60 px-1 py-1">
-                      <div
-                        className={`font-display text-sm font-bold ${
-                          p.net > 0 ? "text-action" : p.net < 0 ? "text-[#FF9B5C]" : "text-ink"
-                        }`}
-                      >
-                        {p.net > 0 ? `+${p.net}` : p.net < 0 ? `−${-p.net}` : "±0"}
-                      </div>
-                      <div className="text-[11px] text-muted">{p.label}</div>
-                    </div>
-                  ))}
-                </div>
+                ) : (
+                  <span className="text-xs text-muted">kostet keine Sterne</span>
+                )}
               </div>
-            ) : (
-              <div className="mb-4 text-center text-xs text-muted">
-                <p>Gratis-Tipp · zählt für deine Rangpunkte</p>
-                <p className="mt-0.5">
-                  {isOneXTwo ? "Richtig +5 · falsch −3" : "Exakt +10 · Differenz +7 · Tendenz +5 · falsch −3"}
-                </p>
-              </div>
+              <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">Deine Rangpunkte</p>
+              <PointsGrid items={rankingPointsTable(isOneXTwo)} />
+              <p className="mt-1 text-[11px] text-muted">Plus Bonus gegen die Mittipper (bis{"\u00a0"}±10)</p>
+              {isBooster && (
+                <>
+                  <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">Sterne: dein Gewinn oder Verlust</p>
+                  <PointsGrid items={boosterPayouts(isOneXTwo)} />
+                </>
+              )}
+            </div>
+            {isChanging && (
+              <p className="-mt-3 mb-4 text-center text-xs text-muted">
+                {isBooster
+                  ? "Einsatz schon bezahlt – beim Ändern werden keine Sterne abgezogen."
+                  : "Ändern kostet nichts."}
+              </p>
             )}
 
             {/* Knopf-Zustände klar unterscheidbar: tippbereit = kräftiges
@@ -616,6 +613,15 @@ export default function MatchCard({
                     </button>
                   )}
                 </span>
+              </div>
+            )}
+
+            {/* Noch nicht ausgewertet: kurz zeigen, was der Tipp bringen kann.
+                Jedes Paar bleibt zusammen ("Tendenz +5" nie getrennt). */}
+            {hasTipped && !myTip?.evaluated && !isCancelled && (
+              <div className="flex flex-col gap-0.5 text-center text-xs text-muted">
+                <PointsLine title="Rangpunkte" items={rankingPointsTable(isOneXTwo)} extra="plus Bonus" />
+                {isBooster && <PointsLine title="Sterne" items={boosterPayouts(isOneXTwo)} />}
               </div>
             )}
 
@@ -851,6 +857,44 @@ function TippersList({
         </>
       )}
     </div>
+  );
+}
+
+// Kleine Tabelle "+10 Exakt | +7 Differenz | …" für Rangpunkte und Sterne.
+function PointsGrid({ items }: { items: { label: string; net: number }[] }) {
+  return (
+    <div className={`mt-1 grid gap-1.5 text-center ${items.length === 2 ? "grid-cols-2" : "grid-cols-4"}`}>
+      {items.map((p) => (
+        <div key={p.label} className="rounded-md bg-pitch/60 px-1 py-1">
+          <div
+            className={`font-display text-sm font-bold ${
+              p.net > 0 ? "text-action" : p.net < 0 ? "text-[#FF9B5C]" : "text-ink"
+            }`}
+          >
+            {p.net > 0 ? `+${p.net}` : p.net < 0 ? `−${-p.net}` : "±0"}
+          </div>
+          <div className="text-[11px] text-muted">{p.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Eine Zeile "Rangpunkte: Exakt +10 · Differenz +7 · …" für Karten mit
+// abgegebenem, noch nicht ausgewertetem Tipp.
+function PointsLine({ title, items, extra }: { title: string; items: { label: string; net: number }[]; extra?: string }) {
+  const value = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "±0");
+  const parts = [...items.map((p) => `${p.label} ${value(p.net)}`), ...(extra ? [extra] : [])];
+  return (
+    <p>
+      <span className="whitespace-nowrap">{title}:</span>{" "}
+      {parts.map((part, i) => (
+        <span key={part}>
+          <span className="whitespace-nowrap">{part}</span>
+          {i < parts.length - 1 ? " · " : ""}
+        </span>
+      ))}
+    </p>
   );
 }
 
