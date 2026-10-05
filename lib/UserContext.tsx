@@ -400,6 +400,31 @@ export function UserProvider({ children }: { children: ReactNode }) {
     { interval: true }
   );
 
+  // Sofort-Abgleich: ändert sich das eigene Profil (Coins nach Booster-Tipp
+  // oder Rücknahme, Auswertung, Tagesbonus auf einem anderen Gerät), meldet
+  // Supabase das binnen Sekunden (supabase/tipp-zuruecknehmen.sql).
+  const reloadWalletRef = useRef(reloadWallet);
+  reloadWalletRef.current = reloadWallet;
+  useEffect(() => {
+    if (!authUserId || !profileLoaded) return;
+    let timer: number | undefined;
+    const channel = supabase
+      .channel(`my_profile_live_${authUserId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${authUserId}` },
+        () => {
+          window.clearTimeout(timer);
+          timer = window.setTimeout(() => void reloadWalletRef.current(), 300);
+        }
+      )
+      .subscribe();
+    return () => {
+      window.clearTimeout(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [authUserId, profileLoaded]);
+
   useEffect(() => {
     setProfileLoaded(false);
     setPassClaims([]);
