@@ -32,3 +32,6 @@ echo ÜBERNAHME-SCHUTZ GRÜN
 
 # Rankingsystem (neue Auswertung, Strafe, Neustart der Rangpunkte)
 psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/rankingsystem-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'
+
+# Joker-Shop (kaufen, einsetzen, Schalter)
+psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/joker-shop-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'

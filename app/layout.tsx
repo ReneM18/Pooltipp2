@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Rajdhani, Inter, Poppins } from "next/font/google";
 import "./globals.css";
+import { JokerProvider } from "@/lib/JokerContext";
 import { UserProvider } from "@/lib/UserContext";
 import { AppDataProvider } from "@/lib/AppDataContext";
 import { TeamsProvider } from "@/lib/TeamsContext";
@@ -60,17 +61,19 @@ export default function RootLayout({
       <body className="font-body min-h-screen bg-pitch text-ink antialiased">
         <AppDataProvider>
           <UserProvider>
-            <DuelsProvider>
-              <TournamentProvider>
-                <TeamsProvider>
-                  <FeedbackProvider>
-                    <ChatProvider>
-                      <AppChrome>{children}</AppChrome>
-                    </ChatProvider>
-                  </FeedbackProvider>
-                </TeamsProvider>
-              </TournamentProvider>
-            </DuelsProvider>
+            <JokerProvider>
+              <DuelsProvider>
+                <TournamentProvider>
+                  <TeamsProvider>
+                    <FeedbackProvider>
+                      <ChatProvider>
+                        <AppChrome>{children}</AppChrome>
+                      </ChatProvider>
+                    </FeedbackProvider>
+                  </TeamsProvider>
+                </TournamentProvider>
+              </DuelsProvider>
+            </JokerProvider>
           </UserProvider>
         </AppDataProvider>
       </body>

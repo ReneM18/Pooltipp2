@@ -1,15 +1,9 @@
-// Shop vorerst ausgeblendet: die Joker ziehen Sterne ab, wirken aber noch
-// nirgends. Kein Link mehr in der Kopfzeile, /shop zeigt nur "Kommt bald".
-// Sobald die Joker wirklich etwas tun, hier auf true stellen.
-export const SHOP_ENABLED = false;
+import type { ShopJoker } from "@/lib/JokerContext";
 
-// Vorschau: Warenkorb in der Kopfzeile ist wieder da und /shop zeigt alle
-// Joker mit Preis, aber Einlösen ist gesperrt (es werden keine Sterne
-// abgebucht). Mit SHOP_ENABLED = true wird der Shop wieder echt.
-export const SHOP_PREVIEW = true;
-
+// Kaufen und Einsetzen: supabase/joker-shop.sql (dort stehen dieselben Preise).
 export interface ShopItem {
   id: string;
+  joker: ShopJoker;
   category: "In-Game";
   name: string;
   description: string;
@@ -33,6 +27,7 @@ export interface ShopItem {
 export const mockShopItems: ShopItem[] = [
   {
     id: "schutz-joker",
+    joker: "schutz",
     category: "In-Game",
     name: "Schutz-Joker",
     description: "Ein Spiel deiner Wahl kostet dich keine Rangpunkte: Liegst du daneben, zählt der Tipp 0 statt Minus.",
@@ -40,6 +35,7 @@ export const mockShopItems: ShopItem[] = [
   },
   {
     id: "pause-joker",
+    joker: "pause",
     category: "In-Game",
     name: "Pause-Joker",
     description:
@@ -48,6 +44,7 @@ export const mockShopItems: ShopItem[] = [
   },
   {
     id: "doppel-joker",
+    joker: "doppel",
     category: "In-Game",
     name: "Doppel-Joker",
     description: "Bei einem Spiel deiner Wahl zählen die festen Punkte doppelt: exakt 20, Tordifferenz 14, Tendenz 10. Bonus und Minus bleiben gleich.",
@@ -55,6 +52,7 @@ export const mockShopItems: ShopItem[] = [
   },
   {
     id: "toleranz-joker",
+    joker: "toleranz",
     category: "In-Game",
     name: "Toleranz-Joker",
     description: "Liegst du bei einem Spiel nur 1 Tor daneben, kostet dich der Tipp 0 statt −3 Punkte.",
@@ -62,6 +60,7 @@ export const mockShopItems: ShopItem[] = [
   },
   {
     id: "trend-joker",
+    joker: "trend",
     category: "In-Game",
     name: "Trend-Joker",
     description: "Sieh vor Tippschluss, wie die Mehrheit der Community bei einem Spiel getippt hat.",

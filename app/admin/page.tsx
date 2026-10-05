@@ -21,6 +21,7 @@ import { competitionsForSport, findDuplicateCompetition } from "@/lib/competitio
 import { displayOrder, isAwayFirst, matchTitle, scoreText } from "@/lib/teamOrder";
 import { BOOSTER_STAKE, BOOSTERS_PER_DAY } from "@/lib/poolScore";
 import { boostersOnDay } from "@/lib/booster";
+import { useJokers } from "@/lib/JokerContext";
 
 type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news";
 
@@ -65,6 +66,8 @@ export default function AdminPage() {
         sind sofort für alle sichtbar.
       </p>
 
+      <ShopSwitch />
+
       {/* Klar getrennte Bereiche statt alles untereinander gestapelt – ein
           Klick auf einen Reiter zeigt nur noch genau diesen Bereich, auf
           voller Breite. Bewusst groß und mit Zahl, damit auf einen Blick klar
@@ -104,6 +107,68 @@ export default function AdminPage() {
         {tab === "news" && <NewsManager />}
       </div>
     </main>
+  );
+}
+
+// Schalter für den Joker-Shop (supabase/joker-shop.sql): erst wenn er an ist,
+// können alle Spieler Joker kaufen. Der Admin kann vorher schon testen.
+function ShopSwitch() {
+  const { ready, shopOpen, setShopOpen } = useJokers();
+  const { showToast } = useFeedback();
+  const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+
+  async function toggle() {
+    if (!shopOpen && !confirming) {
+      setConfirming(true);
+      return;
+    }
+    setSaving(true);
+    const failed = await setShopOpen(!shopOpen);
+    setSaving(false);
+    setConfirming(false);
+    if (failed) showToast(`✗ ${failed}`, "info");
+    else showToast(shopOpen ? "✓ Joker-Shop wieder gesperrt." : "✓ Joker-Shop freigegeben – alle können jetzt kaufen.", "success");
+  }
+
+  return (
+    <div className="mb-7 flex flex-col gap-3 rounded-card border border-edge bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="font-display text-base font-semibold text-ink">🛒 Joker-Shop</p>
+        <p className="text-sm text-muted">
+          {!ready
+            ? "Noch nicht eingerichtet: zuerst supabase/joker-shop.sql ausführen."
+            : shopOpen
+              ? "Freigegeben: alle Spieler können Joker mit Sternen kaufen."
+              : confirming
+                ? "Wirklich freigeben? Danach können alle Spieler Joker kaufen."
+                : "Gesperrt: nur du kannst schon testen, alle anderen sehen \u201eBald verfügbar\u201c."}
+        </p>
+      </div>
+      {ready && (
+        <div className="flex shrink-0 items-center gap-2">
+          {confirming && (
+            <button
+              onClick={() => setConfirming(false)}
+              className="rounded-full px-3 py-2 text-sm font-semibold text-muted transition-colors hover:text-ink"
+            >
+              Abbrechen
+            </button>
+          )}
+          <button
+            onClick={toggle}
+            disabled={saving}
+            className={`rounded-full px-4 py-2 font-display text-sm font-semibold transition-colors disabled:cursor-wait ${
+              shopOpen
+                ? "border border-edge bg-pitch text-ink hover:border-gold/40"
+                : "bg-action text-pitch hover:bg-action-hover"
+            }`}
+          >
+            {saving ? "Wird gespeichert…" : shopOpen ? "Wieder sperren" : confirming ? "Ja, freigeben" : "Kaufen freigeben"}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
