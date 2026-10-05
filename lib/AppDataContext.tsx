@@ -415,6 +415,8 @@ interface AppDataContextValue {
   // true, sobald Spiele/Teams/News aus Supabase geladen sind (vorher stehen
   // nur die eingebauten Demo-Daten im State).
   contentLoaded: boolean;
+  // true, wenn das Laden der Spiele aus Supabase fehlgeschlagen ist.
+  matchesLoadFailed: boolean;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -498,6 +500,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // true erst, wenn die Spiele wirklich aus Supabase kommen (die Auswertung
   // in UserContext darf nie mit Demo-Spielen rechnen).
   const contentLoaded = loadedFromDb.matches;
+  const [matchesLoadFailed, setMatchesLoadFailed] = useState(false);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -529,6 +532,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setMatches(matchesRes.data.map((row) => row.data as Match));
       } else {
         console.warn("Spiele konnten nicht geladen werden:", matchesRes.error?.message);
+        setMatchesLoadFailed(true);
       }
       if (!newsRes.error && newsRes.data) {
         setNewsItems(newsRes.data.map((row) => row.data as NewsItem));
@@ -1257,6 +1261,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         activity,
         addActivity,
         contentLoaded,
+        matchesLoadFailed,
       }}
     >
       {children}

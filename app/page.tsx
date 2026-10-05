@@ -12,7 +12,7 @@ import { splitMatchesByTab } from "@/lib/matchTabs";
 
 export default function DashboardPage() {
   const { placeTip, streakCount } = useUser();
-  const { matches, getTeam, tipCounts, changeTip, myTips } = useAppData();
+  const { matches, getTeam, tipCounts, changeTip, myTips, contentLoaded, matchesLoadFailed } = useAppData();
   const { showToast, celebrate } = useFeedback();
   // Vom Spieler angeklickter Reiter (null = noch nicht gewählt). Solange
   // nichts gewählt ist, entscheidet die Seite selbst, siehe "tab" unten.
@@ -57,7 +57,10 @@ export default function DashboardPage() {
 
   // Geschlossen erst, wenn der Admin den Endstand eingetragen oder das Spiel
   // abgesagt hat, nie nach Uhrzeit (Regel und Test in lib/matchTabs.ts).
-  const { offen: offeneMatches, geschlossen: geschlosseneMatches } = splitMatchesByTab(matches, now);
+  // Spiele, deren Team fehlt (z. B. gelöscht), zeigt die Seite nicht an, also
+  // zählen sie auch nicht als offen.
+  const shownMatches = matches.filter((m) => getTeam(m.homeTeamId) && getTeam(m.awayTeamId));
+  const { offen: offeneMatches, geschlossen: geschlosseneMatches } = splitMatchesByTab(shownMatches, now);
   // Kein offenes Spiel mehr: gleich die geschlossenen zeigen statt einer
   // leeren Seite. Sobald wieder eins offen ist, stehen die offenen vorne.
   // Hat der Spieler selbst einen Reiter angeklickt, bleibt es dabei.
@@ -134,6 +137,17 @@ export default function DashboardPage() {
         <AdBanner />
       </div>
 
+      {/* Bis die echten Spiele geladen sind (nach Einloggen oder Neuladen),
+          stehen nur Demo-Spiele im Speicher. Erst danach wird der Reiter
+          gewählt, sonst blitzt "Offene Tipps" kurz auf. */}
+      {!contentLoaded ? (
+        <p className="py-8 text-center text-sm text-muted">
+          {matchesLoadFailed
+            ? "Spiele konnten nicht geladen werden – bitte die Seite neu laden."
+            : "Spiele werden geladen …"}
+        </p>
+      ) : (
+      <>
       <div className="mb-5 flex gap-2 border-b border-edge">
         <TabButton
           label="Offene Tipps"
@@ -157,6 +171,8 @@ export default function DashboardPage() {
         )}
         {visibleMatches.map(renderCard)}
       </div>
+      </>
+      )}
     </main>
   );
 }
