@@ -41,3 +41,6 @@ psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/handball-test.sql 2
 
 # Schnellere Auswertung bei vielen Tippern
 psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/tempo-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'
+
+# Feinschliff: Toleranz-Joker, neue Spieler, Text bei "nie unter 0"
+psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/feinschliff-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'

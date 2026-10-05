@@ -91,6 +91,7 @@ export default function DashboardPage() {
                 evaluated: tip.evaluated,
                 resultTier: tip.resultTier,
                 rangDelta: tip.rangDelta,
+                rangCalculated: tip.rangCalculated,
                 starsDelta: tip.starsDelta,
                 narration: tip.narration,
                 basePoints: tip.basePoints,
