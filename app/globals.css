@@ -286,6 +286,27 @@ html[data-season-design] .match-card-rand {
   box-shadow: 0 0 0 1px rgb(var(--c-action) / 0.14), 0 6px 18px -10px rgb(0 0 0 / 0.6);
 }
 
+/* Countdown auf noch nicht getippten Karten in den letzten 2 Stunden vor
+   Tippschluss: leuchtet sanft, damit man das Tippen nicht vergisst. */
+@keyframes tip-reminder-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(255 155 92 / 0);
+  }
+  50% {
+    box-shadow: 0 0 12px 2px rgb(255 155 92 / 0.55);
+  }
+}
+.animate-tip-reminder {
+  animation: tip-reminder-glow 1.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-tip-reminder {
+    animation: none;
+    box-shadow: 0 0 10px 1px rgb(255 155 92 / 0.4);
+  }
+}
+
 /* Hinweis-Blase bei neuer Chat-Nachricht */
 @keyframes chatToastIn {
   from {

@@ -18,7 +18,9 @@ function formatRemaining(ms: number): string {
   return `noch ${seconds} Sek.`;
 }
 
-export default function Countdown({ kickoff }: { kickoff: string }) {
+// remind: noch nicht getippt. Dann leuchtet der Countdown in den letzten
+// 2 Stunden vor Tippschluss, damit man das Tippen nicht vergisst.
+export default function Countdown({ kickoff, remind = false }: { kickoff: string; remind?: boolean }) {
   const target = new Date(kickoff).getTime();
 
   // Startet bewusst bei "null" statt sofort mit Date.now() zu rechnen: Der
@@ -45,6 +47,17 @@ export default function Countdown({ kickoff }: { kickoff: string }) {
 
   const closed = remaining <= 0;
   const soon = !closed && remaining <= 30 * 60 * 1000; // letzte 30 Minuten
+
+  const glowing = remind && !closed && remaining <= 2 * 60 * 60 * 1000;
+
+  if (glowing) {
+    return (
+      <span className="animate-tip-reminder inline-flex items-center gap-1 rounded-full border border-[#FF9B5C]/70 bg-[#FF9B5C]/15 px-2 py-0.5 font-semibold text-[#FF9B5C]">
+        <span aria-hidden>⏰</span>
+        {formatRemaining(remaining)}
+      </span>
+    );
+  }
 
   return (
     <span className={`inline-flex items-center gap-1 ${closed ? "text-muted" : soon ? "text-[#FF9B5C]" : "text-gold"}`}>

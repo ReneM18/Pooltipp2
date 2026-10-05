@@ -278,7 +278,8 @@ export default function MatchCard({
     return (
       <button
         key={option}
-        onClick={() => setNflPick(option)}
+        // Nochmal antippen wählt wieder ab (vor dem Abgeben, löscht keinen Tipp).
+        onClick={() => setNflPick((current) => (current === option ? null : option))}
         aria-label={pickLabel(option)}
         aria-pressed={nflPick === option}
         className={`flex h-12 w-[4.5rem] max-w-full items-center justify-center rounded-lg border text-center transition-colors ${
@@ -392,7 +393,7 @@ export default function MatchCard({
               Abgesagt
             </span>
           ) : (
-            <Countdown kickoff={match.tipDeadline} />
+            <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
           )}
         </span>
       </div>
@@ -690,7 +691,7 @@ export default function MatchCard({
                 ? "Kommentieren"
                 : `${matchComments.length} ${matchComments.length === 1 ? "Kommentar" : "Kommentare"}`}
             </button>
-            {hasTipped && <span className="whitespace-nowrap text-[13px] font-bold text-action">✓ Getippt</span>}
+            {hasTipped && <span className="whitespace-nowrap text-sm font-black text-action-hover">✓ Getippt</span>}
           </div>
         </div>
 
