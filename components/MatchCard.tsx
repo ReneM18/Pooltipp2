@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, FormEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Match, Sport, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
-import { TipResultTier, compareWithOthers, BOOSTER_STAKE, RANKING_BONUS_CAP, boosterPayouts, rankingPointsTable } from "@/lib/poolScore";
+import { TipResultTier, compareWithOthers, BOOSTER_STAKE, RANKING_BONUS_CAP, RANKING_POINTS, boosterPayouts } from "@/lib/poolScore";
 import { MatchTipper, useMatchTips } from "@/lib/matchTips";
 import { flagEmoji } from "@/lib/flags";
 import { useAppData } from "@/lib/AppDataContext";
@@ -887,6 +887,26 @@ function PointsGrid({ items }: { items: { label: string; net: number }[] }) {
   );
 }
 
+// Zeilen im Fenster "Punkteverteilung": jede Stufe mit kurzer Erklärung.
+function tipPointRows(isOneXTwo: boolean): { title: string; hint?: string; points: number }[] {
+  if (isOneXTwo) {
+    return [
+      { title: "Richtig getippt", hint: "1, X oder 2 stimmt", points: RANKING_POINTS.tendenz },
+      { title: "Daneben getippt", points: RANKING_POINTS.falsch },
+    ];
+  }
+  return [
+    { title: "Richtiges Ergebnis", hint: "genau der Endstand", points: RANKING_POINTS.exakt },
+    {
+      title: "Richtige Tordifferenz",
+      hint: "richtiger Sieger und gleicher Abstand, z.\u00a0B. 2:1 getippt, 3:2 gespielt",
+      points: RANKING_POINTS.differenz,
+    },
+    { title: "Richtige Tendenz", hint: "nur der Sieger oder das Unentschieden stimmt", points: RANKING_POINTS.tendenz },
+    { title: "Daneben getippt", points: RANKING_POINTS.falsch },
+  ];
+}
+
 // Kleiner Hinweis "Punkteverteilung" auf der Karte. Beim Antippen öffnet
 // sich ein Fenster mit den Punkten für diesen Kartentyp (Ergebnis oder 1X2),
 // dem Bonus gegen die Mittipper und bei Booster-Spielen den Coins.
@@ -934,7 +954,7 @@ function PointsInfoButton({ isOneXTwo, isBooster }: { isOneXTwo: boolean; isBoos
               <div className="overflow-y-auto px-5 pb-5 pt-4">
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
-                    <h2 className="font-display text-lg font-bold leading-tight text-ink">Punkteverteilung</h2>
+                    <h2 className="font-display text-lg font-bold leading-tight text-ink">So bekommst du Punkte</h2>
                     <p className="text-xs text-muted">{isOneXTwo ? "1X2-Tipp" : "Ergebnis-Tipp"}</p>
                   </div>
                   <button
@@ -947,20 +967,30 @@ function PointsInfoButton({ isOneXTwo, isBooster }: { isOneXTwo: boolean; isBoos
                   </button>
                 </div>
 
-                <p className="text-[11px] uppercase tracking-wide text-muted">Deine Rangpunkte</p>
-                <PointsGrid items={rankingPointsTable(isOneXTwo)} />
-                {!isOneXTwo && (
-                  <p className="mt-2 text-xs leading-relaxed text-muted">
-                    Differenz heißt: richtiger Sieger und richtiger Torabstand (2:1 getippt, 3:2 gespielt). Tendenz
-                    heißt: nur der Sieger oder das Unentschieden stimmt.
-                  </p>
-                )}
+                <p className="text-sm font-semibold text-ink">Zuerst zählt dein Tipp:</p>
+                <ul className="mt-2 flex flex-col gap-1.5">
+                  {tipPointRows(isOneXTwo).map((row) => (
+                    <li key={row.title} className="flex items-start justify-between gap-3 rounded-md bg-pitch/60 px-3 py-2">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold leading-snug text-ink">{row.title}</span>
+                        {row.hint && <span className="block text-xs leading-snug text-muted">{row.hint}</span>}
+                      </span>
+                      <span
+                        className={`shrink-0 font-display text-base font-bold ${row.points > 0 ? "text-action" : "text-[#FF9B5C]"}`}
+                      >
+                        {row.points > 0 ? `+${row.points}` : `−${-row.points}`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
 
-                <p className="mt-4 text-[11px] uppercase tracking-wide text-muted">Bonus gegen die Mittipper</p>
+                <p className="mt-4 text-sm font-semibold text-ink">Dazu kommt der Vergleich mit den anderen:</p>
                 <p className="mt-1 text-xs leading-relaxed text-muted">
-                  Dazu kommt ein Bonus gegen alle, die dasselbe Spiel getippt haben: Hast du besser getippt, gibt es
-                  Plus, schlechter gibt es Minus. Bessere aus der Rangliste zu schlagen bringt doppelt, gegen Schwächere
-                  zu verlieren kostet doppelt. Höchstens{"\u00a0"}±{RANKING_BONUS_CAP} pro Tipp.
+                  Hast du besser getippt als die meisten, die dasselbe Spiel getippt haben, gibt es Bonuspunkte. Hast
+                  du schlechter getippt als die meisten, gibt es Abzug. Wenn du jemanden schlägst, der in der Rangliste
+                  vor dir steht, bringt das mehr, als wenn du jemanden schlägst, der hinter dir steht. Genauso kostet
+                  es mehr, gegen jemanden hinter dir zu verlieren. Der Bonus oder Abzug ist höchstens{"\u00a0"}
+                  {RANKING_BONUS_CAP}{"\u00a0"}Punkte pro Tipp.
                 </p>
 
                 {isBooster && (
