@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, FormEvent } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Match, Sport, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
-import { TipResultTier, compareWithOthers, BOOSTER_STAKE, boosterPayouts, rankingPointsTable } from "@/lib/poolScore";
+import { TipResultTier, compareWithOthers, BOOSTER_STAKE, RANKING_BONUS_CAP, boosterPayouts, rankingPointsTable } from "@/lib/poolScore";
 import { MatchTipper, useMatchTips } from "@/lib/matchTips";
 import { flagEmoji } from "@/lib/flags";
 import { useAppData } from "@/lib/AppDataContext";
@@ -508,24 +509,8 @@ export default function MatchCard({
               <TrendRow matchId={match.id} homeName={homeTeam.name} awayName={awayTeam.name} awayFirst={isUsSport} className="mb-3" />
             )}
 
-            {/* Gleicher Aufbau auf jeder Karte (Ergebnis oder 1X2, mit oder
-                ohne Booster, auch beim Ändern): die Rangpunkte immer in der
-                normal umrandeten Box. Nur der Booster (Einsatz und Gewinn
-                oder Verlust an Sternen) bekommt darunter eine eigene goldene
-                Box. */}
-            <div className={`${isBooster ? "mb-3" : "mb-5"} rounded-lg border border-edge bg-pitch/60 px-4 py-2.5`}>
-              {!isBooster && (
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-ink">Gratis-Tipp</span>
-                  <span className="text-xs text-muted">kostet keine Coins</span>
-                </div>
-              )}
-              <p className="text-[11px] uppercase tracking-wide text-muted">Deine Rangpunkte</p>
-              <PointsGrid items={rankingPointsTable(isOneXTwo)} />
-              <p className="mt-1 text-[11px] text-muted">Plus Bonus gegen die Mittipper (bis{"\u00a0"}±10)</p>
-            </div>
             {isBooster && (
-              <div className="mb-5 rounded-lg border border-gold/40 bg-gold/[0.07] px-4 py-2.5">
+              <div className="mb-3 rounded-lg border border-gold/40 bg-gold/[0.07] px-4 py-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-semibold text-ink">Booster-Einsatz</span>
                   <span className="flex items-center gap-1 font-display font-semibold text-gold">
@@ -537,11 +522,23 @@ export default function MatchCard({
                 <PointsGrid items={boosterPayouts(isOneXTwo)} />
               </div>
             )}
-            {isChanging && (
+            {/* Statt der Punkte-Tabelle nur ein kleiner Hinweis, die
+                Punkteverteilung öffnet sich beim Antippen in einem Fenster.
+                Nur der Booster (Einsatz und Gewinn oder Verlust an Coins)
+                bleibt als goldene Box auf der Karte, der Hinweis steht immer
+                direkt über dem Knopf. */}
+            <div className={`mb-4 flex items-center ${isBooster ? "justify-end" : "justify-between"} gap-3`}>
+              {!isBooster && (
+                <span className="min-w-0 whitespace-nowrap text-xs text-muted">
+                  <span className="font-semibold text-ink">Gratis-Tipp</span> · kostet nichts
+                </span>
+              )}
+              <PointsInfoButton isOneXTwo={isOneXTwo} isBooster={isBooster} />
+            </div>
+            {/* Ohne Booster sagt "Gratis-Tipp · kostet nichts" schon alles. */}
+            {isChanging && isBooster && (
               <p className="-mt-3 mb-4 text-center text-xs text-muted">
-                {isBooster
-                  ? "Einsatz schon bezahlt – beim Ändern werden keine Coins abgezogen."
-                  : "Ändern kostet nichts."}
+                Einsatz schon bezahlt – beim Ändern werden keine Coins abgezogen.
               </p>
             )}
 
@@ -618,9 +615,8 @@ export default function MatchCard({
             {/* Noch nicht ausgewertet: kurz zeigen, was der Tipp bringen kann.
                 Jedes Paar bleibt zusammen ("Tendenz +5" nie getrennt). */}
             {hasTipped && !myTip?.evaluated && !isCancelled && (
-              <div className="flex flex-col gap-0.5 text-center text-xs text-muted">
-                <PointsLine title="Rangpunkte" items={rankingPointsTable(isOneXTwo)} extra="plus Bonus" />
-                {isBooster && <PointsLine title="Coins" items={boosterPayouts(isOneXTwo)} />}
+              <div className="flex justify-center">
+                <PointsInfoButton isOneXTwo={isOneXTwo} isBooster={isBooster} />
               </div>
             )}
 
@@ -891,21 +887,108 @@ function PointsGrid({ items }: { items: { label: string; net: number }[] }) {
   );
 }
 
-// Eine Zeile "Rangpunkte: Exakt +10 · Differenz +7 · …" für Karten mit
-// abgegebenem, noch nicht ausgewertetem Tipp.
-function PointsLine({ title, items, extra }: { title: string; items: { label: string; net: number }[]; extra?: string }) {
-  const value = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "±0");
-  const parts = [...items.map((p) => `${p.label} ${value(p.net)}`), ...(extra ? [extra] : [])];
+// Kleiner Hinweis "Punkteverteilung" auf der Karte. Beim Antippen öffnet
+// sich ein Fenster mit den Punkten für diesen Kartentyp (Ergebnis oder 1X2),
+// dem Bonus gegen die Mittipper und bei Booster-Spielen den Coins.
+function PointsInfoButton({ isOneXTwo, isBooster }: { isOneXTwo: boolean; isBooster: boolean }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   return (
-    <p>
-      <span className="whitespace-nowrap">{title}:</span>{" "}
-      {parts.map((part, i) => (
-        <span key={part}>
-          <span className="whitespace-nowrap">{part}</span>
-          {i < parts.length - 1 ? " · " : ""}
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-1 py-0.5 text-xs font-semibold text-muted transition-colors hover:text-ink"
+      >
+        <span
+          aria-hidden
+          className="flex h-4 w-4 items-center justify-center rounded-full border border-current font-display text-[10px] font-bold leading-none"
+        >
+          i
         </span>
-      ))}
-    </p>
+        Punkteverteilung
+      </button>
+
+      {/* Per Portal direkt in <body>, sonst bezieht sich position:fixed auf
+          einen Vorfahren mit transform und das Fenster wird abgeschnitten. */}
+      {open &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-pitch/85 p-4 backdrop-blur-sm sm:items-center"
+            onClick={() => setOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Punkteverteilung"
+              className="flex max-h-[85vh] w-full max-w-sm flex-col overflow-hidden rounded-card border border-edge bg-gradient-to-br from-surface to-surface-hover shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="overflow-y-auto px-5 pb-5 pt-4">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="font-display text-lg font-bold leading-tight text-ink">Punkteverteilung</h2>
+                    <p className="text-xs text-muted">{isOneXTwo ? "1X2-Tipp" : "Ergebnis-Tipp"}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    aria-label="Schließen"
+                    className="-mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xl leading-none text-muted transition-colors hover:text-ink"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <p className="text-[11px] uppercase tracking-wide text-muted">Deine Rangpunkte</p>
+                <PointsGrid items={rankingPointsTable(isOneXTwo)} />
+                {!isOneXTwo && (
+                  <p className="mt-2 text-xs leading-relaxed text-muted">
+                    Differenz heißt: richtiger Sieger und richtiger Torabstand (2:1 getippt, 3:2 gespielt). Tendenz
+                    heißt: nur der Sieger oder das Unentschieden stimmt.
+                  </p>
+                )}
+
+                <p className="mt-4 text-[11px] uppercase tracking-wide text-muted">Bonus gegen die Mittipper</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted">
+                  Dazu kommt ein Bonus gegen alle, die dasselbe Spiel getippt haben: Hast du besser getippt, gibt es
+                  Plus, schlechter gibt es Minus. Bessere aus der Rangliste zu schlagen bringt doppelt, gegen Schwächere
+                  zu verlieren kostet doppelt. Höchstens{"\u00a0"}±{RANKING_BONUS_CAP} pro Tipp.
+                </p>
+
+                {isBooster && (
+                  <div className="mt-4 rounded-lg border border-gold/40 bg-gold/[0.07] px-4 py-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-ink">Booster-Einsatz</span>
+                      <span className="flex items-center gap-1 font-display font-semibold text-gold">
+                        <CoinIcon className="h-[18px] w-[18px]" />
+                        {BOOSTER_STAKE}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">Coins: dein Gewinn oder Verlust</p>
+                    <PointsGrid items={boosterPayouts(isOneXTwo)} />
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="w-full shrink-0 bg-gold py-3 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90"
+              >
+                Schließen
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 
