@@ -1,4 +1,4 @@
-import { NEWS_SPORT_ICONS, NEWS_SPORTS, NewsSport } from "@/lib/types";
+import { NEWS_SPORT_ICONS, NEWS_SPORTS, NewsSport, sportLabel } from "@/lib/types";
 
 // Für MotoGP und Darts gibt es kein passendes Emoji (🏍️ ist ein normales
 // Motorrad, 🎯 eine Zielscheibe). Darum zeichnen wir dort eigene kleine
@@ -103,7 +103,7 @@ export function NewsSportPicker({
                 <span className={small ? "text-sm" : "text-base"}>
                   <NewsSportIcon sport={s} />
                 </span>
-                {s}
+                {sportLabel(s)}
               </>
             ) : (
               "Allgemein"

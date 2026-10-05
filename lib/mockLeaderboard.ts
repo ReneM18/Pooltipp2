@@ -48,4 +48,5 @@ export const mockLeaderboardBySport: Record<Sport, LeaderboardEntry[]> = {
     { rank: 4, name: "Alex", points: 140, isCurrentUser: true },
     { rank: 5, name: "Marco T.", points: 90 },
   ],
+  Handball: [],
 };

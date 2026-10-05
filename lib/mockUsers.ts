@@ -31,13 +31,13 @@ export const MOCK_USERS: Record<string, MockUserProfile> = {
       { emoji: "🏈", from: "#3FA66B", to: "#1E2F29" },
       { emoji: "🎯", from: "#E8B34C", to: "#4A3D22" },
     ],
-    bio: "NFL-Experte der Gruppe.",
+    bio: "Football-Experte der Gruppe.",
   },
   "Jonas W.": {
     name: "Jonas W.",
     photoVisibility: "public",
     photos: [{ emoji: "🏒", from: "#0038A8", to: "#12203f" }],
-    bio: "Neu bei NHL-Tipps, aber schon ziemlich treffsicher.",
+    bio: "Neu bei Eishockey-Tipps, aber schon ziemlich treffsicher.",
   },
   "Fatima R.": {
     name: "Fatima R.",
@@ -46,7 +46,7 @@ export const MOCK_USERS: Record<string, MockUserProfile> = {
       { emoji: "🏀", from: "#CE1141", to: "#3a0f18" },
       { emoji: "⭐", from: "#E8B34C", to: "#4A3D22" },
     ],
-    bio: "NBA-Fan, tippt am liebsten knappe Spiele.",
+    bio: "Basketball-Fan, tippt am liebsten knappe Spiele.",
   },
   "Timo B.": {
     name: "Timo B.",

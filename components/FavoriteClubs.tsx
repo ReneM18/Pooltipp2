@@ -7,15 +7,10 @@ import TeamBadge from "@/components/TeamBadge";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
-import { SPORTS, Sport, Team } from "@/lib/types";
+import { SPORTS, Sport, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { CLUB_MIN_ACTIVE_FANS, CLUB_MIN_TIPS, formatDay, MyClub, useMyClubs } from "@/lib/clubs";
 
-const sportIcon: Record<Sport, string> = {
-  "Fußball": "⚽",
-  NFL: "🏈",
-  NBA: "🏀",
-  NHL: "🏒",
-};
+const sportIcon: Record<string, string> = SPORT_ICONS;
 
 // Profil-Bereich "Herzensvereine": pro Sportart freiwillig einen Verein
 // wählen, plus Schalter, um die Vereinswertung komplett abzuschalten.
@@ -79,7 +74,7 @@ export default function FavoriteClubs() {
 
       {showRules && (
         <ul className="mb-3 list-disc space-y-1 rounded-card border border-edge bg-surface py-3 pl-8 pr-4 text-xs text-muted">
-          <li>Fußball-Tipps zählen nur für deinen Fußballverein, NBA-Tipps nur für dein NBA-Team usw.</li>
+          <li>Fußball-Tipps zählen nur für deinen Fußballverein, Basketball-Tipps nur für dein Basketball-Team usw.</li>
           <li>Pro Tipp: exaktes Ergebnis 3 Punkte, richtige Tendenz 1 Punkt. Bei Sieg/Unentschieden/Niederlage-Spielen gibt ein richtiger Tipp 2 Punkte.</li>
           <li>Aktiver Fan bist du ab {CLUB_MIN_TIPS} gewerteten Tipps in der Saison (ab 1. Juli).</li>
           <li>Vereinswert = Durchschnitt pro Tipp aller aktiven Fans mal 100.</li>
@@ -128,7 +123,7 @@ export default function FavoriteClubs() {
             return (
               <div key={sport} className="rounded-card border border-edge bg-surface p-4">
                 <p className="mb-2 text-xs font-semibold text-muted">
-                  {sportIcon[sport]} {sport}
+                  {sportIcon[sport]} {sportLabel(sport)}
                 </p>
                 <div className="flex items-center gap-3">
                   {team ? (

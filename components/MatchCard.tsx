@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, FormEvent } from "react";
 import Link from "next/link";
-import { Match, Sport, Team } from "@/lib/types";
+import { Match, Sport, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { TipResultTier, compareWithOthers, BOOSTER_STAKE, boosterPayouts, rankingPointsTable } from "@/lib/poolScore";
 import { MatchTipper, useMatchTips } from "@/lib/matchTips";
 import { flagEmoji } from "@/lib/flags";
@@ -20,12 +20,7 @@ import ScoreInput from "./ScoreInput";
 import { StarIcon, TvIcon, PlayIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
 import { SeasonCardWatermark } from "./SeasonDeco";
 
-const sportIcon: Record<string, string> = {
-  "Fußball": "⚽",
-  NFL: "🏈",
-  NBA: "🏀",
-  NHL: "🏒",
-};
+const sportIcon: Record<string, string> = SPORT_ICONS;
 
 // Ergebnis-Tipp: Höchstwert und Beschriftung je Sportart (vorher überall
 // "Tor-Ergebnis" bis 20 – bei Basketball wurde aus 112 einfach 20).
@@ -34,6 +29,7 @@ const scoreLimit: Record<string, { max: number; unit: string }> = {
   NHL: { max: 20, unit: "Tore" },
   NFL: { max: 99, unit: "Punkte" },
   NBA: { max: 199, unit: "Punkte" },
+  Handball: { max: 60, unit: "Tore" },
 };
 
 interface MyTip {

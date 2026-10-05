@@ -17,7 +17,7 @@ import WelcomeBanner from "@/components/WelcomeBanner";
 import FitText from "@/components/FitText";
 import PassHonorTags from "@/components/PassHonors";
 import { useFeedback } from "@/lib/FeedbackContext";
-import { Sport } from "@/lib/types";
+import { Sport, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { SEASON_THEME } from "@/lib/seasonTheme";
 import { CURRENT_SEASON } from "@/lib/seasons";
 import { xpForLevel } from "@/lib/seasonPass";
@@ -25,12 +25,7 @@ import { useSeasonDesign } from "@/lib/seasonDesign";
 import { matchTitle, oneXTwoText, scoreText } from "@/lib/teamOrder";
 import { getCurrentWeekWindow, sumWeeklyRangDelta } from "@/lib/weeklyLeaderboard";
 
-const sportIcon: Record<string, string> = {
-  "Fußball": "⚽",
-  NFL: "🏈",
-  NBA: "🏀",
-  NHL: "🏒",
-};
+const sportIcon: Record<string, string> = SPORT_ICONS;
 
 // Das Profil gibt es nur mit Konto. Gäste (auch direkt nach dem Ausloggen
 // oder über einen alten Link) landen beim Einloggen.
@@ -322,7 +317,7 @@ function ProfilInhalt() {
                     </span>
                     <span className="min-w-0">
                       <span className={`block text-xs font-medium ${unlocked ? "text-ink" : "text-muted"}`}>
-                        {unlocked ? option.label : `🔒 ${option.kind === "sport" ? option.sport : option.label}`}
+                        {unlocked ? option.label : `🔒 ${option.kind === "sport" ? sportLabel(option.sport) : option.label}`}
                       </span>
                       {!unlocked && <span className="block text-[11px] text-muted">{hint}</span>}
                     </span>
@@ -352,7 +347,7 @@ function ProfilInhalt() {
                     }`}
                   >
                     <span>{o.icon}</span>
-                    {o.sport}
+                    {sportLabel(o.sport)}
                   </button>
                 ))}
               </div>
