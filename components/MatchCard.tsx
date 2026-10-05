@@ -305,9 +305,11 @@ export default function MatchCard({
 
   function startChangingTip() {
     if (!myTip) return;
-    setHomeScore(myTip.predictedHomeScore);
-    setAwayScore(myTip.predictedAwayScore);
-    setNflPick(scoreToOneXTwo(myTip.predictedHomeScore, myTip.predictedAwayScore));
+    // Karte wie vor dem ersten Tippen: leere Felder, keine Auswahl. Der
+    // gespeicherte Tipp bleibt gültig, bis eine Änderung gespeichert wird.
+    setHomeScore(null);
+    setAwayScore(null);
+    setNflPick(null);
     submittedRef.current = false;
     setSubmitting(false);
     setChangingTip(true);
