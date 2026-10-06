@@ -24,12 +24,12 @@ export interface TournamentEntry {
 
 /** Summe der Rangliste-Punkte-Änderung aus allen eigenen, ausgewerteten Tipps zu Spielen dieses Turniers. */
 export function sumTournamentRangDelta(
-  tips: { evaluated?: boolean; rangDelta?: number; matchId: string }[],
+  tips: { evaluated?: boolean; rangDelta?: number; matchId: string; rankingLegacy?: boolean }[],
   matchIds: string[]
 ): number {
   const idSet = new Set(matchIds);
   return tips
-    .filter((t) => t.evaluated && t.rangDelta !== undefined && idSet.has(t.matchId))
+    .filter((t) => t.evaluated && t.rangDelta !== undefined && !t.rankingLegacy && idSet.has(t.matchId))
     .reduce((sum, t) => sum + (t.rangDelta ?? 0), 0);
 }
 
@@ -51,11 +51,13 @@ export function useTournamentStandings(matchIds: string[]): { entries: Tournamen
     let cancelled = false;
     setLoading(true);
     (async () => {
+      // Tipps von vor dem Neustart der Rangpunkte zählen nicht mehr.
       const { data: tips, error: tipsError } = await supabase
         .from("tips")
         .select("user_id, rang_delta, rang_booked")
         .in("match_id", key.split(","))
-        .eq("evaluated", true);
+        .eq("evaluated", true)
+        .eq("ranking_legacy", false);
 
       if (cancelled) return;
       if (tipsError || !tips) {

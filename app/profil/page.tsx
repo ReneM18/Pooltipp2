@@ -25,6 +25,7 @@ import { useSeasonDesign } from "@/lib/seasonDesign";
 import { matchTitle, oneXTwoText, scoreText } from "@/lib/teamOrder";
 import { getCurrentWeekWindow, sumWeeklyRangDelta } from "@/lib/weeklyLeaderboard";
 import { CoinIcon } from "@/components/CoinIcon";
+import { countsSinceReset, resetDateText } from "@/lib/rankingReset";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -80,7 +81,8 @@ function ProfilInhalt() {
     await logout();
     setLoggingOut(false);
   }
-  const { matches, getTeam, myTips } = useAppData();
+  const { matches, getTeam, myTips, countingTips, rankingResetAt } = useAppData();
+  const resetDate = resetDateText(rankingResetAt);
   const { showToast, celebrate } = useFeedback();
   const [nameInput, setNameInput] = useState(displayName);
   // Name auf einem anderen Gerät geändert: Eingabefeld mitziehen.
@@ -112,7 +114,9 @@ function ProfilInhalt() {
   const seasonDesign = useSeasonDesign();
   const playedEarlierSeason = passClaims.some((c) => !c.startsWith(`${CURRENT_SEASON.theme.id}:`));
 
-  const evaluatedTips = myTips.filter((t) => t.evaluated && !t.refunded);
+  // Nur Tipps seit dem Neustart der Rangpunkte, damit Trefferquote und
+  // Tipp-Zahl zu den Punkten passen (lib/rankingReset.ts).
+  const evaluatedTips = countingTips.filter((t) => t.evaluated && !t.refunded);
 
   // Rangpunkte dieser Woche und dieser Saison: Ein einzelner Tipp kann ins
   // Minus gehen, entscheidend ist die Summe. Gleiche Woche wie die
@@ -468,6 +472,7 @@ function ProfilInhalt() {
           <StatCard label="Tipp-Streak" value={`🔥 ${streakCount.toLocaleString("de-DE")}`} accent="gold" />
         </div>
         <p className="mt-3 text-xs text-muted">
+          {resetDate && <>Gezählt werden deine Tipps seit dem Neustart der Rangpunkte am {resetDate}. </>}
           Genauere Statistiken (Trefferquote, Tipp-Verlauf) folgen in einem späteren Update.
         </p>
       </section>
@@ -678,6 +683,9 @@ function ProfilInhalt() {
                       ` · Endstand: ${scoreText(match.sport, match.liveHomeScore, match.liveAwayScore)}`}{" "}
                     · {new Date(tip.submittedAt).toLocaleString("de-DE")}
                   </p>
+                  {!countsSinceReset(tip, rankingResetAt) && (
+                    <p className="mt-0.5 text-[11px] text-muted">Vor dem Neustart, zählt nicht mehr.</p>
+                  )}
                 </div>
                 <span className="flex items-center gap-1 font-display font-semibold text-gold"><CoinIcon className="h-4 w-4" />{tip.stake}</span>
               </div>

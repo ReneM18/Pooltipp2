@@ -119,6 +119,7 @@ export default function DashboardPage() {
                 beaten: tip.beaten,
                 joker: tip.joker,
                 rankingScored: tip.rankingScored,
+                rankingLegacy: tip.rankingLegacy,
                 stake: tip.stake,
                 refunded: tip.refunded,
               }
