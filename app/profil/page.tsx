@@ -25,7 +25,8 @@ import { useSeasonDesign } from "@/lib/seasonDesign";
 import { matchTitle, oneXTwoText, scoreText } from "@/lib/teamOrder";
 import { getCurrentWeekWindow, sumWeeklyRangDelta } from "@/lib/weeklyLeaderboard";
 import { CoinIcon } from "@/components/CoinIcon";
-import { countsSinceReset, resetDateText } from "@/lib/rankingReset";
+import { resetDateText } from "@/lib/rankingReset";
+import type { TipResultTier } from "@/lib/poolScore";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -83,6 +84,11 @@ function ProfilInhalt() {
   }
   const { matches, getTeam, myTips, countingTips, tipsBySport, rankingResetAt } = useAppData();
   const resetDate = resetDateText(rankingResetAt);
+  // Tipp-Historie: nur Tipps, die im aktuellen Punktesystem zählen (die
+  // alten bleiben in der Datenbank), neueste Abgabe oben.
+  const historyTips = [...countingTips].sort(
+    (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+  );
   const { showToast, celebrate } = useFeedback();
   const [nameInput, setNameInput] = useState(displayName);
   // Name auf einem anderen Gerät geändert: Eingabefeld mitziehen.
@@ -663,24 +669,22 @@ function ProfilInhalt() {
       <section className="mt-8">
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Meine Tipp-Historie</h2>
         <div className="flex flex-col gap-3">
-          {myTips.length === 0 && (
-            <p className="py-4 text-center text-sm text-muted">Noch keine Tipps abgegeben.</p>
+          {historyTips.length === 0 && (
+            <p className="py-4 text-center text-sm text-muted">
+              {myTips.length === 0 ? "Noch keine Tipps abgegeben." : "Noch keine Tipps seit dem Neustart der Rangpunkte."}
+            </p>
           )}
-          {[...myTips].reverse().map((tip) => {
+          {historyTips.map((tip) => {
             const match = matches.find((m) => m.id === tip.matchId);
             if (!match) return null;
             const homeTeam = getTeam(match.homeTeamId);
             const awayTeam = getTeam(match.awayTeamId);
             if (!homeTeam || !awayTeam) return null;
-            // Grün "Richtig" / Rot "Falsch", sobald der Tipp ausgewertet ist
-            // (Wort dazu, nicht nur Farbe). Offene, abgesagte und Tipps von
-            // vor dem Neustart bleiben ohne Markierung.
-            const verdict =
-              tip.evaluated && !tip.refunded && countsSinceReset(tip, rankingResetAt)
-                ? tip.resultTier === "falsch" || !tip.resultTier
-                  ? "falsch"
-                  : "richtig"
-                : null;
+            // Ergebnis als farbiges Wort (nicht nur Farbe), sobald der Tipp
+            // ausgewertet ist. Offene und abgesagte Tipps bleiben ohne.
+            const tier = tip.evaluated && !tip.refunded ? tip.resultTier ?? "falsch" : null;
+            const badge = tier ? HISTORY_BADGE[tier] : null;
+            const badgeText = tier === "tendenz" && match.tipMode === "1x2" ? "Richtig" : badge?.text;
 
             return (
               <div
@@ -704,20 +708,13 @@ function ProfilInhalt() {
                       ` · Endstand: ${scoreText(match.sport, match.liveHomeScore, match.liveAwayScore)}`}{" "}
                     · {new Date(tip.submittedAt).toLocaleString("de-DE")}
                   </p>
-                  {!countsSinceReset(tip, rankingResetAt) && (
-                    <p className="mt-0.5 text-[11px] text-muted">Vor dem Neustart, zählt nicht mehr.</p>
-                  )}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  {verdict && (
+                  {badge && (
                     <span
-                      className={`whitespace-nowrap rounded-full border px-2.5 py-0.5 font-display text-xs font-bold ${
-                        verdict === "richtig"
-                          ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-400"
-                          : "border-red-500/60 bg-red-500/15 text-red-400"
-                      }`}
+                      className={`whitespace-nowrap rounded-full border px-2.5 py-0.5 font-display text-xs font-bold ${badge.className}`}
                     >
-                      {verdict === "richtig" ? "✓ Richtig" : "✗ Falsch"}
+                      {badgeText}
                     </span>
                   )}
                   <span className="flex items-center gap-1 font-display font-semibold text-gold"><CoinIcon className="h-4 w-4" />{tip.stake}</span>
@@ -732,6 +729,15 @@ function ProfilInhalt() {
     </main>
   );
 }
+
+// Feste Farben (nicht die Saison-Farben), damit Exakt immer grün und
+// Falsch immer rot ist, auch im Saison-Design.
+const HISTORY_BADGE: Record<TipResultTier, { text: string; className: string }> = {
+  exakt: { text: "Exakt", className: "border-emerald-500/60 bg-emerald-500/15 text-emerald-400" },
+  differenz: { text: "Tordifferenz", className: "border-yellow-400/60 bg-yellow-400/15 text-yellow-300" },
+  tendenz: { text: "Tendenz", className: "border-orange-500/60 bg-orange-500/15 text-orange-400" },
+  falsch: { text: "Falsch", className: "border-red-500/60 bg-red-500/15 text-red-400" },
+};
 
 function StatCard({
   label,
