@@ -683,8 +683,12 @@ function ProfilInhalt() {
             // Ergebnis als farbiges Wort (nicht nur Farbe), sobald der Tipp
             // ausgewertet ist. Offene und abgesagte Tipps bleiben ohne.
             const tier = tip.evaluated && !tip.refunded ? tip.resultTier ?? "falsch" : null;
-            const badge = tier ? HISTORY_BADGE[tier] : null;
-            const badgeText = tier === "tendenz" && match.tipMode === "1x2" ? "Richtig" : badge?.text;
+            // 1X2 kennt nur richtig (grün) oder falsch (rot).
+            const badge = !tier
+              ? null
+              : match.tipMode === "1x2" && tier !== "falsch"
+              ? { text: "Richtig", className: HISTORY_BADGE.exakt.className }
+              : HISTORY_BADGE[tier];
 
             return (
               <div
@@ -714,7 +718,7 @@ function ProfilInhalt() {
                     <span
                       className={`whitespace-nowrap rounded-full border px-2.5 py-0.5 font-display text-xs font-bold ${badge.className}`}
                     >
-                      {badgeText}
+                      {badge.text}
                     </span>
                   )}
                   <span className="flex items-center gap-1 font-display font-semibold text-gold"><CoinIcon className="h-4 w-4" />{tip.stake}</span>
