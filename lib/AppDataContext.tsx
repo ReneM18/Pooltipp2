@@ -495,13 +495,21 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Tipp-Zähler aller Spieler laden: beim Start, wenn die Seite wieder in
-  // den Vordergrund kommt, und jede Minute. Gelesen wird nur die Spalte
-  // match_id, seitenweise (Supabase liefert höchstens 1000 Zeilen am Stück).
+  // den Vordergrund kommt, und jede Minute. Die Datenbank zählt selbst
+  // (tip_counts, supabase/tipps-schutz.sql), denn fremde Tipps gibt sie vor
+  // Tippschluss nicht mehr heraus. Ohne die Funktion (SQL noch nicht
+  // ausgeführt) wie früher die Spalte match_id seitenweise zählen.
   const loadTipCountsRef = useRef<() => Promise<void>>(async () => {});
   useEffect(() => {
     let cancelled = false;
     async function loadTipCounts() {
       const counts: Record<string, number> = {};
+      const counted = await supabase.rpc("tip_counts");
+      if (!counted.error && counted.data) {
+        for (const row of counted.data as { match_id: string; tips: number }[]) counts[row.match_id] = row.tips;
+        if (!cancelled) setTipCounts(counts);
+        return;
+      }
       const pageSize = 1000;
       for (let from = 0; ; from += pageSize) {
         const { data, error } = await supabase
