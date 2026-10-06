@@ -15,6 +15,7 @@ import {
 } from "./competitions";
 import { TipResultTier, BOOSTER_STAKE } from "./poolScore";
 import { matchTitle } from "./teamOrder";
+import { countsSinceReset } from "./rankingReset";
 
 export interface WithdrawResult {
   // false: der Tipp war schon weg (z. B. auf einem anderen Gerät zurückgenommen)
@@ -70,6 +71,7 @@ export interface SubmittedTip {
   // Spiel wurde abgesagt: Einsatz kam zurück, keine Wertung (evaluated ist
   // dann ebenfalls true, damit der Tipp nie mehr ausgewertet wird).
   refunded?: boolean;
+  refundedAt?: string;
 }
 
 // Zeile aus der Tabelle "tips" -> Tipp im Browser.
@@ -103,6 +105,7 @@ export function tipFromRow(row: Record<string, unknown>): SubmittedTip {
     evaluatedHomeScore: (row.evaluated_home_score as number | null) ?? undefined,
     evaluatedAwayScore: (row.evaluated_away_score as number | null) ?? undefined,
     refunded: !!row.refunded_at,
+    refundedAt: (row.refunded_at as string | null) ?? undefined,
   };
 }
 
@@ -372,6 +375,11 @@ interface AppDataContextValue {
   registerTip: (matchId: string) => void;
   tipsBySport: Record<Sport, number>;
   myTips: SubmittedTip[];
+  // Eigene Tipps, die seit dem Neustart der Rangpunkte zählen (ohne die von
+  // davor, siehe lib/rankingReset.ts). Für alle Statistiken verwenden.
+  countingTips: SubmittedTip[];
+  // Zeitpunkt des Neustarts (ranking_settings.points_reset_at), null = keiner.
+  rankingResetAt: string | null;
   // Tipp abgeben. Eingeloggt bestimmt die Datenbank den Einsatz und zieht
   // ihn ab (stake gilt nur für Gäste ohne Konto). Gibt den gespeicherten
   // Tipp zurück, oder null, wenn die Datenbank ihn abgelehnt hat (z. B.
@@ -942,14 +950,32 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   // Eigene Tipps pro Sportart (Seite "Fortschritt") – aus den eigenen
   // Tipps berechnet, damit die Zahl auch nach dem Neuladen stimmt.
+  // Neustart der Rangpunkte: Zeitpunkt laden (beim Start und bei jedem
+  // Aktualisieren), damit alle Tipp-Statistiken zu den Punkten passen.
+  const [rankingResetAt, setRankingResetAt] = useState<string | null>(null);
+  async function loadRankingResetAt() {
+    const { data, error } = await supabase.from("ranking_settings").select("points_reset_at").maybeSingle();
+    if (error) return;
+    setRankingResetAt((data?.points_reset_at as string | null | undefined) ?? null);
+  }
+  useEffect(() => {
+    void loadRankingResetAt();
+  }, []);
+  useAppRefresh(() => loadRankingResetAt());
+
+  const countingTips = useMemo(
+    () => myTips.filter((t) => countsSinceReset(t, rankingResetAt)),
+    [myTips, rankingResetAt]
+  );
+
   const tipsBySport = useMemo(() => {
     const counts: Record<Sport, number> = { "Fußball": 0, NFL: 0, NBA: 0, NHL: 0, Handball: 0 };
-    for (const tip of myTips) {
+    for (const tip of countingTips) {
       const match = matches.find((m) => m.id === tip.matchId);
       if (match) counts[match.sport] = (counts[match.sport] ?? 0) + 1;
     }
     return counts;
-  }, [myTips, matches]);
+  }, [countingTips, matches]);
 
   async function submitTip(
     matchId: string,
@@ -1426,6 +1452,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         registerTip,
         tipsBySport,
         myTips,
+        countingTips,
+        rankingResetAt,
         submitTip,
         withdrawTip,
         reloadMyTips,

@@ -219,6 +219,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const {
     addActivity,
     myTips,
+    countingTips,
     submitTip,
     reloadMyTips,
     myTipsLoaded,
@@ -260,7 +261,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // Aus den (in Supabase gespeicherten) eigenen Tipps abgeleitet statt als
   // eigener Zähler – der stand nach jedem Neuladen wieder auf 0.
-  const tipsSubmitted = myTips.length;
+  // Nur Tipps seit dem Neustart der Rangpunkte (passt zu den Punkten).
+  const tipsSubmitted = countingTips.length;
   const [photoVisibility, setPhotoVisibility] = useState<PhotoVisibility>("friends");
   const [hasPremiumPass, setHasPremiumPass] = useState(false);
 

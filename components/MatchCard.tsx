@@ -55,6 +55,8 @@ interface MyTip {
   beaten?: number;
   joker?: "doppel" | "schutz" | "toleranz";
   rankingScored?: boolean;
+  // Vor dem Neustart der Rangpunkte gewertet: Punkte zählen nicht mehr.
+  rankingLegacy?: boolean;
   duelPoints?: number;
   duelsWon?: number;
   duelsDrawn?: number;
@@ -1113,11 +1115,16 @@ function PoolScoreResultBox({
         {/* Minus bewusst sachlich in Grau statt Rot: ein einzelner Tipp
             ist nur ein Baustein, zählt wird die Woche und die Saison. */}
         <span
-          className={`shrink-0 whitespace-nowrap font-display text-base font-bold ${rangDelta >= 0 ? "text-action" : "text-muted"}`}
+          className={`shrink-0 whitespace-nowrap font-display text-base font-bold ${
+            myTip.rankingLegacy ? "text-muted line-through" : rangDelta >= 0 ? "text-action" : "text-muted"
+          }`}
         >
           {signed(rangDelta)} <span className="text-xs font-semibold">Rangpunkte</span>
         </span>
       </div>
+      {myTip.rankingLegacy && (
+        <span className="text-xs text-muted">Vor dem Neustart der Rangpunkte gewertet, zählt nicht mehr.</span>
+      )}
       {breakdown && (
         <div className="flex flex-col gap-0.5 text-xs text-muted">
           <span>
