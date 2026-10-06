@@ -44,7 +44,7 @@ const CHANCEN: Record<BagTier, { art: TaschenArt; pct: string; detail?: string }
 export function TaschenSection() {
   const { freeStars, isAdmin } = useUser();
   const { canBuy, shopOpen, stock } = useJokers();
-  const { ready, gutscheine, wocheGekauft, tageSaison, buyTasche } = useTaschen();
+  const { ready, wocheGekauft, tageSaison, buyTasche } = useTaschen();
   const { showToast } = useFeedback();
   const [confirm, setConfirm] = useState<BagTier | null>(null);
   const [buying, setBuying] = useState<BagTier | null>(null);
@@ -86,18 +86,6 @@ export function TaschenSection() {
         </span>
       </div>
 
-      {gutscheine > 0 && (
-        <div className="mb-3 flex items-center gap-2 rounded-card border border-gold/40 bg-gold/10 px-4 py-2.5 text-sm text-ink">
-          <span aria-hidden className="text-lg leading-none">🎟️</span>
-          <span>
-            <span className="font-semibold">
-              {gutscheine === 1 ? "1 Booster-Gutschein" : `${gutscheine} Booster-Gutscheine`}
-            </span>{" "}
-            im Vorrat: Dein nächster Booster-Tipp kostet nichts.
-          </span>
-        </div>
-      )}
-
       {buyable && limitReached && (
         <div className="mb-3 rounded-card border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-ink">
           <span className="font-semibold">Diese Woche hast du schon eine Tasche gekauft.</span> Ab Montag geht wieder eine.
@@ -122,7 +110,12 @@ export function TaschenSection() {
                     ? "Jetzt kaufen"
                     : "Kaufen";
           return (
-            <div key={tier} className="flex flex-col justify-between rounded-card border border-edge bg-surface p-5">
+            <div
+              key={tier}
+              className={`flex flex-col justify-between rounded-card border bg-surface p-5 ${
+                tier === "profi" ? "border-gold/50 shadow-[0_0_24px_rgb(var(--c-gold)/0.12)]" : "border-edge"
+              }`}
+            >
               <div className="flex items-center gap-3">
                 <span className="shrink-0">
                   <Bag tier={tier} size={76} />
