@@ -21,10 +21,13 @@ export interface SeasonTheme {
 /**
  * Die festen Belohnungsarten – jede Saison benutzt nur diese.
  *
- * REGEL (Rene, 06.10.2026): Ein Pass gibt NIE Coins, weder gratis noch
- * Premium, und vervielfacht auch keine. Premium soll später Geld kosten;
- * gäbe der Pass Coins, käme man mit Geld an Coins und damit an die zufälligen
- * Trainingstaschen (Glücksspiel). Pass-Belohnungen sind nur Optik und Ehre.
+ * REGEL (Rene, 06.10.2026): Ein Pass gibt NIE Coins, Joker (Schutz, Doppel,
+ * Toleranz, Trend, Pause), Booster-Gutscheine oder sonst etwas, das beim
+ * Tippen hilft, weder gratis noch Premium, und vervielfacht auch nichts davon.
+ * Premium soll später Geld kosten; Geld darf nie, auch nicht über Coins, zu
+ * einem Tipp-Vorteil oder zu den zufälligen Trainingstaschen führen
+ * (Glücksspiel). Joker gibt es nur für Coins aus dem Spiel oder aus Taschen.
+ * Pass-Belohnungen sind nur Optik und Ehre.
  * Die Datenbank sperrt das zusätzlich (season_pass_levels.stars_reward = 0,
  * supabase/pass-ohne-coins.sql).
  */
