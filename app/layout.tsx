@@ -64,17 +64,17 @@ export default function RootLayout({
           <UserProvider>
             <JokerProvider>
               <TaschenProvider>
-                <DuelsProvider>
-                  <TournamentProvider>
-                    <TeamsProvider>
-                      <FeedbackProvider>
+                <TournamentProvider>
+                  <TeamsProvider>
+                    <FeedbackProvider>
+                      <DuelsProvider>
                         <ChatProvider>
                           <AppChrome>{children}</AppChrome>
                         </ChatProvider>
-                      </FeedbackProvider>
-                    </TeamsProvider>
-                  </TournamentProvider>
-                </DuelsProvider>
+                      </DuelsProvider>
+                    </FeedbackProvider>
+                  </TeamsProvider>
+                </TournamentProvider>
               </TaschenProvider>
             </JokerProvider>
           </UserProvider>

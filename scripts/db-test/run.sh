@@ -59,3 +59,6 @@ psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/dranbleiben-test.sq
 
 # Trainingstaschen: Kauf, Auslosung auf dem Server, Booster-Gutscheine
 psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/trainingstaschen-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'
+
+# Duelle mit bis zu 5 Spielern und mehreren Spielen, Schutz gegen Absprachen
+psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/duelle-gruppen-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'

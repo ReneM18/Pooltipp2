@@ -100,7 +100,7 @@ export default function SpielerProfilPage() {
                 </button>
               )}
               <Link
-                href="/duelle"
+                href={`/duelle?gegner=${encodeURIComponent(name)}`}
                 className="rounded-full bg-gold px-4 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:opacity-90"
               >
                 ⚔️ Herausfordern
