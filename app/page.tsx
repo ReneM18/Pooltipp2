@@ -98,6 +98,7 @@ export default function DashboardPage() {
     const extras = [
       result.refunded > 0 ? `${result.refunded} Coins sind zurück` : null,
       result.joker ? "dein Joker liegt wieder im Vorrat" : null,
+      result.gutschein ? "dein Booster-Gutschein liegt wieder im Vorrat" : null,
     ].filter(Boolean);
     showToast(
       `Tipp zurückgenommen${extras.length ? ` – ${extras.join(", ")}` : ""}. Gib jetzt deinen neuen Tipp ab.`,
@@ -159,6 +160,7 @@ export default function DashboardPage() {
                 rankingLegacy: tip.rankingLegacy,
                 stake: tip.stake,
                 refunded: tip.refunded,
+                gutschein: tip.gutschein,
               }
             : undefined
         }

@@ -53,3 +53,6 @@ psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/profil-sync-test.sq
 
 # Dranbleiben: Serien-Schutz, Start-Erlebnis und Wochenrückblick fürs Konto
 psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/dranbleiben-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'
+
+# Trainingstaschen: Kauf, Auslosung auf dem Server, Booster-Gutscheine
+psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/trainingstaschen-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'

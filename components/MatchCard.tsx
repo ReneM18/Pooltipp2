@@ -4,13 +4,14 @@ import { useEffect, useRef, useState, FormEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Match, Sport, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
-import { TipResultTier, compareWithOthers, BOOSTER_STAKE, RANKING_BONUS_CAP, RANKING_POINTS, boosterPayouts } from "@/lib/poolScore";
+import { TipResultTier, compareWithOthers, BOOSTER_STAKE, RANKING_BONUS_CAP, RANKING_POINTS, boosterPayouts, gutscheinPayouts } from "@/lib/poolScore";
 import { MatchTipper, useMatchTips } from "@/lib/matchTips";
 import { flagEmoji } from "@/lib/flags";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { TIP_JOKER_EFFECT, TIP_JOKER_LABEL, TipJoker, TrendResult, useJokers } from "@/lib/JokerContext";
+import { useTaschen } from "@/lib/TaschenContext";
 import { xpForLevel } from "@/lib/seasonPass";
 import { allowsDraw as sportAllowsDraw, displayOrder, isAwayFirst, oneXTwoText, pickNumber } from "@/lib/teamOrder";
 import TeamBadge, { matchJerseyProps } from "./TeamBadge";
@@ -65,6 +66,9 @@ interface MyTip {
   stake?: number;
   // Spiel abgesagt, Einsatz kam zurück (keine Wertung).
   refunded?: boolean;
+  // Booster-Tipp mit Gutschein aus einer Trainingstasche: nichts bezahlt,
+  // daneben kostet er nichts.
+  gutschein?: boolean;
 }
 
 interface MatchCardProps {
@@ -283,7 +287,11 @@ export default function MatchCard({
   // Booster-Spiel: Tipp nur mit vollem Einsatz (20 Sterne). Normale Spiele
   // sind gratis und bringen nur Rangpunkte.
   const isBooster = !!match.booster;
-  const notEnoughStars = isBooster && freeStars < BOOSTER_STAKE;
+  // Booster-Gutschein aus einer Trainingstasche: Die Datenbank löst ihn beim
+  // nächsten Booster-Tipp von selbst ein, der Tipp kostet dann nichts.
+  const { gutscheine } = useTaschen();
+  const withGutschein = isBooster && !isGuest && gutscheine > 0;
+  const notEnoughStars = isBooster && !withGutschein && freeStars < BOOSTER_STAKE;
   const notReady = missingPick || missingScore || notEnoughStars;
   const limit = scoreLimit[match.sport] ?? scoreLimit["Fußball"];
   // Echte Tipps aller Spieler: für die Liste und für den Vergleich nach der
@@ -608,13 +616,31 @@ export default function MatchCard({
               <div className="mb-3 rounded-lg border border-gold/40 bg-gold/[0.07] px-4 py-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-semibold text-ink">Dieser Tipp kostet</span>
-                  <span className="flex shrink-0 items-center gap-1 whitespace-nowrap font-display font-semibold text-gold">
-                    <CoinIcon className="h-[18px] w-[18px]" />
-                    {BOOSTER_STAKE} Coins
-                  </span>
+                  {withGutschein ? (
+                    <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap font-display font-semibold text-gold">
+                      <span className="flex items-center gap-1 text-sm text-muted line-through decoration-1">
+                        <CoinIcon className="h-4 w-4" />
+                        {BOOSTER_STAKE}
+                      </span>
+                      0 Coins
+                    </span>
+                  ) : (
+                    <span className="flex shrink-0 items-center gap-1 whitespace-nowrap font-display font-semibold text-gold">
+                      <CoinIcon className="h-[18px] w-[18px]" />
+                      {BOOSTER_STAKE} Coins
+                    </span>
+                  )}
                 </div>
-                <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">Coins: dein Gewinn oder Verlust</p>
-                <PointsGrid items={boosterPayouts(isOneXTwo)} />
+                {withGutschein && (
+                  <p className="mt-1 text-xs text-muted">
+                    🎟️ Dein Booster-Gutschein wird eingelöst
+                    {gutscheine > 1 ? ` (du hast ${gutscheine})` : ""}. Daneben kostet der Tipp nichts.
+                  </p>
+                )}
+                <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">
+                  {withGutschein ? "Coins: dein Gewinn" : "Coins: dein Gewinn oder Verlust"}
+                </p>
+                <PointsGrid items={withGutschein ? gutscheinPayouts(isOneXTwo) : boosterPayouts(isOneXTwo)} />
               </div>
             )}
             {/* Statt der Punkte-Tabelle nur ein kleiner Hinweis, die
@@ -762,7 +788,7 @@ export default function MatchCard({
             )}
 
             {isCancelled ? (
-              <CancelledBox stake={hasTipped ? myTip!.stake ?? 0 : null} />
+              <CancelledBox stake={hasTipped ? myTip!.stake ?? 0 : null} gutschein={!!myTip?.gutschein} />
             ) : (
               <ResultBox match={match} kickedOff={kickedOff} />
             )}
@@ -1166,7 +1192,9 @@ function PoolScoreResultBox({
   const tier = myTip.resultTier ?? "falsch";
   const rangDelta = myTip.rangDelta ?? 0;
   const calculated = myTip.rangCalculated ?? rangDelta;
-  const starsDelta = myTip.starsDelta ?? 0;
+  // Mit Gutschein war nichts bezahlt: daneben kostet der Tipp nichts
+  // (supabase/trainingstaschen.sql gleicht das auf dem Konto aus).
+  const starsDelta = myTip.gutschein ? Math.max(0, myTip.starsDelta ?? 0) : myTip.starsDelta ?? 0;
   // Gratis-Tipp (kein Einsatz): keine Sterne-Zeile, nur Rangpunkte.
   const hasStake = (myTip.stake ?? 0) > 0;
   const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0");
@@ -1239,6 +1267,7 @@ function PoolScoreResultBox({
               <CoinIcon className="h-4 w-4" />
               {starsDelta >= 0 ? "+" : ""}
               {starsDelta} Coins
+              {myTip.gutschein && <span className="font-normal text-muted"> · mit Gutschein</span>}
             </span>
           )}
           {!breakdown &&
@@ -1264,13 +1293,15 @@ function PoolScoreResultBox({
   );
 }
 
-function CancelledBox({ stake }: { stake: number | null }) {
+function CancelledBox({ stake, gutschein }: { stake: number | null; gutschein: boolean }) {
   return (
     <div className="flex flex-col items-center gap-1 rounded-lg border border-red-400/50 bg-red-400/10 px-4 py-3 text-center">
       <span className="font-display text-sm font-semibold text-red-300">🚫 Spiel abgesagt</span>
       <span className="text-xs text-muted">
         {stake === null
           ? "Dieses Spiel wird nicht gewertet."
+          : gutschein
+          ? "Dein Booster-Gutschein liegt wieder in deinem Vorrat."
           : stake > 0
           ? `Dein Einsatz von ${stake.toLocaleString("de-DE")} Coins ist zurück auf deinem Konto.`
           : "Dein Tipp wird nicht gewertet."}
