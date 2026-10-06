@@ -286,8 +286,8 @@ function HockeyJerseyIcon({ c, style, size, uid }: IconProps) {
         {style === "streifen" && (
           <>
             {/* Brust-/Schulterband quer über Trikot und Ärmel */}
-            <rect x="0" y="90" width="300" height="38" fill={c.trim} />
-            <rect x="0" y="102" width="300" height="14" fill={accent} />
+            <rect x="0" y="88" width="300" height="42" fill={c.trim} />
+            <rect x="0" y="101" width="300" height="16" fill={accent} />
           </>
         )}
       </g>
@@ -296,15 +296,15 @@ function HockeyJerseyIcon({ c, style, size, uid }: IconProps) {
       <path d="M114 36 Q150 68 186 36" fill="none" stroke={c.trim} strokeWidth="7" strokeLinecap="round" />
       <path d="M120 34 Q150 58 180 34" fill="none" stroke={accent} strokeWidth="3.5" strokeLinecap="round" />
       {/* Bund-Streifen */}
-      <rect x="86.9" y="193.5" width="126.2" height="15.1" fill={c.trim} />
-      <rect x="86.9" y="213.9" width="126.2" height="15.1" fill={accent} />
-      <rect x="86.9" y="234.3" width="126.2" height="15.1" fill={c.trim} />
+      <rect x="86.9" y="188.6" width="126.2" height="17" fill={c.trim} />
+      <rect x="86.9" y="210.6" width="126.2" height="17" fill={accent} />
+      <rect x="86.9" y="232.6" width="126.2" height="17" fill={c.trim} />
       {/* Ärmel-Streifen links */}
-      <rect x="24.9" y="176.5" width="49.9" height="20.3" fill={sleeveStripe} />
-      <rect x="22.6" y="197.2" width="47.2" height="19.6" fill={accent} />
+      <rect x="24.9" y="176.5" width="49.9" height="22" fill={sleeveStripe} />
+      <rect x="22.6" y="198.9" width="47.2" height="21" fill={accent} />
       {/* Ärmel-Streifen rechts */}
-      <rect x="225.2" y="176.5" width="49.9" height="20.3" fill={sleeveStripe} />
-      <rect x="230.2" y="197.2" width="47.2" height="19.6" fill={accent} />
+      <rect x="225.2" y="176.5" width="49.9" height="22" fill={sleeveStripe} />
+      <rect x="230.2" y="198.9" width="47.2" height="21" fill={accent} />
     </svg>
   );
 }
