@@ -26,7 +26,8 @@ import { matchTitle, oneXTwoText, scoreText } from "@/lib/teamOrder";
 import { getCurrentWeekWindow, sumWeeklyRangDelta } from "@/lib/weeklyLeaderboard";
 import { CoinIcon } from "@/components/CoinIcon";
 import { resetDateText } from "@/lib/rankingReset";
-import type { TipResultTier } from "@/lib/poolScore";
+import { TIER_BADGE } from "@/components/tierBadges";
+import { daysDative, daysLabel, useStreak } from "@/lib/streak";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -68,7 +69,6 @@ function ProfilInhalt() {
     photos,
     setPhoto,
     removePhoto,
-    streakCount,
     hasAdFreeSubscription,
     hasPremiumPass,
     isRegistered,
@@ -76,6 +76,9 @@ function ProfilInhalt() {
     authUserId,
     logout,
   } = useUser();
+  // Serie, wie sie gerade wirklich zählt (gerissen = 0), siehe lib/streak.ts.
+  const streak = useStreak();
+  const streakCount = streak.count;
   const [loggingOut, setLoggingOut] = useState(false);
   async function handleLogout() {
     setLoggingOut(true);
@@ -467,6 +470,20 @@ function ProfilInhalt() {
           Minus gehen, entscheidend ist, was über die Woche und die Saison zusammenkommt. Wer 2 Wochen gar nicht
           tippt, verliert 5 Punkte pro Woche.
         </p>
+        {isRegistered && (
+          <Link
+            href="/rueckblick"
+            className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
+          >
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-ink">📊 Wochenrückblick</span>
+              <span className="block text-xs text-muted">Deine letzte Woche und diese Woche bisher</span>
+            </span>
+            <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
+              Ansehen
+            </span>
+          </Link>
+        )}
       </section>
 
       <section className="mb-8">
@@ -477,6 +494,30 @@ function ProfilInhalt() {
           <StatCard label="Abgegebene Tipps" value={tipsSubmitted.toLocaleString("de-DE")} accent="ink" />
           <StatCard label="Tipp-Streak" value={`🔥 ${streakCount.toLocaleString("de-DE")}`} accent="gold" />
         </div>
+        {isRegistered && (
+          <div className="mt-3 rounded-card border border-edge bg-surface p-4 text-xs text-muted">
+            <p>
+              🔥 Tipp-Serie:{" "}
+              <span className="font-semibold text-ink">
+                {streak.count > 0 ? `${daysLabel(streak.count)} in Folge` : "gerade keine"}
+              </span>
+              {streak.status === "today" && " · heute schon getippt"}
+              {streak.nextMilestone && (
+                <>
+                  {" "}
+                  · bei {daysDative(streak.nextMilestone.days)} gibt es +{streak.nextMilestone.bonusStars} Coins
+                </>
+              )}
+            </p>
+            {streak.shieldFree !== null && (
+              <p className="mt-1">
+                🛡️ Serien-Schutz diese Woche:{" "}
+                <span className="font-semibold text-ink">{streak.shieldFree ? "bereit" : "schon genutzt"}</span>. Einmal pro
+                Woche wird ein Tag ohne Tipp automatisch überbrückt, wenn du am Tag danach wieder tippst.
+              </p>
+            )}
+          </div>
+        )}
         {/* Tipps nach Sportart – stand früher unter dem Saison-Pass, gehört aber
             zur Statistik (gleiche Zählung ab Neustart wie "Abgegebene Tipps"). */}
         <p className="mb-2 mt-4 font-display text-sm font-semibold text-ink">Tipps nach Sportart</p>
@@ -652,6 +693,20 @@ function ProfilInhalt() {
                 {loggingOut ? "…" : "Ausloggen"}
               </button>
             </div>
+            <Link
+              href="/start?vorschau=1"
+              className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-ink">👋 Start-Erlebnis</span>
+                <span className="block text-xs text-muted">
+                  So sieht ein neuer Spieler den Start. Nur zum Ansehen, es wird nichts gespeichert.
+                </span>
+              </span>
+              <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
+                Ansehen
+              </span>
+            </Link>
             <AccountSettings />
           </>
         ) : (
@@ -687,8 +742,8 @@ function ProfilInhalt() {
             const badge = !tier
               ? null
               : match.tipMode === "1x2" && tier !== "falsch"
-              ? { text: "Richtig", className: HISTORY_BADGE.exakt.className }
-              : HISTORY_BADGE[tier];
+              ? { text: "Richtig", className: TIER_BADGE.exakt.className }
+              : TIER_BADGE[tier];
 
             return (
               <div
@@ -733,15 +788,6 @@ function ProfilInhalt() {
     </main>
   );
 }
-
-// Feste Farben (nicht die Saison-Farben), damit Exakt immer grün und
-// Falsch immer rot ist, auch im Saison-Design.
-const HISTORY_BADGE: Record<TipResultTier, { text: string; className: string }> = {
-  exakt: { text: "Exakt", className: "border-emerald-500/60 bg-emerald-500/15 text-emerald-400" },
-  differenz: { text: "Tordifferenz", className: "border-yellow-400/60 bg-yellow-400/15 text-yellow-300" },
-  tendenz: { text: "Tendenz", className: "border-orange-500/60 bg-orange-500/15 text-orange-400" },
-  falsch: { text: "Falsch", className: "border-red-500/60 bg-red-500/15 text-red-400" },
-};
 
 function StatCard({
   label,

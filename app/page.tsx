@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import MatchCard from "@/components/MatchCard";
 import AdBanner from "@/components/AdBanner";
+import WeeklyReviewCard from "@/components/WeeklyReviewCard";
+import { StreakBadge, StreakHint } from "@/components/StreakChip";
 import { useUser } from "@/lib/UserContext";
 import { useJokers } from "@/lib/JokerContext";
 import { useAppData } from "@/lib/AppDataContext";
@@ -10,11 +13,45 @@ import { useFeedback } from "@/lib/FeedbackContext";
 import { BOOSTER_STAKE } from "@/lib/poolScore";
 import { Match } from "@/lib/types";
 import { splitMatchesByTab } from "@/lib/matchTabs";
+import { useStreak } from "@/lib/streak";
+import { readPendingInvite } from "@/lib/leagueInvite";
 
 export default function DashboardPage() {
-  const { placeTip, streakCount, refreshStars } = useUser();
+  const { placeTip, refreshStars, isRegistered, startDone } = useUser();
   const { reloadJokers } = useJokers();
-  const { matches, getTeam, tipCounts, withdrawTip, myTips, contentLoaded, matchesLoadFailed } = useAppData();
+  const { matches, getTeam, tipCounts, withdrawTip, myTips, myTipsLoaded, contentLoaded, matchesLoadFailed } = useAppData();
+  const streak = useStreak();
+  const router = useRouter();
+
+  // Neu registriert (noch kein Tipp, Start-Erlebnis weder fertig noch
+  // übersprungen): einmal zum Start-Erlebnis. Nicht, wenn man gerade über
+  // einen Tipprunden-Link kommt.
+  useEffect(() => {
+    if (!isRegistered || startDone !== false || !myTipsLoaded || myTips.length > 0) return;
+    if (readPendingInvite()) return;
+    router.replace("/start");
+  }, [isRegistered, startDone, myTipsLoaded, myTips.length, router]);
+
+  // Vom Start-Erlebnis vorgeschlagenes Spiel (/?spiel=…): hinrollen und
+  // kurz umranden.
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const scrolledRef = useRef(false);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("spiel");
+    if (!id) return;
+    setHighlightId(id);
+    const timer = window.setTimeout(() => setHighlightId(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (!highlightId || !contentLoaded || scrolledRef.current) return;
+    const card = document.getElementById(`spiel-${highlightId}`);
+    if (!card) return;
+    scrolledRef.current = true;
+    const header = document.querySelector("[data-pull-anchor]");
+    const top = Math.max(0, header?.getBoundingClientRect().bottom ?? 0) + 12;
+    window.scrollBy({ top: card.getBoundingClientRect().top - top, behavior: "smooth" });
+  }, [highlightId, contentLoaded, matches]);
   const { showToast, celebrate } = useFeedback();
   // Vom Spieler angeklickter Reiter (null = noch nicht gewählt). Solange
   // nichts gewählt ist, entscheidet die Seite selbst, siehe "tab" unten.
@@ -127,6 +164,7 @@ export default function DashboardPage() {
         }
         onSubmitTip={(homeScore, awayScore) => handleSubmitTip(match, homeScore, awayScore)}
         onWithdrawTip={() => handleWithdrawTip(match.id)}
+        highlight={match.id === highlightId}
       />
     );
   }
@@ -145,18 +183,18 @@ export default function DashboardPage() {
           <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">
             Spieltag
           </h1>
-          {streakCount > 0 && (
-            <span
-              title="Aufeinanderfolgende Tage mit mindestens einem Tipp"
-              className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 font-display text-xs font-bold text-gold"
-            >
-              🔥 {streakCount} {streakCount === 1 ? "Tag" : "Tage"} in Folge
-            </span>
-          )}
+          <StreakBadge streak={streak} />
         </div>
 
         <AdBanner />
       </div>
+      {streak.status !== "none" && (
+        <div className="-mt-3 mb-5">
+          <StreakHint streak={streak} />
+        </div>
+      )}
+
+      <WeeklyReviewCard />
 
       {/* Bis die echten Spiele geladen sind (nach Einloggen oder Neuladen),
           stehen nur Demo-Spiele im Speicher. Erst danach wird der Reiter
