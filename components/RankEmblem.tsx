@@ -5,7 +5,7 @@ import { Sport } from "@/lib/types";
 
 // Rang-Abzeichen: jeder Hauptrang hat eine eigene Form (nicht nur eine
 // Farbe), damit man ihn auch klein auf einen Blick erkennt. Die Unterstufe
-// zeigen 1–3 Winkel (III = 1, II = 2, I = 3 – mehr Winkel = höher), die
+// zeigen 1–3 Winkel (I = 1, II = 2, III = 3 – mehr Winkel = höher), die
 // Sportart steht als kleiner Punkt unten rechts. Klein am Profilbild ist
 // dafür kein Platz: dort steht das Sportsymbol IM Abzeichen statt der
 // Winkel, damit man die gewählte Sportart trotzdem erkennt.
@@ -28,7 +28,7 @@ const SHAPES: Record<Exclude<RankName, "GOAT">, string> = {
   Meister: STAR,
 };
 
-const SUB_COUNT: Record<SubTier, number> = { III: 1, II: 2, I: 3 };
+const SUB_COUNT: Record<SubTier, number> = { I: 1, II: 2, III: 3 };
 
 // Winkel mittig im Abzeichen, untereinander.
 function chevrons(count: number) {

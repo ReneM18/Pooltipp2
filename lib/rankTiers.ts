@@ -1,11 +1,11 @@
 import { Sport, SPORTS, SPORT_ICONS, sportLabel } from "@/lib/types";
 
 export type RankName = "Bronze" | "Silber" | "Gold" | "Platin" | "Diamant" | "Meister" | "GOAT";
-export type SubTier = "III" | "II" | "I";
+export type SubTier = "I" | "II" | "III";
 
 export interface RankTierDef {
   rank: RankName;
-  /** Unterstufe III/II/I – fehlt beim GOAT, der nur eine einzige Stufe hat. */
+  /** Unterstufe I/II/III – fehlt beim GOAT, der nur eine einzige Stufe hat. */
   sub?: SubTier;
   minPoints: number;
 }
@@ -13,28 +13,29 @@ export interface RankTierDef {
 // Fixe Punktegrenzen – gelten pro Sportart, unabhängig davon wie viele andere
 // User gerade mitspielen. Passend zum Rankingsystem (feste Punkte + Bonus):
 // ein guter Tipper (rund 15 Tipps pro Woche) erreicht GOAT nach etwa 15
-// Monaten. 6 Ränge x 3 Unterstufen (III = niedrigste, I = höchste),
+// Monaten. 6 Ränge x 3 Unterstufen, aufsteigend gezählt (I = niedrigste,
+// III = höchste – wie die 1–3 Winkel im Abzeichen),
 // darüber als einzelne Stufe der GOAT.
 export const RANK_LADDER: RankTierDef[] = [
-  { rank: "Bronze", sub: "III", minPoints: 0 },
+  { rank: "Bronze", sub: "I", minPoints: 0 },
   { rank: "Bronze", sub: "II", minPoints: 20 },
-  { rank: "Bronze", sub: "I", minPoints: 55 },
-  { rank: "Silber", sub: "III", minPoints: 95 },
+  { rank: "Bronze", sub: "III", minPoints: 55 },
+  { rank: "Silber", sub: "I", minPoints: 95 },
   { rank: "Silber", sub: "II", minPoints: 135 },
-  { rank: "Silber", sub: "I", minPoints: 190 },
-  { rank: "Gold", sub: "III", minPoints: 240 },
+  { rank: "Silber", sub: "III", minPoints: 190 },
+  { rank: "Gold", sub: "I", minPoints: 240 },
   { rank: "Gold", sub: "II", minPoints: 300 },
-  { rank: "Gold", sub: "I", minPoints: 360 },
-  { rank: "Platin", sub: "III", minPoints: 430 },
+  { rank: "Gold", sub: "III", minPoints: 360 },
+  { rank: "Platin", sub: "I", minPoints: 430 },
   { rank: "Platin", sub: "II", minPoints: 520 },
-  { rank: "Platin", sub: "I", minPoints: 610 },
-  { rank: "Diamant", sub: "III", minPoints: 720 },
+  { rank: "Platin", sub: "III", minPoints: 610 },
+  { rank: "Diamant", sub: "I", minPoints: 720 },
   { rank: "Diamant", sub: "II", minPoints: 840 },
-  { rank: "Diamant", sub: "I", minPoints: 990 },
-  { rank: "Meister", sub: "III", minPoints: 1150 },
+  { rank: "Diamant", sub: "III", minPoints: 990 },
+  { rank: "Meister", sub: "I", minPoints: 1150 },
   { rank: "Meister", sub: "II", minPoints: 1350 },
-  { rank: "Meister", sub: "I", minPoints: 1550 },
-  // Ganz oben: eine einzige Stufe, ohne III/II/I.
+  { rank: "Meister", sub: "III", minPoints: 1550 },
+  // Ganz oben: eine einzige Stufe, ohne I/II/III.
   { rank: "GOAT", minPoints: 1900 },
 ];
 
@@ -85,7 +86,7 @@ export function getNextTier(points: number): RankTierDef | null {
   return RANK_LADDER[currentIndex + 1] ?? null;
 }
 
-// Ein auswählbares Rang-Icon: entweder sportgebunden (Fußball Gold III, ...)
+// Ein auswählbares Rang-Icon: entweder sportgebunden (Fußball Gold I, ...)
 // oder sportartübergreifend: "Legende" (elite) bzw. "Unsterblich" (ganz oben).
 export interface RankIconOption {
   id: string;
@@ -205,7 +206,7 @@ export function getAllRankIcons(
  * Bestes verfügbares Icon – dient als Standardauswahl. Reihenfolge:
  * Unsterblich > GOAT (in irgendeiner Sportart) > Legende > höchster Rang.
  * Der GOAT steht über der Legende, weil 1.900 Punkte in einer Sportart viel
- * schwerer sind als Gold in allen vier.
+ * schwerer sind als Gold in allen Sportarten.
  */
 export function getBestRankIcon(options: RankIconOption[]): RankIconOption | null {
   if (options.length === 0) return null;
