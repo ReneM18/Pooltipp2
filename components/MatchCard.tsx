@@ -352,7 +352,7 @@ export default function MatchCard({
         className={`flex h-12 w-[4.5rem] max-w-full items-center justify-center rounded-lg border text-center transition-colors ${
           nflPick === option
             ? "border-gold bg-gold/15 text-gold"
-            : `border-edge bg-pitch hover:border-muted ${allowsDraw ? "text-ink" : "text-muted hover:text-ink"}`
+            : `border-edge bg-pitch hover:border-muted ${allowsDraw ? "text-ink" : "text-muted/70 hover:text-muted"}`
         }`}
       >
         {/* "Sieg" ruhiger als 1/X/2: kleiner, normale Stärke, gedämpft (gewählt: gold). */}
@@ -675,7 +675,7 @@ export default function MatchCard({
                         className={
                           allowsDraw
                             ? "font-display text-lg font-bold leading-tight text-ink"
-                            : "text-xs leading-tight text-muted"
+                            : "text-xs leading-tight text-muted/70"
                         }
                       >
                         {pickButtonNumber(scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore))}
@@ -963,7 +963,7 @@ function TippersList({
                       if (!text.startsWith("Sieg ")) return text;
                       return (
                         <>
-                          <span className="font-sans font-normal text-muted">Sieg</span> {text.slice(5)}
+                          <span className="font-sans font-normal text-muted/70">Sieg</span> {text.slice(5)}
                         </>
                       );
                     })()}
