@@ -1,19 +1,26 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CoinIcon } from "@/components/CoinIcon";
 import { mockShopItems, ShopItem } from "@/lib/mockShopItems";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { useJokers } from "@/lib/JokerContext";
+import { Chest, KISTEN, type Tier } from "@/components/ChestIcon";
 
 // Joker-Shop (supabase/joker-shop.sql). Kaufen geht erst, wenn der Admin den
 // Shop freigegeben hat; der Admin kann vorher schon testen. Ohne Login oder
 // solange das SQL fehlt, zeigt die Seite nur die Vorschau.
 export default function ShopPage() {
   const { freeStars, isAdmin } = useUser();
-  const { ready, shopOpen, canBuy, stock, buyJoker } = useJokers();
+  const jokers = useJokers();
+  // ENTWURF: ?vorschau=offen zeigt den Shop, als wäre Kaufen freigegeben.
+  const [previewOpen, setPreviewOpen] = useState(false);
+  useEffect(() => setPreviewOpen(new URLSearchParams(window.location.search).get("vorschau") === "offen"), []);
+  const { ready, stock, buyJoker } = jokers;
+  const shopOpen = jokers.shopOpen || previewOpen;
+  const canBuy = jokers.canBuy || previewOpen;
   const { showToast, celebrate } = useFeedback();
   const [confirmId, setConfirmId] = useState<string | null>(null);
   // Schutz gegen Doppel-Klick (gleiches Muster wie bei den Tipp-Formularen).
@@ -40,10 +47,10 @@ export default function ShopPage() {
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <div className="mb-4">
         <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Prämien-Shop</h1>
-        <p className="mt-0.5 text-xs text-muted">Coins gegen Joker für deine Tipps – kein Echtgeld nötig.</p>
+        <p className="mt-0.5 text-xs text-muted">Coins gegen Joker und Kisten – kein Echtgeld nötig.</p>
       </div>
 
-      {!ready || (!shopOpen && !isAdmin) ? (
+      {(!ready && !previewOpen) || (!shopOpen && !isAdmin) ? (
         <div className="mb-4 rounded-card border border-gold/40 bg-gold/10 px-4 py-3 text-sm text-ink">
           <span className="font-semibold text-gold">Bald verfügbar:</span> So sieht der Shop aus. Kaufen ist noch
           gesperrt, es werden keine Coins abgebucht.
@@ -61,6 +68,7 @@ export default function ShopPage() {
         )
       )}
 
+      <h2 className="mb-3 font-display text-base font-semibold text-ink">Joker</h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {mockShopItems.map((item) => (
           <ShopItemCard
@@ -76,6 +84,8 @@ export default function ShopPage() {
           />
         ))}
       </div>
+
+      <ChestSection canBuy={canBuy} freeStars={freeStars} />
 
       {ready && (
         <div className="mt-6 rounded-card border border-edge bg-surface px-4 py-3 text-sm text-muted">
@@ -153,5 +163,60 @@ function ShopItemCard({
         </div>
       </div>
     </div>
+  );
+}
+
+// ENTWURF: Abschnitt "Kisten" im selben Shop. Gleicher Look wie die Joker,
+// gleicher Admin-Schalter "Kaufen freigeben". 1 Kiste pro Woche.
+function ChestSection({ canBuy, freeStars }: { canBuy: boolean; freeStars: number }) {
+  return (
+    <section className="mt-8">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h2 className="font-display text-base font-semibold text-ink">Kisten</h2>
+        <span className="text-xs text-muted">
+          1 Kiste pro Woche · diese Woche noch frei ·{" "}
+          <Link href="/entwurf/kisten?szene=inhalt" className="whitespace-nowrap font-semibold text-gold underline-offset-2 hover:underline">
+            Was kann drin sein?
+          </Link>
+        </span>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {(["holz", "silber", "gold"] as Tier[]).map((t) => {
+          const k = KISTEN[t];
+          const afford = freeStars >= k.price;
+          const label = !canBuy ? "Bald verfügbar" : !afford ? "Zu wenig Coins" : "Öffnen";
+          return (
+            <div key={t} className="flex flex-col justify-between rounded-card border border-edge bg-surface p-5">
+              <div className="flex items-start gap-3">
+                <span className="-my-1 shrink-0">
+                  <Chest tier={t} size={56} />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="font-display text-base font-semibold text-ink">{k.name}</h3>
+                  <p className="mt-1 text-sm text-muted">{k.text}</p>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5 font-display font-semibold text-gold">
+                  <CoinIcon className="h-5 w-5" />
+                  {k.price.toLocaleString("de-DE")}
+                </span>
+                <div className="flex items-center gap-2">
+                  {canBuy && !afford && (
+                    <span className="text-xs text-muted">noch {(k.price - freeStars).toLocaleString("de-DE")}</span>
+                  )}
+                  <button
+                    disabled={!canBuy || !afford}
+                    className="rounded-full bg-action px-4 py-1.5 font-display text-sm font-semibold text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:bg-edge disabled:text-muted"
+                  >
+                    {label}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
