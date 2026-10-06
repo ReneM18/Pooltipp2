@@ -12,7 +12,7 @@ import { DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
 import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
 import TeamPicker from "@/components/TeamPicker";
-import TeamBadge, { jerseyFor, matchJerseyProps } from "@/components/TeamBadge";
+import TeamBadge, { helmetLogoColor, jerseyFor, matchJerseyProps, teamColorProps } from "@/components/TeamBadge";
 import JerseyPicker from "@/components/JerseyPicker";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { findDuplicateTeam } from "@/lib/teamName";
@@ -733,6 +733,61 @@ function CompetitionManager() {
   );
 }
 
+// Startwert der dritten Farbe: genau die Farbe, die an dieser Stelle bisher
+// zu sehen war – Einschalten allein verändert das Trikot also noch nicht.
+function thirdColorStart(sport: Sport, bodyColor: string, trimColor: string): string {
+  if (sport === "NFL") return helmetLogoColor(bodyColor);
+  if (sport === "NHL") return "#F3F1EA";
+  if (sport === "NBA") return "#FCEDED";
+  return trimColor;
+}
+
+// Wo die dritte Farbe am Trikot (bzw. Helm) landet, je Sportart.
+function thirdColorHint(sport: Sport): string {
+  if (sport === "NFL") return "Logo-Mitte";
+  if (sport === "NBA") return "Nummer & Zierlinien";
+  if (sport === "NHL") return "Zierstreifen";
+  return "Kragen & Ärmelenden";
+}
+
+function ThirdColorField({
+  sport,
+  on,
+  color,
+  onToggle,
+  onColor,
+  inputBg,
+}: {
+  sport: Sport;
+  on: boolean;
+  color: string;
+  onToggle: (on: boolean) => void;
+  onColor: (color: string) => void;
+  inputBg: string;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 flex items-center gap-2 text-sm text-muted">
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={(e) => onToggle(e.target.checked)}
+          className="h-4 w-4 accent-action"
+        />
+        3. Farbe ({thirdColorHint(sport)})
+      </label>
+      <input
+        type="color"
+        value={color}
+        disabled={!on}
+        onChange={(e) => onColor(e.target.value)}
+        aria-label={`Dritte Farbe: ${thirdColorHint(sport)}`}
+        className={`h-11 w-20 cursor-pointer rounded-lg border border-edge ${inputBg} p-1 disabled:cursor-not-allowed disabled:opacity-30`}
+      />
+    </div>
+  );
+}
+
 function TeamManager() {
   const { teams, addTeam, updateTeam, removeTeam } = useAppData();
   const { showToast } = useFeedback();
@@ -745,10 +800,17 @@ function TeamManager() {
   const [primaryColor, setPrimaryColor] = useState("#3FA66B");
   const [secondaryColor, setSecondaryColor] = useState("#FFFFFF");
   const [jerseyStyle, setJerseyStyle] = useState<JerseyStyle>("solid");
+  // Dritte Farbe (optional); aus = Trikot wie bisher zweifarbig.
+  const [tertiaryOn, setTertiaryOn] = useState(false);
+  const [tertiaryColor, setTertiaryColor] = useState("#FFFFFF");
   // Eigene Auswärtsfarben; aus = Auswärtstrikot sind die Heimfarben vertauscht.
   const [awayCustom, setAwayCustom] = useState(false);
   const [awayPrimaryColor, setAwayPrimaryColor] = useState("#FFFFFF");
   const [awaySecondaryColor, setAwaySecondaryColor] = useState("#3FA66B");
+  const [awayTertiaryOn, setAwayTertiaryOn] = useState(false);
+  const [awayTertiaryColor, setAwayTertiaryColor] = useState("#FFFFFF");
+  // Eigener Stil fürs Auswärtstrikot; "" = wie das Heimtrikot.
+  const [awayJerseyStyle, setAwayJerseyStyle] = useState<JerseyStyle | "">("");
   const [isNationalTeam, setIsNationalTeam] = useState(false);
   // Gesetzt, solange ein bestehendes Team bearbeitet wird: dasselbe Formular
   // wie beim Anlegen, nur mit den Werten des Teams vorausgefüllt.
@@ -763,7 +825,10 @@ function TeamManager() {
     setPrimaryColor("#3FA66B");
     setSecondaryColor("#FFFFFF");
     setJerseyStyle("solid");
+    setTertiaryOn(false);
     setAwayCustom(false);
+    setAwayTertiaryOn(false);
+    setAwayJerseyStyle("");
     setIsNationalTeam(false);
   }
 
@@ -778,6 +843,11 @@ function TeamManager() {
     setAwayCustom(!!(team.awayPrimaryColor && team.awaySecondaryColor));
     setAwayPrimaryColor(team.awayPrimaryColor ?? team.secondaryColor);
     setAwaySecondaryColor(team.awaySecondaryColor ?? team.primaryColor);
+    setTertiaryOn(!!team.tertiaryColor);
+    setTertiaryColor(team.tertiaryColor ?? thirdColorStart(team.sport, team.primaryColor, team.secondaryColor));
+    setAwayTertiaryOn(!!team.awayTertiaryColor);
+    setAwayTertiaryColor(team.awayTertiaryColor ?? team.tertiaryColor ?? thirdColorStart(team.sport, team.secondaryColor, team.primaryColor));
+    setAwayJerseyStyle(team.awayJerseyStyle ?? "");
     setIsNationalTeam(team.isNationalTeam ?? false);
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -800,8 +870,13 @@ function TeamManager() {
       primaryColor,
       secondaryColor,
       jerseyStyle,
-      // Nur speichern, wenn eigene Auswärtsfarben gewählt sind (NFL: Helm, keine Trikots)
-      ...(awayCustom && sport !== "NFL" ? { awayPrimaryColor, awaySecondaryColor } : {}),
+      // Optionale Felder nur speichern, wenn gewählt: ohne sie sieht alles aus wie bisher.
+      ...(tertiaryOn ? { tertiaryColor } : {}),
+      // Auswärtstrikot nicht bei NFL (Helm, keine Trikots)
+      ...(awayCustom && sport !== "NFL"
+        ? { awayPrimaryColor, awaySecondaryColor, ...(awayTertiaryOn ? { awayTertiaryColor } : {}) }
+        : {}),
+      ...(awayJerseyStyle && sport !== "NFL" ? { awayJerseyStyle } : {}),
       isNationalTeam,
     };
     if (editingId) {
@@ -913,6 +988,7 @@ function TeamManager() {
               sport={sport}
               primaryColor={primaryColor}
               secondaryColor={secondaryColor}
+              tertiaryColor={tertiaryOn ? tertiaryColor : undefined}
               jerseyStyle={jerseyStyle}
               isNationalTeam={isNationalTeam}
               countryCode={countryCode}
@@ -950,12 +1026,24 @@ function TeamManager() {
                   className="h-11 w-20 cursor-pointer rounded-lg border border-edge bg-pitch p-1"
                 />
               </div>
+              <ThirdColorField
+                sport={sport}
+                on={tertiaryOn}
+                color={tertiaryColor}
+                onToggle={(on) => {
+                  // Startfarbe so, dass sich beim Einschalten noch nichts ändert
+                  if (on && !tertiaryOn) setTertiaryColor(thirdColorStart(sport, primaryColor, secondaryColor));
+                  setTertiaryOn(on);
+                }}
+                onColor={setTertiaryColor}
+                inputBg="bg-pitch"
+              />
             </div>
           )}
 
           {!isNationalTeam && sport !== "NFL" && (
             <div>
-              <label className="mb-1.5 block text-sm text-muted">Trikot-Stil</label>
+              <label className="mb-1.5 block text-sm text-muted">Trikot-Stil (Heim)</label>
               <select
                 value={jerseyStyle}
                 onChange={(e) => setJerseyStyle(e.target.value as JerseyStyle)}
@@ -977,6 +1065,23 @@ function TeamManager() {
             <p className="mb-3 text-xs text-muted">
               Ohne eigene Farben ist das Auswärtstrikot einfach deine Heimfarben vertauscht.
             </p>
+            <div className="mb-4 max-w-xs">
+              <label className="mb-1.5 block text-sm text-muted">Trikot-Stil (Auswärts)</label>
+              <select
+                value={awayJerseyStyle}
+                onChange={(e) => setAwayJerseyStyle(e.target.value as JerseyStyle | "")}
+                className="w-full rounded-lg border border-edge bg-surface px-4 py-3 text-base text-ink outline-none focus:border-gold"
+              >
+                <option value="">
+                  Wie Heim ({JERSEY_STYLES.find((s) => s.value === jerseyStyle)?.label})
+                </option>
+                {JERSEY_STYLES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <label className="mb-4 flex w-fit items-center gap-2 text-sm text-muted">
               <input
                 type="checkbox"
@@ -986,6 +1091,8 @@ function TeamManager() {
                     // Startpunkt: die vertauschten Heimfarben, die man bisher sah
                     setAwayPrimaryColor(secondaryColor);
                     setAwaySecondaryColor(primaryColor);
+                    setAwayTertiaryOn(tertiaryOn);
+                    setAwayTertiaryColor(tertiaryOn ? tertiaryColor : thirdColorStart(sport, secondaryColor, primaryColor));
                   }
                   setAwayCustom(e.target.checked);
                 }}
@@ -1001,10 +1108,12 @@ function TeamManager() {
                       sport={sport}
                       primaryColor={primaryColor}
                       secondaryColor={secondaryColor}
-                      jerseyStyle={jerseyStyle}
+                      tertiaryColor={tertiaryOn ? tertiaryColor : undefined}
+                      jerseyStyle={v === "auswaerts" && awayJerseyStyle ? awayJerseyStyle : jerseyStyle}
                       variant={v}
                       awayPrimaryColor={awayCustom ? awayPrimaryColor : undefined}
                       awaySecondaryColor={awayCustom ? awaySecondaryColor : undefined}
+                      awayTertiaryColor={awayCustom && awayTertiaryOn ? awayTertiaryColor : undefined}
                       size={56}
                     />
                     <span className="text-xs text-muted">{v === "heim" ? "Heim" : "Auswärts"}</span>
@@ -1031,6 +1140,17 @@ function TeamManager() {
                       className="h-11 w-20 cursor-pointer rounded-lg border border-edge bg-surface p-1"
                     />
                   </div>
+                  <ThirdColorField
+                    sport={sport}
+                    on={awayTertiaryOn}
+                    color={awayTertiaryColor}
+                    onToggle={(on) => {
+                      if (on && !awayTertiaryOn) setAwayTertiaryColor(thirdColorStart(sport, awayPrimaryColor, awaySecondaryColor));
+                      setAwayTertiaryOn(on);
+                    }}
+                    onColor={setAwayTertiaryColor}
+                    inputBg="bg-surface"
+                  />
                 </div>
               )}
             </div>
@@ -1092,8 +1212,7 @@ function TeamManager() {
               <span className="flex min-w-0 items-center gap-3">
                 <TeamBadge
                   sport={team.sport}
-                  primaryColor={team.primaryColor}
-                  secondaryColor={team.secondaryColor}
+                  {...teamColorProps(team)}
                   jerseyStyle={team.jerseyStyle}
                   isNationalTeam={team.isNationalTeam}
                   countryCode={team.countryCode}
@@ -1392,12 +1511,9 @@ function MatchManager() {
                 {previewHome ? (
                   <TeamBadge
                     sport={previewHome.sport}
-                    primaryColor={previewHome.primaryColor}
-                    secondaryColor={previewHome.secondaryColor}
+                    {...teamColorProps(previewHome)}
                     jerseyStyle={jerseyFor(previewHome, homeJersey).style}
                     variant={jerseyFor(previewHome, homeJersey).variant}
-                    awayPrimaryColor={previewHome.awayPrimaryColor}
-                    awaySecondaryColor={previewHome.awaySecondaryColor}
                     isNationalTeam={previewHome.isNationalTeam}
                     countryCode={previewHome.countryCode}
                     size={48}
@@ -1416,12 +1532,9 @@ function MatchManager() {
                 {previewAway ? (
                   <TeamBadge
                     sport={previewAway.sport}
-                    primaryColor={previewAway.primaryColor}
-                    secondaryColor={previewAway.secondaryColor}
+                    {...teamColorProps(previewAway)}
                     jerseyStyle={jerseyFor(previewAway, awayJersey).style}
                     variant={jerseyFor(previewAway, awayJersey).variant}
-                    awayPrimaryColor={previewAway.awayPrimaryColor}
-                    awaySecondaryColor={previewAway.awaySecondaryColor}
                     isNationalTeam={previewAway.isNationalTeam}
                     countryCode={previewAway.countryCode}
                     flip
@@ -1642,8 +1755,6 @@ function MatchManager() {
                   {left && (
                     <TeamBadge
                       sport={left.sport}
-                      primaryColor={left.primaryColor}
-                      secondaryColor={left.secondaryColor}
                       {...matchJerseyProps(match, left)}
                       isNationalTeam={left.isNationalTeam}
                       countryCode={left.countryCode}
@@ -1667,8 +1778,6 @@ function MatchManager() {
                   {right && (
                     <TeamBadge
                       sport={right.sport}
-                      primaryColor={right.primaryColor}
-                      secondaryColor={right.secondaryColor}
                       {...matchJerseyProps(match, right)}
                       isNationalTeam={right.isNationalTeam}
                       countryCode={right.countryCode}

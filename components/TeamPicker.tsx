@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Team } from "@/lib/types";
 import { normalizeForSearch } from "@/lib/flags";
 import { normalizeTeamName } from "@/lib/teamName";
-import TeamBadge from "@/components/TeamBadge";
+import TeamBadge, { teamColorProps } from "@/components/TeamBadge";
 
 interface TeamPickerProps {
   teams: Team[];
@@ -120,8 +120,7 @@ export default function TeamPicker({
             <span className="shrink-0">
               <TeamBadge
                 sport={selected.sport}
-                primaryColor={selected.primaryColor}
-                secondaryColor={selected.secondaryColor}
+                {...teamColorProps(selected)}
                 jerseyStyle={selected.jerseyStyle}
                 isNationalTeam={selected.isNationalTeam}
                 countryCode={selected.countryCode}
@@ -186,8 +185,7 @@ export default function TeamPicker({
                     <span className="shrink-0">
                       <TeamBadge
                         sport={t.sport}
-                        primaryColor={t.primaryColor}
-                        secondaryColor={t.secondaryColor}
+                        {...teamColorProps(t)}
                         jerseyStyle={t.jerseyStyle}
                         isNationalTeam={t.isNationalTeam}
                         countryCode={t.countryCode}

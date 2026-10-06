@@ -1,7 +1,7 @@
 "use client";
 
 import { JERSEY_STYLES, JerseyVariant, MatchJersey, Team } from "@/lib/types";
-import TeamBadge from "@/components/TeamBadge";
+import TeamBadge, { teamColorProps } from "@/components/TeamBadge";
 
 const ROWS: { variant: JerseyVariant; label: string }[] = [
   { variant: "heim", label: "Heimtrikot" },
@@ -42,12 +42,9 @@ export default function JerseyPicker({
                 >
                   <TeamBadge
                     sport={team.sport}
-                    primaryColor={team.primaryColor}
-                    secondaryColor={team.secondaryColor}
+                    {...teamColorProps(team)}
                     jerseyStyle={st.value}
                     variant={row.variant}
-                    awayPrimaryColor={team.awayPrimaryColor}
-                    awaySecondaryColor={team.awaySecondaryColor}
                     size={36}
                   />
                   <span className={`text-center text-[11px] leading-tight ${active ? "font-semibold text-gold" : "text-muted"}`}>
