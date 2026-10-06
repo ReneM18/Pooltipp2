@@ -21,7 +21,8 @@ const ids = (l) => l.map((m) => m.id);
 
 // Nur Endstand (beendet) oder Absage schließt ein Spiel, nie die Uhrzeit.
 assert.deepEqual(ids(geschlossen), ["abgesagt", "beendet"]);
-assert.deepEqual(ids(offen), ["bald", "spaeter", "lange-vorbei-ohne-endstand", "laeuft", "tippschluss-vorbei"]);
+// Offene streng nach Anpfiff, das früheste oben, auch nach Tippschluss.
+assert.deepEqual(ids(offen), ["lange-vorbei-ohne-endstand", "laeuft", "tippschluss-vorbei", "bald", "spaeter"]);
 
 // Vor dem Laden im Browser (now = null) ebenfalls nichts automatisch geschlossen.
 assert.deepEqual(ids(splitMatchesByTab(matches, null).geschlossen), ["abgesagt", "beendet"]);

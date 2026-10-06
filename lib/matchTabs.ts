@@ -12,16 +12,15 @@ export function isMatchClosed(m: { status: MatchStatus }): boolean {
 }
 
 /**
- * Offene Spiele: noch tippbare vorne (nächster Anpfiff zuerst), danach die nach
- * Tippschluss, bei denen der Endstand noch fehlt. Geschlossene: zuletzt
- * geschlossener Tipp zuerst. `now` = null (noch nicht im Browser) zählt alles als tippbar.
+ * Offene Spiele: streng nach Anpfiff, das früheste oben (Rene-Wunsch). Auch
+ * Spiele nach Tippschluss, bei denen der Endstand noch fehlt, bleiben an ihrem
+ * Platz, statt ans Ende zu rutschen (sonst standen abends die Spiele von morgen
+ * oben). Geschlossene: zuletzt geschlossener Tipp zuerst.
+ * `now` wird für die Reihenfolge nicht mehr gebraucht, bleibt aber für Aufrufer.
  */
-export function splitMatchesByTab<T extends TabMatch>(matches: T[], now: number | null) {
-  const pastDeadline = (m: T) => now !== null && new Date(m.tipDeadline).getTime() <= now;
+export function splitMatchesByTab<T extends TabMatch>(matches: T[], _now: number | null) {
   const kickoffAsc = (a: T, b: T) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime();
-  const offen = matches
-    .filter((m) => !isMatchClosed(m))
-    .sort((a, b) => Number(pastDeadline(a)) - Number(pastDeadline(b)) || kickoffAsc(a, b));
+  const offen = matches.filter((m) => !isMatchClosed(m)).sort(kickoffAsc);
   const geschlossen = matches
     .filter(isMatchClosed)
     .sort((a, b) => new Date(b.tipDeadline).getTime() - new Date(a.tipDeadline).getTime());
