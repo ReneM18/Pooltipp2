@@ -12,14 +12,15 @@ export interface MatchTipper {
   userId: string;
   name: string;
   userNumber: number | null;
-  predictedHome: number;
-  predictedAway: number;
+  // null: fremder Tipp vor Tippschluss (die Datenbank verrät die Zahlen nicht).
+  predictedHome: number | null;
+  predictedAway: number | null;
 }
 
 interface TipRow {
   user_id: string;
-  predicted_home_score: number;
-  predicted_away_score: number;
+  predicted_home_score: number | null;
+  predicted_away_score: number | null;
 }
 
 interface ProfileRow {
@@ -50,10 +51,16 @@ export function useMatchTips(matchId: string, enabled: boolean, refreshKey: numb
     if (!enabled) return;
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from("tips")
-        .select("user_id, predicted_home_score, predicted_away_score")
-        .eq("match_id", matchId);
+      // Die Datenbank liefert alle Namen, die Zahlen fremder Tipps aber erst
+      // ab Tippschluss (match_tippers, supabase/tipps-schutz.sql). Ohne die
+      // Funktion (SQL noch nicht ausgeführt) wie früher direkt lesen.
+      let { data, error } = await supabase.rpc("match_tippers", { p_match_id: matchId });
+      if (error) {
+        ({ data, error } = await supabase
+          .from("tips")
+          .select("user_id, predicted_home_score, predicted_away_score")
+          .eq("match_id", matchId));
+      }
       if (cancelled) return;
       if (error || !data) {
         if (error) console.warn("Tipps zum Spiel konnten nicht geladen werden:", error.message);

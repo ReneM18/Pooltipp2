@@ -150,7 +150,11 @@ export default function MatchCard({
     useAppData();
   const [bonusPick, setBonusPick] = useState<number | null>(null);
   const myBonusAnswer = myBonusAnswers.find((a) => a.matchId === match.id);
-  const { displayName, hasPremiumPass, passXP, passHonors, authUserId, freeStars } = useUser();
+  const { displayName, hasPremiumPass, passXP, passHonors, authUserId, freeStars, sessionChecked } = useUser();
+  // Ohne Login wird nichts gespeichert: statt Tipp-Knopf und Kommentarfeld
+  // gibt es den Weg zum Einloggen (erst wenn die Sitzung geprüft ist, sonst
+  // blitzt der Knopf beim Laden auch bei eingeloggten Spielern kurz auf).
+  const isGuest = sessionChecked && !authUserId;
   const { showToast, celebrate } = useFeedback();
   const [commentsOpen, setCommentsOpen] = useState(false);
   // Liste "Wer hat getippt?" unter der Karte (Klick auf "X getippt").
@@ -298,7 +302,11 @@ export default function MatchCard({
           myTip.resultTier,
           tippers
             .filter((t) => t.userId !== authUserId)
-            .map((t) => ({ predictedHome: t.predictedHome, predictedAway: t.predictedAway })),
+            .flatMap((t) =>
+              t.predictedHome === null || t.predictedAway === null
+                ? []
+                : [{ predictedHome: t.predictedHome, predictedAway: t.predictedAway }]
+            ),
           finalScore.home,
           finalScore.away,
           isOneXTwo
@@ -603,6 +611,14 @@ export default function MatchCard({
             {/* Knopf-Zustände klar unterscheidbar: tippbereit = kräftiges
                 Grün mit Leuchten, noch nicht tippbereit = grau (vorher nur
                 halb durchsichtig, sah aus wie "kaputt"). */}
+            {isGuest ? (
+              <Link
+                href="/registrieren"
+                className="block w-full rounded-full bg-action-hover py-2.5 text-center font-display text-base font-semibold tracking-wide text-pitch shadow-[0_0_22px_rgb(var(--c-action-hover)/0.45)] transition-all hover:brightness-110"
+              >
+                Zum Tippen einloggen
+              </Link>
+            ) : (
             <button
               onClick={handleSubmit}
               disabled={submitting || notReady}
@@ -614,7 +630,8 @@ export default function MatchCard({
             >
               {submitting ? "Wird gespeichert…" : "Tipp abgeben"}
             </button>
-            {notEnoughStars && (
+            )}
+            {notEnoughStars && !isGuest && (
               <p className="mt-2 text-center text-xs text-[#FF9B5C]">
                 Für einen Booster brauchst du {BOOSTER_STAKE} Coins – du hast {freeStars}.
               </p>
@@ -803,7 +820,8 @@ export default function MatchCard({
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => toggleCommentLike(comment.id, displayName)}
-                          className={`flex items-center gap-1 text-xs font-semibold transition-colors ${
+                          disabled={isGuest}
+                          className={`flex items-center gap-1 text-xs font-semibold transition-colors disabled:cursor-default disabled:hover:text-muted ${
                             liked ? "text-gold" : "text-muted hover:text-ink"
                           }`}
                         >
@@ -825,6 +843,14 @@ export default function MatchCard({
                 })}
               </div>
             )}
+            {isGuest ? (
+              <Link
+                href="/registrieren"
+                className="block rounded-lg border border-edge bg-pitch px-3 py-2 text-center text-sm font-semibold text-gold transition-colors hover:border-gold"
+              >
+                Zum Kommentieren einloggen
+              </Link>
+            ) : (
             <form onSubmit={handleCommentSubmit} className="flex gap-2">
               <EmotePicker
                 onInsertEmoji={(emoji) => setCommentDraft((d) => d + emoji)}
@@ -844,6 +870,7 @@ export default function MatchCard({
                 ➤
               </button>
             </form>
+            )}
           </div>
         )}
       </div>
@@ -903,7 +930,7 @@ function TippersList({
                   {t.userNumber !== null && <span className="ml-1.5 text-xs text-muted">#{t.userNumber}</span>}
                   {t.userId === authUserId && <span className="ml-1.5 text-xs text-muted">(du)</span>}
                 </span>
-                {showTips && (
+                {showTips && t.predictedHome !== null && t.predictedAway !== null && (
                   <span className="shrink-0 font-display text-sm font-semibold text-ink">
                     {formatTip(t.predictedHome, t.predictedAway)}
                   </span>
