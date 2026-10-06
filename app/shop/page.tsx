@@ -8,6 +8,7 @@ import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { useJokers } from "@/lib/JokerContext";
 import { TaschenSection } from "@/components/TaschenShop";
+import { useTaschen } from "@/lib/TaschenContext";
 
 // Joker-Shop (supabase/joker-shop.sql). Kaufen geht erst, wenn der Admin den
 // Shop freigegeben hat; der Admin kann vorher schon testen. Ohne Login oder
@@ -16,6 +17,7 @@ export default function ShopPage() {
   const { freeStars, isAdmin } = useUser();
   const { ready, shopOpen, canBuy, stock, buyJoker } = useJokers();
   const { showToast, celebrate } = useFeedback();
+  const { gutscheine } = useTaschen();
   const [confirmId, setConfirmId] = useState<string | null>(null);
   // Schutz gegen Doppel-Klick (gleiches Muster wie bei den Tipp-Formularen).
   const buyingRef = useRef(false);
@@ -77,6 +79,7 @@ export default function ShopPage() {
             onCancel={() => setConfirmId(null)}
           />
         ))}
+        {gutscheine > 0 && <GutscheinCard count={gutscheine} />}
       </div>
 
       <TaschenSection />
@@ -92,6 +95,31 @@ export default function ShopPage() {
         </div>
       )}
     </main>
+  );
+}
+
+// Booster-Gutscheine aus den Trainingstaschen liegen im selben Vorrat wie
+// die Joker und werden genauso auf der Tipp-Karte eingesetzt: darum hier als
+// Karte zwischen den Jokern, mit demselben "Im Vorrat"-Abzeichen. Kaufen
+// kann man sie nicht.
+function GutscheinCard({ count }: { count: number }) {
+  return (
+    <div className="flex flex-col justify-between rounded-card border border-edge bg-surface p-5">
+      <div>
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="font-display text-base font-semibold text-ink">
+            <span aria-hidden>🎟️ </span>Booster-Gutschein
+          </h3>
+          <span className="shrink-0 rounded-full border border-gold/40 bg-gold/10 px-2 py-0.5 text-xs font-semibold text-gold">
+            Im Vorrat: {count}
+          </span>
+        </div>
+        <p className="mt-1 text-sm text-muted">
+          Dein nächster Booster-Tipp kostet keine 20 Coins. Wird beim Tippen automatisch eingelöst.
+        </p>
+      </div>
+      <p className="mt-4 text-xs text-muted">Nur aus Trainingstaschen, nicht kaufbar</p>
+    </div>
   );
 }
 
