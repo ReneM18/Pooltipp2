@@ -12,7 +12,7 @@ import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { TIP_JOKER_EFFECT, TIP_JOKER_LABEL, TipJoker, TrendResult, useJokers } from "@/lib/JokerContext";
 import { xpForLevel } from "@/lib/seasonPass";
-import { displayOrder, isAwayFirst, oneXTwoText, pickNumber } from "@/lib/teamOrder";
+import { allowsDraw as sportAllowsDraw, displayOrder, isAwayFirst, oneXTwoText, pickNumber } from "@/lib/teamOrder";
 import TeamBadge, { matchJerseyProps } from "./TeamBadge";
 import PassHonorTags, { useOtherPlayersHonors } from "./PassHonors";
 import { EmotePicker, MessageBody, stickerFromText, stickerText } from "./Emotes";
@@ -115,7 +115,7 @@ export default function MatchCard({
   // Entscheidung), NFL nur ganz selten.
   const isUsSport = isAwayFirst(match.sport);
   const [leftTeam, rightTeam] = displayOrder(match.sport, homeTeam, awayTeam);
-  const allowsDraw = match.sport !== "NBA" && match.sport !== "NHL";
+  const allowsDraw = sportAllowsDraw(match.sport);
   const isCancelled = match.status === "cancelled";
   // Leer (null) statt 0: der Knopf wird erst aktiv, wenn beide Zahlen
   // bewusst eingetragen sind – sonst gab ein versehentliches Antippen 0:0 ab.
@@ -327,8 +327,11 @@ export default function MatchCard({
     return oneXTwoText(match.sport, h, a, homeTeam.name, awayTeam.name);
   }
 
+  // Ohne Unentschieden (NBA, NHL) steht "Sieg" statt 1/2 – der Knopf sitzt
+  // direkt unter dem Team, das gemeint ist.
   function pickButtonNumber(pick: OneXTwo) {
     if (pick === "X") return "X";
+    if (!allowsDraw) return "Sieg";
     return pickNumber(match.sport, pick === "1" ? "home" : "away");
   }
 
@@ -605,7 +608,7 @@ export default function MatchCard({
                 Verlust) bleibt als goldene Box auf der Karte, der Hinweis
                 steht immer direkt über dem Knopf. */}
             <div className="mb-4 flex justify-center">
-              <PointsInfoButton isOneXTwo={isOneXTwo} isBooster={isBooster} />
+              <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} />
             </div>
 
             {/* Knopf-Zustände klar unterscheidbar: tippbereit = kräftiges
@@ -652,9 +655,14 @@ export default function MatchCard({
                 <span className="flex min-w-0 items-center gap-3">
                   {isOneXTwo ? (
                     // Nummer groß, Teamname klein daneben – so bricht nur der
-                    // Name um, nicht "1 (Boston" / "Bruins)".
-                    <span className="flex min-w-0 items-center gap-2 text-right">
-                      <span className="font-display text-lg font-bold text-ink">
+                    // Name um, nicht "1 (Boston" / "Bruins)". "Sieg" ist breiter
+                    // als 1/2: dort steht der Name darunter, damit er Platz hat.
+                    <span
+                      className={`flex min-w-0 text-right ${
+                        allowsDraw ? "items-center gap-2" : "flex-col items-end gap-0.5"
+                      }`}
+                    >
+                      <span className="font-display text-lg font-bold leading-tight text-ink">
                         {pickButtonNumber(scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore))}
                       </span>
                       <span className="text-xs leading-tight text-muted">
@@ -686,7 +694,7 @@ export default function MatchCard({
                 Jedes Paar bleibt zusammen ("Tendenz +5" nie getrennt). */}
             {hasTipped && !myTip?.evaluated && !isCancelled && (
               <div className="flex justify-center">
-                <PointsInfoButton isOneXTwo={isOneXTwo} isBooster={isBooster} />
+                <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} />
               </div>
             )}
 
@@ -931,7 +939,9 @@ function TippersList({
                   {t.userId === authUserId && <span className="ml-1.5 text-xs text-muted">(du)</span>}
                 </span>
                 {showTips && t.predictedHome !== null && t.predictedAway !== null && (
-                  <span className="shrink-0 font-display text-sm font-semibold text-ink">
+                  // Höchstens gut die Hälfte der Zeile, damit lange Spielernamen
+                  // neben "Sieg Columbus Blue Jackets" nicht zerdrückt werden.
+                  <span className="max-w-[55%] shrink-0 text-right font-display text-sm font-semibold leading-tight text-ink">
                     {formatTip(t.predictedHome, t.predictedAway)}
                   </span>
                 )}
@@ -968,10 +978,14 @@ function PointsGrid({ items }: { items: { label: string; net: number }[] }) {
 }
 
 // Zeilen im Fenster "Punkteverteilung": jede Stufe mit kurzer Erklärung.
-function tipPointRows(isOneXTwo: boolean): { title: string; hint?: string; points: number }[] {
+function tipPointRows(isOneXTwo: boolean, allowsDraw: boolean): { title: string; hint?: string; points: number }[] {
   if (isOneXTwo) {
     return [
-      { title: "Richtig getippt", hint: "1, X oder 2 stimmt", points: RANKING_POINTS.tendenz },
+      {
+        title: "Richtig getippt",
+        hint: allowsDraw ? "1, X oder 2 stimmt" : "dein Sieger gewinnt",
+        points: RANKING_POINTS.tendenz,
+      },
       { title: "Daneben getippt", points: RANKING_POINTS.falsch },
     ];
   }
@@ -990,7 +1004,15 @@ function tipPointRows(isOneXTwo: boolean): { title: string; hint?: string; point
 // Kleiner Hinweis "Punkteverteilung" auf der Karte. Beim Antippen öffnet
 // sich ein Fenster mit den Punkten für diesen Kartentyp (Ergebnis oder 1X2),
 // dem Bonus gegen die Mittipper und bei Booster-Spielen den Coins.
-function PointsInfoButton({ isOneXTwo, isBooster }: { isOneXTwo: boolean; isBooster: boolean }) {
+function PointsInfoButton({
+  isOneXTwo,
+  allowsDraw,
+  isBooster,
+}: {
+  isOneXTwo: boolean;
+  allowsDraw: boolean;
+  isBooster: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -1035,7 +1057,7 @@ function PointsInfoButton({ isOneXTwo, isBooster }: { isOneXTwo: boolean; isBoos
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
                     <h2 className="font-display text-lg font-bold leading-tight text-ink">So bekommst du Punkte</h2>
-                    <p className="text-xs text-muted">{isOneXTwo ? "1X2-Tipp" : "Ergebnis-Tipp"}</p>
+                    <p className="text-xs text-muted">{isOneXTwo ? (allowsDraw ? "1X2-Tipp" : "Sieg-Tipp") : "Ergebnis-Tipp"}</p>
                   </div>
                   <button
                     type="button"
@@ -1049,7 +1071,7 @@ function PointsInfoButton({ isOneXTwo, isBooster }: { isOneXTwo: boolean; isBoos
 
                 <p className="text-sm font-semibold text-ink">Zuerst zählt dein Tipp:</p>
                 <ul className="mt-2 flex flex-col gap-1.5">
-                  {tipPointRows(isOneXTwo).map((row) => (
+                  {tipPointRows(isOneXTwo, allowsDraw).map((row) => (
                     <li key={row.title} className="flex items-start justify-between gap-3 rounded-md bg-pitch/60 px-3 py-2">
                       <span className="min-w-0">
                         <span className="block text-sm font-semibold leading-snug text-ink">{row.title}</span>

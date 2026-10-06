@@ -29,8 +29,17 @@ export function pickNumber(sport: string, side: "home" | "away"): "1" | "2" {
   return (side === "home") === homeIsLeft ? "1" : "2";
 }
 
-// "1 (Bayern München)", "X (Unentschieden)", "2 (Borussia Dortmund)".
+// Basketball (NBA) und Eishockey (NHL) kennen kein Unentschieden
+// (Verlängerung bzw. Penaltyschießen bis zur Entscheidung). Dort gibt es
+// keinen X-Knopf, und statt "1"/"2" steht "Sieg" unter dem jeweiligen Team.
+export function allowsDraw(sport: string): boolean {
+  return sport !== "NBA" && sport !== "NHL";
+}
+
+// "1 (Bayern München)", "X (Unentschieden)", "2 (Borussia Dortmund)";
+// ohne Unentschieden "Sieg Boston Bruins".
 export function oneXTwoText(sport: string, home: number, away: number, homeName: string, awayName: string): string {
+  if (!allowsDraw(sport) && home !== away) return `Sieg ${home > away ? homeName : awayName}`;
   if (home > away) return `${pickNumber(sport, "home")} (${homeName})`;
   if (away > home) return `${pickNumber(sport, "away")} (${awayName})`;
   return "X (Unentschieden)";
