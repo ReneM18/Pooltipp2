@@ -39,15 +39,6 @@ export default function StartPage() {
   const [picks, setPicks] = useState<Partial<Record<Sport, string>>>({});
   const [saving, setSaving] = useState(false);
 
-  // Schon gewählte Herzensvereine: deren Sportarten sind vorab angetippt.
-  const [prefilled, setPrefilled] = useState(false);
-  useEffect(() => {
-    if (prefilled || !clubs) return;
-    setPrefilled(true);
-    const withClub = SPORTS.filter((s) => clubs[s]?.teamId);
-    if (withClub.length > 0) setSports((current) => (current.length > 0 ? current : withClub));
-  }, [clubs, prefilled]);
-
   // Bei jedem Schritt nach oben (am Handy steht man sonst mitten im Text).
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -171,9 +162,13 @@ export default function StartPage() {
               Willkommen, {displayName}! 👋
             </h1>
             <p className="mt-2 text-sm text-muted">
-              Welche Sportarten schaust du? Tippe alle an, die dich interessieren. Du kannst trotzdem jederzeit
-              alles tippen.
+              Welche Sportarten schaust du? Tippe an, was dich interessiert. Du kannst trotzdem jederzeit alles
+              tippen.
             </p>
+            {/* Alle starten NICHT gewählt (grau). Gewählt = goldene Fläche mit
+                Häkchen, damit man ohne Vergleich sieht, was an ist. Name in
+                eigener Zeile, sonst ist am Handy (360 px) neben "Basketball"
+                kein Platz fürs Häkchen. */}
             <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
               {SPORTS.map((sport) => {
                 const on = sports.includes(sport);
@@ -183,24 +178,41 @@ export default function StartPage() {
                     type="button"
                     onClick={() => toggleSport(sport)}
                     aria-pressed={on}
-                    className={`flex min-h-[3.25rem] items-center gap-2 rounded-lg border-2 px-2.5 py-2.5 text-left transition-colors ${
-                      on ? "border-gold bg-gold/15 text-gold" : "border-edge bg-pitch text-ink hover:border-muted"
+                    className={`relative flex flex-col items-start gap-1 rounded-lg border-2 px-3 py-2.5 text-left transition-colors ${
+                      on
+                        ? "border-gold bg-gold text-pitch"
+                        : "border-edge bg-pitch text-muted hover:border-muted hover:text-ink"
                     }`}
                   >
-                    <span className="text-xl" aria-hidden>
+                    <span className={`text-xl ${on ? "" : "opacity-60 grayscale"}`} aria-hidden>
                       {SPORT_ICONS[sport]}
                     </span>
-                    {/* Kein eigenes Häkchen: am Handy (360 px) ist dafür neben
-                        "Basketball" kein Platz, gewählt = goldener Rahmen. */}
-                    <span className="min-w-0 flex-1 font-display text-sm font-semibold">{sportLabel(sport)}</span>
+                    <span className="font-display text-sm font-semibold">{sportLabel(sport)}</span>
+                    <span
+                      aria-hidden
+                      className={`absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full border-2 text-[11px] font-bold leading-none ${
+                        on ? "border-pitch bg-pitch text-gold" : "border-edge"
+                      }`}
+                    >
+                      {on ? "✓" : ""}
+                    </span>
                   </button>
                 );
               })}
             </div>
+            <p className="mt-3 text-xs text-muted">
+              {sports.length === 0
+                ? "Noch nichts gewählt."
+                : `${sports.length} von ${SPORTS.length} gewählt.`}
+            </p>
             <button
               type="button"
               onClick={() => setStep(sports.length > 0 ? 2 : 3)}
-              className="mt-6 w-full rounded-full bg-gold py-3 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90"
+              className={`mt-5 w-full rounded-full py-3 font-display text-sm font-semibold transition-colors ${
+                sports.length > 0
+                  ? "bg-gold text-pitch hover:bg-gold/90"
+                  : "border border-edge text-muted hover:text-ink"
+              }`}
             >
               {sports.length > 0 ? "Weiter" : "Ohne Auswahl weiter"}
             </button>
