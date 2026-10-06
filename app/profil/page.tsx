@@ -672,13 +672,22 @@ function ProfilInhalt() {
             const homeTeam = getTeam(match.homeTeamId);
             const awayTeam = getTeam(match.awayTeamId);
             if (!homeTeam || !awayTeam) return null;
+            // Grün "Richtig" / Rot "Falsch", sobald der Tipp ausgewertet ist
+            // (Wort dazu, nicht nur Farbe). Offene, abgesagte und Tipps von
+            // vor dem Neustart bleiben ohne Markierung.
+            const verdict =
+              tip.evaluated && !tip.refunded && countsSinceReset(tip, rankingResetAt)
+                ? tip.resultTier === "falsch" || !tip.resultTier
+                  ? "falsch"
+                  : "richtig"
+                : null;
 
             return (
               <div
                 key={tip.id}
-                className="flex items-center justify-between rounded-card border border-edge bg-surface px-5 py-4"
+                className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface px-5 py-4"
               >
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs text-muted">
                     {sportIcon[match.sport]} {match.competition}
                     {match.matchday ? ` · Spieltag ${match.matchday}` : ""}
@@ -699,7 +708,20 @@ function ProfilInhalt() {
                     <p className="mt-0.5 text-[11px] text-muted">Vor dem Neustart, zählt nicht mehr.</p>
                   )}
                 </div>
-                <span className="flex items-center gap-1 font-display font-semibold text-gold"><CoinIcon className="h-4 w-4" />{tip.stake}</span>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  {verdict && (
+                    <span
+                      className={`whitespace-nowrap rounded-full border px-2.5 py-0.5 font-display text-xs font-bold ${
+                        verdict === "richtig"
+                          ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-400"
+                          : "border-red-500/60 bg-red-500/15 text-red-400"
+                      }`}
+                    >
+                      {verdict === "richtig" ? "✓ Richtig" : "✗ Falsch"}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1 font-display font-semibold text-gold"><CoinIcon className="h-4 w-4" />{tip.stake}</span>
+                </div>
               </div>
             );
           })}
