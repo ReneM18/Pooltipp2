@@ -313,7 +313,7 @@ function CreateDuelForm({ prefill }: { prefill: { invitees: DuelInvitee[]; match
                     void addByName();
                   }
                 }}
-                placeholder="Name eines Mitspielers"
+                placeholder="Spielername"
                 className="min-w-0 flex-1 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
               />
               <button
@@ -367,8 +367,8 @@ function CreateDuelForm({ prefill }: { prefill: { invitees: DuelInvitee[]; match
         <label htmlFor="duel-stake" className="mb-1.5 block text-xs font-semibold text-ink">
           Einsatz in Coins pro Spieler <span className="font-normal text-muted">(max. {rules.maxStake})</span>
         </label>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-28">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <div className="relative w-24">
             <CoinIcon className="pointer-events-none absolute left-2.5 top-1/2 h-5 w-5 -translate-y-1/2" />
             <input
               id="duel-stake"
@@ -660,7 +660,7 @@ function DuelCard({ duel, highlight = false, onWithdrawn }: { duel: Duel; highli
           return (
             <GameLine key={id} match={match}>
               {game && !game.cancelled && match && (
-                <span className="text-muted">
+                <span className="whitespace-nowrap text-muted">
                   {" · "}Dein Tipp {game.tip ? scoreText(match.sport, ...(game.tip.split(":").map(Number) as [number, number])) : "–"}
                   {" "}
                   <span className={game.points !== undefined && game.points > 0 ? "font-semibold text-gold" : "text-red-400"}>
