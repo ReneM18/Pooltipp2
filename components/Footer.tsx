@@ -34,7 +34,7 @@ export default function Footer() {
             Bei den Booster-Spielen setzt du 20 Coins ein: exakt gewinnst du 40 dazu, mit der
             richtigen Tordifferenz 10, bei der richtigen Tendenz behältst du deinen Einsatz, ein
             Fehltipp kostet 10. Coins gibt's außerdem mit dem täglichen Bonus, eintauschen kannst
-            du sie im Shop gegen Joker: Mit dem Doppel-Joker zählen bei einem Spiel deiner Wahl die
+            du sie im Shop gegen Joker und Trainingstaschen: Mit dem Doppel-Joker zählen bei einem Spiel deiner Wahl die
             festen Punkte doppelt (exakt 20, Tordifferenz 14, Tendenz 10), ein Pause-Joker schützt
             dich eine Woche lang vor der Strafe.
           </p>

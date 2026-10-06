@@ -7,6 +7,7 @@ import { mockShopItems, ShopItem } from "@/lib/mockShopItems";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { useJokers } from "@/lib/JokerContext";
+import { TaschenSection } from "@/components/TaschenShop";
 
 // Joker-Shop (supabase/joker-shop.sql). Kaufen geht erst, wenn der Admin den
 // Shop freigegeben hat; der Admin kann vorher schon testen. Ohne Login oder
@@ -40,7 +41,7 @@ export default function ShopPage() {
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <div className="mb-4">
         <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Prämien-Shop</h1>
-        <p className="mt-0.5 text-xs text-muted">Coins gegen Joker für deine Tipps – kein Echtgeld nötig.</p>
+        <p className="mt-0.5 text-xs text-muted">Coins gegen Joker und Taschen – kein Echtgeld nötig.</p>
       </div>
 
       {!ready || (!shopOpen && !isAdmin) ? (
@@ -61,6 +62,7 @@ export default function ShopPage() {
         )
       )}
 
+      <h2 className="mb-3 font-display text-base font-semibold text-ink">Joker</h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {mockShopItems.map((item) => (
           <ShopItemCard
@@ -76,6 +78,8 @@ export default function ShopPage() {
           />
         ))}
       </div>
+
+      <TaschenSection />
 
       {ready && (
         <div className="mt-6 rounded-card border border-edge bg-surface px-4 py-3 text-sm text-muted">

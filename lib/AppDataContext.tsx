@@ -24,6 +24,9 @@ export interface WithdrawResult {
   refunded: number;
   // Joker, der wieder im Vorrat liegt
   joker: string | null;
+  // Booster-Gutschein aus einer Trainingstasche, der wieder im Vorrat liegt
+  // (dann gab es keine Coins zurück, der Tipp war ja gratis)
+  gutschein: boolean;
 }
 
 export interface SubmittedTip {
@@ -72,6 +75,8 @@ export interface SubmittedTip {
   // dann ebenfalls true, damit der Tipp nie mehr ausgewertet wird).
   refunded?: boolean;
   refundedAt?: string;
+  // Booster-Tipp mit Gutschein aus einer Trainingstasche (kein Einsatz bezahlt)
+  gutschein?: boolean;
 }
 
 // Zeile aus der Tabelle "tips" -> Tipp im Browser.
@@ -106,6 +111,7 @@ export function tipFromRow(row: Record<string, unknown>): SubmittedTip {
     evaluatedAwayScore: (row.evaluated_away_score as number | null) ?? undefined,
     refunded: !!row.refunded_at,
     refundedAt: (row.refunded_at as string | null) ?? undefined,
+    gutschein: (row.gutschein as boolean | null) ?? false,
   };
 }
 
@@ -1081,7 +1087,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (!authUserId) {
       setMyTips((current) => current.filter((t) => t.matchId !== matchId));
       setTipCounts((current) => ({ ...current, [matchId]: Math.max(0, (current[matchId] ?? 1) - 1) }));
-      return { withdrawn: true, refunded: 0, joker: null };
+      return { withdrawn: true, refunded: 0, joker: null, gutschein: false };
     }
     tipWriteRef.current++;
     const { data, error } = await supabase.rpc("withdraw_tip", { p_match_id: matchId });
@@ -1097,7 +1103,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       withdrawnMatchesRef.current.add(matchId);
       setTipCounts((current) => ({ ...current, [matchId]: Math.max(0, (current[matchId] ?? 1) - 1) }));
     }
-    return { withdrawn: result.withdrawn, refunded: result.refunded ?? 0, joker: result.joker ?? null };
+    // Mit Gutschein bucht die Datenbank den Einsatz nicht aufs Konto, sondern
+    // legt den Gutschein zurück (supabase/trainingstaschen.sql).
+    const gutschein = result.withdrawn && !!tip.gutschein;
+    return {
+      withdrawn: result.withdrawn,
+      refunded: gutschein ? 0 : result.refunded ?? 0,
+      joker: result.joker ?? null,
+      gutschein,
+    };
   }
 
   // Eigene Tipps und Bonus-Antworten aus der Datenbank: beim Login laden,

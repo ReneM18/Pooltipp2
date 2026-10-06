@@ -226,6 +226,12 @@ export function boosterPayouts(isOneXTwo: boolean): { label: string; net: number
   ];
 }
 
+// Booster-Tipp mit Gutschein aus einer Trainingstasche: nichts bezahlt, also
+// Gewinn wie immer, daneben 0 statt Minus (supabase/trainingstaschen.sql).
+export function gutscheinPayouts(isOneXTwo: boolean): { label: string; net: number }[] {
+  return boosterPayouts(isOneXTwo).map((p) => ({ ...p, net: Math.max(0, p.net) }));
+}
+
 /**
  * Maximaler Sterne-Einsatz pro Tag für Duelle. Tipps zählen nicht mehr mit:
  * Einsatz gibt es nur bei den Booster-Spielen (höchstens 3 pro Tag à 20).
