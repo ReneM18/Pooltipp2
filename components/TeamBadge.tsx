@@ -286,8 +286,8 @@ function HockeyJerseyIcon({ c, style, size, uid }: IconProps) {
         {style === "streifen" && (
           <>
             {/* Brust-/Schulterband quer über Trikot und Ärmel */}
-            <rect x="0" y="92" width="300" height="34" fill={c.trim} />
-            <rect x="0" y="103" width="300" height="12" fill={accent} />
+            <rect x="0" y="90" width="300" height="38" fill={c.trim} />
+            <rect x="0" y="102" width="300" height="14" fill={accent} />
           </>
         )}
       </g>
@@ -296,15 +296,15 @@ function HockeyJerseyIcon({ c, style, size, uid }: IconProps) {
       <path d="M114 36 Q150 68 186 36" fill="none" stroke={c.trim} strokeWidth="7" strokeLinecap="round" />
       <path d="M120 34 Q150 58 180 34" fill="none" stroke={accent} strokeWidth="3.5" strokeLinecap="round" />
       {/* Bund-Streifen */}
-      <rect x="86.9" y="194.6" width="126.2" height="12.9" fill={c.trim} />
-      <rect x="86.9" y="215.0" width="126.2" height="12.9" fill={accent} />
-      <rect x="86.9" y="235.4" width="126.2" height="12.9" fill={c.trim} />
+      <rect x="86.9" y="193.5" width="126.2" height="15.1" fill={c.trim} />
+      <rect x="86.9" y="213.9" width="126.2" height="15.1" fill={accent} />
+      <rect x="86.9" y="234.3" width="126.2" height="15.1" fill={c.trim} />
       {/* Ärmel-Streifen links */}
-      <rect x="24.9" y="176.5" width="49.9" height="18.1" fill={sleeveStripe} />
-      <rect x="22.6" y="195.0" width="47.2" height="17.4" fill={accent} />
+      <rect x="24.9" y="176.5" width="49.9" height="20.3" fill={sleeveStripe} />
+      <rect x="22.6" y="197.2" width="47.2" height="19.6" fill={accent} />
       {/* Ärmel-Streifen rechts */}
-      <rect x="225.2" y="176.5" width="49.9" height="18.1" fill={sleeveStripe} />
-      <rect x="230.2" y="195.0" width="47.2" height="17.4" fill={accent} />
+      <rect x="225.2" y="176.5" width="49.9" height="20.3" fill={sleeveStripe} />
+      <rect x="230.2" y="197.2" width="47.2" height="19.6" fill={accent} />
     </svg>
   );
 }
