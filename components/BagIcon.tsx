@@ -10,9 +10,9 @@ export const TASCHEN: Record<
   BagTier,
   { name: string; price: number; body: string; dark: string; glow: string; text: string }
 > = {
-  training: { name: "Trainingstasche", price: 150, body: "#2F9E5B", dark: "#1C6B3B", glow: "#5FD08B", text: "1 Zufalls-Stück" },
-  matchtag: { name: "Matchtag-Tasche", price: 400, body: "#9AA6B2", dark: "#5E6873", glow: "#C9D2DB", text: "1 Stück, bessere Chancen" },
-  profi: { name: "Profi-Tasche", price: 800, body: "#D9A531", dark: "#8C6512", glow: "#F5C542", text: "Pause-Joker + Tag nachholen, sicher" },
+  training: { name: "Trainingstasche", price: 150, body: "#2F9E5B", dark: "#1C6B3B", glow: "#5FD08B", text: "1 Überraschung aus der Liste" },
+  matchtag: { name: "Matchtag-Tasche", price: 400, body: "#9AA6B2", dark: "#5E6873", glow: "#C9D2DB", text: "1 Überraschung aus der Liste" },
+  profi: { name: "Profi-Tasche", price: 800, body: "#D9A531", dark: "#8C6512", glow: "#F5C542", text: "Garantiert: Pause-Joker + Tag nachholen" },
 };
 
 export const TASCHEN_REIHE: BagTier[] = ["training", "matchtag", "profi"];
