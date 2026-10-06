@@ -683,8 +683,10 @@ function ProfilInhalt() {
             // Ergebnis als farbiges Wort (nicht nur Farbe), sobald der Tipp
             // ausgewertet ist. Offene und abgesagte Tipps bleiben ohne.
             const tier = tip.evaluated && !tip.refunded ? tip.resultTier ?? "falsch" : null;
-            const badge = tier ? HISTORY_BADGE[tier] : null;
-            const badgeText = tier === "tendenz" && match.tipMode === "1x2" ? "Richtig" : badge?.text;
+            // Bei 1X2 ist "richtig" das beste Ergebnis -> grün wie Exakt.
+            const oneXTwoRight = tier === "tendenz" && match.tipMode === "1x2";
+            const badge = tier ? (oneXTwoRight ? ONE_X_TWO_RIGHT_BADGE : HISTORY_BADGE[tier]) : null;
+            const badgeText = badge?.text;
 
             return (
               <div
@@ -738,6 +740,7 @@ const HISTORY_BADGE: Record<TipResultTier, { text: string; className: string }> 
   tendenz: { text: "Tendenz", className: "border-orange-500/60 bg-orange-500/15 text-orange-400" },
   falsch: { text: "Falsch", className: "border-red-500/60 bg-red-500/15 text-red-400" },
 };
+const ONE_X_TWO_RIGHT_BADGE = { text: "Richtig", className: HISTORY_BADGE.exakt.className };
 
 function StatCard({
   label,
