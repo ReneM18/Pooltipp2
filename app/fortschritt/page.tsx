@@ -343,7 +343,7 @@ export default function FortschrittPage() {
           {PASS_LEVELS.map((lvl) => {
             const unlocked = passXP >= lvl.xpRequired;
             const isCurrent = lvl.level === currentLevel.level;
-            const isPayout = lvl.kind === "badge" || !!lvl.starsReward;
+            const isPayout = lvl.kind === "badge";
             return (
               <div
                 key={lvl.level}

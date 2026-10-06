@@ -77,7 +77,7 @@ select t.eq((select rescue_bonus_used from public.profiles where id = :'cara'), 
 select t.eq((select count(*)::int from public.activity_feed where user_id = :'cara' and text like '🔧%'), 0, 'A13 Cara: keine Korrektur-Meldung bei Regel-Umstellung');
 select t.eq((select evaluated and correct and stars_delta = 15 from public.bonus_answers where id = 'bonus-c1'), true, 'A14 Cara: Bonusantwort übernommen und ausgewertet');
 select t.eq((select evaluated from public.bonus_answers where id = 'bonus-b1'), true, 'A15 Bob: alte ausgewertete Bonusantwort übernommen');
-select t.eq(t.stars(:'dora'), 150, 'A16 Dora: Level 10 erreicht -> +50 Sterne');
+select t.eq(t.stars(:'dora'), 100, 'A16 Dora: Level 10 erreicht -> keine Coins (Pass gibt nie Coins)');
 select t.eq((select claimed_milestones @> '[3, "herbst-2026:10"]' from public.profiles where id = :'dora'), true, 'A17 Dora: Level 10 + Serien-Meilenstein bleiben');
 
 -- Zweiter Lauf des Skripts ändert nichts.
@@ -455,10 +455,10 @@ begin;
 select t.login(:'cara');
 set local role authenticated;
 select t.eq((select (claim_daily_bonus() ->> 'claimed')::boolean), true, 'G1 Tagesbonus abgeholt');
-select t.eq(t.stars(:'cara'), 68, 'G2 +8 Sterne und Level 10 erreicht: +50');
+select t.eq(t.stars(:'cara'), 18, 'G2 +8 Sterne, Level 10 erreicht bringt keine Coins');
 select t.eq((select pass_xp from public.profiles where id = :'cara'), 6050, 'G3 +100 XP');
 select t.eq((select (claim_daily_bonus() ->> 'claimed')::boolean), false, 'G4 Zweites Mal am selben Tag: nein');
-select t.eq(t.stars(:'cara') || '/' || (select pass_xp from public.profiles where id = :'cara'), '68/6050', 'G5 Nichts doppelt');
+select t.eq(t.stars(:'cara') || '/' || (select pass_xp from public.profiles where id = :'cara'), '18/6050', 'G5 Nichts doppelt');
 commit;
 -- 30 Tage weg: (30 - 14) / 7 = 2 Wochen -> -10 Rangpunkte je Sportart.
 update public.profiles set last_claimed_at = to_char((now() - interval '30 days') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),

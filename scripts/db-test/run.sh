@@ -51,5 +51,8 @@ psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/tipp-zuruecknehmen-
 # Einstellungen auf jedem Gerät (Saison-Design-Schalter, Sofort-Abgleich)
 psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/profil-sync-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'
 
+# Saison-Pass gibt nie Coins
+psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/pass-ohne-coins-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'
+
 # Dranbleiben: Serien-Schutz, Start-Erlebnis und Wochenrückblick fürs Konto
 psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/dranbleiben-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'
