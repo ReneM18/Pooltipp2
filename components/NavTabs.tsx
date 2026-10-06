@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useDuels } from "@/lib/DuelsContext";
 
 // Logisch gruppiert: erst die eigene Spiel-Schleife (Tippen, Spiele,
 // Fortschritt), danach alles Community-Bezogene (Rangliste, Feed, Freunde).
@@ -18,6 +19,8 @@ const tabs = [
 
 export default function NavTabs() {
   const pathname = usePathname();
+  // Offene Duell-Einladungen als Zahl am Duelle-Knopf.
+  const { invitesForMe } = useDuels();
 
   return (
     <nav className="relative border-b border-edge bg-pitch">
@@ -61,9 +64,17 @@ export default function NavTabs() {
         <div className="my-2 ml-auto flex shrink-0 items-center gap-1.5 lg:gap-2">
           <Link
             href="/duelle"
-            className="flex shrink-0 items-center gap-1 rounded-full bg-gold px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:opacity-90 lg:px-3.5 lg:py-1.5 lg:text-sm"
+            className="relative flex shrink-0 items-center gap-1 rounded-full bg-gold px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:opacity-90 lg:px-3.5 lg:py-1.5 lg:text-sm"
           >
             <span aria-hidden>⚔️</span> Duelle
+            {invitesForMe.length > 0 && (
+              <span
+                className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white lg:h-5 lg:min-w-5 lg:text-xs"
+                aria-label={`${invitesForMe.length} offene Duell-Einladungen`}
+              >
+                {invitesForMe.length}
+              </span>
+            )}
           </Link>
           <Link
             href="/teams"

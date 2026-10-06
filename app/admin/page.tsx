@@ -22,6 +22,7 @@ import { displayOrder, isAwayFirst, matchTitle, scoreText } from "@/lib/teamOrde
 import { BOOSTER_STAKE, BOOSTERS_PER_DAY } from "@/lib/poolScore";
 import { boostersOnDay } from "@/lib/booster";
 import { useJokers } from "@/lib/JokerContext";
+import { DuelReport } from "@/components/DuelReport";
 
 type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news";
 
@@ -67,6 +68,8 @@ export default function AdminPage() {
       </p>
 
       <ShopSwitch />
+
+      <DuelReport />
 
       {/* Vorschau der Spieler-Seiten fürs Dranbleiben: ändern nichts. */}
       <div className="-mt-4 mb-7 flex flex-col gap-3 rounded-card border border-edge bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
