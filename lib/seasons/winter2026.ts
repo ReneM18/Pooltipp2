@@ -126,10 +126,9 @@ export const WINTER_2026: SeasonData = {
       xpRequired: 6000,
       kind: "badge",
       label: "OFFEN (Abzeichen, z. B. Wintermeister 2026/27)",
-      reward: "Abzeichen „OFFEN“ + OFFEN Coins",
-      rewardWhere: "Abzeichen für immer im Profil und im Chat, Coins sofort aufs Konto",
+      reward: "Abzeichen „OFFEN“ + Profil-Rahmen „Saison-Meister“",
+      rewardWhere: "Abzeichen für immer im Profil und im Chat, Rahmen in Winterfarben um dein Profilbild (ersetzt Diamant)",
       icon: "❔",
-      // starsReward: OFFEN (Herbst: 50)
       premiumReward: `Titel „Champion ${theme.year}" + Abschluss-Feuerwerk`,
       premiumIcon: "🎆",
     },

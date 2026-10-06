@@ -28,7 +28,7 @@ export function seasonChangedSinceLoad(): boolean {
 // "Erreichte Level" werden pro Saison dauerhaft gespeichert, als Text wie
 // "herbst-2026:4" in der Liste profiles.claimed_milestones (dort stehen sonst
 // nur die Streak-Meilensteine als Zahlen – Text und Zahl kommen sich nicht in
-// die Quere). Eintragen und Sterne gutschreiben macht die Datenbank beim
+// die Quere). Eintragen macht die Datenbank beim
 // Tagesbonus (claim_pass_rewards in supabase/auswertung-server.sql, dort
 // stehen die Level auch in der Tabelle season_pass_levels). Andere Spieler
 // können Titel/Abzeichen lesen (Profile sind für alle lesbar).

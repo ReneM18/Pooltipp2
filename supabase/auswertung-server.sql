@@ -154,7 +154,7 @@ insert into public.season_pass_levels (season_id, level, xp_required, stars_rewa
   ('herbst-2026', 7, 2700, 0),
   ('herbst-2026', 8, 3500, 0),
   ('herbst-2026', 9, 4500, 0),
-  ('herbst-2026', 10, 6000, 50)
+  ('herbst-2026', 10, 6000, 0)
 on conflict (season_id, level) do nothing;
 
 -- Laufende Saison. Wird nur angelegt, wenn es sie noch nicht gibt – der

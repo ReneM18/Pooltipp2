@@ -3,7 +3,7 @@
 // Eine Saison ist eine reine DATENLISTE (siehe z. B. lib/seasons/herbst2026.ts):
 // Name, Farben, Emotes und pro Level eine Zeile mit Belohnungsart und Wert.
 // Wie eine Belohnung funktioniert (Rahmen zeichnen, Emotes im Chat, Titel im
-// Profil, Sterne gutschreiben), steht einmalig im Code – eine neue Saison
+// Profil), steht einmalig im Code – eine neue Saison
 // braucht also nur eine neue Datei mit neuen Werten, keinen neuen Code.
 
 export interface SeasonTheme {
@@ -18,7 +18,19 @@ export interface SeasonTheme {
   colorTo: string;
 }
 
-/** Die festen Belohnungsarten – jede Saison benutzt nur diese. */
+/**
+ * Die festen Belohnungsarten – jede Saison benutzt nur diese.
+ *
+ * REGEL (Rene, 06.10.2026): Ein Pass gibt NIE Coins, Joker (Schutz, Doppel,
+ * Toleranz, Trend, Pause), Booster-Gutscheine oder sonst etwas, das beim
+ * Tippen hilft, weder gratis noch Premium, und vervielfacht auch nichts davon.
+ * Premium soll später Geld kosten; Geld darf nie, auch nicht über Coins, zu
+ * einem Tipp-Vorteil oder zu den zufälligen Trainingstaschen führen
+ * (Glücksspiel). Joker gibt es nur für Coins aus dem Spiel oder aus Taschen.
+ * Pass-Belohnungen sind nur Optik und Ehre.
+ * Die Datenbank sperrt das zusätzlich (season_pass_levels.stars_reward = 0,
+ * supabase/pass-ohne-coins.sql).
+ */
 export type RewardKind = "banner" | "emotes" | "frame" | "title" | "badge";
 
 export interface PassLevel {
@@ -31,9 +43,6 @@ export interface PassLevel {
   rewardWhere: string;
   /** Bei kind "title"/"badge": der Text, der im Profil/Chat erscheint. */
   label?: string;
-  /** Einmalige Sterne-Gutschrift beim Erreichen des Levels (zusätzlich). */
-  starsReward?: number;
-
   // Premium-Spur: zusätzliche Belohnung auf demselben Level.
   premiumReward: string;
   premiumIcon: string;

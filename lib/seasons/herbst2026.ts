@@ -8,8 +8,8 @@ import type { SeasonData, SeasonTheme } from "./types";
 // automatisch aus startsOn/endsOn. Die id NIE nachträglich ändern – sie steht in der
 // Datenbank bei jedem, der schon Level erreicht hat.
 //
-// Grundsatz: anfangs sparsam. Sterne gibt es nur einmal (Level 10, klein),
-// Titel und Abzeichen sind Ehre, kein Geld. Das Beste kommt später.
+// Grundsatz: Der Pass gibt nie Coins (Regel in lib/seasons/types.ts),
+// Titel, Rahmen und Abzeichen sind Ehre, kein Geld. Das Beste kommt später.
 
 const theme: SeasonTheme = {
   id: "herbst-2026",
@@ -154,10 +154,9 @@ export const HERBST_2026: SeasonData = {
       xpRequired: 6000,
       kind: "badge",
       label: "Herbstmeister 2026",
-      reward: "Abzeichen „Herbstmeister 2026“ + 50 Coins",
-      rewardWhere: "Abzeichen für immer im Profil und im Chat, Coins sofort aufs Konto",
+      reward: "Abzeichen „Herbstmeister 2026“ + Profil-Rahmen „Saison-Meister“",
+      rewardWhere: "Abzeichen für immer im Profil und im Chat, Rahmen in Herbstfarben um dein Profilbild (ersetzt Diamant)",
       icon: "🏅",
-      starsReward: 50,
       premiumReward: `Titel „Champion ${theme.year}" + Abschluss-Feuerwerk`,
       premiumIcon: "🎆",
     },

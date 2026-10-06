@@ -6,7 +6,7 @@ import { PASS_LEVELS } from "./passLevels";
 // damit die Belohnungs-DATEN (Text/Icon je Level) unabhängig davon bleiben,
 // WIE der aktive Rahmen berechnet wird.
 
-export type FrameVariant = "bronze" | "silber" | "gold" | "diamant" | "neon-pulse" | "custom";
+export type FrameVariant = "bronze" | "silber" | "gold" | "diamant" | "meister" | "neon-pulse" | "custom";
 
 export interface ActiveFrame {
   variant: FrameVariant;
@@ -31,7 +31,8 @@ export function xpForLevel(level: number): number {
  * Ermittelt den aktuell aktiven Profil-Rahmen. Reihenfolge (höchste zuerst):
  * 1) Premium + eigene Farbmischung (Level 5 Premium: „Eigener Farbwähler")
  * 2) Premium + Neon-Pulse (Level 2 Premium), Farbe kommt aus SEASON_THEME
- * 3) Höchste erreichte Gratis-Stufe (Bronze/Silber/Gold/Diamant, Level 3/5/7/9)
+ * 3) Höchste erreichte Gratis-Stufe (Bronze/Silber/Gold/Diamant/Saison-Meister,
+ *    Level 3/5/7/9/10; Saison-Meister in den Farben der Saison)
  * Ohne freigeschaltete Stufe: kein Rahmen (null).
  */
 export function getActiveFrame(
@@ -60,6 +61,9 @@ export function getActiveFrame(
     }
   }
 
+  if (passXP >= xpForLevel(10)) {
+    return { variant: "meister", colorFrom: SEASON_THEME.colorFrom, colorTo: SEASON_THEME.colorTo, animated: false, label: "Saison-Meister" };
+  }
   if (passXP >= xpForLevel(9)) {
     return { variant: "diamant", colorFrom: RANK_COLORS.Diamant.from, colorTo: RANK_COLORS.Diamant.to, animated: false, label: "Saison-Diamant" };
   }
