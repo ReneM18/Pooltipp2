@@ -82,6 +82,10 @@ export interface Team {
   awayTertiaryColor?: string;
   // Eigener Stil fürs Auswärtstrikot; fehlt er, gilt der Heim-Stil.
   awayJerseyStyle?: JerseyStyle;
+  // Eigene Oberarm-/Ärmelfarbe (optional, Fußball/Handball/Eishockey). Fehlt
+  // sie, sehen die Ärmel aus wie bisher.
+  armColor?: string;
+  awayArmColor?: string;
   isNationalTeam?: boolean; // Nationalmannschaft -> Icon zeigt die Landesflagge statt Trikot/Helm
 }
 

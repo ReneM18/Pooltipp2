@@ -750,6 +750,52 @@ function thirdColorHint(sport: Sport): string {
   return "Kragen & Ärmelenden";
 }
 
+// Oberarm-Farbe gibt es nur bei Trikots mit Ärmeln (nicht Basketball, nicht Football-Helm).
+function hasArmColor(sport: Sport): boolean {
+  return sport === "Fußball" || sport === "Handball" || sport === "NHL";
+}
+
+// Startfarbe beim Einschalten: die Ärmelfarbe, die man sonst sieht.
+function armColorStart(style: JerseyStyle, bodyColor: string, trimColor: string): string {
+  return style === "aermel" ? trimColor : bodyColor;
+}
+
+function ArmColorField({
+  on,
+  color,
+  onToggle,
+  onColor,
+  inputBg,
+}: {
+  on: boolean;
+  color: string;
+  onToggle: (on: boolean) => void;
+  onColor: (color: string) => void;
+  inputBg: string;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 flex items-center gap-2 text-sm text-muted">
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={(e) => onToggle(e.target.checked)}
+          className="h-4 w-4 accent-action"
+        />
+        Oberarm-Farbe
+      </label>
+      <input
+        type="color"
+        value={color}
+        disabled={!on}
+        onChange={(e) => onColor(e.target.value)}
+        aria-label="Oberarm-Farbe"
+        className={`h-11 w-20 cursor-pointer rounded-lg border border-edge ${inputBg} p-1 disabled:cursor-not-allowed disabled:opacity-30`}
+      />
+    </div>
+  );
+}
+
 function ThirdColorField({
   sport,
   on,
@@ -803,12 +849,17 @@ function TeamManager() {
   // Dritte Farbe (optional); aus = Trikot wie bisher zweifarbig.
   const [tertiaryOn, setTertiaryOn] = useState(false);
   const [tertiaryColor, setTertiaryColor] = useState("#FFFFFF");
+  // Eigene Oberarm-Farbe (optional); aus = Ärmel wie bisher.
+  const [armOn, setArmOn] = useState(false);
+  const [armColor, setArmColor] = useState("#3FA66B");
   // Eigene Auswärtsfarben; aus = Auswärtstrikot sind die Heimfarben vertauscht.
   const [awayCustom, setAwayCustom] = useState(false);
   const [awayPrimaryColor, setAwayPrimaryColor] = useState("#FFFFFF");
   const [awaySecondaryColor, setAwaySecondaryColor] = useState("#3FA66B");
   const [awayTertiaryOn, setAwayTertiaryOn] = useState(false);
   const [awayTertiaryColor, setAwayTertiaryColor] = useState("#FFFFFF");
+  const [awayArmOn, setAwayArmOn] = useState(false);
+  const [awayArmColor, setAwayArmColor] = useState("#FFFFFF");
   // Eigener Stil fürs Auswärtstrikot; "" = wie das Heimtrikot.
   const [awayJerseyStyle, setAwayJerseyStyle] = useState<JerseyStyle | "">("");
   const [isNationalTeam, setIsNationalTeam] = useState(false);
@@ -826,8 +877,10 @@ function TeamManager() {
     setSecondaryColor("#FFFFFF");
     setJerseyStyle("solid");
     setTertiaryOn(false);
+    setArmOn(false);
     setAwayCustom(false);
     setAwayTertiaryOn(false);
+    setAwayArmOn(false);
     setAwayJerseyStyle("");
     setIsNationalTeam(false);
   }
@@ -848,6 +901,18 @@ function TeamManager() {
     setAwayTertiaryOn(!!team.awayTertiaryColor);
     setAwayTertiaryColor(team.awayTertiaryColor ?? team.tertiaryColor ?? thirdColorStart(team.sport, team.secondaryColor, team.primaryColor));
     setAwayJerseyStyle(team.awayJerseyStyle ?? "");
+    setArmOn(!!team.armColor);
+    setArmColor(team.armColor ?? armColorStart(team.jerseyStyle ?? "solid", team.primaryColor, team.secondaryColor));
+    setAwayArmOn(!!team.awayArmColor);
+    setAwayArmColor(
+      team.awayArmColor ??
+        team.armColor ??
+        armColorStart(
+          team.awayJerseyStyle ?? team.jerseyStyle ?? "solid",
+          team.awayPrimaryColor ?? team.secondaryColor,
+          team.awaySecondaryColor ?? team.primaryColor
+        )
+    );
     setIsNationalTeam(team.isNationalTeam ?? false);
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -872,9 +937,15 @@ function TeamManager() {
       jerseyStyle,
       // Optionale Felder nur speichern, wenn gewählt: ohne sie sieht alles aus wie bisher.
       ...(tertiaryOn ? { tertiaryColor } : {}),
+      ...(armOn && hasArmColor(sport) ? { armColor } : {}),
       // Auswärtstrikot nicht bei NFL (Helm, keine Trikots)
       ...(awayCustom && sport !== "NFL"
-        ? { awayPrimaryColor, awaySecondaryColor, ...(awayTertiaryOn ? { awayTertiaryColor } : {}) }
+        ? {
+            awayPrimaryColor,
+            awaySecondaryColor,
+            ...(awayTertiaryOn ? { awayTertiaryColor } : {}),
+            ...(awayArmOn && hasArmColor(sport) ? { awayArmColor } : {}),
+          }
         : {}),
       ...(awayJerseyStyle && sport !== "NFL" ? { awayJerseyStyle } : {}),
       isNationalTeam,
@@ -989,6 +1060,7 @@ function TeamManager() {
               primaryColor={primaryColor}
               secondaryColor={secondaryColor}
               tertiaryColor={tertiaryOn ? tertiaryColor : undefined}
+              armColor={armOn && hasArmColor(sport) ? armColor : undefined}
               jerseyStyle={jerseyStyle}
               isNationalTeam={isNationalTeam}
               countryCode={countryCode}
@@ -1038,6 +1110,18 @@ function TeamManager() {
                 onColor={setTertiaryColor}
                 inputBg="bg-pitch"
               />
+              {hasArmColor(sport) && (
+                <ArmColorField
+                  on={armOn}
+                  color={armColor}
+                  onToggle={(on) => {
+                    if (on && !armOn) setArmColor(armColorStart(jerseyStyle, primaryColor, secondaryColor));
+                    setArmOn(on);
+                  }}
+                  onColor={setArmColor}
+                  inputBg="bg-pitch"
+                />
+              )}
             </div>
           )}
 
@@ -1093,6 +1177,10 @@ function TeamManager() {
                     setAwaySecondaryColor(primaryColor);
                     setAwayTertiaryOn(tertiaryOn);
                     setAwayTertiaryColor(tertiaryOn ? tertiaryColor : thirdColorStart(sport, secondaryColor, primaryColor));
+                    setAwayArmOn(armOn);
+                    setAwayArmColor(
+                      armOn ? armColor : armColorStart(awayJerseyStyle || jerseyStyle, secondaryColor, primaryColor)
+                    );
                   }
                   setAwayCustom(e.target.checked);
                 }}
@@ -1114,6 +1202,8 @@ function TeamManager() {
                       awayPrimaryColor={awayCustom ? awayPrimaryColor : undefined}
                       awaySecondaryColor={awayCustom ? awaySecondaryColor : undefined}
                       awayTertiaryColor={awayCustom && awayTertiaryOn ? awayTertiaryColor : undefined}
+                      armColor={armOn && hasArmColor(sport) ? armColor : undefined}
+                      awayArmColor={awayCustom && awayArmOn && hasArmColor(sport) ? awayArmColor : undefined}
                       size={56}
                     />
                     <span className="text-xs text-muted">{v === "heim" ? "Heim" : "Auswärts"}</span>
@@ -1151,6 +1241,19 @@ function TeamManager() {
                     onColor={setAwayTertiaryColor}
                     inputBg="bg-surface"
                   />
+                  {hasArmColor(sport) && (
+                    <ArmColorField
+                      on={awayArmOn}
+                      color={awayArmColor}
+                      onToggle={(on) => {
+                        if (on && !awayArmOn)
+                          setAwayArmColor(armColorStart(awayJerseyStyle || jerseyStyle, awayPrimaryColor, awaySecondaryColor));
+                        setAwayArmOn(on);
+                      }}
+                      onColor={setAwayArmColor}
+                      inputBg="bg-surface"
+                    />
+                  )}
                 </div>
               )}
             </div>
