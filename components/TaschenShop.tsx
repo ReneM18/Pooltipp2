@@ -122,7 +122,12 @@ export function TaschenSection() {
                     ? "Jetzt kaufen"
                     : "Kaufen";
           return (
-            <div key={tier} className="flex flex-col justify-between rounded-card border border-edge bg-surface p-5">
+            <div
+              key={tier}
+              className={`flex flex-col justify-between rounded-card border bg-surface p-5 ${
+                tier === "profi" ? "border-gold/50 shadow-[0_0_24px_rgb(var(--c-gold)/0.12)]" : "border-edge"
+              }`}
+            >
               <div className="flex items-center gap-3">
                 <span className="shrink-0">
                   <Bag tier={tier} size={76} />
