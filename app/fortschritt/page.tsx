@@ -11,7 +11,6 @@ import { CURRENT_SEASON, seasonCountdownText, seasonPeriodText } from "@/lib/sea
 import { EmoteSticker } from "@/components/Emotes";
 import { SeasonHeroLeaves } from "@/components/SeasonDeco";
 import { useFeedback } from "@/lib/FeedbackContext";
-import { resetDateText } from "@/lib/rankingReset";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -53,8 +52,7 @@ export default function FortschrittPage() {
     customFrameColors,
     setCustomFrameColors,
   } = useUser();
-  const { tipsBySport, countingTips, matches, rankingResetAt } = useAppData();
-  const resetDate = resetDateText(rankingResetAt);
+  const { countingTips, matches } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [purchasing, setPurchasing] = useState(false);
   // Erst im Browser ausrechnen (heutiges Datum), nicht schon beim Bauen der Seite.
@@ -414,20 +412,6 @@ export default function FortschrittPage() {
         </div>
       </section>
 
-      {/* Sportarten-Aufschlüsselung */}
-      <section>
-        <h2 className={`font-display text-lg font-semibold text-ink ${resetDate ? "mb-1" : "mb-3"}`}>Tipps nach Sportart</h2>
-        {resetDate && <p className="mb-3 text-xs text-muted">Seit dem Neustart der Rangpunkte am {resetDate}.</p>}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {SPORTS.map((sport) => (
-            <div key={sport} className="rounded-card border border-edge bg-surface p-4 text-center">
-              <div className="mb-1 text-2xl">{sportIcon[sport]}</div>
-              <p className="font-display text-xl font-bold text-ink">{tipsBySport[sport] ?? 0}</p>
-              <p className="text-xs text-muted">{sportLabel(sport)}</p>
-            </div>
-          ))}
-        </div>
-      </section>
     </main>
   );
 }
