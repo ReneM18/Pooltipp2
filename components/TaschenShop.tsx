@@ -36,8 +36,8 @@ const CHANCEN: Record<BagTier, { art: TaschenArt; pct: string; detail?: string }
     { art: "coins", pct: "15 %", detail: "200 Coins" },
   ],
   profi: [
-    { art: "pause", pct: "sicher" },
-    { art: "tag", pct: "sicher" },
+    { art: "pause", pct: "garantiert" },
+    { art: "tag", pct: "garantiert" },
   ],
 };
 
