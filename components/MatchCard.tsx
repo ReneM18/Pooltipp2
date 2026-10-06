@@ -352,10 +352,19 @@ export default function MatchCard({
         className={`flex h-12 w-[4.5rem] max-w-full items-center justify-center rounded-lg border text-center transition-colors ${
           nflPick === option
             ? "border-gold bg-gold/15 text-gold"
-            : "border-edge bg-pitch text-ink hover:border-muted"
+            : `border-edge bg-pitch hover:border-muted ${allowsDraw ? "text-ink" : "text-muted hover:text-ink"}`
         }`}
       >
-        <span className="font-display text-xl font-bold leading-tight">{pickButtonNumber(option)}</span>
+        {/* "Sieg" ruhiger als 1/X/2: kleiner, normale Stärke, gedämpft (gewählt: gold). */}
+        <span
+          className={
+            allowsDraw
+              ? "font-display text-xl font-bold leading-tight"
+              : "text-base font-medium leading-tight"
+          }
+        >
+          {pickButtonNumber(option)}
+        </span>
       </button>
     );
   }
@@ -662,10 +671,16 @@ export default function MatchCard({
                         allowsDraw ? "items-center gap-2" : "flex-col items-end gap-0.5"
                       }`}
                     >
-                      <span className="font-display text-lg font-bold leading-tight text-ink">
+                      <span
+                        className={
+                          allowsDraw
+                            ? "font-display text-lg font-bold leading-tight text-ink"
+                            : "text-xs leading-tight text-muted"
+                        }
+                      >
                         {pickButtonNumber(scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore))}
                       </span>
-                      <span className="text-xs leading-tight text-muted">
+                      <span className={allowsDraw ? "text-xs leading-tight text-muted" : "text-sm leading-tight text-ink/85"}>
                         {(() => {
                           const pick = scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore);
                           return pick === "1" ? homeTeam.name : pick === "2" ? awayTeam.name : "Unentschieden";
@@ -942,7 +957,16 @@ function TippersList({
                   // Höchstens gut die Hälfte der Zeile, damit lange Spielernamen
                   // neben "Sieg Columbus Blue Jackets" nicht zerdrückt werden.
                   <span className="max-w-[55%] shrink-0 text-right font-display text-sm font-semibold leading-tight text-ink">
-                    {formatTip(t.predictedHome, t.predictedAway)}
+                    {(() => {
+                      // "Sieg" leise, der Teamname zählt (wie bei "Dein Tipp").
+                      const text = formatTip(t.predictedHome, t.predictedAway);
+                      if (!text.startsWith("Sieg ")) return text;
+                      return (
+                        <>
+                          <span className="font-sans font-normal text-muted">Sieg</span> {text.slice(5)}
+                        </>
+                      );
+                    })()}
                   </span>
                 )}
               </li>
