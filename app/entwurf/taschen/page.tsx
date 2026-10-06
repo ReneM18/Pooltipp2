@@ -3,10 +3,10 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CoinIcon } from "@/components/CoinIcon";
-import { Chest, KISTEN, type Tier } from "@/components/ChestIcon";
+import { Bag, TASCHEN, TASCHEN_REIHE, type BagTier as Tier } from "@/components/BagIcon";
 
 // ============================================================================
-// ENTWURF Kisten (mit Coins öffnen). Nur zum Ansehen mit Beispieldaten,
+// ENTWURF Trainingstaschen (im Shop mit Coins kaufen, Reißverschluss auf). Nur zum Ansehen mit Beispieldaten,
 // speichert nichts, nicht mergen.
 // Szenen: ?szene=shop | limit | inhalt | oeffnen | gewinn | trost
 // ============================================================================
@@ -22,19 +22,19 @@ const INHALT = {
 };
 
 const CHANCEN: Record<Tier, [keyof typeof INHALT, string][]> = {
-  holz: [
+  training: [
     ["coins", "50 %  (60 bis 100 Coins)"],
     ["booster", "35 %"],
     ["pause", "12 %"],
     ["tag", "3 %"],
   ],
-  silber: [
+  matchtag: [
     ["coins", "15 %  (200 Coins)"],
     ["booster", "30 %  (2 Gutscheine)"],
     ["pause", "40 %"],
     ["tag", "15 %"],
   ],
-  gold: [
+  profi: [
     ["pause", "100 %"],
     ["tag", "100 %"],
   ],
@@ -96,8 +96,8 @@ function Coins({ n, className = "" }: { n: number; className?: string }) {
   );
 }
 
-function ChestCard({ tier, limitReached }: { tier: Tier; limitReached: boolean }) {
-  const k = KISTEN[tier];
+function BagCard({ tier, limitReached }: { tier: Tier; limitReached: boolean }) {
+  const k = TASCHEN[tier];
   const missing = k.price - KONTO;
   const canBuy = missing <= 0 && !limitReached;
   return (
@@ -108,10 +108,10 @@ function ChestCard({ tier, limitReached }: { tier: Tier; limitReached: boolean }
       <span className="relative shrink-0" style={{ opacity: canBuy ? 1 : 0.55 }}>
         <span aria-hidden className="absolute inset-0 rounded-full" style={{ background: `radial-gradient(circle, ${k.glow}44, transparent 70%)` }} />
         <span className="relative block sm:hidden">
-          <Chest tier={tier} size={72} />
+          <Bag tier={tier} size={84} />
         </span>
         <span className="relative hidden sm:block">
-          <Chest tier={tier} size={110} />
+          <Bag tier={tier} size={130} />
         </span>
       </span>
       <div className="min-w-0 flex-1 sm:w-full">
@@ -120,7 +120,7 @@ function ChestCard({ tier, limitReached }: { tier: Tier; limitReached: boolean }
         <div className="mt-2 flex flex-wrap items-center gap-2 sm:justify-center">
           {canBuy ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-gold px-3.5 py-1.5 font-display text-sm font-semibold text-pitch">
-              Öffnen · <Coins n={k.price} />
+              Kaufen · <Coins n={k.price} />
             </span>
           ) : (
             <>
@@ -141,7 +141,7 @@ function ChestCard({ tier, limitReached }: { tier: Tier; limitReached: boolean }
 function Shop({ limitReached = false }: { limitReached?: boolean }) {
   return (
     <>
-      <Title title="Kisten" sub="Mit Coins aus Booster-Tipps, Tagesbonus und Serie" />
+      <Title title="Prämien-Shop · Taschen" sub="Mit Coins aus Booster-Tipps, Tagesbonus und Serie" />
       <Draft />
       <div className="mb-4 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface px-4 py-3">
         <span className="text-sm text-muted">Dein Kontostand</span>
@@ -154,21 +154,21 @@ function Shop({ limitReached = false }: { limitReached?: boolean }) {
       >
         {limitReached ? (
           <>
-            <span className="font-semibold">Diese Woche hast du schon eine Kiste geöffnet.</span> Ab Montag geht wieder eine.
+            <span className="font-semibold">Diese Woche hast du schon eine Tasche gekauft.</span> Ab Montag geht wieder eine.
           </>
         ) : (
           <>
-            <span className="font-semibold text-ink">1 Kiste pro Woche.</span> Diese Woche noch frei.
+            <span className="font-semibold text-ink">1 Tasche pro Woche.</span> Diese Woche noch frei.
           </>
         )}
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
-        {(["holz", "silber", "gold"] as Tier[]).map((t) => (
-          <ChestCard key={t} tier={t} limitReached={limitReached} />
+        {TASCHEN_REIHE.map((t) => (
+          <BagCard key={t} tier={t} limitReached={limitReached} />
         ))}
       </div>
       <p className="mt-4 text-center text-xs text-muted">
-        Was kann drin sein? ⓘ · Coins und Kisten kann man nie mit Geld kaufen.
+        Was kann drin sein? ⓘ · Coins und Taschen kann man nie mit Geld kaufen.
       </p>
     </>
   );
@@ -180,13 +180,13 @@ function SceneInhalt() {
       <Title title="Was kann drin sein?" sub="Die Chancen stehen offen. Ausgelost wird auf dem Server." />
       <Draft />
       <div className="grid gap-3 lg:grid-cols-3">
-        {(["holz", "silber", "gold"] as Tier[]).map((t) => (
+        {TASCHEN_REIHE.map((t) => (
           <div key={t} className="rounded-card border border-edge bg-surface p-4">
             <div className="mb-3 flex items-center gap-3">
-              <Chest tier={t} size={48} />
+              <Bag tier={t} size={60} />
               <div className="min-w-0">
-                <div className="font-display text-base font-semibold text-ink">{KISTEN[t].name}</div>
-                <Coins n={KISTEN[t].price} className="text-xs font-semibold text-muted" />
+                <div className="font-display text-base font-semibold text-ink">{TASCHEN[t].name}</div>
+                <Coins n={TASCHEN[t].price} className="text-xs font-semibold text-muted" />
               </div>
             </div>
             <ul className="space-y-2">
@@ -208,7 +208,7 @@ function SceneInhalt() {
       </div>
       <div className="mt-4 rounded-card border border-edge bg-surface p-4 text-xs leading-relaxed text-muted">
         <p>
-          <span className="font-semibold text-ink">Grenzen:</span> 1 Kiste pro Woche · höchstens 2 Pause-Joker im Vorrat · „Tag nachholen“
+          <span className="font-semibold text-ink">Grenzen:</span> 1 Tasche pro Woche · höchstens 2 Pause-Joker im Vorrat · „Tag nachholen“
           höchstens 3 pro Saison. Ist eine Grenze voll, gibt es stattdessen einen Booster-Gutschein.
         </p>
         <p className="mt-2">Kein Stück bringt Rangpunkte. Coins gibt der Tagesbonus nur bis 500, darüber kommen sie nur aus Booster-Gewinnen.</p>
@@ -237,28 +237,28 @@ function SceneOeffnen() {
     <>
       <Shop />
       <Overlay>
-        <p className="font-display text-xs font-semibold uppercase tracking-wider text-gold">Silber-Kiste</p>
+        <p className="font-display text-xs font-semibold uppercase tracking-wider text-gold">Matchtag-Tasche</p>
         <p className="mt-1 text-sm text-muted">400 Coins bezahlt</p>
         <div className="my-6 flex justify-center">
           <span className="inline-block" style={{ animation: "chestShake 0.5s ease-in-out infinite", transform: "rotate(-6deg)" }}>
-            <Chest tier="silber" size={150} />
+            <Bag tier="matchtag" size={190} />
           </span>
         </div>
-        <p className="font-display text-base font-semibold text-ink">Tippe auf die Kiste</p>
-        <p className="mt-1 text-xs text-muted">Pause-Joker 40 % · Tag nachholen 15 % · Booster 30 % · Coins 15 %</p>
+        <p className="font-display text-base font-semibold text-ink">Zieh den Reißverschluss auf</p>
+        <p className="mt-1 text-xs text-muted">Pause-Joker 40 % · Tag nachholen 15 % · Booster 30 % · Coins 15 %</p>
       </Overlay>
     </>
   );
 }
 
 function Prize({ tier, k, extra }: { tier: Tier; k: keyof typeof INHALT; extra?: string }) {
-  const c = KISTEN[tier].glow;
+  const c = TASCHEN[tier].glow;
   return (
     <>
       <Shop />
       <Overlay border={c}>
             <div className="-mt-2 flex justify-center">
-              <Chest tier={tier} size={90} open />
+              <Bag tier={tier} size={130} open />
             </div>
             <div className="my-4 flex justify-center">
               <span className="relative inline-flex items-center justify-center">
@@ -282,8 +282,8 @@ function Scenes() {
   if (szene === "limit") content = <Shop limitReached />;
   else if (szene === "inhalt") content = <SceneInhalt />;
   else if (szene === "oeffnen") content = <SceneOeffnen />;
-  else if (szene === "gewinn") content = <Prize tier="silber" k="pause" />;
-  else if (szene === "trost") content = <Prize tier="holz" k="coins" extra="80 Coins zurück" />;
+  else if (szene === "gewinn") content = <Prize tier="matchtag" k="pause" />;
+  else if (szene === "trost") content = <Prize tier="training" k="coins" extra="80 Coins zurück" />;
   else content = <Shop />;
   return (
     <main className="mx-auto max-w-3xl px-5 py-8 lg:max-w-4xl">
@@ -293,7 +293,7 @@ function Scenes() {
   );
 }
 
-export default function EntwurfKisten() {
+export default function EntwurfTaschen() {
   return (
     <Suspense fallback={null}>
       <Scenes />
