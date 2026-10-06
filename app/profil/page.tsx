@@ -17,7 +17,7 @@ import WelcomeBanner from "@/components/WelcomeBanner";
 import FitText from "@/components/FitText";
 import PassHonorTags from "@/components/PassHonors";
 import { useFeedback } from "@/lib/FeedbackContext";
-import { Sport, SPORT_ICONS, sportLabel } from "@/lib/types";
+import { Sport, SPORTS, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { SEASON_THEME } from "@/lib/seasonTheme";
 import { CURRENT_SEASON } from "@/lib/seasons";
 import { xpForLevel } from "@/lib/seasonPass";
@@ -81,7 +81,7 @@ function ProfilInhalt() {
     await logout();
     setLoggingOut(false);
   }
-  const { matches, getTeam, myTips, countingTips, rankingResetAt } = useAppData();
+  const { matches, getTeam, myTips, countingTips, tipsBySport, rankingResetAt } = useAppData();
   const resetDate = resetDateText(rankingResetAt);
   const { showToast, celebrate } = useFeedback();
   const [nameInput, setNameInput] = useState(displayName);
@@ -465,11 +465,23 @@ function ProfilInhalt() {
 
       <section className="mb-8">
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Statistik</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard label="Coins" value={freeStars.toLocaleString("de-DE")} accent="gold" />
           <StatCard label="Pass-XP" value={passXP.toLocaleString("de-DE")} accent="action" />
           <StatCard label="Abgegebene Tipps" value={tipsSubmitted.toLocaleString("de-DE")} accent="ink" />
           <StatCard label="Tipp-Streak" value={`🔥 ${streakCount.toLocaleString("de-DE")}`} accent="gold" />
+        </div>
+        {/* Tipps nach Sportart – stand früher unter dem Saison-Pass, gehört aber
+            zur Statistik (gleiche Zählung ab Neustart wie "Abgegebene Tipps"). */}
+        <p className="mb-2 mt-4 font-display text-sm font-semibold text-ink">Tipps nach Sportart</p>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+          {SPORTS.map((sport) => (
+            <div key={sport} className="rounded-card border border-edge bg-surface px-2 py-3 text-center">
+              <div className="mb-1 text-xl">{sportIcon[sport]}</div>
+              <p className="font-display text-lg font-bold text-ink">{(tipsBySport[sport] ?? 0).toLocaleString("de-DE")}</p>
+              <p className="text-xs text-muted">{sportLabel(sport)}</p>
+            </div>
+          ))}
         </div>
         <p className="mt-3 text-xs text-muted">
           {resetDate && <>Gezählt werden deine Tipps seit dem Neustart der Rangpunkte am {resetDate}. </>}
