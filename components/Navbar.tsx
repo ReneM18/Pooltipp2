@@ -74,6 +74,9 @@ export default function Navbar() {
             </Link>
           )}
 
+          {/* Coins nur für Eingeloggte: Gäste haben kein Konto, eine
+              Demo-Zahl würde nur verwirren. */}
+          {sessionChecked && isRegistered && (
           <div
             className={`flex items-center gap-1 rounded-full px-0.5 py-1 sm:gap-2 sm:border sm:px-3 sm:py-1.5 ${
               isLowOnStars
@@ -91,6 +94,7 @@ export default function Navbar() {
               {freeStars.toLocaleString("de-DE")}
             </span>
           </div>
+          )}
 
           {/* Gesamtplatz in der Rangliste (Summe aller Rangpunkte). Die
               Saison-Pass-XP stehen nur noch im Saison-Pass. */}
