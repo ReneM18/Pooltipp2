@@ -80,6 +80,8 @@ interface MatchCardProps {
   // danach ist die Karte wieder leer. true = zurückgenommen. Ohne diese
   // Funktion (z. B. auf Seiten ohne Speicher-Logik) gibt es keinen Knopf.
   onWithdrawTip?: () => Promise<boolean>;
+  // Vom Start-Erlebnis vorgeschlagenes Spiel: kurz golden umrandet.
+  highlight?: boolean;
 }
 
 // 1X2-Spiele werden nur per Sieger (1 / X / 2 nach Position, siehe
@@ -108,6 +110,7 @@ export default function MatchCard({
   myTip,
   onSubmitTip,
   onWithdrawTip,
+  highlight = false,
 }: MatchCardProps) {
   const isOneXTwo = match.tipMode === "1x2";
   // US-Sport: Gast links, Heim rechts ("Gast @ Heim"). NBA und NHL kennen
@@ -454,7 +457,10 @@ export default function MatchCard({
   return (
     <div
       ref={cardRef}
-      className="relative isolate flex h-full flex-col overflow-hidden match-card-rand rounded-card border bg-surface"
+      id={`spiel-${match.id}`}
+      className={`relative isolate flex h-full flex-col overflow-hidden match-card-rand rounded-card border bg-surface ${
+        highlight ? "outline outline-2 outline-offset-2 outline-gold" : ""
+      }`}
     >
       {/* Saison-Design: verblasstes Blatt hinter dem Karteninhalt. */}
       <SeasonCardWatermark variant={match.id.length + match.id.charCodeAt(match.id.length - 1)} />

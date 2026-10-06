@@ -51,7 +51,8 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
         <Footer />
       </div>
       <ChatWidget />
-      <OnboardingTour />
+      {/* Neue Spieler haben auf /start ihr eigenes Start-Erlebnis. */}
+      {pathname !== "/start" && <OnboardingTour />}
       <PullToRefresh />
     </>
   );

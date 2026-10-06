@@ -15,6 +15,10 @@ interface TeamPickerProps {
   otherTeamId?: string;
   otherLabel?: string;
   compact?: boolean;
+  // Für Spieler statt Admin (Start-Erlebnis): eigener Text im leeren Feld
+  // und ohne den Hinweis auf den Admin-Tab "Teams".
+  placeholder?: string;
+  notFoundText?: string;
 }
 
 // Passt der Suchtext zum Teamnamen? 0 = Treffer am Namens- oder Wortanfang,
@@ -46,6 +50,8 @@ export default function TeamPicker({
   otherTeamId,
   otherLabel,
   compact = false,
+  placeholder = "Team suchen…",
+  notFoundText,
 }: TeamPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -130,7 +136,7 @@ export default function TeamPicker({
             <span className="min-w-0 flex-1 break-normal leading-snug">{selected.name}</span>
           </>
         ) : (
-          <span className="min-w-0 flex-1 text-muted">Team suchen…</span>
+          <span className="min-w-0 flex-1 text-muted">{placeholder}</span>
         )}
         <span className="shrink-0 text-xs text-muted">▼</span>
       </button>
@@ -163,7 +169,7 @@ export default function TeamPicker({
               <li className="px-4 py-3 text-sm text-muted">
                 {teams.length === 0
                   ? "Für diese Sportart gibt es noch keine Teams."
-                  : `Kein Team gefunden für "${query.trim()}". Neue Teams legst du im Tab "Teams" an.`}
+                  : notFoundText ?? `Kein Team gefunden für "${query.trim()}". Neue Teams legst du im Tab "Teams" an.`}
               </li>
             )}
             {matches.map((t) => {

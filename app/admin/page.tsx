@@ -68,6 +68,28 @@ export default function AdminPage() {
 
       <ShopSwitch />
 
+      {/* Vorschau der Spieler-Seiten fürs Dranbleiben: ändern nichts. */}
+      <div className="-mt-4 mb-7 flex flex-col gap-3 rounded-card border border-edge bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="font-display text-base font-semibold text-ink">👀 Vorschau für Spieler</p>
+          <p className="text-sm text-muted">So sehen Spieler den Start nach der Registrierung und ihren Wochenrückblick.</p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Link
+            href="/start?vorschau=1"
+            className="rounded-full border border-gold/50 px-4 py-2 text-sm font-semibold text-gold transition-colors hover:bg-gold/10"
+          >
+            Start-Erlebnis
+          </Link>
+          <Link
+            href="/rueckblick"
+            className="rounded-full border border-gold/50 px-4 py-2 text-sm font-semibold text-gold transition-colors hover:bg-gold/10"
+          >
+            Wochenrückblick
+          </Link>
+        </div>
+      </div>
+
       {/* Klar getrennte Bereiche statt alles untereinander gestapelt – ein
           Klick auf einen Reiter zeigt nur noch genau diesen Bereich, auf
           voller Breite. Bewusst groß und mit Zahl, damit auf einen Blick klar

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode, useMemo, useEffect, useRef } from "react";
+import { createContext, useContext, useState, ReactNode, useMemo, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { setFlashToast } from "@/lib/flashToast";
 import { useAppRefresh } from "@/lib/appRefresh";
@@ -112,6 +112,26 @@ interface UserContextValue {
   // Anzahl aufeinanderfolgender Tage mit mindestens einem abgegebenen Tipp
   // (siehe STREAK_MILESTONES in lib/poolScore.ts für die Sterne-Boni).
   streakCount: number;
+  // Zeitpunkt des letzten Tipps (für die Serie, siehe lib/streak.ts), null =
+  // noch nie getippt bzw. nicht geladen.
+  lastTipDate: string | null;
+  // Schon bekommene Serien-Meilensteine (Tage, siehe STREAK_MILESTONES).
+  streakClaims: number[];
+  // Wochen (Montag als "2026-09-29"), in denen der Serien-Schutz schon
+  // verbraucht ist (supabase/dranbleiben.sql). null = noch nicht geladen
+  // oder Tabelle fehlt noch.
+  shieldWeeks: string[] | null;
+  // Start-Erlebnis nach der Registrierung fertig oder übersprungen (fürs
+  // Konto gespeichert, supabase/dranbleiben.sql). null = noch nicht geladen
+  // oder Spalte fehlt noch (dann wird es nie von selbst gezeigt).
+  startDone: boolean | null;
+  markStartDone: () => void;
+  // Montag ("2026-09-29") der Woche, deren Wochenrückblick zuletzt
+  // weggeklickt wurde. null = noch keiner. reviewSeenReady: Einstellung
+  // geladen und Spalte vorhanden.
+  reviewSeenWeek: string | null;
+  reviewSeenReady: boolean;
+  markReviewSeen: (weekKey: string) => void;
   // Eigene Nutzernummer (z. B. 1001) – damit andere einen in der
   // Freundesliste finden. null, solange nicht eingeloggt oder noch nicht
   // geladen (bzw. supabase/freunde.sql noch nicht ausgeführt).
@@ -254,6 +274,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [rangPunkte, setRangPunkte] = useState<Record<Sport, number>>(initialRangPunkte);
   const [lastClaimedAt, setLastClaimedAt] = useState<string | null>(null);
   const [streakCount, setStreakCount] = useState(0);
+  const [lastTipDate, setLastTipDate] = useState<string | null>(null);
+  const [streakClaims, setStreakClaims] = useState<number[]>([]);
+  const [shieldWeeks, setShieldWeeks] = useState<string[] | null>(null);
   // Nur für Gäste: Demo-Rettungs-Bonus (eingeloggt merkt sich das die Datenbank).
   const guestRescueUsedRef = useRef(false);
 
@@ -374,6 +397,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setRangPunkte((current) => (JSON.stringify(current) === JSON.stringify(nextPoints) ? current : nextPoints));
     setPassXP(wallet.pass_xp ?? 0);
     setStreakCount(wallet.streak_count ?? 0);
+    setLastTipDate(wallet.last_tip_date ?? null);
+    const nextStreakClaims = splitClaimedMilestones(wallet.claimed_milestones).streak;
+    setStreakClaims((current) => (JSON.stringify(current) === JSON.stringify(nextStreakClaims) ? current : nextStreakClaims));
     const nextClaims = splitClaimedMilestones(wallet.claimed_milestones).pass;
     setPassClaims((current) => (JSON.stringify(current) === JSON.stringify(nextClaims) ? current : nextClaims));
     setLastClaimedAt(wallet.last_claimed_at ?? null);
@@ -610,6 +636,49 @@ export function UserProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rankIconOptions]);
 
+  // Serien-Schutz: welche Wochen schon verbraucht sind. Neu laden, sobald
+  // sich der letzte Tipp ändert (der Schutz wird nur beim Tippen verbraucht),
+  // beim Zurückkehren in die App und sofort, wenn ein anderes Gerät tippt.
+  const loadShields = useCallback(async () => {
+    if (!authUserId) return;
+    const userId = authUserId;
+    const { data, error } = await supabase
+      .from("streak_shields")
+      .select("week_start")
+      .eq("user_id", userId)
+      .order("week_start", { ascending: false })
+      .limit(4);
+    if (authUserIdRef.current !== userId) return;
+    if (error) {
+      // Tabelle fehlt noch (dranbleiben.sql nicht ausgeführt): ohne Schutz.
+      setShieldWeeks(null);
+      return;
+    }
+    const next = ((data ?? []) as { week_start: string }[]).map((r) => r.week_start);
+    setShieldWeeks((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next));
+  }, [authUserId]);
+  useEffect(() => {
+    setShieldWeeks(null);
+  }, [authUserId]);
+  useEffect(() => {
+    void loadShields();
+  }, [loadShields, lastTipDate]);
+  useAppRefresh(() => loadShields());
+  useEffect(() => {
+    if (!authUserId) return;
+    const channel = supabase
+      .channel(`my_shields_live_${authUserId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "streak_shields", filter: `user_id=eq.${authUserId}` },
+        () => void loadShields()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [authUserId, loadShields]);
+
   // Weitere Profil-Einstellungen (Fotos, Foto-Sichtbarkeit, Rang-Icon,
   // Rahmenfarben) in einer eigenen Tabelle "profile_extras", die nur der
   // Besitzer selbst lesen darf (siehe supabase/profil-extras.sql). Fehlt die
@@ -629,6 +698,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Spalten season_design_off und premium_trial gibt es erst nach
   // supabase/profil-sync.sql.
   const seasonColumnRef = useRef(false);
+  // Spalten start_done und review_seen_week gibt es erst nach
+  // supabase/dranbleiben.sql.
+  const retentionColumnRef = useRef(false);
+  const [startDone, setStartDone] = useState<boolean | null>(null);
+  const [reviewSeenWeek, setReviewSeenWeek] = useState<string | null>(null);
+  const [reviewSeenReady, setReviewSeenReady] = useState(false);
+  // Beides geht nur vorwärts: fertig bleibt fertig, und ein älterer
+  // Wochenrückblick überschreibt nie einen neueren.
+  function markStartDone() {
+    setStartDone(true);
+  }
+  function markReviewSeen(weekKey: string) {
+    setReviewSeenWeek((current) => (current && current >= weekKey ? current : weekKey));
+  }
 
   function readLocalSeasonOff() {
     try {
@@ -657,11 +740,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const writes = extrasWriteRef.current;
     const columns = "photos, photo_visibility, rank_icon_id, frame_colors";
     let hasSeason = true;
+    let hasRetention = true;
     let res = await supabase
       .from("profile_extras")
-      .select(`${columns}, season_design_off, premium_trial`)
+      .select(`${columns}, season_design_off, premium_trial, start_done, review_seen_week`)
       .eq("id", userId)
       .maybeSingle();
+    if (res.error) {
+      hasRetention = false;
+      res = await supabase
+        .from("profile_extras")
+        .select(`${columns}, season_design_off, premium_trial`)
+        .eq("id", userId)
+        .maybeSingle();
+    }
     if (res.error) {
       hasSeason = false;
       res = await supabase.from("profile_extras").select(columns).eq("id", userId).maybeSingle();
@@ -675,7 +767,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
     // älteren Stand überschreiben (der Sofort-Abgleich lädt gleich neu).
     if (extrasWriteRef.current !== writes || extrasPendingRef.current > 0) return;
     seasonColumnRef.current = hasSeason;
+    retentionColumnRef.current = hasRetention;
     const data = res.data as {
+      start_done?: boolean | null;
+      review_seen_week?: string | null;
       photos?: unknown;
       photo_visibility?: string | null;
       rank_icon_id?: string | null;
@@ -704,6 +799,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setCustomFrameColorsState((current) => (JSON.stringify(current) === synced.frame_colors ? current : next));
       }
     }
+    if (hasRetention) {
+      if (data?.start_done) synced.start_done = "true";
+      setStartDone((current) => current === true || data?.start_done === true);
+      const week = data?.review_seen_week ?? null;
+      if (week) synced.review_seen_week = JSON.stringify(week);
+      setReviewSeenWeek((current) => (current && (!week || current > week) ? current : week));
+      setReviewSeenReady(true);
+    }
     if (hasSeason && data?.premium_trial) {
       synced.premium_trial = "true";
       setHasPremiumPass(true);
@@ -726,8 +829,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setExtrasLoaded(false);
     setSeasonDesignOffState(null);
     setHasPremiumPass(false);
+    setStartDone(null);
+    setReviewSeenWeek(null);
+    setReviewSeenReady(false);
     extrasSyncedRef.current = {};
     seasonColumnRef.current = false;
+    retentionColumnRef.current = false;
     if (!authUserId) return;
     void reloadExtras();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -770,6 +877,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (seasonColumnRef.current && seasonDesignOff !== null) current.season_design_off = seasonDesignOff;
     // Premium-Test wird nur eingeschaltet, nie von einem alten Gerät aus.
     if (seasonColumnRef.current && hasPremiumPass) current.premium_trial = true;
+    // Start-Erlebnis und Wochenrückblick: nur vorwärts, siehe oben.
+    if (retentionColumnRef.current && startDone) current.start_done = true;
+    if (retentionColumnRef.current && reviewSeenWeek) current.review_seen_week = reviewSeenWeek;
     const synced = extrasSyncedRef.current;
     const changed: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(current)) {
@@ -793,7 +903,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           else synced[key] = previous[key];
         }
       });
-  }, [authUserId, extrasLoaded, photos, photoVisibility, selectedRankIconId, customFrameColors, seasonDesignOff, hasPremiumPass]);
+  }, [authUserId, extrasLoaded, photos, photoVisibility, selectedRankIconId, customFrameColors, seasonDesignOff, hasPremiumPass, startDone, reviewSeenWeek]);
 
   // Die Auswahl zusätzlich im öffentlichen Profil speichern, damit auch
   // andere Spieler sie in Rangliste, Chat und auf der Spielerseite sehen
@@ -1039,6 +1149,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
         isLowOnStars,
         tipsSubmitted,
         streakCount,
+        lastTipDate,
+        streakClaims,
+        shieldWeeks,
+        startDone,
+        markStartDone,
+        reviewSeenWeek,
+        reviewSeenReady,
+        markReviewSeen,
         userNumber,
         friendEntries,
         friends,
