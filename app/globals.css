@@ -373,6 +373,18 @@ html[data-season-design] .match-card-rand {
 }
 
 /* "Mehr"-Fenster der Leiste unten (BottomNav) gleitet von unten herein. */
+/* Seitenwechsel per Wischen am Handy (components/SwipeNav.tsx). */
+@keyframes swipeFromRight {
+  from { transform: translateX(28px); opacity: 0.4; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes swipeFromLeft {
+  from { transform: translateX(-28px); opacity: 0.4; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.animate-swipe-from-right { animation: swipeFromRight 0.22s ease-out; }
+.animate-swipe-from-left { animation: swipeFromLeft 0.22s ease-out; }
+
 @keyframes sheetUp {
   from { transform: translateY(16px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }

@@ -11,6 +11,7 @@ import Footer from "./Footer";
 import SeasonDesignGate from "./SeasonDesignGate";
 import { SeasonBackdrop } from "./SeasonDeco";
 import PullToRefresh from "./PullToRefresh";
+import SwipeNav from "./SwipeNav";
 import StartPageRedirect from "./StartPageRedirect";
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {
@@ -48,7 +49,7 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
           letzten Inhalt/Footer ragen. */}
       {/* Saison-Design: verblasste Blätter hinter der ganzen Seite. */}
       <SeasonBackdrop />
-      <div className="pb-36 lg:pb-24">
+      <div className="pb-36 lg:pb-24" data-swipe-root>
         <SeasonDesignGate />
         {children}
         <Footer />
@@ -59,6 +60,7 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
       {/* Neue Spieler haben auf /start ihr eigenes Start-Erlebnis. */}
       {pathname !== "/start" && <OnboardingTour />}
       <PullToRefresh />
+      <SwipeNav />
       <StartPageRedirect />
     </>
   );
