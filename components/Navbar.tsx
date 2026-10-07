@@ -8,10 +8,13 @@ import SeasonDeco from "@/components/SeasonDeco";
 import { useMyOverallRank } from "@/lib/myOverallRank";
 import { CoinIcon } from "@/components/CoinIcon";
 import { TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
+import { useStartHref } from "@/lib/useStartHref";
 
 export default function Navbar() {
   const { displayName, freeStars, activeRankIcon, isRegistered, sessionChecked, isLowOnStars, photos, isAdmin } =
     useUser();
+  // Logo führt zur im Profil gewählten Startseite.
+  const startHref = useStartHref();
 
   const myRank = useMyOverallRank();
   // Am Handy nur "3." (Platz passt sonst nicht neben Sterne und Profilbild),
@@ -42,7 +45,7 @@ export default function Navbar() {
       <SeasonDeco />
       <div className="relative mx-auto flex max-w-3xl lg:max-w-6xl items-center justify-between gap-2 px-4 py-2.5 sm:px-5 sm:py-4">
         <Link
-          href="/"
+          href={startHref}
           className="shrink-0 font-logo text-[22px] font-bold min-[380px]:text-2xl tracking-wide text-ink transition-opacity hover:opacity-80 sm:text-3xl"
         >
           Pool<span className="text-gold">Tipp</span>
