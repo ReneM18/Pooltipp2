@@ -8,12 +8,12 @@ import { useTournaments } from "@/lib/TournamentContext";
 import { Tournament } from "@/lib/tournamentTypes";
 import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
 import { Sport, SPORTS, sportOptions, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchJersey, MatchStatus, TipMode, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
-import { DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
+import { COUNTRIES, DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
 import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
 import TeamPicker from "@/components/TeamPicker";
 import TeamGroupChips from "@/components/TeamGroupChips";
-import { autoTeamGroup, groupTeams, hasTeamGroups } from "@/lib/teamGroups";
+import { autoTeamGroup, countryGroupByKey, groupTeams, hasTeamGroups, withSelectedGroup } from "@/lib/teamGroups";
 import { normalizeTeamName } from "@/lib/teamName";
 import TeamBadge, { helmetLogoColor, jerseyFor, matchJerseyProps, teamColorProps } from "@/components/TeamBadge";
 import JerseyPicker from "@/components/JerseyPicker";
@@ -969,7 +969,7 @@ function TeamManager() {
   const groupChoices = sportGroups.filter((g) => g.key !== autoGroup.key);
   // Eigene Gruppe, die es (noch) bei keinem Team gibt, trotzdem anzeigen.
   if (groupValue && !groupChoices.some((g) => g.key === groupKey)) {
-    groupChoices.push({ key: groupKey, label: groupValue, icon: "🏆", teams: [] });
+    groupChoices.push({ key: groupKey, label: groupValue, icon: countryGroupByKey(groupKey)?.icon ?? "🏆", teams: [] });
   }
   // Gleiche Gruppe in anderer Schreibweise ("nhl") -> vorhandenen Namen nehmen.
   function canonicalGroupLabel(label: string): string {
@@ -978,7 +978,7 @@ function TeamManager() {
   const listTeams = teams.filter((t) => t.sport === teamListTab);
   // Bei Fußball/Basketball/Eishockey immer nach Untergruppen, auch wenn
   // es (noch) nur eine gibt – die Standard-Gruppen stehen auch leer da.
-  const listGroups = hasTeamGroups(teamListTab) ? groupTeams(listTeams, teamListTab) : [];
+  const listGroups = hasTeamGroups(teamListTab) ? withSelectedGroup(groupTeams(listTeams, teamListTab), listGroupKey) : [];
   const showListGroups = listGroups.length > 0;
   const shownListGroups = showListGroups
     ? listGroups.some((g) => g.key === listGroupKey)
@@ -1162,6 +1162,13 @@ function TeamManager() {
                   </option>
                 ))}
                 <option value={NEW_GROUP}>＋ Neue Untergruppe…</option>
+                <optgroup label="Alle Länder">
+                  {COUNTRIES.filter((c) => !groupChoices.some((g) => g.key === normalizeTeamName(c.name)) && normalizeTeamName(c.name) !== autoGroup.key).map((c) => (
+                    <option key={c.code} value={c.name}>
+                      {flagEmoji(c.code)} {c.name}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
             )}
             <p className="mt-1.5 text-xs text-muted">
@@ -1428,6 +1435,7 @@ function TeamManager() {
             value={listGroupKey}
             onChange={setListGroupKey}
             total={listTeams.length}
+            countryPicker
           />
         </div>
       )}

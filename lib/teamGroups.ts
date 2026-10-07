@@ -133,3 +133,16 @@ export function groupTeams(teams: Team[], withStandardFor?: Sport): TeamGroupWit
     return a.label.localeCompare(b.label, "de");
   });
 }
+
+// Gruppe für jedes Land wählbar ("Weitere Länder…"): ist das gewählte Land
+// noch nicht in der Liste, kommt es als leere Gruppe dazu.
+export function countryGroupByKey(key: string): TeamGroup | null {
+  const c = COUNTRIES.find((x) => normalizeTeamName(x.name) === key);
+  return c ? groupFromLabel(c.name, flagEmoji(c.code)) : null;
+}
+
+export function withSelectedGroup(groups: TeamGroupWithTeams[], key: string): TeamGroupWithTeams[] {
+  if (!key || groups.some((g) => g.key === key)) return groups;
+  const extra = countryGroupByKey(key);
+  return extra ? [...groups, { ...extra, teams: [] }] : groups;
+}

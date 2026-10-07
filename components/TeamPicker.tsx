@@ -6,7 +6,7 @@ import { normalizeForSearch } from "@/lib/flags";
 import { normalizeTeamName } from "@/lib/teamName";
 import TeamBadge, { teamColorProps } from "@/components/TeamBadge";
 import TeamGroupChips from "@/components/TeamGroupChips";
-import { groupTeams, hasTeamGroups, teamGroup } from "@/lib/teamGroups";
+import { groupTeams, hasTeamGroups, teamGroup, withSelectedGroup } from "@/lib/teamGroups";
 
 interface TeamPickerProps {
   teams: Team[];
@@ -76,8 +76,10 @@ export default function TeamPicker({
     const listSport = sport ?? teams[0]?.sport;
     if (!listSport || !hasTeamGroups(listSport) || !teams.every((t) => t.sport === listSport)) return [];
     const list = groupTeams(teams, showEmptyGroups ? listSport : undefined);
-    return list.length > 1 ? list : [];
-  }, [teams, sport, showEmptyGroups]);
+    if (list.length <= 1) return [];
+    // Admin: auch ein über "Weitere Länder…" gewähltes Land ohne Teams zeigen.
+    return showEmptyGroups ? withSelectedGroup(list, groupKey) : list;
+  }, [teams, sport, showEmptyGroups, groupKey]);
   const searching = !!query.trim();
   // Bei "Alle" nur Gruppen mit Teams; eine leere Gruppe zeigt ihren Hinweis,
   // wenn man sie direkt antippt.
@@ -248,6 +250,7 @@ export default function TeamPicker({
                 }}
                 total={teams.length}
                 size="sm"
+                countryPicker={showEmptyGroups}
               />
             </div>
           )}
@@ -262,11 +265,9 @@ export default function TeamPicker({
             {visibleGroups.length > 0
               ? visibleGroups.map((g) => (
                   <li key={g.key} role="presentation">
-                    {!groupKey && (
-                      <p className="sticky top-0 z-10 bg-surface px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted">
-                        <span aria-hidden>{g.icon}</span> {g.label}
-                      </p>
-                    )}
+                    <p className="sticky top-0 z-10 bg-surface px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                      <span aria-hidden>{g.icon}</span> {g.label}
+                    </p>
                     <ul role="group" aria-label={g.label}>
                       {g.teams.length === 0 && (
                         <li className="px-4 py-3 text-sm text-muted">
