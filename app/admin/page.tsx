@@ -12,6 +12,9 @@ import { DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
 import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
 import TeamPicker from "@/components/TeamPicker";
+import TeamGroupChips from "@/components/TeamGroupChips";
+import { autoTeamGroup, groupTeams, hasTeamGroups } from "@/lib/teamGroups";
+import { normalizeTeamName } from "@/lib/teamName";
 import TeamBadge, { helmetLogoColor, jerseyFor, matchJerseyProps, teamColorProps } from "@/components/TeamBadge";
 import JerseyPicker from "@/components/JerseyPicker";
 import { useFeedback } from "@/lib/FeedbackContext";
@@ -418,6 +421,7 @@ function NoAccess({ loggedIn }: { loggedIn: boolean }) {
 // Hat ein älteres Spiel einen Wettbewerb, den es in der Liste nicht (mehr)
 // gibt, bleibt er als eigener Eintrag auswählbar.
 const NEW_COMPETITION = "__neu__";
+const NEW_GROUP = "__neue_gruppe__";
 
 function CompetitionSelect({
   sport,
@@ -888,6 +892,11 @@ function TeamManager() {
   // Eigener Stil fürs Auswärtstrikot; "" = wie das Heimtrikot.
   const [awayJerseyStyle, setAwayJerseyStyle] = useState<JerseyStyle | "">("");
   const [isNationalTeam, setIsNationalTeam] = useState(false);
+  // Eigene Untergruppe; "" = automatisch (Liga/Nationalteams/Land).
+  const [group, setGroup] = useState("");
+  const [groupInputOpen, setGroupInputOpen] = useState(false);
+  // Filter der Team-Liste unten nach Untergruppe ("" = alle).
+  const [listGroupKey, setListGroupKey] = useState("");
   // Gesetzt, solange ein bestehendes Team bearbeitet wird: dasselbe Formular
   // wie beim Anlegen, nur mit den Werten des Teams vorausgefüllt.
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -908,6 +917,8 @@ function TeamManager() {
     setAwayArmOn(false);
     setAwayJerseyStyle("");
     setIsNationalTeam(false);
+    setGroup("");
+    setGroupInputOpen(false);
   }
 
   function startEdit(team: Team) {
@@ -939,12 +950,39 @@ function TeamManager() {
         )
     );
     setIsNationalTeam(team.isNationalTeam ?? false);
+    setGroup(team.group ?? "");
+    setGroupInputOpen(false);
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   // Gibt es das Team in dieser Sportart schon? Dann Hinweis zeigen und
   // Speichern sperren, damit kein Team doppelt angelegt wird.
   const duplicate = findDuplicateTeam(teams, name, sport, editingId);
+
+  // Untergruppen: automatische fürs Formular, vorhandene zur Auswahl, und
+  // die Team-Liste unten nach Untergruppe sortiert.
+  const autoGroup = autoTeamGroup({ sport, countryCode, isNationalTeam });
+  const sportGroups = groupTeams(teams.filter((t) => t.sport === sport));
+  // Eigene Gruppe = automatische Gruppe? Dann gilt sie als "Automatisch".
+  const groupKey = normalizeTeamName(group);
+  const groupValue = !groupKey || groupKey === autoGroup.key ? "" : group.trim();
+  const groupChoices = sportGroups.filter((g) => g.key !== autoGroup.key);
+  // Eigene Gruppe, die es (noch) bei keinem Team gibt, trotzdem anzeigen.
+  if (groupValue && !groupChoices.some((g) => g.key === groupKey)) {
+    groupChoices.push({ key: groupKey, label: groupValue, icon: "🏆", teams: [] });
+  }
+  // Gleiche Gruppe in anderer Schreibweise ("nhl") -> vorhandenen Namen nehmen.
+  function canonicalGroupLabel(label: string): string {
+    return sportGroups.find((g) => g.key === normalizeTeamName(label))?.label ?? label;
+  }
+  const listTeams = teams.filter((t) => t.sport === teamListTab);
+  const listGroups = hasTeamGroups(teamListTab) ? groupTeams(listTeams) : [];
+  const showListGroups = listGroups.length > 1;
+  const shownListGroups = showListGroups
+    ? listGroups.some((g) => g.key === listGroupKey)
+      ? listGroups.filter((g) => g.key === listGroupKey)
+      : listGroups
+    : [{ key: "", label: "", icon: "", teams: listTeams }];
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -974,6 +1012,8 @@ function TeamManager() {
         : {}),
       ...(awayJerseyStyle && sport !== "NFL" ? { awayJerseyStyle } : {}),
       isNationalTeam,
+      // Untergruppe nur speichern, wenn eine eigene gewählt ist.
+      ...(groupValue && hasTeamGroups(sport) ? { group: canonicalGroupLabel(groupValue) } : {}),
     };
     if (editingId) {
       if (!confirm(`Änderungen an "${name.trim()}" speichern?`)) return;
@@ -1075,6 +1115,58 @@ function TeamManager() {
           />
           Nationalmannschaft (Icon zeigt automatisch die Landesflagge statt Trikot/Helm)
         </label>
+
+        {hasTeamGroups(sport) && (
+          <div className="max-w-md">
+            <label className="mb-1.5 block text-sm text-muted">Untergruppe (für die Team-Auswahl)</label>
+            {groupInputOpen ? (
+              <div className="flex gap-2">
+                <input
+                  value={group}
+                  onChange={(e) => setGroup(e.target.value)}
+                  autoFocus
+                  maxLength={40}
+                  placeholder="z. B. Champions League"
+                  className="min-w-0 flex-1 rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGroup("");
+                    setGroupInputOpen(false);
+                  }}
+                  className="shrink-0 rounded-lg border border-edge px-3 text-sm font-semibold text-muted hover:text-ink"
+                >
+                  Abbrechen
+                </button>
+              </div>
+            ) : (
+              <select
+                value={groupChoices.find((g) => g.key === groupKey)?.label ?? ""}
+                onChange={(e) => {
+                  if (e.target.value === NEW_GROUP) {
+                    setGroup("");
+                    setGroupInputOpen(true);
+                  } else setGroup(e.target.value);
+                }}
+                className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+              >
+                <option value="">
+                  Automatisch: {autoGroup.icon} {autoGroup.label}
+                </option>
+                {groupChoices.map((g) => (
+                  <option key={g.key} value={g.label}>
+                    {g.icon} {g.label}
+                  </option>
+                ))}
+                <option value={NEW_GROUP}>＋ Neue Untergruppe…</option>
+              </select>
+            )}
+            <p className="mt-1.5 text-xs text-muted">
+              Automatisch heißt: Nationalteams zusammen, NBA/NHL-Teams aus USA/Kanada zusammen, alle anderen nach Land.
+            </p>
+          </div>
+        )}
 
         {/* Farben + große Live-Vorschau nebeneinander: man sieht sofort, wie
             das Team-Wappen mit den gewählten Farben aussieht. */}
@@ -1311,7 +1403,10 @@ function TeamManager() {
           return (
             <button
               key={s}
-              onClick={() => setTeamListTab(s)}
+              onClick={() => {
+                setTeamListTab(s);
+                setListGroupKey("");
+              }}
               className={`min-w-[9rem] rounded-full border px-5 py-3 text-base font-semibold transition-colors ${
                 teamListTab === s
                   ? "border-gold bg-gold/15 text-gold"
@@ -1324,60 +1419,80 @@ function TeamManager() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {teams.filter((t) => t.sport === teamListTab).length === 0 && (
-          <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted sm:col-span-2">
-            Noch keine Teams für {teamListTab} angelegt.
-          </p>
-        )}
-        {teams
-          .filter((t) => t.sport === teamListTab)
-          .map((team) => (
-            <div
-              key={team.id}
-              className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4"
-            >
-              <span className="flex min-w-0 items-center gap-3">
-                <TeamBadge
-                  sport={team.sport}
-                  {...teamColorProps(team)}
-                  jerseyStyle={team.jerseyStyle}
-                  isNationalTeam={team.isNationalTeam}
-                  countryCode={team.countryCode}
-                  size={40}
-                />
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold leading-tight text-ink">
-                    {!team.isNationalTeam && flagEmoji(team.countryCode)} {team.name}
-                  </span>
-                  <span className="text-xs text-muted">
-                    {sportLabel(team.sport)}
-                    {team.isNationalTeam ? " · Nationalmannschaft" : ""}
-                  </span>
-                </span>
-              </span>
-              <span className="flex shrink-0 flex-col items-end gap-1">
-                <button
-                  onClick={() => startEdit(team)}
-                  className="rounded-lg px-2 py-1 text-xs font-semibold text-gold transition-colors hover:text-ink"
+      {showListGroups && (
+        <div className="mb-4">
+          <TeamGroupChips
+            groups={listGroups}
+            value={listGroupKey}
+            onChange={setListGroupKey}
+            total={listTeams.length}
+          />
+        </div>
+      )}
+
+      {listTeams.length === 0 && (
+        <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted">
+          Noch keine Teams für {sportLabel(teamListTab)} angelegt.
+        </p>
+      )}
+      <div className="flex flex-col gap-5">
+        {shownListGroups.map((g) => (
+          <div key={g.key || "alle"}>
+            {showListGroups && (
+              <h3 className="mb-2 font-display text-sm font-semibold text-muted">
+                <span aria-hidden>{g.icon}</span> {g.label} ({g.teams.length})
+              </h3>
+            )}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {g.teams.map((team) => (
+                <div
+                  key={team.id}
+                  className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4"
                 >
-                  Bearbeiten
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm(`Team "${team.name}" wirklich entfernen?`)) {
-                      removeTeam(team.id);
-                      if (editingId === team.id) resetForm();
-                      showToast(`✓ Team "${team.name}" entfernt.`, "info");
-                    }
-                  }}
-                  className="rounded-lg px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-red-400"
-                >
-                  Entfernen
-                </button>
-              </span>
+                  <span className="flex min-w-0 items-center gap-3">
+                    <TeamBadge
+                      sport={team.sport}
+                      {...teamColorProps(team)}
+                      jerseyStyle={team.jerseyStyle}
+                      isNationalTeam={team.isNationalTeam}
+                      countryCode={team.countryCode}
+                      size={40}
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold leading-tight text-ink">
+                        {!team.isNationalTeam && flagEmoji(team.countryCode)} {team.name}
+                      </span>
+                      <span className="text-xs text-muted">
+                        {sportLabel(team.sport)}
+                        {team.isNationalTeam ? " · Nationalmannschaft" : ""}
+                      </span>
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    <button
+                      onClick={() => startEdit(team)}
+                      className="rounded-lg px-2 py-1 text-xs font-semibold text-gold transition-colors hover:text-ink"
+                    >
+                      Bearbeiten
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm(`Team "${team.name}" wirklich entfernen?`)) {
+                          removeTeam(team.id);
+                          if (editingId === team.id) resetForm();
+                          showToast(`✓ Team "${team.name}" entfernt.`, "info");
+                        }
+                      }}
+                      className="rounded-lg px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-red-400"
+                    >
+                      Entfernen
+                    </button>
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+        ))}
       </div>
     </section>
   );

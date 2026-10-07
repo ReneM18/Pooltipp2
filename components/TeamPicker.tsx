@@ -5,6 +5,8 @@ import type { Team } from "@/lib/types";
 import { normalizeForSearch } from "@/lib/flags";
 import { normalizeTeamName } from "@/lib/teamName";
 import TeamBadge, { teamColorProps } from "@/components/TeamBadge";
+import TeamGroupChips from "@/components/TeamGroupChips";
+import { groupTeams, hasTeamGroups, teamGroup } from "@/lib/teamGroups";
 
 interface TeamPickerProps {
   teams: Team[];
@@ -55,10 +57,22 @@ export default function TeamPicker({
 }: TeamPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  // Gewählte Untergruppe ("" = alle). Beim Suchen wird immer in allen Teams gesucht.
+  const [groupKey, setGroupKey] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const selected = teams.find((t) => t.id === value);
+
+  // Untergruppen (NHL, Nationalteams, Österreich …) nur bei Fußball,
+  // Basketball und Eishockey und nur, wenn es mehr als eine gibt.
+  const groups = useMemo(() => {
+    if (teams.length === 0 || !teams.every((t) => hasTeamGroups(t.sport))) return [];
+    const list = groupTeams(teams);
+    return list.length > 1 ? list : [];
+  }, [teams]);
+  const searching = !!query.trim();
+  const visibleGroups = searching ? [] : groupKey ? groups.filter((g) => g.key === groupKey) : groups;
 
   const matches = useMemo(() => {
     const sorted = [...teams].sort((a, b) => a.name.localeCompare(b.name, "de"));
@@ -90,6 +104,9 @@ export default function TeamPicker({
   useEffect(() => {
     if (!open) return;
     setQuery("");
+    // Liste startet in der Gruppe des gewählten Teams, sonst bei "Alle".
+    const current = teams.find((t) => t.id === value);
+    setGroupKey(current && hasTeamGroups(current.sport) ? teamGroup(current, teams).key : "");
     searchRef.current?.focus({ preventScroll: true });
     // Am Handy schiebt sich die Tastatur über die untere Bildschirmhälfte:
     // Feld nach oben rollen (knapp unter die feste Kopfleiste, siehe
@@ -105,6 +122,49 @@ export default function TeamPicker({
     onChange(id);
     setOpen(false);
     setQuery("");
+  }
+
+  function renderTeam(t: Team, showGroup: boolean) {
+    const isOther = t.id === otherTeamId;
+    const group = showGroup ? teamGroup(t, teams) : null;
+    return (
+      <li key={t.id} role="option" aria-selected={t.id === value} aria-disabled={isOther}>
+        <button
+          type="button"
+          disabled={isOther}
+          onClick={() => choose(t.id)}
+          className={`flex min-h-[44px] w-full items-center gap-3 px-4 py-2 text-left text-base ${
+            isOther
+              ? "cursor-not-allowed opacity-40"
+              : t.id === value
+              ? "text-gold hover:bg-surface-hover"
+              : "text-ink hover:bg-surface-hover"
+          }`}
+        >
+          <span className="shrink-0">
+            <TeamBadge
+              sport={t.sport}
+              {...teamColorProps(t)}
+              jerseyStyle={t.jerseyStyle}
+              isNationalTeam={t.isNationalTeam}
+              countryCode={t.countryCode}
+              size={28}
+            />
+          </span>
+          <span className="min-w-0 flex-1 break-normal leading-snug">
+            {t.name}
+            {group && (
+              <span className="block text-xs text-muted">
+                {group.icon} {group.label}
+              </span>
+            )}
+            {isOther && otherLabel && (
+              <span className="block text-xs text-muted">{otherLabel}</span>
+            )}
+          </span>
+        </button>
+      </li>
+    );
   }
 
   const firstChoosable = matches.find((t) => t.id !== otherTeamId);
@@ -164,7 +224,21 @@ export default function TeamPicker({
             placeholder="Name eintippen, z. B. Bayern"
             className="w-full rounded-t-lg border-b border-edge bg-pitch px-4 py-3 text-base text-ink outline-none"
           />
-          <ul role="listbox" className="max-h-60 overflow-y-auto overscroll-contain py-1">
+          {groups.length > 0 && (
+            <div className={`border-b border-edge py-2 pl-3 ${searching ? "opacity-50" : ""}`}>
+              <TeamGroupChips
+                groups={groups}
+                value={searching ? "" : groupKey}
+                onChange={(key) => {
+                  setQuery("");
+                  setGroupKey(key);
+                }}
+                total={teams.length}
+                size="sm"
+              />
+            </div>
+          )}
+          <ul role="listbox" className="max-h-72 overflow-y-auto overscroll-contain py-1">
             {matches.length === 0 && (
               <li className="px-4 py-3 text-sm text-muted">
                 {teams.length === 0
@@ -172,42 +246,20 @@ export default function TeamPicker({
                   : notFoundText ?? `Kein Team gefunden für "${query.trim()}". Neue Teams legst du im Tab "Teams" an.`}
               </li>
             )}
-            {matches.map((t) => {
-              const isOther = t.id === otherTeamId;
-              return (
-                <li key={t.id} role="option" aria-selected={t.id === value} aria-disabled={isOther}>
-                  <button
-                    type="button"
-                    disabled={isOther}
-                    onClick={() => choose(t.id)}
-                    className={`flex min-h-[44px] w-full items-center gap-3 px-4 py-2 text-left text-base ${
-                      isOther
-                        ? "cursor-not-allowed opacity-40"
-                        : t.id === value
-                        ? "text-gold hover:bg-surface-hover"
-                        : "text-ink hover:bg-surface-hover"
-                    }`}
-                  >
-                    <span className="shrink-0">
-                      <TeamBadge
-                        sport={t.sport}
-                        {...teamColorProps(t)}
-                        jerseyStyle={t.jerseyStyle}
-                        isNationalTeam={t.isNationalTeam}
-                        countryCode={t.countryCode}
-                        size={28}
-                      />
-                    </span>
-                    <span className="min-w-0 flex-1 break-normal leading-snug">
-                      {t.name}
-                      {isOther && otherLabel && (
-                        <span className="block text-xs text-muted">{otherLabel}</span>
-                      )}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
+            {visibleGroups.length > 0
+              ? visibleGroups.map((g) => (
+                  <li key={g.key} role="presentation">
+                    {!groupKey && (
+                      <p className="sticky top-0 z-10 bg-surface px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                        <span aria-hidden>{g.icon}</span> {g.label}
+                      </p>
+                    )}
+                    <ul role="group" aria-label={g.label}>
+                      {g.teams.map((t) => renderTeam(t, false))}
+                    </ul>
+                  </li>
+                ))
+              : matches.map((t) => renderTeam(t, groups.length > 0))}
           </ul>
         </div>
       )}
