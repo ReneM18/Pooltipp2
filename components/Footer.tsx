@@ -15,12 +15,22 @@ export default function Footer() {
     // Spielen nicht so viel Platz einnimmt. Am Handy bleibt die gut lesbare
     // größere Schrift.
     <footer className="mt-10 border-t border-edge bg-surface/40 sm:mt-6">
-      <div className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8 sm:py-4">
-        <h2 className="mb-2 font-display text-base font-bold text-ink sm:mb-1 sm:text-sm">
-          Über PoolTipp
-        </h2>
+      <div className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-5 sm:py-4">
+        {/* Eingeklappt: die Erklärung steht weiter im Seitentext (gut für
+            Suchmaschinen), nimmt aber erst nach Antippen Platz ein. */}
+        <details className="group rounded-card border border-edge bg-surface/50">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+            <h2 className="font-display text-sm font-bold text-ink">So funktioniert PoolTipp</h2>
+            <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-gold">
+              <span className="group-open:hidden">Aufklappen</span>
+              <span className="hidden group-open:inline">Zuklappen</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className="h-3.5 w-3.5 transition-transform group-open:rotate-180" aria-hidden>
+                <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+          </summary>
         {/* Drei kurze Absätze statt einem Block: Rankingsystem, Coins und Joker, Extras. */}
-        <div className="flex flex-col gap-2 text-sm leading-relaxed text-muted sm:gap-1 sm:text-xs sm:leading-normal">
+        <div className="flex flex-col gap-2 px-4 pb-4 text-sm leading-relaxed text-muted sm:gap-1 sm:text-xs sm:leading-normal">
           <p>
             PoolTipp ist das kostenlose Social-Tippspiel für echte Sportfans: Tippe vor jedem Spiel
             deiner Lieblingssportarten (Fußball, Football, Basketball, Eishockey) das Ergebnis. Jeder Tipp ist gratis und
@@ -45,8 +55,9 @@ export default function Footer() {
             nur um virtuelle Coins, nie um echtes Geld.
           </p>
         </div>
+        </details>
 
-        <div className="mt-5 flex flex-col gap-4 border-t border-edge pt-4 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:pt-3">
+        <div className="mt-4 flex flex-col gap-3 sm:mt-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:pt-3">
           <nav className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             {LEGAL_LINKS.map((link) => (
               <Link
@@ -64,7 +75,7 @@ export default function Footer() {
               beiden minimal auseinanderlaufen. Offizieller React-Standardweg
               für genau diesen Fall, statt es künstlich zu verzögern. */}
           <p className="shrink-0 text-xs text-muted sm:text-[11px]" suppressHydrationWarning>
-            © {new Date().getFullYear()} PoolTipp
+            © {new Date().getFullYear()} PoolTipp · nur virtuelle Coins, nie echtes Geld
           </p>
         </div>
       </div>
