@@ -1,5 +1,6 @@
 "use client";
 
+import PlayerAvatar from "@/components/PlayerAvatar";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import FitText from "@/components/FitText";
@@ -207,7 +208,7 @@ export default function RanglistePage() {
               >
                 <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
                   <RankNumber rank={entry.rank} />
-                  <NameAvatar name={entry.name} rank={entry.rank} />
+                  <NameAvatar id={entry.id} name={entry.name} rank={entry.rank} />
                   <RankBadge option={entry.icon} size="sm" />
                   {entry.isCurrentUser ? (
                     <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -412,13 +413,13 @@ function WeeklyCountdown({ target }: { target: number }) {
   return <span>endet in {minutes}m</span>;
 }
 
-function NameAvatar({ name, rank }: { name: string; rank: number }) {
+// Farbe je Spieler wie im Chat; Gold/Silber/Bronze-Ring für die ersten drei bleibt.
+function NameAvatar({ id, name, rank }: { id: string; name: string; rank: number }) {
   const ring = PODIUM_RING[rank] ?? "";
+  // Ring an einer Hülle, weil das Spieler-Bild selbst schon box-shadow nutzt.
   return (
-    <span
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-hover font-display text-xs font-semibold text-muted ${ring}`}
-    >
-      {name.slice(0, 1).toUpperCase()}
+    <span className={`shrink-0 rounded-full ${ring}`}>
+      <PlayerAvatar id={id} name={name} size={36} />
     </span>
   );
 }
