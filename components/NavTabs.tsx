@@ -23,8 +23,10 @@ export default function NavTabs() {
   const { invitesForMe } = useDuels();
 
   return (
-    <nav className="relative border-b border-edge bg-pitch">
-      {/* Handy & Tablet (Standard, bis lg:): horizontal scrollbare Leiste
+    <nav className="relative hidden border-b border-edge bg-pitch lg:block">
+      {/* Seit der festen Leiste unten (BottomNav) wird diese Menüleiste nur
+          noch ab lg: angezeigt; der Handy-Teil unten bleibt als Rückfall.
+          Handy & Tablet (Standard, bis lg:): horizontal scrollbare Leiste
           zum Wischen, Scrollbar versteckt – fühlt sich wie eine native App
           an. touch-pan-x + overscroll-contain (statt nur -x) +
           overflow-y-hidden verhindern zusammen, dass das seitliche Wischen
@@ -64,7 +66,7 @@ export default function NavTabs() {
         <div className="my-2 ml-auto flex shrink-0 items-center gap-1.5 lg:gap-2">
           <Link
             href="/duelle"
-            className="relative flex shrink-0 items-center gap-1 rounded-full bg-gold px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:opacity-90 lg:px-3.5 lg:py-1.5 lg:text-sm"
+            className="relative flex shrink-0 items-center gap-1 rounded-full border border-gold/45 bg-surface px-2.5 py-1 font-display text-xs font-semibold text-ink transition-colors hover:border-gold hover:bg-gold/10 lg:px-3 lg:py-1.5 lg:text-sm"
           >
             <span aria-hidden>⚔️</span> Duelle
             {invitesForMe.length > 0 && (
@@ -78,13 +80,13 @@ export default function NavTabs() {
           </Link>
           <Link
             href="/teams"
-            className="flex shrink-0 items-center gap-1 rounded-full bg-blue-500 px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:bg-blue-400 lg:px-3.5 lg:py-1.5 lg:text-sm"
+            className="flex shrink-0 items-center gap-1 rounded-full border border-gold/45 bg-surface px-2.5 py-1 font-display text-xs font-semibold text-ink transition-colors hover:border-gold hover:bg-gold/10 lg:px-3 lg:py-1.5 lg:text-sm"
           >
             <span aria-hidden>👥</span> Tipprunden
           </Link>
           <Link
             href="/turnier"
-            className="flex shrink-0 items-center gap-1 rounded-full bg-violet-500 px-2.5 py-1 font-display text-xs font-semibold text-pitch transition-colors hover:bg-violet-400 lg:px-3.5 lg:py-1.5 lg:text-sm"
+            className="flex shrink-0 items-center gap-1 rounded-full border border-gold/45 bg-surface px-2.5 py-1 font-display text-xs font-semibold text-ink transition-colors hover:border-gold hover:bg-gold/10 lg:px-3 lg:py-1.5 lg:text-sm"
           >
             <span aria-hidden>🏆</span> Turniere
           </Link>
