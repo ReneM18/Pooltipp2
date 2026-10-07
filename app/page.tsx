@@ -13,6 +13,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { BOOSTER_STAKE } from "@/lib/poolScore";
 import { Match, isSportActive } from "@/lib/types";
+import { groupMatchesByDay } from "@/lib/dayGroups";
 import { splitMatchesByTab } from "@/lib/matchTabs";
 import { useStreak } from "@/lib/streak";
 import { readPendingInvite } from "@/lib/leagueInvite";
@@ -228,26 +229,42 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-3 lg:gap-5">
-        {visibleMatches.length === 0 && (
-          tab === "offen" ? (
-            <EmptyState
-              emoji="🗓️"
-              title="Gerade keine offenen Spiele"
-              text="Neue Spiele kommen bald. Schau solange im Matchcenter vorbei."
-              action={{ href: "/matchcenter", label: "Zum Matchcenter" }}
-              className="lg:col-span-3"
-            />
-          ) : (
-            <EmptyState
-              emoji="🏁"
-              title="Noch keine beendeten Spiele"
-              text="Sobald ein Spiel ausgewertet ist, siehst du hier deine Punkte."
-              className="lg:col-span-3"
-            />
-          )
-        )}
-        {visibleMatches.map(renderCard)}
+      {visibleMatches.length === 0 && (
+        tab === "offen" ? (
+          <EmptyState
+            emoji="🗓️"
+            title="Gerade keine offenen Spiele"
+            text="Neue Spiele kommen bald. Schau solange im Matchcenter vorbei."
+            action={{ href: "/matchcenter", label: "Zum Matchcenter" }}
+          />
+        ) : (
+          <EmptyState
+            emoji="🏁"
+            title="Noch keine beendeten Spiele"
+            text="Sobald ein Spiel ausgewertet ist, siehst du hier deine Punkte."
+          />
+        )
+      )}
+      {/* Abschnitte nach Tag ("Läuft gerade", "Heute", "Morgen" …), die
+          Reihenfolge bleibt wie in lib/matchTabs.ts. Am PC je Tag drei Spalten. */}
+      <div className="flex flex-col gap-7">
+        {groupMatchesByDay(visibleMatches, now, tab).map((group) => (
+          <section key={group.key} aria-label={group.label || undefined}>
+            {group.label && (
+              <h2 className="mb-3 flex items-baseline gap-2 px-0.5">
+                {group.key === "jetzt" && (
+                  <span className="relative top-[-1px] h-2 w-2 shrink-0 animate-pulse self-center rounded-full bg-red-500" aria-hidden />
+                )}
+                <span className="font-display text-base font-bold text-ink">{group.label}</span>
+                {group.sub && <span className="text-xs text-muted">{group.sub}</span>}
+                <span className="text-xs text-muted">
+                  · {group.matches.length} {group.matches.length === 1 ? "Spiel" : "Spiele"}
+                </span>
+              </h2>
+            )}
+            <div className="flex flex-col gap-5 lg:grid lg:grid-cols-3 lg:gap-5">{group.matches.map(renderCard)}</div>
+          </section>
+        ))}
       </div>
       </>
       )}
