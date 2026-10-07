@@ -89,6 +89,21 @@ export default function RankProgress({
             </span>
           );
         })}
+        {/* Direkt nach GOAT: Prestige (ab GOAT freiwillig wieder bei 0 anfangen, dafür ein Stern). */}
+        <span
+          title={
+            prestige > 0
+              ? `Prestige ${prestige} in ${sportLabel(sport)}`
+              : `Prestige: ab ${goatTier.rank} in ${sportLabel(sport)}`
+          }
+          className={`flex h-[30px] min-w-[30px] items-center justify-center rounded-lg p-0.5 ${
+            prestige > 0 || points >= goatTier.minPoints ? "" : "opacity-30 grayscale"
+          }`}
+        >
+          <span className="flex h-[26px] min-w-[26px] items-center justify-center whitespace-nowrap rounded-full border border-gold/70 bg-pitch px-1 text-[13px] font-bold leading-none text-gold">
+            {prestige > PRESTIGE_MAX_STARS ? `👑${prestige}` : prestige > 1 ? `★${prestige}` : "★"}
+          </span>
+        </span>
         {/* Ganz zum Schluss, über allen Sportarten: Unsterblich. */}
         <span
           title={`Unsterblich: ${goatTier.rank} in allen ${SPORTS.length} Sportarten`}
@@ -108,7 +123,7 @@ export default function RankProgress({
         </p>
       )}
 
-      {points >= goatMinPoints(sport) && <PrestigeBox sport={sport} points={points} prestige={prestige} />}
+      <PrestigeBox sport={sport} points={points} prestige={prestige} />
     </div>
   );
 }
@@ -122,6 +137,8 @@ function PrestigeBox({ sport, points, prestige }: { sport: Sport; points: number
   const [step, setStep] = useState<"idle" | "confirm" | "busy">("idle");
   const [error, setError] = useState<string | null>(null);
   const nextLevel = prestige + 1;
+  const goat = goatMinPoints(sport);
+  const isGoat = points >= goat;
 
   async function confirm() {
     setStep("busy");
@@ -137,6 +154,29 @@ function PrestigeBox({ sport, points, prestige }: { sport: Sport; points: number
     showToast(`⭐ Prestige ${result.level} in ${sportLabel(sport)}! Viel Spaß beim neuen Aufstieg.`, "gold");
   }
 
+  // Noch kein GOAT: Prestige trotzdem zeigen, gesperrt mit Hinweis, damit
+  // jeder sieht, was nach GOAT noch kommt.
+  if (!isGoat) {
+    return (
+      <div className="mt-4 rounded-card border border-dashed border-edge bg-surface p-3">
+        <p className="font-display text-sm font-semibold text-muted">
+          🔒 Prestige{prestige > 0 && <span className="ml-1.5 text-gold">{prestigeMark(prestige)} Prestige {prestige}</span>}
+        </p>
+        <p className="mt-1 text-xs text-muted">
+          Ab GOAT ({goat.toLocaleString("de-DE")} Punkte in {sportLabel(sport)}): Rang auf 0 zurücksetzen, dafür
+          bekommst du einen Stern für immer an deinem Abzeichen.
+        </p>
+        <PrestigeLadder current={prestige} />
+        <button
+          disabled
+          className="mt-3 cursor-not-allowed rounded-full border border-edge bg-pitch px-4 py-2 text-sm font-semibold text-muted opacity-70"
+        >
+          🔒 Prestige gehen
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-4 rounded-card border border-gold/50 bg-gold/10 p-3">
       <p className="font-display text-sm font-semibold text-gold">⭐ Prestige gehen</p>
@@ -149,6 +189,7 @@ function PrestigeBox({ sport, points, prestige }: { sport: Sport; points: number
         Tipps, Coins, Saison-Pass und deine anderen Sportarten bleiben, wie sie sind. Deine{" "}
         {points.toLocaleString("de-DE")} Punkte werden gesichert, alle sehen deine Sterne in der Rangliste.
       </p>
+      <PrestigeLadder current={prestige} />
       {step === "idle" ? (
         <button
           onClick={() => setStep("confirm")}
@@ -183,6 +224,27 @@ function PrestigeBox({ sport, points, prestige }: { sport: Sport; points: number
         </div>
       )}
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+    </div>
+  );
+}
+
+// Vorschau der Prestige-Stufen: 1 bis 5 Sterne, danach die Krone. Schon
+// erreichte Stufen leuchten, die nächsten sind blass.
+function PrestigeLadder({ current }: { current: number }) {
+  const steps = [1, 2, 3, 4, 5, 6];
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label="Prestige-Stufen">
+      {steps.map((level) => (
+        <span
+          key={level}
+          title={level > PRESTIGE_MAX_STARS ? "Ab Prestige 6: Krone" : `Prestige ${level}`}
+          className={`whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[11px] font-bold leading-none ${
+            current >= level ? "border-gold/70 bg-pitch text-gold" : "border-edge text-muted opacity-60"
+          }`}
+        >
+          {level > PRESTIGE_MAX_STARS ? "👑" : "★".repeat(level)}
+        </span>
+      ))}
     </div>
   );
 }
