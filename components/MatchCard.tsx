@@ -1428,8 +1428,14 @@ function ResultBox({ match, kickedOff }: { match: Match; kickedOff: boolean }) {
     );
   }
 
+  // "Noch nicht begonnen" sagt am Handy nichts Neues (Datum steht oben) und
+  // macht die Karte nur länger – dort weglassen, am PC bleibt es.
   return (
-    <div className="flex items-center justify-center rounded-lg border border-edge bg-pitch px-4 py-3">
+    <div
+      className={`items-center justify-center rounded-lg border border-edge bg-pitch px-4 py-3 ${
+        kickedOff ? "flex" : "hidden lg:flex"
+      }`}
+    >
       <span className="text-sm text-muted">
         {kickedOff ? "Spiel läuft – Ergebnis folgt" : "Spiel hat noch nicht begonnen"}
       </span>
