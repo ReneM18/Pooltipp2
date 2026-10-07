@@ -10,6 +10,13 @@ import { getAvailableRankIcons, getBestRankIcon, RankIconOption } from "@/lib/ra
 import { PhotoVisibility } from "@/lib/mockUsers";
 import { useAppData, SubmittedTip } from "@/lib/AppDataContext";
 import { Sport, ALL_SPORTS } from "@/lib/types";
+import {
+  DEFAULT_START_PAGE,
+  StartPage,
+  isStartPage,
+  readLocalStartPage,
+  writeLocalStartPage,
+} from "@/lib/startPage";
 import { CURRENT_SEASON, seasonChangedSinceLoad, getPassHonors, splitClaimedMilestones, PassHonors } from "@/lib/seasons";
 import {
   DAILY_BONUS_STARS,
@@ -164,6 +171,10 @@ interface UserContextValue {
   // null = noch nicht geladen.
   seasonDesignOff: boolean | null;
   setSeasonDesignOff: (off: boolean) => void;
+  // Seite, die die App beim Öffnen zeigt (fürs Konto gespeichert, gilt auf
+  // jedem Gerät, siehe lib/startPage.ts). null = noch nicht geladen.
+  startPage: StartPage | null;
+  setStartPage: (page: StartPage) => void;
   activeRankIcon: RankIconOption | null;
   hasPremiumPass: boolean;
   buyPremiumPass: () => void;
@@ -701,6 +712,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Spalten start_done und review_seen_week gibt es erst nach
   // supabase/dranbleiben.sql.
   const retentionColumnRef = useRef(false);
+  // Spalte start_page gibt es erst nach supabase/startseite.sql. Fehlt sie,
+  // gilt die Wahl nur auf diesem Gerät.
+  const startPageColumnRef = useRef(false);
+  const [startPage, setStartPageState] = useState<StartPage | null>(null);
+  function setStartPage(page: StartPage) {
+    setStartPageState(page);
+    writeLocalStartPage(page);
+  }
   const [startDone, setStartDone] = useState<boolean | null>(null);
   const [reviewSeenWeek, setReviewSeenWeek] = useState<string | null>(null);
   const [reviewSeenReady, setReviewSeenReady] = useState(false);
@@ -741,11 +760,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const columns = "photos, photo_visibility, rank_icon_id, frame_colors";
     let hasSeason = true;
     let hasRetention = true;
+    let hasStartPage = true;
     let res = await supabase
       .from("profile_extras")
-      .select(`${columns}, season_design_off, premium_trial, start_done, review_seen_week`)
+      .select(`${columns}, season_design_off, premium_trial, start_done, review_seen_week, start_page`)
       .eq("id", userId)
       .maybeSingle();
+    if (res.error) {
+      hasStartPage = false;
+      res = await supabase
+        .from("profile_extras")
+        .select(`${columns}, season_design_off, premium_trial, start_done, review_seen_week`)
+        .eq("id", userId)
+        .maybeSingle();
+    }
     if (res.error) {
       hasRetention = false;
       res = await supabase
@@ -768,6 +796,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (extrasWriteRef.current !== writes || extrasPendingRef.current > 0) return;
     seasonColumnRef.current = hasSeason;
     retentionColumnRef.current = hasRetention;
+    startPageColumnRef.current = hasStartPage;
     const data = res.data as {
       start_done?: boolean | null;
       review_seen_week?: string | null;
@@ -777,6 +806,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       frame_colors?: { from: string; to: string } | null;
       season_design_off?: boolean | null;
       premium_trial?: boolean | null;
+      start_page?: string | null;
     } | null;
     const synced = extrasSyncedRef.current;
     if (data) {
@@ -807,6 +837,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setReviewSeenWeek((current) => (current && (!week || current > week) ? current : week));
       setReviewSeenReady(true);
     }
+    if (hasStartPage) {
+      // Noch nie gewählt = Tipps. Die Wahl eines früheren Kontos in diesem
+      // Browser wird bewusst nicht übernommen.
+      const page = isStartPage(data?.start_page) ? data.start_page : DEFAULT_START_PAGE;
+      // Als abgeglichen merken (auch "noch nie gewählt" = Tipps), damit
+      // erst eine echte Änderung auf diesem Gerät gespeichert wird.
+      synced.start_page = JSON.stringify(page);
+      setStartPageState(page);
+      writeLocalStartPage(page);
+    } else {
+      setStartPageState(readLocalStartPage());
+    }
     if (hasSeason && data?.premium_trial) {
       synced.premium_trial = "true";
       setHasPremiumPass(true);
@@ -832,13 +874,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setStartDone(null);
     setReviewSeenWeek(null);
     setReviewSeenReady(false);
+    setStartPageState(null);
     extrasSyncedRef.current = {};
     seasonColumnRef.current = false;
     retentionColumnRef.current = false;
+    startPageColumnRef.current = false;
     if (!authUserId) return;
     void reloadExtras();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUserId]);
+
+  // Ausgeloggt: die gemerkte Startseite gehört zum Konto, nicht zum Gerät.
+  useEffect(() => {
+    if (sessionChecked && !authUserId) writeLocalStartPage(null);
+  }, [sessionChecked, authUserId]);
 
   // Sofort-Abgleich und beim Zurückkehren in die App.
   const reloadExtrasRef = useRef(reloadExtras);
@@ -880,6 +929,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     // Start-Erlebnis und Wochenrückblick: nur vorwärts, siehe oben.
     if (retentionColumnRef.current && startDone) current.start_done = true;
     if (retentionColumnRef.current && reviewSeenWeek) current.review_seen_week = reviewSeenWeek;
+    if (startPageColumnRef.current && startPage !== null) current.start_page = startPage;
     const synced = extrasSyncedRef.current;
     const changed: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(current)) {
@@ -903,7 +953,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           else synced[key] = previous[key];
         }
       });
-  }, [authUserId, extrasLoaded, photos, photoVisibility, selectedRankIconId, customFrameColors, seasonDesignOff, hasPremiumPass, startDone, reviewSeenWeek]);
+  }, [authUserId, extrasLoaded, photos, photoVisibility, selectedRankIconId, customFrameColors, seasonDesignOff, hasPremiumPass, startDone, reviewSeenWeek, startPage]);
 
   // Die Auswahl zusätzlich im öffentlichen Profil speichern, damit auch
   // andere Spieler sie in Rangliste, Chat und auf der Spielerseite sehen
@@ -1175,6 +1225,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setSelectedRankIconId,
         seasonDesignOff,
         setSeasonDesignOff,
+        startPage,
+        setStartPage,
         activeRankIcon,
         hasPremiumPass,
         buyPremiumPass,

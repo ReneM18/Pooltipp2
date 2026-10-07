@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, FormEvent, ChangeEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AccountSettings from "@/components/AccountSettings";
+import StartPagePicker from "@/components/StartPagePicker";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useMyOverallRank } from "@/lib/myOverallRank";
@@ -640,6 +641,7 @@ function ProfilInhalt() {
             {saved ? "Gespeichert ✓" : "Speichern"}
           </button>
         </form>
+        {isRegistered && <StartPagePicker />}
         {/* Saison-Design: kommt automatisch ab dem Level aus der Saison-Datei,
             hier abschaltbar (gilt pro Gerät, siehe lib/seasons/design.ts). */}
         {seasonDesign.available && (
