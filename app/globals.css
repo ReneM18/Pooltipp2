@@ -371,3 +371,9 @@ html[data-season-design] .match-card-rand {
     transform: none;
   }
 }
+
+/* "Mehr"-Fenster der Leiste unten (BottomNav) gleitet von unten herein. */
+@keyframes sheetUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
