@@ -722,7 +722,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [accountSync, setAccountSync] = useState<{ startPage: boolean; seasonDesign: boolean } | null>(null);
   function setStartPage(page: StartPage) {
     setStartPageState(page);
-    writeLocalStartPage(page);
+    writeLocalStartPage(page, authUserIdRef.current);
   }
   const [startDone, setStartDone] = useState<boolean | null>(null);
   const [reviewSeenWeek, setReviewSeenWeek] = useState<string | null>(null);
@@ -854,9 +854,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       // erst eine echte Änderung auf diesem Gerät gespeichert wird.
       synced.start_page = JSON.stringify(page);
       setStartPageState(page);
-      writeLocalStartPage(page);
+      writeLocalStartPage(page, userId);
     } else {
-      setStartPageState(readLocalStartPage());
+      setStartPageState(readLocalStartPage(userId));
     }
     if (hasSeason && data?.premium_trial) {
       synced.premium_trial = "true";
@@ -896,7 +896,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   // Ausgeloggt: die gemerkte Startseite gehört zum Konto, nicht zum Gerät.
   useEffect(() => {
-    if (sessionChecked && !authUserId) writeLocalStartPage(null);
+    if (sessionChecked && !authUserId) writeLocalStartPage(null, null);
   }, [sessionChecked, authUserId]);
 
   // Sofort-Abgleich und beim Zurückkehren in die App.
