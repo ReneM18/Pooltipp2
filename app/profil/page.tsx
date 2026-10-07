@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AccountSettings from "@/components/AccountSettings";
 import StartPagePicker from "@/components/StartPagePicker";
+import SaveButton, { useDraft } from "@/components/SaveButton";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useMyOverallRank } from "@/lib/myOverallRank";
@@ -146,6 +147,9 @@ function ProfilInhalt() {
   // gekauft UND das jeweilige Level per Pass-XP erreicht ist.
   const hasLevelPremium = (level: number) => hasPremiumPass && passXP >= xpForLevel(level);
   const seasonDesign = useSeasonDesign();
+  // Einstellungen mit Auswahl: erst "Speichern" übernimmt sie (components/SaveButton.tsx).
+  const designDraft = useDraft(seasonDesign.enabled);
+  const visibilityDraft = useDraft(photoVisibility);
   const playedEarlierSeason = passClaims.some((c) => !c.startsWith(`${CURRENT_SEASON.theme.id}:`));
 
   // Nur Tipps seit dem Neustart der Rangpunkte, damit Trefferquote und
@@ -686,50 +690,61 @@ function ProfilInhalt() {
               className="mt-3 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-end"
             >
               <div className="flex-1">
-                <label className="mb-1 block text-xs text-muted">Anzeigename</label>
+                <label htmlFor="profil-name" className="mb-1 block text-xs text-muted">Anzeigename</label>
                 <input
+                  id="profil-name"
                   value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
+                  onChange={(e) => {
+                    setNameInput(e.target.value);
+                    setSaved(false);
+                  }}
                   className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
                 />
-          </div>
-              <button
+              </div>
+              <SaveButton
                 type="submit"
-                className="rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
-              >
-                {saved ? "Gespeichert ✓" : "Speichern"}
-              </button>
+                dirty={!!nameInput.trim() && nameInput.trim() !== displayName}
+                saved={saved}
+                className="self-start py-2 sm:self-auto"
+              />
             </form>
-            <div className="mt-3 flex flex-col gap-2 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
+            <div className="mt-3 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <p className="text-sm font-semibold text-ink">Wer darf deine Fotos sehen?</p>
                 <p className="text-xs text-muted">
                   Gilt für dein Profil, wenn andere User dich antippen (z. B. in der Rangliste).
                 </p>
-          </div>
-              <div className="flex shrink-0 gap-2">
-                <button
-                  onClick={() => setPhotoVisibility("public")}
-                  className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                    photoVisibility === "public"
-                      ? "border-gold bg-gold/15 text-gold"
-                      : "border-edge bg-pitch text-muted hover:text-ink"
-                  }`}
-                >
-                  🌐 Öffentlich
-                </button>
-                <button
-                  onClick={() => setPhotoVisibility("friends")}
-                  className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                    photoVisibility === "friends"
-                      ? "border-gold bg-gold/15 text-gold"
-                      : "border-edge bg-pitch text-muted hover:text-ink"
-                  }`}
-                >
-                  🔒 Nur für Freunde
-                </button>
-          </div>
-        </div>
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => visibilityDraft.set("public")}
+                    className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                      visibilityDraft.value === "public"
+                        ? "border-gold bg-gold/15 text-gold"
+                        : "border-edge bg-pitch text-muted hover:text-ink"
+                    }`}
+                  >
+                    🌐 Öffentlich
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => visibilityDraft.set("friends")}
+                    className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                      visibilityDraft.value === "friends"
+                        ? "border-gold bg-gold/15 text-gold"
+                        : "border-edge bg-pitch text-muted hover:text-ink"
+                    }`}
+                  >
+                    🔒 Nur für Freunde
+                  </button>
+                <SaveButton
+                  dirty={visibilityDraft.dirty}
+                  saved={visibilityDraft.saved}
+                  onClick={() => visibilityDraft.save((v) => setPhotoVisibility(v))}
+                />
+              </div>
+            </div>
           </section>
 
           <section className="mb-8">
@@ -738,7 +753,7 @@ function ProfilInhalt() {
             {/* Saison-Design: kommt automatisch ab dem Level aus der Saison-Datei,
                 hier abschaltbar (gilt pro Gerät, siehe lib/seasons/design.ts). */}
             {seasonDesign.available && (
-              <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
+              <div className="mt-3 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-ink">Saison-Design</p>
                   <p className="text-xs text-muted">
@@ -748,28 +763,35 @@ function ProfilInhalt() {
                   </p>
                 </div>
                 {seasonDesign.unlocked ? (
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={seasonDesign.enabled}
-                    aria-label="Saison-Design an oder aus"
-                    onClick={() => seasonDesign.setEnabled(!seasonDesign.enabled)}
-                    className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 font-display text-sm font-semibold transition-colors ${
-                      seasonDesign.enabled ? "border-action bg-action text-pitch" : "border-edge bg-pitch text-muted"
-                    }`}
-                  >
-                    <span
-                      className={`h-3 w-3 rounded-full ${seasonDesign.enabled ? "bg-pitch" : "bg-muted"}`}
-                      aria-hidden
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={designDraft.value}
+                      aria-label="Saison-Design an oder aus"
+                      onClick={() => designDraft.set(!designDraft.value)}
+                      className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 font-display text-sm font-semibold transition-colors ${
+                        designDraft.value ? "border-gold bg-gold/15 text-gold" : "border-edge bg-pitch text-muted"
+                      }`}
+                    >
+                      <span
+                        className={`h-3 w-3 rounded-full ${designDraft.value ? "bg-gold" : "bg-muted"}`}
+                        aria-hidden
+                      />
+                      {designDraft.value ? "An" : "Aus"}
+                    </button>
+                    <SaveButton
+                      dirty={designDraft.dirty}
+                      saved={designDraft.saved}
+                      onClick={() => designDraft.save((on) => seasonDesign.setEnabled(on))}
                     />
-                    {seasonDesign.enabled ? "An" : "Aus"}
-                  </button>
+                  </div>
                 ) : (
-                  <span className="shrink-0 rounded-full border border-edge px-3 py-1.5 font-display text-sm font-semibold text-muted">
+                  <span className="shrink-0 self-start rounded-full border border-edge px-3 py-1.5 font-display text-sm font-semibold text-muted sm:self-auto">
                     🔒 Level {seasonDesign.unlockLevel}
                   </span>
                 )}
-          </div>
+              </div>
             )}
 
             {isRegistered && (
