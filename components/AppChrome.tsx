@@ -10,6 +10,7 @@ import Footer from "./Footer";
 import SeasonDesignGate from "./SeasonDesignGate";
 import { SeasonBackdrop } from "./SeasonDeco";
 import PullToRefresh from "./PullToRefresh";
+import StartPageRedirect from "./StartPageRedirect";
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -54,6 +55,7 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
       {/* Neue Spieler haben auf /start ihr eigenes Start-Erlebnis. */}
       {pathname !== "/start" && <OnboardingTour />}
       <PullToRefresh />
+      <StartPageRedirect />
     </>
   );
 }

@@ -12,6 +12,7 @@ import { FeedbackProvider } from "@/lib/FeedbackContext";
 import { ChatProvider } from "@/lib/ChatContext";
 import AppChrome from "@/components/AppChrome";
 import { seasonDesignBootScript } from "@/lib/seasons/design";
+import { startPageBootScript } from "@/lib/startPage";
 
 // Rajdhani wird jetzt NUR noch fürs "PoolTipp"-Logo in der Navbar verwendet
 // (siehe font-logo in tailwind.config.ts) – überall sonst übernimmt Poppins.
@@ -57,6 +58,9 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* Gewählte Startseite (Profil → Einstellungen) vor dem ersten
+            Zeichnen, siehe lib/startPage.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: startPageBootScript() }} />
         <script dangerouslySetInnerHTML={{ __html: seasonDesignBootScript() }} />
       </head>
       <body className="font-body min-h-screen bg-pitch text-ink antialiased">
