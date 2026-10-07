@@ -84,7 +84,7 @@ export default function OnboardingTour() {
           )}
           <button
             onClick={() => (isLast ? close() : setStep((s) => s + 1))}
-            className="flex-1 rounded-full bg-gold py-2.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90"
+            className="flex-1 rounded-full bg-action py-2.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
           >
             {isLast ? "Los geht's!" : "Weiter"}
           </button>

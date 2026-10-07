@@ -42,7 +42,7 @@ export default function ShareLeagueButton({ leagueName, code }: ShareLeagueButto
     <div className="flex items-center gap-2">
       <button
         onClick={handleShare}
-        className="flex items-center gap-1.5 rounded-full bg-blue-500 px-3.5 py-1.5 font-display text-xs font-semibold text-pitch transition-colors hover:bg-blue-400"
+        className="flex items-center gap-1.5 rounded-full bg-action px-3.5 py-1.5 font-display text-xs font-semibold text-pitch transition-colors hover:bg-action-hover"
       >
         <ShareIcon className="h-3.5 w-3.5" />
         Einladen

@@ -104,7 +104,7 @@ export default function TeamsHubPage() {
           </p>
           <Link
             href="/registrieren"
-            className="inline-block rounded-full bg-blue-500 px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
+            className="inline-block rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
           >
             Einloggen / Registrieren
           </Link>
@@ -145,7 +145,7 @@ export default function TeamsHubPage() {
               <button
                 type="submit"
                 disabled={creating}
-                className="rounded-full bg-blue-500 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-blue-400 disabled:opacity-60"
+                className="rounded-full bg-action py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover disabled:opacity-60"
               >
                 {creating ? "…" : "Gründen"}
               </button>
@@ -174,7 +174,7 @@ export default function TeamsHubPage() {
               <button
                 type="submit"
                 disabled={joining}
-                className="mt-auto rounded-full bg-blue-500 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-blue-400 disabled:opacity-60"
+                className="mt-auto rounded-full bg-action py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover disabled:opacity-60"
               >
                 {joining ? "…" : "Beitreten"}
               </button>

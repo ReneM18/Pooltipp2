@@ -211,7 +211,7 @@ export default function StartPage() {
               onClick={() => setStep(sports.length > 0 ? 2 : 3)}
               className={`mt-5 w-full rounded-full py-3 font-display text-sm font-semibold transition-colors ${
                 sports.length > 0
-                  ? "bg-gold text-pitch hover:bg-gold/90"
+                  ? "bg-action text-pitch hover:bg-action-hover"
                   : "border border-edge text-muted hover:text-ink"
               }`}
             >
@@ -296,7 +296,7 @@ export default function StartPage() {
                 type="button"
                 onClick={saveClubsAndContinue}
                 disabled={saving}
-                className="flex-1 rounded-full bg-gold py-3 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90 disabled:opacity-60"
+                className="flex-1 rounded-full bg-action py-3 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover disabled:opacity-60"
               >
                 {saving ? "Wird gespeichert …" : "Weiter"}
               </button>
@@ -347,7 +347,7 @@ export default function StartPage() {
               <button
                 type="button"
                 onClick={() => finish(preview ? "/profil" : "/")}
-                className="flex-1 rounded-full bg-gold py-3 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90"
+                className="flex-1 rounded-full bg-action py-3 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
               >
                 {preview ? "Vorschau beenden" : "Zu allen Spielen"}
               </button>
