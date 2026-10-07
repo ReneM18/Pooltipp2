@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAppRefresh } from "@/lib/appRefresh";
-import { Sport, SPORTS } from "@/lib/types";
+import { Sport, ALL_SPORTS } from "@/lib/types";
 
 /** Ab so vielen aktiven Fans wird ein Verein in der Tabelle gewertet. */
 export const CLUB_MIN_ACTIVE_FANS = 10;
@@ -97,12 +97,12 @@ export function useMyClubs(authUserId: string | null) {
       return;
     }
     const result = {} as Record<Sport, MyClub>;
-    for (const sport of SPORTS) {
+    for (const sport of ALL_SPORTS) {
       result[sport] = { sport, teamId: null, since: null, nextChangeAt: null, tips: 0, avgPoints: 0 };
     }
     let on = true;
     for (const row of (data ?? []) as MyClubRow[]) {
-      if (!SPORTS.includes(row.sport)) continue;
+      if (!ALL_SPORTS.includes(row.sport)) continue;
       on = row.play_for_clubs;
       result[row.sport] = {
         sport: row.sport,

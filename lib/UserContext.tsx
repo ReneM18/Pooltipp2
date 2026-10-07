@@ -9,7 +9,7 @@ import { mockUser } from "@/lib/mockData";
 import { getAvailableRankIcons, getBestRankIcon, RankIconOption } from "@/lib/rankTiers";
 import { PhotoVisibility } from "@/lib/mockUsers";
 import { useAppData, SubmittedTip } from "@/lib/AppDataContext";
-import { Sport, SPORTS } from "@/lib/types";
+import { Sport, ALL_SPORTS } from "@/lib/types";
 import { CURRENT_SEASON, seasonChangedSinceLoad, getPassHonors, splitClaimedMilestones, PassHonors } from "@/lib/seasons";
 import {
   DAILY_BONUS_STARS,
@@ -30,7 +30,7 @@ function bonusActivityText(stars: number) {
 // Start bei 0 statt Demo-Punkten: sonst zeigte die Kopfzeile kurz (oder
 // bei Gästen dauerhaft) Rang-Icons aus erfundenen Werten.
 function initialRangPunkte(): Record<Sport, number> {
-  return Object.fromEntries(SPORTS.map((s) => [s, 0])) as Record<Sport, number>;
+  return Object.fromEntries(ALL_SPORTS.map((s) => [s, 0])) as Record<Sport, number>;
 }
 
 function isSameDay(aIso: string, bIso: string): boolean {
@@ -390,7 +390,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setStakeBudgetRemainingToday(wallet.stake_budget_remaining ?? DAILY_STAKE_BUDGET);
     // Fehlt eine Sportart, steht dort 0.
     const nextPoints = {
-      ...(Object.fromEntries(SPORTS.map((s) => [s, 0])) as Record<Sport, number>),
+      ...(Object.fromEntries(ALL_SPORTS.map((s) => [s, 0])) as Record<Sport, number>),
       ...((wallet.rang_punkte as Partial<Record<Sport, number>> | null) ?? {}),
     };
     // Unveränderte Werte behalten (das Aktualisieren läuft jede Minute).
