@@ -40,6 +40,9 @@ const MAIN: Item[] = [
   },
 ];
 
+// Reihenfolge der Hauptseiten – auch fürs Wischen am Handy (SwipeNav).
+export const MAIN_HREFS = MAIN.map((it) => it.href);
+
 type MoreItem = { href: string; emoji: string; label: string; hint: string };
 
 // Zwei Spalten im Mehr-Fenster: links alles zum Mitspielen, rechts Freunde,
