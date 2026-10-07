@@ -5,6 +5,8 @@ import Link from "next/link";
 import FitText from "@/components/FitText";
 import SaveButton, { useDraft } from "@/components/SaveButton";
 import TeamBadge, { teamColorProps } from "@/components/TeamBadge";
+import TeamGroupChips from "@/components/TeamGroupChips";
+import { groupTeams, hasTeamGroups } from "@/lib/teamGroups";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
@@ -21,6 +23,8 @@ export default function FavoriteClubs() {
   const { showToast } = useFeedback();
   const { clubs, playForClubs, loading, error, chooseClub, setPlayForClubs } = useMyClubs(authUserId);
   const [openSport, setOpenSport] = useState<Sport | null>(null);
+  // Gewählte Untergruppe in der offenen Auswahl ("" = alle).
+  const [groupKey, setGroupKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [showRules, setShowRules] = useState(false);
   // Schalter ändert erst den Entwurf, "Speichern" übernimmt ihn.
@@ -129,7 +133,7 @@ export default function FavoriteClubs() {
             const locked = !!current?.nextChangeAt && new Date(current.nextChangeAt).getTime() > Date.now();
             const open = openSport === sport;
             return (
-              <div key={sport} className="rounded-card border border-edge bg-surface p-4">
+              <div key={sport} className="min-w-0 rounded-card border border-edge bg-surface p-4">
                 <p className="mb-2 text-xs font-semibold text-muted">
                   {sportIcon[sport]} {sportLabel(sport)}
                 </p>
@@ -158,7 +162,10 @@ export default function FavoriteClubs() {
                   {playForClubs && !loading && (!locked || !team) && options.length > 0 && (
                     <button
                       disabled={busy || (locked && !team)}
-                      onClick={() => setOpenSport(open ? null : sport)}
+                      onClick={() => {
+                        setOpenSport(open ? null : sport);
+                        setGroupKey("");
+                      }}
                       className="shrink-0 rounded-full border border-gold px-3 py-1.5 font-display text-xs font-semibold text-gold transition-colors hover:bg-gold hover:text-pitch disabled:opacity-50"
                     >
                       {open ? "Schließen" : team ? "Wechseln" : "Wählen"}
@@ -173,26 +180,57 @@ export default function FavoriteClubs() {
 
                 {open && (
                   <div className="mt-3 flex flex-col gap-2 border-t border-edge pt-3">
-                    {options
-                      .filter((t) => t.id !== team?.id)
-                      .map((t) => (
-                        <button
-                          key={t.id}
-                          disabled={busy}
-                          onClick={() => current && handleChoose(sport, t, current)}
-                          className="flex items-center gap-3 rounded-lg border border-edge bg-pitch px-3 py-2 text-left transition-colors hover:border-gold disabled:opacity-50"
-                        >
-                          <TeamBadge
-                            sport={sport}
-                            {...teamColorProps(t)}
-                            jerseyStyle={t.jerseyStyle}
-                            size={26}
-                          />
-                          <span className="min-w-0 flex-1 text-sm font-semibold text-ink [hyphens:manual] [overflow-wrap:normal]">
-                            {t.name}
-                          </span>
-                        </button>
-                      ))}
+                    {(() => {
+                      const choices = options.filter((t) => t.id !== team?.id);
+                      // Untergruppen (Liga/Land), damit man seinen Verein schneller findet.
+                      const groups = hasTeamGroups(sport) ? groupTeams(choices) : [];
+                      const grouped = groups.length > 1;
+                      const shown = grouped
+                        ? groups.some((g) => g.key === groupKey)
+                          ? groups.filter((g) => g.key === groupKey)
+                          : groups
+                        : [{ key: "", label: "", icon: "", teams: choices }];
+                      return (
+                        <>
+                          {grouped && (
+                            <TeamGroupChips
+                              groups={groups}
+                              value={groupKey}
+                              onChange={setGroupKey}
+                              total={choices.length}
+                              size="sm"
+                            />
+                          )}
+                          {shown.map((g) => (
+                            <div key={g.key || "alle"} className="flex flex-col gap-2">
+                              {grouped && !groupKey && (
+                                <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                                  <span aria-hidden>{g.icon}</span> {g.label}
+                                </p>
+                              )}
+                              {g.teams.map((t) => (
+                            <button
+                              key={t.id}
+                              disabled={busy}
+                              onClick={() => current && handleChoose(sport, t, current)}
+                              className="flex items-center gap-3 rounded-lg border border-edge bg-pitch px-3 py-2 text-left transition-colors hover:border-gold disabled:opacity-50"
+                            >
+                              <TeamBadge
+                                sport={sport}
+                                {...teamColorProps(t)}
+                                jerseyStyle={t.jerseyStyle}
+                                size={26}
+                              />
+                              <span className="min-w-0 flex-1 text-sm font-semibold text-ink [hyphens:manual] [overflow-wrap:normal]">
+                                {t.name}
+                              </span>
+                            </button>
+                              ))}
+                            </div>
+                          ))}
+                        </>
+                      );
+                    })()}
                     {team && (
                       <button
                         disabled={busy}

@@ -113,6 +113,9 @@ export interface Team {
   armColor?: string;
   awayArmColor?: string;
   isNationalTeam?: boolean; // Nationalmannschaft -> Icon zeigt die Landesflagge statt Trikot/Helm
+  // Eigene Untergruppe in der Team-Auswahl (z. B. "Champions League"). Fehlt
+  // sie, ergibt sich die Gruppe automatisch (siehe lib/teamGroups.ts).
+  group?: string;
 }
 
 // "cancelled" = vom Admin abgesagt: alle Einsätze gingen zurück, das Spiel
