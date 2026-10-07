@@ -67,6 +67,7 @@ function ProfilInhalt() {
     setSelectedRankIconId,
     activeRankIcon,
     photoVisibility,
+    accountSync,
     setPhotoVisibility,
     photos,
     setPhoto,
@@ -792,6 +793,12 @@ function ProfilInhalt() {
                   </span>
                 )}
               </div>
+            )}
+            {seasonDesign.available && seasonDesign.unlocked && accountSync?.seasonDesign === false && (
+              <p className="mt-2 text-[11px] text-muted">
+                ⚠️ Saison-Design gilt im Moment nur auf diesem Gerät. Damit es auf allen Geräten gilt, fehlt noch ein
+                Datenbank-Update.
+              </p>
             )}
 
             {isRegistered && (
