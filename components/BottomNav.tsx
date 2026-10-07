@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDuels } from "@/lib/DuelsContext";
 
 // Feste Leiste unten am Handy/Tablet (bis lg:), wie in Sport-Apps üblich.
@@ -80,6 +80,36 @@ export default function BottomNav() {
   const { invitesForMe } = useDuels();
   const [open, setOpen] = useState(false);
   const invites = invitesForMe.length;
+  // Mehr-Fenster mit dem Finger nach unten ziehen: es folgt dem Finger, ab
+  // 70 px (oder einem schnellen Wisch) schließt es, sonst schnappt es zurück.
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ y: number; t: number; dy: number } | null>(null);
+
+  function onSheetStart(e: React.TouchEvent) {
+    if (e.touches.length !== 1) return;
+    drag.current = { y: e.touches[0].clientY, t: Date.now(), dy: 0 };
+    if (sheetRef.current) sheetRef.current.style.transition = "none";
+  }
+  function onSheetMove(e: React.TouchEvent) {
+    const d = drag.current;
+    if (!d || !sheetRef.current) return;
+    d.dy = Math.max(0, e.touches[0].clientY - d.y);
+    sheetRef.current.style.transform = d.dy ? `translateY(${d.dy}px)` : "";
+  }
+  function onSheetEnd() {
+    const d = drag.current;
+    const el = sheetRef.current;
+    drag.current = null;
+    if (!d || !el) return;
+    const fast = d.dy > 30 && d.dy / Math.max(1, Date.now() - d.t) > 0.5;
+    el.style.transition = "transform 0.2s ease-out";
+    if (d.dy > 70 || fast) {
+      el.style.transform = `translateY(${el.offsetHeight + 80}px)`;
+      window.setTimeout(() => setOpen(false), 180);
+    } else {
+      el.style.transform = "";
+    }
+  }
 
   // Beim Seitenwechsel das Mehr-Fenster schließen.
   useEffect(() => setOpen(false), [pathname]);
@@ -97,9 +127,14 @@ export default function BottomNav() {
       {open && (
         <div className="fixed inset-0 z-[45] flex items-end bg-pitch/70 backdrop-blur-[2px] lg:hidden" onClick={() => setOpen(false)}>
           <div
+            ref={sheetRef}
             role="dialog"
             aria-label="Mehr"
             onClick={(e) => e.stopPropagation()}
+            onTouchStart={onSheetStart}
+            onTouchMove={onSheetMove}
+            onTouchEnd={onSheetEnd}
+            onTouchCancel={onSheetEnd}
             className="mb-[calc(4rem+var(--safe-bottom))] w-full animate-[sheetUp_0.2s_ease-out] rounded-t-2xl border-t border-edge bg-surface px-4 pb-4 pt-3"
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-edge" />
