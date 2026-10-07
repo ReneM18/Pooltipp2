@@ -31,7 +31,7 @@ export default function EmptyState({
       {action && (
         <Link
           href={action.href}
-          className="mt-4 rounded-full border border-gold/60 px-4 py-1.5 font-display text-sm font-semibold text-gold transition-colors hover:bg-gold/10"
+          className="mt-4 rounded-full border border-action/60 px-4 py-1.5 font-display text-sm font-semibold text-action transition-colors hover:bg-action/10"
         >
           {action.label}
         </Link>
