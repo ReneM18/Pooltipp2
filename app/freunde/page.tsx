@@ -1,5 +1,6 @@
 "use client";
 
+import EmptyState from "@/components/EmptyState";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import { useEffect, useRef, useState, FormEvent, ReactNode } from "react";
 import Link from "next/link";
@@ -297,9 +298,16 @@ export default function FreundePage() {
 
       <Section title={`Deine Freunde${accepted.length ? ` (${accepted.length})` : ""}`}>
         {accepted.length === 0 ? (
-          <p className="p-4 text-sm text-muted">
-            {friendsLoaded ? "Noch keine Freunde. Such oben nach Nummer oder Name." : "Lädt…"}
-          </p>
+          friendsLoaded ? (
+            <EmptyState
+              emoji="👋"
+              title="Noch keine Freunde"
+              text="Gib deine Nummer weiter oder such oben nach Nummer oder Name."
+              className="rounded-none border-none"
+            />
+          ) : (
+            <p className="p-4 text-sm text-muted">Lädt…</p>
+          )
         ) : (
           accepted.map((f) => (
             <PersonRow key={f.id} id={f.id} name={f.name} number={f.number} link>
