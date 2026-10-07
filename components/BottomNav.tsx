@@ -100,7 +100,7 @@ export default function BottomNav() {
             role="dialog"
             aria-label="Mehr"
             onClick={(e) => e.stopPropagation()}
-            className="mb-[calc(4rem+env(safe-area-inset-bottom))] w-full animate-[sheetUp_0.2s_ease-out] rounded-t-2xl border-t border-edge bg-surface px-4 pb-4 pt-3"
+            className="mb-[calc(4rem+var(--safe-bottom))] w-full animate-[sheetUp_0.2s_ease-out] rounded-t-2xl border-t border-edge bg-surface px-4 pb-4 pt-3"
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-edge" />
             <div className="grid grid-cols-2 gap-3">
@@ -145,7 +145,7 @@ export default function BottomNav() {
 
       <nav
         aria-label="Hauptmenü"
-        className="fixed inset-x-0 bottom-0 z-[45] border-t border-edge bg-pitch/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-[45] border-t border-edge bg-pitch/95 pb-[var(--safe-bottom)] backdrop-blur-md lg:hidden"
       >
         <div className="mx-auto flex max-w-3xl items-stretch justify-around px-1">
           {MAIN.map((it) => {
