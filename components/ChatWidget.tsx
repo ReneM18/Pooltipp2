@@ -824,7 +824,7 @@ export default function ChatWidget() {
 
       {/* Hinweis bei neuer Nachricht, solange das Gespräch nicht offen ist. */}
       {toast && !(open && view.kind === "dm" && view.friendId === toast.friendId) && (
-        <div className="fixed bottom-[4.25rem] right-3 z-40 w-[min(20rem,calc(100vw-1.5rem))] animate-[chatToastIn_0.25s_ease-out] sm:bottom-24 sm:right-5">
+        <div className="fixed bottom-[calc(8.5rem+env(safe-area-inset-bottom))] right-3 z-40 w-[min(20rem,calc(100vw-1.5rem))] animate-[chatToastIn_0.25s_ease-out] sm:right-5 lg:bottom-24">
           <div className="flex items-center gap-3 rounded-card border border-action/40 bg-surface p-3 shadow-2xl">
             <button type="button" onClick={() => openChat(toast.friendId)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
               <Avatar id={toast.friendId} name={toast.name} size={36} />
@@ -842,7 +842,7 @@ export default function ChatWidget() {
 
       <button
         onClick={toggleChat}
-        className={`fixed bottom-3 right-3 z-40 h-12 w-12 items-center justify-center rounded-full bg-action text-pitch shadow-[0_0_20px_rgb(var(--c-action)/0.4)] transition-transform hover:scale-105 sm:bottom-5 sm:right-5 sm:flex sm:h-14 sm:w-14 ${
+        className={`fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-40 h-12 w-12 items-center justify-center rounded-full bg-action text-pitch shadow-[0_0_20px_rgb(var(--c-action)/0.4)] transition-transform hover:scale-105 sm:right-5 sm:flex lg:bottom-5 sm:h-14 sm:w-14 ${
           open ? "hidden" : "flex"
         }`}
         aria-label={open ? "Chat schließen" : unreadTotal > 0 ? `Chat öffnen, ${unreadTotal} ungelesen` : "Chat öffnen"}
