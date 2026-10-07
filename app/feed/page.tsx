@@ -1,5 +1,6 @@
 "use client";
 
+import EmptyState from "@/components/EmptyState";
 import { useAppData, ActivityItem } from "@/lib/AppDataContext";
 import { ActivityIcon } from "@/components/NewsSportIcon";
 
@@ -65,9 +66,12 @@ export default function FeedPage() {
       <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Feed</h1>
 
       {activity.length === 0 && (
-        <p className="rounded-card border border-dashed border-edge bg-surface p-8 text-center text-sm text-muted">
-          Noch keine Aktivität – leg los und tipp dein erstes Spiel!
-        </p>
+        <EmptyState
+          emoji="📰"
+          title="Noch ist es ruhig hier"
+          text="Sobald du oder andere tippen, steht es hier."
+          action={{ href: "/", label: "Jetzt tippen" }}
+        />
       )}
 
       <div className="flex flex-col gap-6">
