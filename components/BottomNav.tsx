@@ -51,7 +51,7 @@ const MORE_COLUMNS: { title: string; items: MoreItem[] }[] = [
   {
     title: "Spielen",
     items: [
-      { href: "/duelle", emoji: "⚔️", label: "Duelle", hint: "Fordere Freunde heraus" },
+      { href: "/duelle", emoji: "⚔️", label: "Duelle", hint: "Gegen Freunde" },
       { href: "/teams", emoji: "🤝", label: "Tipprunden", hint: "Private Runden" },
       { href: "/turnier", emoji: "🏆", label: "Turniere", hint: "WM, EM & Co." },
     ],
@@ -103,41 +103,46 @@ export default function BottomNav() {
             className="mb-[calc(4rem+env(safe-area-inset-bottom))] w-full animate-[sheetUp_0.2s_ease-out] rounded-t-2xl border-t border-edge bg-surface px-4 pb-4 pt-3"
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-edge" />
-            <div className="grid grid-cols-2 gap-3">
+            {/* Alle Kästchen gleich groß: ein gemeinsames Raster, Zeile für
+                Zeile (links Spielen, rechts Freunde & Shop), jede Zeile so
+                hoch wie das höchste Kästchen. */}
+            <div className="mb-2 grid grid-cols-2 gap-x-3">
               {MORE_COLUMNS.map((col) => (
-                <div key={col.title} className="flex min-w-0 flex-col gap-2">
-                  <p className="px-1 font-display text-[11px] font-bold uppercase tracking-wider text-muted">{col.title}</p>
-                  {col.items.map((m) => {
-                    const active = pathname.startsWith(m.href);
-                    const hasInvites = m.href === "/duelle" && invites > 0;
-                    return (
-                      <Link
-                        key={m.href}
-                        href={m.href}
-                        onClick={() => setOpen(false)}
-                        className={`relative flex min-w-0 items-center gap-2.5 rounded-card border px-2.5 py-2.5 transition-colors ${
-                          active ? "border-gold/60 bg-gold/10" : "border-edge bg-pitch/60 hover:border-gold/40"
-                        }`}
-                      >
-                        <span className="shrink-0 text-xl leading-none" aria-hidden>
-                          {m.emoji}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block font-display text-[13px] font-semibold leading-tight text-ink">{m.label}</span>
-                          <span className="block text-[11px] leading-tight text-muted">
-                            {hasInvites ? `${invites} ${invites === 1 ? "Einladung" : "Einladungen"}` : m.hint}
-                          </span>
-                        </span>
-                        {hasInvites && (
-                          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white">
-                            {invites}
-                          </span>
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
+                <p key={col.title} className="px-1 font-display text-[11px] font-bold uppercase tracking-wider text-muted">
+                  {col.title}
+                </p>
               ))}
+            </div>
+            <div className="grid auto-rows-fr grid-cols-2 gap-x-3 gap-y-2">
+              {MORE_COLUMNS[0].items.flatMap((_, row) => MORE_COLUMNS.map((col) => col.items[row])).map((m) => {
+                const active = pathname.startsWith(m.href);
+                const hasInvites = m.href === "/duelle" && invites > 0;
+                return (
+                  <Link
+                    key={m.href}
+                    href={m.href}
+                    onClick={() => setOpen(false)}
+                    className={`relative flex min-h-[3.75rem] min-w-0 items-center gap-2.5 rounded-card border px-2.5 py-2.5 transition-colors ${
+                      active ? "border-gold/60 bg-gold/10" : "border-edge bg-pitch/60 hover:border-gold/40"
+                    }`}
+                  >
+                    <span className="w-6 shrink-0 text-center text-xl leading-none" aria-hidden>
+                      {m.emoji}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-display text-[13px] font-semibold leading-tight text-ink">{m.label}</span>
+                      <span className="block text-[11px] leading-tight text-muted">
+                        {hasInvites ? `${invites} ${invites === 1 ? "Einladung" : "Einladungen"}` : m.hint}
+                      </span>
+                    </span>
+                    {hasInvites && (
+                      <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white">
+                        {invites}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </div>
