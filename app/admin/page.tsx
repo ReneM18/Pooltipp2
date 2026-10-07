@@ -961,8 +961,8 @@ function TeamManager() {
 
   // Untergruppen: automatische fürs Formular, vorhandene zur Auswahl, und
   // die Team-Liste unten nach Untergruppe sortiert.
-  const autoGroup = autoTeamGroup({ sport, countryCode, isNationalTeam });
-  const sportGroups = groupTeams(teams.filter((t) => t.sport === sport));
+  const autoGroup = autoTeamGroup({ name, sport, countryCode, isNationalTeam });
+  const sportGroups = groupTeams(teams.filter((t) => t.sport === sport), sport);
   // Eigene Gruppe = automatische Gruppe? Dann gilt sie als "Automatisch".
   const groupKey = normalizeTeamName(group);
   const groupValue = !groupKey || groupKey === autoGroup.key ? "" : group.trim();
@@ -976,8 +976,10 @@ function TeamManager() {
     return sportGroups.find((g) => g.key === normalizeTeamName(label))?.label ?? label;
   }
   const listTeams = teams.filter((t) => t.sport === teamListTab);
-  const listGroups = hasTeamGroups(teamListTab) ? groupTeams(listTeams) : [];
-  const showListGroups = listGroups.length > 1;
+  // Bei Fußball/Basketball/Eishockey immer nach Untergruppen, auch wenn
+  // es (noch) nur eine gibt – die Standard-Gruppen stehen auch leer da.
+  const listGroups = hasTeamGroups(teamListTab) ? groupTeams(listTeams, teamListTab) : [];
+  const showListGroups = listGroups.length > 0;
   const shownListGroups = showListGroups
     ? listGroups.some((g) => g.key === listGroupKey)
       ? listGroups.filter((g) => g.key === listGroupKey)
@@ -1163,7 +1165,7 @@ function TeamManager() {
               </select>
             )}
             <p className="mt-1.5 text-xs text-muted">
-              Automatisch heißt: Nationalteams zusammen, NBA/NHL-Teams aus USA/Kanada zusammen, alle anderen nach Land.
+              Automatisch heißt: Nationalteams zusammen, NBA- und NHL-Teams in ihrer Liga, alle anderen nach Land.
             </p>
           </div>
         )}
@@ -1430,7 +1432,7 @@ function TeamManager() {
         </div>
       )}
 
-      {listTeams.length === 0 && (
+      {listTeams.length === 0 && !showListGroups && (
         <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted">
           Noch keine Teams für {sportLabel(teamListTab)} angelegt.
         </p>
@@ -1444,6 +1446,12 @@ function TeamManager() {
               </h3>
             )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {g.teams.length === 0 && (
+                <p className="rounded-card border border-dashed border-edge bg-surface p-4 text-sm text-muted sm:col-span-2">
+                  Noch keine Teams in dieser Gruppe. Beim Anlegen kommt ein Team automatisch hierher
+                  {g.key === "nationalteams" ? ", wenn du „Nationalmannschaft“ anhakst." : ", oder du wählst die Gruppe oben im Formular unter „Untergruppe“."}
+                </p>
+              )}
               {g.teams.map((team) => (
                 <div
                   key={team.id}
@@ -1710,6 +1718,8 @@ function MatchManager() {
             <div className={isAwayFirst(sport) ? "order-1" : ""}>
               <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(sport, "home")}</label>
               <TeamPicker
+                sport={sport}
+                showEmptyGroups
                 teams={teamsForSport}
                 value={homeTeamId}
                 onChange={(id) => {
@@ -1726,6 +1736,8 @@ function MatchManager() {
             <div>
               <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(sport, "away")}</label>
               <TeamPicker
+                sport={sport}
+                showEmptyGroups
                 teams={teamsForSport}
                 value={awayTeamId}
                 onChange={(id) => {
@@ -2351,6 +2363,8 @@ function MatchDetailsEditor({
             <div>
               <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(match.sport, "home")}</label>
               <TeamPicker
+                sport={match.sport}
+                showEmptyGroups
                 teams={teamsForSport}
                 value={homeTeamId}
                 onChange={(id) => {
@@ -2367,6 +2381,8 @@ function MatchDetailsEditor({
             <div>
               <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(match.sport, "away")}</label>
               <TeamPicker
+                sport={match.sport}
+                showEmptyGroups
                 teams={teamsForSport}
                 value={awayTeamId}
                 onChange={(id) => {

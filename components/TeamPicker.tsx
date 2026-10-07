@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Team } from "@/lib/types";
+import type { Sport, Team } from "@/lib/types";
 import { normalizeForSearch } from "@/lib/flags";
 import { normalizeTeamName } from "@/lib/teamName";
 import TeamBadge, { teamColorProps } from "@/components/TeamBadge";
@@ -21,6 +21,10 @@ interface TeamPickerProps {
   // und ohne den Hinweis auf den Admin-Tab "Teams".
   placeholder?: string;
   notFoundText?: string;
+  // Admin: Sportart der Liste und ob die Standard-Untergruppen (z. B.
+  // "Nationalteams") auch ohne Teams als Knopf erscheinen.
+  sport?: Sport;
+  showEmptyGroups?: boolean;
 }
 
 // Passt der Suchtext zum Teamnamen? 0 = Treffer am Namens- oder Wortanfang,
@@ -54,6 +58,8 @@ export default function TeamPicker({
   compact = false,
   placeholder = "Team suchen…",
   notFoundText,
+  sport,
+  showEmptyGroups = false,
 }: TeamPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -67,12 +73,19 @@ export default function TeamPicker({
   // Untergruppen (NHL, Nationalteams, Österreich …) nur bei Fußball,
   // Basketball und Eishockey und nur, wenn es mehr als eine gibt.
   const groups = useMemo(() => {
-    if (teams.length === 0 || !teams.every((t) => hasTeamGroups(t.sport))) return [];
-    const list = groupTeams(teams);
+    const listSport = sport ?? teams[0]?.sport;
+    if (!listSport || !hasTeamGroups(listSport) || !teams.every((t) => t.sport === listSport)) return [];
+    const list = groupTeams(teams, showEmptyGroups ? listSport : undefined);
     return list.length > 1 ? list : [];
-  }, [teams]);
+  }, [teams, sport, showEmptyGroups]);
   const searching = !!query.trim();
-  const visibleGroups = searching ? [] : groupKey ? groups.filter((g) => g.key === groupKey) : groups;
+  // Bei "Alle" nur Gruppen mit Teams; eine leere Gruppe zeigt ihren Hinweis,
+  // wenn man sie direkt antippt.
+  const visibleGroups = searching
+    ? []
+    : groupKey
+    ? groups.filter((g) => g.key === groupKey)
+    : groups.filter((g) => g.teams.length > 0);
 
   const matches = useMemo(() => {
     const sorted = [...teams].sort((a, b) => a.name.localeCompare(b.name, "de"));
@@ -239,7 +252,7 @@ export default function TeamPicker({
             </div>
           )}
           <ul role="listbox" className="max-h-72 overflow-y-auto overscroll-contain py-1">
-            {matches.length === 0 && (
+            {matches.length === 0 && (searching || !groupKey) && (
               <li className="px-4 py-3 text-sm text-muted">
                 {teams.length === 0
                   ? "Für diese Sportart gibt es noch keine Teams."
@@ -255,6 +268,11 @@ export default function TeamPicker({
                       </p>
                     )}
                     <ul role="group" aria-label={g.label}>
+                      {g.teams.length === 0 && (
+                        <li className="px-4 py-3 text-sm text-muted">
+                          Noch keine Teams in dieser Gruppe. Neue Teams legst du im Tab „Teams“ an.
+                        </li>
+                      )}
                       {g.teams.map((t) => renderTeam(t, false))}
                     </ul>
                   </li>
