@@ -1,5 +1,6 @@
 "use client";
 
+import EmptyState from "@/components/EmptyState";
 import { useState, useEffect, useRef, FormEvent, ChangeEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -621,9 +622,12 @@ function ProfilInhalt() {
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Meine Tipp-Historie</h2>
         <div className="flex flex-col gap-3">
           {historyTips.length === 0 && (
-            <p className="py-4 text-center text-sm text-muted">
-              {myTips.length === 0 ? "Noch keine Tipps abgegeben." : "Noch keine Tipps seit dem Neustart der Rangpunkte."}
-            </p>
+            <EmptyState
+              emoji="🎯"
+              title="Noch keine Tipps"
+              text={myTips.length === 0 ? "Hier siehst du später alle deine Tipps mit Punkten." : "Seit dem Neustart der Rangpunkte hast du noch nichts getippt."}
+              action={{ href: "/", label: "Jetzt tippen" }}
+            />
           )}
           {historyTips.map((tip) => {
             const match = matches.find((m) => m.id === tip.matchId);

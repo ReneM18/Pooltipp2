@@ -1,5 +1,6 @@
 "use client";
 
+import EmptyState from "@/components/EmptyState";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import MatchCard from "@/components/MatchCard";
@@ -229,9 +230,20 @@ export default function DashboardPage() {
       </div>
 
       {visibleMatches.length === 0 && (
-        <p className="py-8 text-center text-sm text-muted">
-          {tab === "offen" ? "Aktuell keine offenen Spiele." : "Noch keine beendeten Spiele."}
-        </p>
+        tab === "offen" ? (
+          <EmptyState
+            emoji="🗓️"
+            title="Gerade keine offenen Spiele"
+            text="Neue Spiele kommen bald. Schau solange im Matchcenter vorbei."
+            action={{ href: "/matchcenter", label: "Zum Matchcenter" }}
+          />
+        ) : (
+          <EmptyState
+            emoji="🏁"
+            title="Noch keine beendeten Spiele"
+            text="Sobald ein Spiel ausgewertet ist, siehst du hier deine Punkte."
+          />
+        )
       )}
       {/* Abschnitte nach Tag ("Läuft gerade", "Heute", "Morgen" …), die
           Reihenfolge bleibt wie in lib/matchTabs.ts. Am PC je Tag drei Spalten. */}
