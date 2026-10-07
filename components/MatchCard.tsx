@@ -15,7 +15,9 @@ import { useTaschen } from "@/lib/TaschenContext";
 import { xpForLevel } from "@/lib/seasonPass";
 import type { SeasonEmote } from "@/lib/seasons";
 import { allowsDraw as sportAllowsDraw, displayOrder, isAwayFirst, oneXTwoText, pickNumber } from "@/lib/teamOrder";
-import TeamBadge, { matchJerseyProps } from "./TeamBadge";
+import TeamBadge, { jerseyFor, matchJerseyProps } from "./TeamBadge";
+import PlayerAvatar from "./PlayerAvatar";
+import CountdownTiles from "./CountdownTiles";
 import PassHonorTags, { useOtherPlayersHonors } from "./PassHonors";
 import { EmotePicker, MessageBody, StickerDraft, stickerFromText, stickerText } from "./Emotes";
 import Countdown from "./Countdown";
@@ -87,6 +89,9 @@ interface MatchCardProps {
   onWithdrawTip?: () => Promise<boolean>;
   // Vom Start-Erlebnis vorgeschlagenes Spiel: kurz golden umrandet.
   highlight?: boolean;
+  // Top-Spiel ganz oben auf der Tipps-Seite: große Bühne mit Teamfarben-
+  // Licht, Countdown-Kacheln und wer schon getippt hat.
+  stage?: boolean;
 }
 
 // 1X2-Spiele werden nur per Sieger (1 / X / 2 nach Position, siehe
@@ -116,6 +121,7 @@ export default function MatchCard({
   onSubmitTip,
   onWithdrawTip,
   highlight = false,
+  stage = false,
 }: MatchCardProps) {
   const isOneXTwo = match.tipMode === "1x2";
   // US-Sport: Gast links, Heim rechts ("Gast @ Heim"). NBA und NHL kennen
@@ -158,7 +164,7 @@ export default function MatchCard({
     useAppData();
   const [bonusPick, setBonusPick] = useState<number | null>(null);
   const myBonusAnswer = myBonusAnswers.find((a) => a.matchId === match.id);
-  const { displayName, hasPremiumPass, passXP, passHonors, authUserId, freeStars, sessionChecked } = useUser();
+  const { displayName, hasPremiumPass, passXP, passHonors, authUserId, freeStars, sessionChecked, friendEntries } = useUser();
   // Ohne Login wird nichts gespeichert: statt Tipp-Knopf und Kommentarfeld
   // gibt es den Weg zum Einloggen (erst wenn die Sitzung geprüft ist, sonst
   // blitzt der Knopf beim Laden auch bei eingeloggten Spielern kurz auf).
@@ -315,7 +321,7 @@ export default function MatchCard({
   // Auswertung. Fremde Tipps (die Zahlen) erst nach Tippschluss zeigen.
   const { tippers, failed: tippersFailed } = useMatchTips(
     match.id,
-    tippersOpen || !!myTip?.evaluated,
+    tippersOpen || !!myTip?.evaluated || stage,
     // Auch der eigene Tipp zählt: nimmt man ihn zurück und tippt auf einem
     // anderen Gerät gleich neu, bleibt die Zahl gleich, die Liste nicht.
     `${tipCount}:${myTip ? `${myTip.predictedHomeScore}-${myTip.predictedAwayScore}` : "-"}`
@@ -366,7 +372,18 @@ export default function MatchCard({
   const needsWideMiddle = !showResultView && isOneXTwo && oneXTwoOptions.includes("X");
 
   // Zeile der Tipp-Kästen im Team-Raster (unter dem "Gleich geschlossen"-Hinweis).
-  const tipRow = closingSoon ? "row-start-3" : "row-start-2";
+  // Auf der Bühne stehen die Countdown-Kacheln zwischen Teams und Eingabe
+  // (nicht mehr in der letzten Minute, dann kommt der "Gleich geschlossen"-Hinweis).
+  const showTiles = stage && !showResultView && !closingSoon;
+  const tipRow = closingSoon || showTiles ? "row-start-3" : "row-start-2";
+  // Leichter Schimmer in den Trikotfarben links und rechts, auf der Bühne als
+  // kräftiges Licht von oben.
+  const homeGlow = wornColor(match, homeTeam);
+  const awayGlow = wornColor(match, awayTeam);
+  const [leftGlow, rightGlow] = displayOrder(match.sport, homeGlow, awayGlow);
+  const cardBackground = stage
+    ? `radial-gradient(110% 70% at 0% 0%, ${hexAlpha(leftGlow, 0.33)} 0%, transparent 60%), radial-gradient(110% 70% at 100% 0%, ${hexAlpha(rightGlow, 0.33)} 0%, transparent 60%), radial-gradient(80% 50% at 50% 115%, rgb(var(--c-action) / 0.22) 0%, transparent 70%)`
+    : `linear-gradient(105deg, ${hexAlpha(leftGlow, 0.13)} 0%, transparent 38%), linear-gradient(255deg, ${hexAlpha(rightGlow, 0.13)} 0%, transparent 38%)`;
 
   // Gleich großer Kasten wie die Ergebnis-Felder, sitzt im Team-Raster.
   function pickButton(option: OneXTwo) {
@@ -486,13 +503,25 @@ export default function MatchCard({
       id={`spiel-${match.id}`}
       className={`relative isolate flex h-full flex-col overflow-hidden match-card-rand rounded-card border bg-surface ${
         highlight ? "outline outline-2 outline-offset-2 outline-gold" : ""
-      }`}
+      } ${stage ? "match-card-stage" : ""}`}
+      style={{ backgroundImage: cardBackground }}
     >
+      {stage && (
+        <>
+          {/* Flutlicht: zwei schräge Lichtkegel hinter dem Inhalt. */}
+          <span aria-hidden className="stage-beam stage-beam-left" />
+          <span aria-hidden className="stage-beam stage-beam-right" />
+        </>
+      )}
       {/* Saison-Design: verblasstes Blatt hinter dem Karteninhalt. */}
       <SeasonCardWatermark variant={match.id.length + match.id.charCodeAt(match.id.length - 1)} />
       {/* Booster-Spiel: eigene goldene Leiste ganz oben, damit man es auch
           zwischen normalen Spielen (z. B. bei den geschlossenen) sofort sieht. */}
-      {isBooster && (
+      {stage ? (
+        <div className="border-b border-gold/30 bg-gold/15 px-4 py-1.5 text-center font-display text-xs font-bold uppercase tracking-[0.14em] text-gold sm:px-5">
+          ⭐ Top-Spiel{isBooster ? " · ⚡ Booster" : ""}
+        </div>
+      ) : isBooster && (
         <div className="border-b border-gold/30 bg-gold/15 px-4 py-1 text-center font-display text-xs font-bold uppercase tracking-wider text-gold sm:px-5">
           ⚡ Booster-Spiel
         </div>
@@ -501,7 +530,8 @@ export default function MatchCard({
           Wettbewerbsnamen wie "NHL Regular Season" brechen an Leerzeichen in
           eine zweite Zeile um statt abgeschnitten zu werden; der Countdown
           bleibt rechts daneben. */}
-      <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-surface-hover to-surface px-4 py-2.5 sm:gap-3 sm:px-5">
+      {!stage && (
+      <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-surface-hover/80 to-surface/60 px-4 py-2.5 sm:gap-3 sm:px-5">
         <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-ink">
           <span className="shrink-0 text-lg">{sportIcon[match.sport] ?? ""}</span>
           {!homeTeam.isNationalTeam && <span className="shrink-0">{flagEmoji(homeTeam.countryCode)}</span>}
@@ -517,11 +547,22 @@ export default function MatchCard({
           )}
         </span>
       </div>
+      )}
 
-      <div className="flex flex-1 flex-col p-5">
+      <div className={`flex flex-1 flex-col p-5 ${stage ? "mx-auto w-full max-w-xl" : ""}`}>
         <div className="mb-3 flex min-h-[1.75rem] flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[15px] text-muted">
-          {match.matchday ? <span className="font-semibold text-ink/80">Spieltag {match.matchday}</span> : null}
-          {match.matchday ? <span aria-hidden>·</span> : null}
+          {stage && (
+            <>
+              <span className="flex items-center gap-1.5 font-semibold text-ink">
+                <span aria-hidden>{sportIcon[match.sport] ?? ""}</span>
+                {!homeTeam.isNationalTeam && <span aria-hidden>{flagEmoji(homeTeam.countryCode)}</span>}
+                {match.competition}
+              </span>
+              <span aria-hidden>·</span>
+            </>
+          )}
+          {match.matchday && !stage ? <span className="font-semibold text-ink/80">Spieltag {match.matchday}</span> : null}
+          {match.matchday && !stage ? <span aria-hidden>·</span> : null}
           <span>{kickoffLabel}</span>
           {match.tvChannel && (
             <span className="flex items-center gap-1 rounded-full border border-edge bg-pitch px-2 py-0.5 text-[13px] font-semibold text-ink">
@@ -544,7 +585,7 @@ export default function MatchCard({
             needsWideMiddle ? "grid-cols-[1fr_1rem_1fr] sm:grid-cols-[1fr_1.5rem_1fr]" : "grid-cols-[1fr_auto_1fr]"
           }`}
         >
-          <TeamColumn match={match} team={leftTeam} tag={isUsSport ? "Gast" : "Heim"} />
+          <TeamColumn match={match} team={leftTeam} tag={isUsSport ? "Gast" : "Heim"} big={stage} />
           {finalScore ? (
             // Beendet: oben zwischen den Teams steht direkt der Endstand
             // (unten in der Karte steht er nicht mehr extra).
@@ -555,9 +596,21 @@ export default function MatchCard({
               <span className="text-[10px] uppercase tracking-wide text-muted">Endstand</span>
             </div>
           ) : (
-            <span className="justify-self-center pt-3 font-display text-xs text-muted sm:text-sm">vs</span>
+            <span
+              className={`justify-self-center font-display text-muted ${
+                stage ? "pt-8 text-xl font-extrabold tracking-wider text-muted/70 sm:pt-10 sm:text-2xl" : "pt-3 text-xs sm:text-sm"
+              }`}
+            >
+              {stage ? "VS" : "vs"}
+            </span>
           )}
-          <TeamColumn match={match} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} flip />
+          <TeamColumn match={match} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} flip big={stage} />
+
+          {showTiles && (
+            <div className="col-span-3 col-start-1 row-start-2 flex justify-center">
+              <CountdownTiles target={match.tipDeadline} />
+            </div>
+          )}
 
           {!showResultView && closingSoon && (
             <p className="col-span-3 row-start-2 -mb-1 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">
@@ -813,6 +866,10 @@ export default function MatchCard({
               <ResultBox match={match} kickedOff={kickedOff} />
             )}
           </div>
+        )}
+
+        {stage && !tippingClosed && !isCancelled && (
+          <StageTippers tippers={tippers} tipCount={tipCount} myId={authUserId} friendIds={friendEntries.filter((f) => f.relation === "friend").map((f) => f.id)} />
         )}
 
         <div className="mt-auto flex items-center justify-between pt-3 text-xs text-muted">
@@ -1383,17 +1440,31 @@ function ResultBox({ match, kickedOff }: { match: Match; kickedOff: boolean }) {
 // Teamnamen brechen nur an Leerzeichen um, nie mitten im Wort (kein
 // "Le-/verkusen"). Passt ein langes Einzelwort wie "Mönchengladbach" nicht in
 // die Spalte, wird die Schrift schrittweise verkleinert, bis es passt.
-function TeamColumn({ match, team, tag, flip = false }: { match: Match; team: Team; tag: string | null; flip?: boolean }) {
+function TeamColumn({
+  match,
+  team,
+  tag,
+  flip = false,
+  big = false,
+}: {
+  match: Match;
+  team: Team;
+  tag: string | null;
+  flip?: boolean;
+  big?: boolean;
+}) {
   return (
     <div className="flex min-w-0 flex-col items-center gap-1.5 self-stretch">
-      <TeamBadge
-        sport={match.sport}
-        {...matchJerseyProps(match, team)}
-        isNationalTeam={team.isNationalTeam}
-        countryCode={team.countryCode}
-        flip={flip}
-        size={44}
-      />
+      <span className={big ? "stage-jersey" : "contents"}>
+        <TeamBadge
+          sport={match.sport}
+          {...matchJerseyProps(match, team)}
+          isNationalTeam={team.isNationalTeam}
+          countryCode={team.countryCode}
+          flip={flip}
+          size={big ? 68 : 44}
+        />
+      </span>
       {/* HEIM/GAST direkt unter dem Wappen: steht so bei beiden Teams auf
           gleicher Höhe, auch wenn ein Name zweizeilig ist. */}
       {tag && <SideTag>{tag}</SideTag>}
@@ -1602,6 +1673,71 @@ function TrendRow({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Hauptfarbe des Trikots, das das Team in diesem Spiel trägt.
+function wornColor(match: Match, team: Team): string {
+  const j = jerseyFor(team, team.id === match.homeTeamId ? match.homeJersey : match.awayJersey);
+  return j.variant === "auswaerts" ? team.awayPrimaryColor ?? team.secondaryColor : team.primaryColor;
+}
+
+// "#DC052D" / "#fff" -> "rgba(220, 5, 45, 0.3)". Unbekanntes Format: durchsichtig.
+function hexAlpha(hex: string, alpha: number): string {
+  let h = (hex ?? "").trim().replace(/^#/, "");
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (!/^[0-9a-fA-F]{6}$/.test(h)) return "transparent";
+  const n = parseInt(h, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+// Bühne: wer schon getippt hat (Freunde und Mitspieler mit Bild), live über
+// die Tipp-Zahl, die sich auf allen Geräten mitzählt.
+function StageTippers({
+  tippers,
+  tipCount,
+  myId,
+  friendIds,
+}: {
+  tippers: MatchTipper[] | null;
+  tipCount: number;
+  myId: string | null;
+  friendIds: string[];
+}) {
+  // Freunde zuerst, dann alle anderen (beides nach Namen).
+  const others = (tippers ?? [])
+    .filter((t) => t.userId !== myId)
+    .sort((a, b) => Number(friendIds.includes(b.userId)) - Number(friendIds.includes(a.userId)));
+  const meToo = !!tippers?.some((t) => t.userId === myId);
+  if (tipCount === 0) {
+    return <p className="mb-1 mt-3 text-center text-xs text-muted">Noch hat niemand getippt. Sei die oder der Erste!</p>;
+  }
+  if (!tippers) return <p className="mb-1 h-6" aria-hidden />;
+  const names = others.slice(0, 2).map((t) => t.name);
+  const rest = others.length - names.length;
+  let text: string;
+  if (others.length === 0) text = "Bisher hast nur du getippt.";
+  else if (rest > 0) text = `${names.join(", ")} und ${rest} ${rest === 1 ? "anderer" : "andere"} haben schon getippt`;
+  else if (names.length === 2) text = `${names[0]} und ${names[1]} haben schon getippt`;
+  else text = `${names[0]} hat schon getippt`;
+  if (meToo && others.length > 0) text += ", du auch";
+  return (
+    <div className="mb-1 mt-3 flex items-center justify-center gap-2 text-center text-xs text-muted">
+      {others.length > 0 && (
+        <span className="flex shrink-0">
+          {others.slice(0, 4).map((t, i) => (
+            <PlayerAvatar
+              key={t.userId}
+              id={t.userId}
+              name={t.name}
+              size={22}
+              className={`border-2 border-surface ${i > 0 ? "-ml-2" : ""}`}
+            />
+          ))}
+        </span>
+      )}
+      <span>{text}</span>
     </div>
   );
 }

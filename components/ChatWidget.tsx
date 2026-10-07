@@ -722,6 +722,21 @@ export default function ChatWidget() {
   const { isRegistered } = useUser();
   const { open, view, setView, closeChat, toggleChat, unreadTotal, toast, dismissToast, openChat } = useChat();
 
+  // Am Handy taucht der Chat-Knopf beim Runterscrollen ab, damit er nichts
+  // verdeckt (Teamnamen, Eingaben), und kommt beim Hochscrollen zurück.
+  const [tucked, setTucked] = useState(false);
+  useEffect(() => {
+    let lastY = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (Math.abs(y - lastY) < 6) return;
+      setTucked(y > lastY && y > 80);
+      lastY = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   // Am Handy füllt das Chatfenster den Bildschirm: die Seite dahinter soll
   // dann nicht mitscrollen.
   useEffect(() => {
@@ -819,9 +834,9 @@ export default function ChatWidget() {
 
       <button
         onClick={toggleChat}
-        className={`fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-40 h-12 w-12 items-center justify-center rounded-full bg-action text-pitch shadow-[0_0_20px_rgb(var(--c-action)/0.4)] transition-transform hover:scale-105 sm:right-5 sm:flex lg:bottom-5 sm:h-14 sm:w-14 ${
+        className={`fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-40 h-12 w-12 items-center justify-center rounded-full bg-action text-pitch shadow-[0_0_20px_rgb(var(--c-action)/0.4)] transition-all duration-200 hover:scale-105 sm:right-5 sm:flex lg:bottom-5 sm:h-14 sm:w-14 ${
           open ? "hidden" : "flex"
-        }`}
+        } ${tucked ? "pointer-events-none translate-y-24 opacity-0 lg:pointer-events-auto lg:translate-y-0 lg:opacity-100" : ""}`}
         aria-label={open ? "Chat schließen" : unreadTotal > 0 ? `Chat öffnen, ${unreadTotal} ungelesen` : "Chat öffnen"}
       >
         {open ? <CloseIcon /> : <BubbleIcon className="h-6 w-6 sm:h-7 sm:w-7" />}

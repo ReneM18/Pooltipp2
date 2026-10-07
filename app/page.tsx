@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import MatchCard from "@/components/MatchCard";
 import AdBanner from "@/components/AdBanner";
 import WeeklyReviewCard from "@/components/WeeklyReviewCard";
-import { StreakBadge, StreakHint } from "@/components/StreakChip";
+import { StreakHint } from "@/components/StreakChip";
+import HomeGreeting from "@/components/HomeGreeting";
+import LiveStrip from "@/components/LiveStrip";
 import { useUser } from "@/lib/UserContext";
 import { useJokers } from "@/lib/JokerContext";
 import { useAppData } from "@/lib/AppDataContext";
@@ -15,6 +17,7 @@ import { BOOSTER_STAKE } from "@/lib/poolScore";
 import { Match, isSportActive } from "@/lib/types";
 import { groupMatchesByDay } from "@/lib/dayGroups";
 import { splitMatchesByTab } from "@/lib/matchTabs";
+import { displayOrder } from "@/lib/teamOrder";
 import { useStreak } from "@/lib/streak";
 import { readPendingInvite } from "@/lib/leagueInvite";
 
@@ -127,7 +130,29 @@ export default function DashboardPage() {
   // die Karte selbst zeigt oben, dass es ein Booster ist.
   const visibleMatches = tab === "offen" ? offeneMatches : geschlosseneMatches;
 
-  function renderCard(match: Match) {
+  // Top-Spiel für die Bühne ganz oben: das Booster-Spiel, sonst das nächste
+  // Spiel, auf das man noch tippen kann. Es steht dann nicht noch einmal in
+  // der Liste darunter.
+  const tippable = now === null ? [] : offeneMatches.filter((m) => m.status === "upcoming" && Date.parse(m.tipDeadline) > now);
+  const stageMatch = tab === "offen" ? tippable.find((m) => m.booster) ?? tippable[0] ?? null : null;
+  const listMatches = stageMatch ? visibleMatches.filter((m) => m.id !== stageMatch.id) : visibleMatches;
+  const toTip = tippable.filter((m) => !findTipForMatch(m.id)).length;
+
+  // Laufende Spiele als Streifen ganz oben (Spielstand kommt live mit).
+  const liveItems = shownMatches
+    .filter((m) => m.status === "live")
+    .map((m) => {
+      const tip = findTipForMatch(m.id);
+      const [l, r] = tip ? displayOrder(m.sport, tip.predictedHomeScore, tip.predictedAwayScore) : [0, 0];
+      return {
+        match: m,
+        home: getTeam(m.homeTeamId)!,
+        away: getTeam(m.awayTeamId)!,
+        myTip: tip ? (m.tipMode === "1x2" ? "✓" : `${l} : ${r}`) : null,
+      };
+    });
+
+  function renderCard(match: Match, stage = false) {
     const homeTeam = getTeam(match.homeTeamId);
     const awayTeam = getTeam(match.awayTeamId);
     if (!homeTeam || !awayTeam) return null;
@@ -172,6 +197,7 @@ export default function DashboardPage() {
         onSubmitTip={(homeScore, awayScore) => handleSubmitTip(match, homeScore, awayScore)}
         onWithdrawTip={() => handleWithdrawTip(match.id)}
         highlight={match.id === highlightId}
+        stage={stage}
       />
     );
   }
@@ -186,12 +212,7 @@ export default function DashboardPage() {
           kommen. Am Handy (zu schmal für eine Zeile) fällt sie automatisch
           darunter. */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex shrink-0 items-center gap-2.5">
-          <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">
-            Spieltag
-          </h1>
-          <StreakBadge streak={streak} />
-        </div>
+        <HomeGreeting streak={streak} toTip={toTip} openCount={tippable.length} />
 
         <AdBanner />
       </div>
@@ -214,6 +235,7 @@ export default function DashboardPage() {
         </p>
       ) : (
       <>
+      <LiveStrip items={liveItems} />
       <div className="mb-5 flex gap-2 border-b border-edge">
         <TabButton
           label="Offene Tipps"
@@ -228,6 +250,8 @@ export default function DashboardPage() {
           onClick={() => setTab("geschlossen")}
         />
       </div>
+
+      {stageMatch && <div className="mb-7">{renderCard(stageMatch, true)}</div>}
 
       {visibleMatches.length === 0 && (
         tab === "offen" ? (
@@ -248,7 +272,7 @@ export default function DashboardPage() {
       {/* Abschnitte nach Tag ("Läuft gerade", "Heute", "Morgen" …), die
           Reihenfolge bleibt wie in lib/matchTabs.ts. Am PC je Tag drei Spalten. */}
       <div className="flex flex-col gap-7">
-        {groupMatchesByDay(visibleMatches, now, tab).map((group) => (
+        {groupMatchesByDay(listMatches, now, tab).map((group) => (
           <section key={group.key} aria-label={group.label || undefined}>
             {group.label && (
               <h2 className="mb-3 flex items-baseline gap-2 px-0.5">
@@ -262,7 +286,7 @@ export default function DashboardPage() {
                 </span>
               </h2>
             )}
-            <div className="flex flex-col gap-5 lg:grid lg:grid-cols-3 lg:gap-5">{group.matches.map(renderCard)}</div>
+            <div className="flex flex-col gap-5 lg:grid lg:grid-cols-3 lg:gap-5">{group.matches.map((m) => renderCard(m))}</div>
           </section>
         ))}
       </div>
