@@ -2,6 +2,7 @@
 
 import { useEffect, useState, FormEvent } from "react";
 import Link from "next/link";
+import StartLink from "@/components/StartLink";
 import { supabase } from "@/lib/supabaseClient";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { MIN_PASSWORD_LENGTH, translateAuthError } from "@/lib/authMessages";
@@ -161,9 +162,9 @@ export default function PasswortNeuPage() {
           <p className="text-5xl">✓</p>
           <h1 className="mt-3 font-display text-2xl font-bold text-ink">Passwort geändert</h1>
           <p className="mt-2 text-sm text-ink">Ab jetzt loggst du dich mit dem neuen Passwort ein. Du bist schon angemeldet.</p>
-          <Link href="/" className={`mt-5 ${primaryClass}`}>
+          <StartLink className={`mt-5 ${primaryClass}`}>
             Weiter zu PoolTipp
-          </Link>
+          </StartLink>
         </div>
       )}
     </main>

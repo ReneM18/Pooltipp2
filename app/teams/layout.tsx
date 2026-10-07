@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import StartLink from "@/components/StartLink";
 
 export default function TeamsLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,12 +18,9 @@ export default function TeamsLayout({ children }: { children: React.ReactNode })
             <Link href="/teams" className="font-display text-base font-bold tracking-wide text-ink">
               PoolTipp <span className="text-blue-400">Teams</span>
             </Link>
-            <Link
-              href="/"
-              className="rounded-full border border-edge px-3 py-1.5 text-sm font-semibold text-muted transition-colors hover:text-ink"
-            >
+            <StartLink className="rounded-full border border-edge px-3 py-1.5 text-sm font-semibold text-muted transition-colors hover:text-ink">
               ← Zurück zu PoolTipp
-            </Link>
+            </StartLink>
           </div>
         </header>
       </div>

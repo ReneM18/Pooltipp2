@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useUser } from "@/lib/UserContext";
-import { DEFAULT_START_PAGE, finishStartSession, readStartSession } from "@/lib/startPage";
+import { DEFAULT_START_PAGE } from "@/lib/startPage";
 
 // Gewählte Startseite, wenn das Skript im <head> sie noch nicht kannte
 // (erstes Öffnen auf einem neuen Gerät bzw. nach dem Einloggen): sobald das
@@ -18,20 +18,21 @@ export default function StartPageRedirect() {
   const router = useRouter();
   const { sessionChecked, authUserId, startPage } = useUser();
   const firstPathRef = useRef(pathname);
+  const doneRef = useRef(false);
 
   useEffect(() => {
-    if (readStartSession() !== "offen") return;
+    if (doneRef.current) return;
     if (pathname !== "/" || firstPathRef.current !== "/" || window.location.search) {
-      finishStartSession();
+      doneRef.current = true;
       return;
     }
     if (!sessionChecked) return;
     if (!authUserId) {
-      finishStartSession();
+      doneRef.current = true;
       return;
     }
     if (startPage === null) return;
-    finishStartSession();
+    doneRef.current = true;
     if (startPage !== DEFAULT_START_PAGE && performance.now() < MAX_WAIT_MS) router.replace(startPage);
   }, [pathname, sessionChecked, authUserId, startPage, router]);
 
