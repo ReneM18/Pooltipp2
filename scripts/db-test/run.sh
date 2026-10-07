@@ -62,3 +62,6 @@ psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/trainingstaschen-te
 
 # Duelle mit bis zu 5 Spielern und mehreren Spielen, Schutz gegen Absprachen
 psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/duelle-gruppen-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'
+
+# Prestige: GOAT freiwillig auf 0, Prestige-Stern, Bonus zählt weiter "oben"
+psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/prestige-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'

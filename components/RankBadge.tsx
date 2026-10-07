@@ -33,6 +33,7 @@ export default function RankBadge({
         eliteIcon={option.icon}
         colors={{ from: option.colorFrom, to: option.colorTo, text: option.colorText }}
         size={SIZES[size]}
+        prestige={option.prestige ?? 0}
       />
     </span>
   );

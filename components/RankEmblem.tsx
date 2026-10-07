@@ -1,6 +1,6 @@
 import { useId } from "react";
 import GoatEmblem, { UnsterblichEmblem } from "@/components/GoatEmblem";
-import { RANK_COLORS, RankName, SPORT_EMOJI, SubTier } from "@/lib/rankTiers";
+import { PRESTIGE_MAX_STARS, RANK_COLORS, RankName, SPORT_EMOJI, SubTier } from "@/lib/rankTiers";
 import { Sport } from "@/lib/types";
 
 // Rang-Abzeichen: jeder Hauptrang hat eine eigene Form (nicht nur eine
@@ -49,6 +49,7 @@ export default function RankEmblem({
   unsterblich,
   colors,
   size,
+  prestige = 0,
 }: {
   rank?: RankName;
   sub?: SubTier;
@@ -60,6 +61,8 @@ export default function RankEmblem({
   unsterblich?: boolean;
   colors: { from: string; to: string; text: string };
   size: number;
+  /** Prestige-Stufe: Sterne oben am Abzeichen (ab 6 Krone mit Zahl). */
+  prestige?: number;
 }) {
   const gradientId = useId();
   const isGoat = !elite && !unsterblich && rank === "GOAT";
@@ -135,6 +138,24 @@ export default function RankEmblem({
           {SPORT_EMOJI[sport]}
         </span>
       )}
+      {prestige > 0 && size >= 36 && <PrestigeStars level={prestige} size={size} />}
+    </span>
+  );
+}
+
+// Prestige oben über dem Abzeichen: kleine goldene Sterne (1–5), ab 6 eine
+// Krone mit Zahl. Erst ab mittlerer Größe – am Profilbild wäre es nur ein
+// Fleck (und in der Rangliste stehen die Sterne schon neben dem Namen).
+function PrestigeStars({ level, size }: { level: number; size: number }) {
+  const crown = level > PRESTIGE_MAX_STARS;
+  const font = Math.max(8, Math.round(size * (crown || level <= 2 ? 0.34 : level === 3 ? 0.3 : 0.25)));
+  return (
+    <span
+      aria-label={`Prestige ${level}`}
+      className="absolute left-1/2 flex -translate-x-1/2 items-center whitespace-nowrap rounded-full border border-gold/70 bg-pitch px-[3px] font-bold leading-none text-gold"
+      style={{ top: -font * 0.7, fontSize: font, paddingTop: 1, paddingBottom: 1 }}
+    >
+      {crown ? `👑${level}` : "★".repeat(level)}
     </span>
   );
 }

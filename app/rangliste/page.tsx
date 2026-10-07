@@ -4,7 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import FitText from "@/components/FitText";
 import { SPORTS, Sport, SPORT_ICONS, sportLabel } from "@/lib/types";
-import { getChosenIconForPoints, getSportRankIcon, RankIconOption } from "@/lib/rankTiers";
+import {
+  getChosenIconForPoints,
+  getSportRankIcon,
+  prestigeLevel,
+  prestigeMark,
+  RankIconOption,
+  totalPrestige,
+} from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
 import ClubLeaderboard from "@/components/ClubLeaderboard";
 import { useUser } from "@/lib/UserContext";
@@ -28,12 +35,14 @@ interface RowEntry {
   name: string;
   points: number;
   icon: RankIconOption | null;
+  /** Prestige-Stufe (Sportart-Reiter) bzw. Summe aller Sportarten. */
+  prestige: number;
   isCurrentUser: boolean;
 }
 
 export default function RanglistePage() {
   const [tab, setTab] = useState<ViewTab>("Gesamt");
-  const { rangPunkte, displayName, authUserId, profileLoaded, selectedRankIconId } = useUser();
+  const { rangPunkte, prestige, displayName, authUserId, profileLoaded, selectedRankIconId } = useUser();
   const { myTips } = useAppData();
 
   // Spieltags-Rangliste: nur die Rangpunkte-Änderung aus dieser Kalenderwoche
@@ -57,10 +66,11 @@ export default function RanglistePage() {
       pointsBySport: { ...rangPunkte },
       total: sumPoints(rangPunkte),
       rankIconId: selectedRankIconId,
+      prestige,
     };
     const others = players.filter((p) => p.id !== authUserId);
     return [...others, me];
-  }, [players, authUserId, profileLoaded, displayName, rangPunkte, selectedRankIconId]);
+  }, [players, authUserId, profileLoaded, displayName, rangPunkte, prestige, selectedRankIconId]);
 
   const ranked: RowEntry[] = useMemo(() => {
     let rows: Omit<RowEntry, "rank">[];
@@ -71,7 +81,8 @@ export default function RanglistePage() {
           id: p.id,
           name: p.name,
           points: p.id === authUserId ? sumWeeklyRangDelta(myTips, weekWindow) : weeklyByUser.get(p.id) ?? 0,
-          icon: getChosenIconForPoints(p.pointsBySport, p.rankIconId, `-${p.id}`),
+          icon: getChosenIconForPoints(p.pointsBySport, p.rankIconId, `-${p.id}`, p.prestige),
+          prestige: totalPrestige(p.prestige),
           isCurrentUser: p.id === authUserId,
         }));
     } else if (tab === "Gesamt") {
@@ -79,7 +90,8 @@ export default function RanglistePage() {
         id: p.id,
         name: p.name,
         points: p.total,
-        icon: getChosenIconForPoints(p.pointsBySport, p.rankIconId, `-${p.id}`),
+        icon: getChosenIconForPoints(p.pointsBySport, p.rankIconId, `-${p.id}`, p.prestige),
+        prestige: totalPrestige(p.prestige),
         isCurrentUser: p.id === authUserId,
       }));
     } else if (tab === "Vereine") {
@@ -90,7 +102,8 @@ export default function RanglistePage() {
         id: p.id,
         name: p.name,
         points: p.pointsBySport[sport],
-        icon: getSportRankIcon(sport, p.pointsBySport[sport], `-${p.id}`),
+        icon: getSportRankIcon(sport, p.pointsBySport[sport], `-${p.id}`, prestigeLevel(p.prestige, sport)),
+        prestige: prestigeLevel(p.prestige, sport),
         isCurrentUser: p.id === authUserId,
       }));
     }
@@ -202,15 +215,19 @@ export default function RanglistePage() {
                         text={entry.name}
                         className="font-display text-base font-semibold leading-tight text-gold"
                       />
+                      <PrestigeTag level={entry.prestige} />
                       <span className="shrink-0 text-xs font-medium text-muted">(Du)</span>
                     </span>
                   ) : (
-                    <Link
-                      href={`/spieler/${encodeURIComponent(entry.name)}`}
-                      className="min-w-0 flex-1 font-display text-base font-semibold leading-tight text-ink transition-colors hover:text-gold"
-                    >
-                      <FitText text={entry.name} />
-                    </Link>
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                      <Link
+                        href={`/spieler/${encodeURIComponent(entry.name)}`}
+                        className="min-w-0 font-display text-base font-semibold leading-tight text-ink transition-colors hover:text-gold"
+                      >
+                        <FitText text={entry.name} />
+                      </Link>
+                      <PrestigeTag level={entry.prestige} />
+                    </span>
                   )}
                 </div>
                 <span className="ml-2 shrink-0 font-display text-base font-semibold text-ink">
@@ -223,6 +240,20 @@ export default function RanglistePage() {
         </>
       )}
     </main>
+  );
+}
+
+// Prestige-Sterne neben dem Namen (1–5 Sterne, ab 6 Krone mit Zahl).
+function PrestigeTag({ level }: { level: number }) {
+  if (level <= 0) return null;
+  return (
+    <span
+      title={`Prestige ${level}`}
+      aria-label={`Prestige ${level}`}
+      className="shrink-0 whitespace-nowrap text-xs font-bold leading-none text-gold"
+    >
+      {prestigeMark(level)}
+    </span>
   );
 }
 
