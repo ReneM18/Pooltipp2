@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import FitText from "@/components/FitText";
+import SaveButton, { useDraft } from "@/components/SaveButton";
 import TeamBadge, { teamColorProps } from "@/components/TeamBadge";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
@@ -22,6 +23,8 @@ export default function FavoriteClubs() {
   const [openSport, setOpenSport] = useState<Sport | null>(null);
   const [busy, setBusy] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  // Schalter ändert erst den Entwurf, "Speichern" übernimmt ihn.
+  const playDraft = useDraft(playForClubs);
 
   if (!isRegistered || !authUserId) {
     return (
@@ -37,13 +40,15 @@ export default function FavoriteClubs() {
     );
   }
 
-  async function handleToggle() {
+  async function handleSavePlay() {
     setBusy(true);
-    const next = !playForClubs;
-    const message = await setPlayForClubs(next);
+    await playDraft.save(async (next) => {
+      const message = await setPlayForClubs(next);
+      if (message) showToast(message, "info");
+      else showToast(next ? "Du spielst wieder für deine Vereine." : "Vereinswertung ausgeschaltet.", "info");
+      return message;
+    });
     setBusy(false);
-    if (message) showToast(message, "info");
-    else showToast(next ? "Du spielst wieder für deine Vereine." : "Vereinswertung ausgeschaltet.", "info");
   }
 
   async function handleChoose(sport: Sport, team: Team | null, current: MyClub) {
@@ -87,23 +92,26 @@ export default function FavoriteClubs() {
         <div className="min-w-0">
           <p className="font-display text-sm font-semibold text-ink">Für Vereine spielen</p>
           <p className="text-xs text-muted">
-            {playForClubs ? "An: deine Tipps zählen für deine Herzensvereine." : "Aus: du zählst für keinen Verein."}
+            {playDraft.value ? "An: deine Tipps zählen für deine Herzensvereine." : "Aus: du zählst für keinen Verein."}
           </p>
         </div>
-        <button
-          role="switch"
-          aria-checked={playForClubs}
-          aria-label="Für Vereine spielen"
-          disabled={busy || loading}
-          onClick={handleToggle}
-          className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors disabled:opacity-50 ${
-            playForClubs ? "border-gold bg-gold/80" : "border-edge bg-pitch"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 h-5 w-5 rounded-full bg-ink transition-all ${playForClubs ? "left-6" : "left-0.5"}`}
-          />
-        </button>
+        <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+          <button
+            role="switch"
+            aria-checked={playDraft.value}
+            aria-label="Für Vereine spielen"
+            disabled={busy || loading}
+            onClick={() => playDraft.set(!playDraft.value)}
+            className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors disabled:opacity-50 ${
+              playDraft.value ? "border-gold bg-gold/80" : "border-edge bg-pitch"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-5 w-5 rounded-full bg-ink transition-all ${playDraft.value ? "left-6" : "left-0.5"}`}
+            />
+          </button>
+          <SaveButton dirty={playDraft.dirty} saved={playDraft.saved} busy={busy} onClick={handleSavePlay} />
+        </div>
       </div>
 
       {error && !clubs ? (
