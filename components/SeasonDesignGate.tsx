@@ -85,7 +85,7 @@ export default function SeasonDesignGate({ showNotice = true }: { showNotice?: b
             </h2>
             <p className="mt-1 text-sm text-muted">
               Du hast im Saison-Pass genug Punkte gesammelt: Die App zeigt jetzt das Design „
-              {SEASON_THEME.name}“. Gefällt es dir nicht, kannst du es im Profil unter Einstellungen
+              {SEASON_THEME.name}“. Gefällt es dir nicht, kannst du es im Profil im Reiter Einstellungen
               ausschalten.
             </p>
             <Link

@@ -104,13 +104,13 @@ export default function PasswortNeuPage() {
           <h1 className="font-display text-2xl font-bold text-ink">Neues Passwort</h1>
           <p className="mt-2 text-sm text-muted">
             Diese Seite öffnest du über den Link in der Mail „Passwort zurücksetzen“. Bist du eingeloggt, kannst du dein
-            Passwort auch im Profil unter „Konto“ ändern.
+            Passwort auch im Profil unter „Einstellungen“ ändern.
           </p>
           <Link href="/registrieren?modus=passwort-vergessen" className={`mt-5 ${primaryClass}`}>
             Passwort vergessen?
           </Link>
           <Link
-            href="/profil"
+            href="/profil#einstellungen"
             className="mt-3 block w-full rounded-full border border-edge py-3 text-center font-display text-sm font-semibold text-ink transition-colors hover:border-gold hover:text-gold"
           >
             Zum Profil

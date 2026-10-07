@@ -225,7 +225,7 @@ export default function StartPage() {
             <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Dein Herzensverein</h1>
             <p className="mt-2 text-sm text-muted">
               Mit deinen Tipps sammelst du Punkte für deinen Verein in der Vereinstabelle. Freiwillig: jede
-              Sportart kannst du auch später im Profil wählen.
+              Sportart kannst du auch später im Profil unter „Einstellungen“ wählen.
             </p>
             <div className="mt-5 flex flex-col gap-3">
               {sports.map((sport) => {
