@@ -43,6 +43,9 @@ export const metadata: Metadata = {
 // app/favicon.ico (Next.js-Dateikonvention), das Manifest aus app/manifest.ts.
 export const viewport: Viewport = {
   themeColor: "#0D1512",
+  // Ohne "cover" meldet das iPhone keinen Abstand für den weißen
+  // Home-Balken (env(safe-area-inset-bottom) wäre immer 0).
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

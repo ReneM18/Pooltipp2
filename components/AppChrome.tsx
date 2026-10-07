@@ -49,7 +49,7 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
           letzten Inhalt/Footer ragen. */}
       {/* Saison-Design: verblasste Blätter hinter der ganzen Seite. */}
       <SeasonBackdrop />
-      <div className="pb-36 lg:pb-24" data-swipe-root>
+      <div className="pb-[calc(9rem+var(--safe-bottom))] lg:pb-24" data-swipe-root>
         <SeasonDesignGate />
         {children}
         <Footer />
