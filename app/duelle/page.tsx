@@ -1,5 +1,6 @@
 "use client";
 
+import EmptyState from "@/components/EmptyState";
 import { useEffect, useRef, useState, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useUser } from "@/lib/UserContext";
@@ -97,7 +98,12 @@ export default function DuellePage() {
       <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Duelle</h2>
       <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3.5">
         {myDuels.length === 0 && (
-          <p className="py-4 text-center text-sm text-muted lg:col-span-2">Noch keine Duelle.</p>
+          <EmptyState
+            emoji="⚔️"
+            title="Noch keine Duelle"
+            text="Fordere oben Freunde zu ein paar Spielen heraus."
+            className="lg:col-span-2"
+          />
         )}
         {myDuels.map((duel) => (
           <DuelCard key={duel.id} duel={duel} onWithdrawn={editAfterWithdraw} />

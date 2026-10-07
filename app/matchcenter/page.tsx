@@ -1,5 +1,6 @@
 "use client";
 
+import EmptyState from "@/components/EmptyState";
 import { useEffect, useState } from "react";
 import {
   fetchRecentResults,
@@ -103,7 +104,12 @@ export default function MatchcenterPage() {
             <span className="text-right">Pkt</span>
           </div>
           {(standings ?? []).length === 0 && (
-            <p className="p-4 text-sm text-muted">Keine Tabellendaten verfügbar.</p>
+            <EmptyState
+              emoji="📊"
+              title="Noch keine Tabelle"
+              text="Für diese Liga gibt es gerade keine Tabellendaten. Schau später nochmal vorbei."
+              className="m-3 border-none bg-transparent"
+            />
           )}
           {(standings ?? []).map((row) => (
             <div
@@ -128,7 +134,12 @@ export default function MatchcenterPage() {
       {!loading && !error && view === "ergebnisse" && (
         <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
           {(results ?? []).length === 0 && (
-            <p className="py-8 text-center text-sm text-muted lg:col-span-2">Keine Ergebnisse verfügbar.</p>
+            <EmptyState
+              emoji="⚽"
+              title="Noch keine Ergebnisse"
+              text="Für diese Liga gibt es gerade keine Ergebnisse. Schau später nochmal vorbei."
+              className="lg:col-span-2"
+            />
           )}
           {(results ?? []).map((r) => (
             <div key={r.id} className="rounded-card border border-edge bg-surface px-4 py-3">
