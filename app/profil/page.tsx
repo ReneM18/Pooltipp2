@@ -100,7 +100,31 @@ function ProfilInhalt() {
     setNameInput(displayName);
   }, [displayName]);
   const [saved, setSaved] = useState(false);
-  const [profileTab, setProfileTab] = useState<"Übersicht" | "Rang">("Übersicht");
+  const [profileTab, setProfileTab] = useState<ProfileTab>("Übersicht");
+  // Reiter per Adresse öffnen (/profil#einstellungen, #herzensvereine, #rang),
+  // z. B. aus dem Saison-Design-Hinweis oder der Vereinstabelle. Danach zum
+  // Ziel scrollen, weil es erst mit dem Reiter im Seiteninhalt auftaucht.
+  useEffect(() => {
+    function openFromHash() {
+      const id = window.location.hash.slice(1);
+      const tab = HASH_TABS[id];
+      if (!tab) return;
+      setProfileTab(tab);
+      // Zweimal, weil Fotos/Vereine beim Laden die Seite noch verschieben.
+      for (const ms of [100, 700]) {
+        setTimeout(() => document.getElementById(id)?.scrollIntoView({ block: "start" }), ms);
+      }
+    }
+    openFromHash();
+    window.addEventListener("hashchange", openFromHash);
+    return () => window.removeEventListener("hashchange", openFromHash);
+  }, []);
+  function chooseProfileTab(tab: ProfileTab) {
+    setProfileTab(tab);
+    // Reiter in der Adresse merken, damit Neuladen auf demselben Reiter bleibt.
+    const hash = tab === "Einstellungen" ? "#einstellungen" : tab === "Rang" ? "#rang" : "";
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}${hash}`);
+  }
 
   // Alle Icons zeigen, auch die noch gesperrten (ausgegraut), damit man
   // sieht, was man noch erreichen kann.
@@ -289,12 +313,13 @@ function ProfilInhalt() {
         </div>
       </div>
 
-      {/* Reiter: Übersicht (Fotos, Statistik, Einstellungen, Historie) vs. Rang (Icons, Fortschritt) */}
-      <div className="mb-6 flex gap-2">
-        {(["Übersicht", "Rang"] as const).map((t) => (
+      {/* Reiter: Übersicht (Fotos, Statistik, Historie), Rang (Icons, Fortschritt),
+          Einstellungen (Name, Sichtbarkeit, Startseite, Design, Vereine, Konto) */}
+      <div className="mb-6 flex flex-wrap gap-2">
+        {PROFILE_TABS.map((t) => (
           <button
             key={t}
-            onClick={() => setProfileTab(t)}
+            onClick={() => chooseProfileTab(t)}
             className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
               profileTab === t
                 ? "border-gold bg-gold/15 text-gold"
@@ -388,37 +413,6 @@ function ProfilInhalt() {
       <section className="mb-8">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold text-ink">Deine Fotos</h2>
-        </div>
-
-        <div className="mb-4 flex flex-col gap-2 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-ink">Wer darf deine Fotos sehen?</p>
-            <p className="text-xs text-muted">
-              Gilt für dein Profil, wenn andere User dich antippen (z. B. in der Rangliste).
-            </p>
-          </div>
-          <div className="flex shrink-0 gap-2">
-            <button
-              onClick={() => setPhotoVisibility("public")}
-              className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                photoVisibility === "public"
-                  ? "border-gold bg-gold/15 text-gold"
-                  : "border-edge bg-pitch text-muted hover:text-ink"
-              }`}
-            >
-              🌐 Öffentlich
-            </button>
-            <button
-              onClick={() => setPhotoVisibility("friends")}
-              className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                photoVisibility === "friends"
-                  ? "border-gold bg-gold/15 text-gold"
-                  : "border-edge bg-pitch text-muted hover:text-ink"
-              }`}
-            >
-              🔒 Nur für Freunde
-            </button>
-          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
@@ -584,8 +578,6 @@ function ProfilInhalt() {
         </section>
       )}
 
-      <FavoriteClubs />
-
       <section className="mb-8">
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Werbefrei</h2>
         {hasAdFreeSubscription ? (
@@ -618,112 +610,7 @@ function ProfilInhalt() {
         )}
       </section>
 
-      {/* id für den Link aus dem Saison-Design-Hinweis; scroll-mt wegen der
-          festen Kopfleiste. */}
-      <section id="einstellungen" className="scroll-mt-48">
-        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Einstellungen</h2>
-        <form
-          onSubmit={handleSaveName}
-          className="flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-end"
-        >
-          <div className="flex-1">
-            <label className="mb-1 block text-xs text-muted">Anzeigename</label>
-            <input
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-            />
-          </div>
-          <button
-            type="submit"
-            className="rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
-          >
-            {saved ? "Gespeichert ✓" : "Speichern"}
-          </button>
-        </form>
-        {isRegistered && <StartPagePicker />}
-        {/* Saison-Design: kommt automatisch ab dem Level aus der Saison-Datei,
-            hier abschaltbar (gilt pro Gerät, siehe lib/seasons/design.ts). */}
-        {seasonDesign.available && (
-          <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-ink">Saison-Design</p>
-              <p className="text-xs text-muted">
-                {seasonDesign.unlocked
-                  ? `Farben und Deko der Saison „${seasonDesign.seasonName}“ in der ganzen App.`
-                  : `Kommt automatisch, sobald du im Saison-Pass Level ${seasonDesign.unlockLevel} erreichst.`}
-              </p>
-            </div>
-            {seasonDesign.unlocked ? (
-              <button
-                type="button"
-                role="switch"
-                aria-checked={seasonDesign.enabled}
-                aria-label="Saison-Design an oder aus"
-                onClick={() => seasonDesign.setEnabled(!seasonDesign.enabled)}
-                className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 font-display text-sm font-semibold transition-colors ${
-                  seasonDesign.enabled ? "border-action bg-action text-pitch" : "border-edge bg-pitch text-muted"
-                }`}
-              >
-                <span
-                  className={`h-3 w-3 rounded-full ${seasonDesign.enabled ? "bg-pitch" : "bg-muted"}`}
-                  aria-hidden
-                />
-                {seasonDesign.enabled ? "An" : "Aus"}
-              </button>
-            ) : (
-              <span className="shrink-0 rounded-full border border-edge px-3 py-1.5 font-display text-sm font-semibold text-muted">
-                🔒 Level {seasonDesign.unlockLevel}
-              </span>
-            )}
-          </div>
-        )}
-
-        {isRegistered ? (
-          <>
-            <div className="mt-4 flex items-center justify-between rounded-card border border-edge bg-surface p-4">
-              <div>
-                <p className="text-xs text-muted">Angemeldet als</p>
-                <p className="text-sm font-semibold text-ink">{authEmail}</p>
-              </div>
-              <button
-                type="button"
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="shrink-0 rounded-full border border-edge px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-red-400/60 hover:text-red-300 disabled:opacity-60"
-              >
-                {loggingOut ? "…" : "Ausloggen"}
-              </button>
-            </div>
-            <Link
-              href="/start?vorschau=1"
-              className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
-            >
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-ink">👋 Start-Erlebnis</span>
-                <span className="block text-xs text-muted">
-                  So sieht ein neuer Spieler den Start. Nur zum Ansehen, es wird nichts gespeichert.
-                </span>
-              </span>
-              <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
-                Ansehen
-              </span>
-            </Link>
-            <AccountSettings />
-          </>
-        ) : (
-          <Link
-            href="/registrieren"
-            className="mt-4 flex items-center justify-between rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
-          >
-            <span className="text-sm text-muted">Noch nicht eingeloggt</span>
-            <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
-              Registrieren / Einloggen →
-            </span>
-          </Link>
-        )}
-      </section>
-      <section className="mt-8">
+      <section>
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Meine Tipp-Historie</h2>
         <div className="flex flex-col gap-3">
           {historyTips.length === 0 && (
@@ -787,9 +674,172 @@ function ProfilInhalt() {
       </section>
         </>
       )}
+
+      {profileTab === "Einstellungen" && (
+        // id für Links von außen (Saison-Design-Hinweis); scroll-mt wegen der
+        // festen Kopfleiste.
+        <div id="einstellungen" className="scroll-mt-48">
+          <section className="mb-8">
+            <h2 className="font-display text-lg font-semibold text-ink">Profil</h2>
+            <form
+              onSubmit={handleSaveName}
+              className="mt-3 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-end"
+            >
+              <div className="flex-1">
+                <label className="mb-1 block text-xs text-muted">Anzeigename</label>
+                <input
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+                />
+          </div>
+              <button
+                type="submit"
+                className="rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+              >
+                {saved ? "Gespeichert ✓" : "Speichern"}
+              </button>
+            </form>
+            <div className="mt-3 flex flex-col gap-2 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-ink">Wer darf deine Fotos sehen?</p>
+                <p className="text-xs text-muted">
+                  Gilt für dein Profil, wenn andere User dich antippen (z. B. in der Rangliste).
+                </p>
+          </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  onClick={() => setPhotoVisibility("public")}
+                  className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                    photoVisibility === "public"
+                      ? "border-gold bg-gold/15 text-gold"
+                      : "border-edge bg-pitch text-muted hover:text-ink"
+                  }`}
+                >
+                  🌐 Öffentlich
+                </button>
+                <button
+                  onClick={() => setPhotoVisibility("friends")}
+                  className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                    photoVisibility === "friends"
+                      ? "border-gold bg-gold/15 text-gold"
+                      : "border-edge bg-pitch text-muted hover:text-ink"
+                  }`}
+                >
+                  🔒 Nur für Freunde
+                </button>
+          </div>
+        </div>
+          </section>
+
+          <section className="mb-8">
+            <h2 className="font-display text-lg font-semibold text-ink">App</h2>
+            {isRegistered && <StartPagePicker />}
+            {/* Saison-Design: kommt automatisch ab dem Level aus der Saison-Datei,
+                hier abschaltbar (gilt pro Gerät, siehe lib/seasons/design.ts). */}
+            {seasonDesign.available && (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-ink">Saison-Design</p>
+                  <p className="text-xs text-muted">
+                    {seasonDesign.unlocked
+                      ? `Farben und Deko der Saison „${seasonDesign.seasonName}“ in der ganzen App.`
+                      : `Kommt automatisch, sobald du im Saison-Pass Level ${seasonDesign.unlockLevel} erreichst.`}
+                  </p>
+                </div>
+                {seasonDesign.unlocked ? (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={seasonDesign.enabled}
+                    aria-label="Saison-Design an oder aus"
+                    onClick={() => seasonDesign.setEnabled(!seasonDesign.enabled)}
+                    className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 font-display text-sm font-semibold transition-colors ${
+                      seasonDesign.enabled ? "border-action bg-action text-pitch" : "border-edge bg-pitch text-muted"
+                    }`}
+                  >
+                    <span
+                      className={`h-3 w-3 rounded-full ${seasonDesign.enabled ? "bg-pitch" : "bg-muted"}`}
+                      aria-hidden
+                    />
+                    {seasonDesign.enabled ? "An" : "Aus"}
+                  </button>
+                ) : (
+                  <span className="shrink-0 rounded-full border border-edge px-3 py-1.5 font-display text-sm font-semibold text-muted">
+                    🔒 Level {seasonDesign.unlockLevel}
+                  </span>
+                )}
+          </div>
+            )}
+
+            {isRegistered && (
+              <Link
+                href="/start?vorschau=1"
+                className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-ink">👋 Start-Erlebnis</span>
+                  <span className="block text-xs text-muted">
+                    So sieht ein neuer Spieler den Start. Nur zum Ansehen, es wird nichts gespeichert.
+                  </span>
+                </span>
+                <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
+                  Ansehen
+                </span>
+              </Link>
+            )}
+          </section>
+
+          {/* id für die Links aus der Vereinstabelle */}
+          <div id="herzensvereine" className="scroll-mt-48">
+            <FavoriteClubs />
+          </div>
+
+          <section>
+            <h2 className="font-display text-lg font-semibold text-ink">Konto</h2>
+            {isRegistered ? (
+              <>
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted">Angemeldet als</p>
+                    <p className="break-all text-sm font-semibold text-ink">{authEmail}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={loggingOut}
+                    className="shrink-0 rounded-full border border-edge px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-red-400/60 hover:text-red-300 disabled:opacity-60"
+                  >
+                    {loggingOut ? "…" : "Ausloggen"}
+                  </button>
+                </div>
+                <AccountSettings />
+              </>
+            ) : (
+              <Link
+                href="/registrieren"
+                className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
+              >
+                <span className="text-sm text-muted">Noch nicht eingeloggt</span>
+                <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
+                  Registrieren / Einloggen →
+                </span>
+              </Link>
+            )}
+          </section>
+        </div>
+      )}
     </main>
   );
 }
+
+const PROFILE_TABS = ["Übersicht", "Rang", "Einstellungen"] as const;
+type ProfileTab = (typeof PROFILE_TABS)[number];
+const HASH_TABS: Record<string, ProfileTab> = {
+  rang: "Rang",
+  einstellungen: "Einstellungen",
+  herzensvereine: "Einstellungen",
+};
 
 function StatCard({
   label,

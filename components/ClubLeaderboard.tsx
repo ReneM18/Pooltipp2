@@ -49,7 +49,7 @@ export default function ClubLeaderboard() {
 
       <p className="mb-4 text-xs text-muted">
         Durchschnitt pro aktivem Fan mal 100. Gewertet ab {CLUB_MIN_ACTIVE_FANS} aktiven Fans.{" "}
-        <Link href="/profil" className="font-semibold text-gold hover:underline">
+        <Link href="/profil#herzensvereine" className="font-semibold text-gold hover:underline">
           {myTeamId ? "Deine Herzensvereine" : "Herzensverein wählen"}
         </Link>
       </p>
@@ -82,10 +82,10 @@ export default function ClubLeaderboard() {
           </p>
           <h2 className="mb-1 font-display text-lg font-semibold text-ink">Noch keine Fans in {sportLabel(sport)}</h2>
           <p className="mx-auto mb-5 max-w-sm text-sm text-muted">
-            Wähle im Profil deinen Herzensverein und sammle mit deinen Tipps Punkte für ihn.
+            Wähle im Profil unter „Einstellungen“ deinen Herzensverein und sammle mit deinen Tipps Punkte für ihn.
           </p>
           <Link
-            href="/profil"
+            href="/profil#herzensvereine"
             className="inline-block rounded-full border border-gold px-5 py-2 font-display text-sm font-semibold text-gold transition-colors hover:bg-gold hover:text-pitch"
           >
             Herzensverein wählen
