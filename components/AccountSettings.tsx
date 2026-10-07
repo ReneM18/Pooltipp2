@@ -170,7 +170,7 @@ export default function AccountSettings() {
               <button
                 type="submit"
                 disabled={pwSaving}
-                className="rounded-full bg-gold px-5 py-2.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90 disabled:opacity-60"
+                className="rounded-full bg-action px-5 py-2.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover disabled:opacity-60"
               >
                 {pwSaving ? "Wird gespeichert…" : "Neues Passwort speichern"}
               </button>

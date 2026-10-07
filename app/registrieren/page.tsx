@@ -201,7 +201,7 @@ export default function RegistrierenPage() {
         {pendingInvite && (
           <Link
             href={`/teams?code=${encodeURIComponent(pendingInvite)}`}
-            className="mt-6 block rounded-full bg-blue-500 px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
+            className="mt-6 block rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
           >
             Weiter zur Tipprunde
           </Link>
@@ -294,7 +294,7 @@ export default function RegistrierenPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="mt-1 rounded-full bg-gold py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-gold/90 disabled:opacity-60"
+            className="mt-1 rounded-full bg-action py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover disabled:opacity-60"
           >
             {submitting ? "Wird verschickt…" : notice?.kind === "resetSent" ? "Link nochmal schicken" : "Link zum Zurücksetzen schicken"}
           </button>
@@ -357,7 +357,7 @@ export default function RegistrierenPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="mt-1 rounded-full bg-gold py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-gold/90 disabled:opacity-60"
+          className="mt-1 rounded-full bg-action py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover disabled:opacity-60"
         >
           {submitting ? "Wird verarbeitet…" : mode === "register" ? "Jetzt registrieren" : "Einloggen"}
         </button>
@@ -394,7 +394,7 @@ export default function RegistrierenPage() {
               switchMode("login");
               setPassword("");
             }}
-            className="mt-3 w-full rounded-full bg-gold py-2.5 font-display text-base font-semibold text-pitch transition-colors hover:bg-gold/90"
+            className="mt-3 w-full rounded-full bg-action py-2.5 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
           >
             Zum Einloggen
           </button>
