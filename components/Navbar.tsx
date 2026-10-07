@@ -52,7 +52,7 @@ export default function Navbar() {
           Pool<span className="text-gold">Tipp</span>
         </Link>
 
-        {/* Reihenfolge von links nach rechts: Warenkorb, Einstellungen,
+        {/* Reihenfolge von links nach rechts: Warenkorb (nur am PC), Einstellungen,
             Registrieren (nur solange man nicht registriert ist), Sterne,
             Ranglisten-Punkte, Profil – die beiden "Punkte"-Anzeigen (Sterne
             und Ranglisten-Punkte) stehen jetzt bewusst zusammen direkt vorm
@@ -61,7 +61,8 @@ export default function Navbar() {
           <Link
             href="/shop"
             title="Prämien-Shop"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gold/60 bg-surface text-gold transition-colors hover:border-gold hover:bg-gold/10 sm:h-9 sm:w-9"
+            // Am Handy steckt der Shop unten im Mehr-Fenster, oben nur ab lg:.
+            className="hidden h-8 w-8 lg:flex shrink-0 items-center justify-center rounded-full border border-gold/60 bg-surface text-gold transition-colors hover:border-gold hover:bg-gold/10 sm:h-9 sm:w-9"
           >
             <CartIcon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
           </Link>
