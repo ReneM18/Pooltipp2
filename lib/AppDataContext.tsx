@@ -1384,7 +1384,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   function addComment(matchId: string, author: string, text: string) {
     if (!text.trim()) return;
-    const id = `comment-${Date.now()}`;
+    const id = `comment-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const createdAt = new Date().toISOString();
     setComments((current) => [
       ...current,

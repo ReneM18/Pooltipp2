@@ -13,10 +13,11 @@ import { useFeedback } from "@/lib/FeedbackContext";
 import { TIP_JOKER_EFFECT, TIP_JOKER_LABEL, TipJoker, TrendResult, useJokers } from "@/lib/JokerContext";
 import { useTaschen } from "@/lib/TaschenContext";
 import { xpForLevel } from "@/lib/seasonPass";
+import type { SeasonEmote } from "@/lib/seasons";
 import { allowsDraw as sportAllowsDraw, displayOrder, isAwayFirst, oneXTwoText, pickNumber } from "@/lib/teamOrder";
 import TeamBadge, { matchJerseyProps } from "./TeamBadge";
 import PassHonorTags, { useOtherPlayersHonors } from "./PassHonors";
-import { EmotePicker, MessageBody, stickerFromText, stickerText } from "./Emotes";
+import { EmotePicker, MessageBody, StickerDraft, stickerFromText, stickerText } from "./Emotes";
 import Countdown from "./Countdown";
 import ScoreInput from "./ScoreInput";
 import { CoinIcon } from "./CoinIcon";
@@ -167,6 +168,8 @@ export default function MatchCard({
   // Liste "Wer hat getippt?" unter der Karte (Klick auf "X getippt").
   const [tippersOpen, setTippersOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
+  // Ausgewählter Sticker: erst Vorschau, gesendet wird er mit dem Senden-Knopf.
+  const [commentSticker, setCommentSticker] = useState<SeasonEmote | null>(null);
   const commentSubmittedRef = useRef(false);
   const matchComments = getCommentsForMatch(match.id);
   // Titel/Abzeichen aus dem Saison-Pass neben den Namen (nur wenn aufgeklappt).
@@ -193,13 +196,16 @@ export default function MatchCard({
 
   function handleCommentSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!commentDraft.trim() || commentSubmittedRef.current) return;
+    if ((!commentDraft.trim() && !commentSticker) || commentSubmittedRef.current) return;
     // Sticker-Code von Hand eingetippt, ohne den Sticker zu besitzen: nicht senden.
     const typedSticker = stickerFromText(commentDraft);
     if (typedSticker && !passHonors.emotes.some((em) => em.id === typedSticker.id)) return;
     commentSubmittedRef.current = true;
-    addComment(match.id, displayName, commentDraft);
+    // Sticker bleibt ein eigener Kommentar (":id:"), der Text kommt danach.
+    if (commentSticker) addComment(match.id, displayName, stickerText(commentSticker));
+    if (commentDraft.trim()) addComment(match.id, displayName, commentDraft);
     setCommentDraft("");
+    setCommentSticker(null);
     commentSubmittedRef.current = false;
   }
 
@@ -906,24 +912,31 @@ export default function MatchCard({
                 Zum Kommentieren einloggen
               </Link>
             ) : (
-            <form onSubmit={handleCommentSubmit} className="flex gap-2">
-              <EmotePicker
-                onInsertEmoji={(emoji) => setCommentDraft((d) => d + emoji)}
-                onSendSticker={(emote) => addComment(match.id, displayName, stickerText(emote))}
-              />
-              <input
-                value={commentDraft}
-                onChange={(e) => setCommentDraft(e.target.value)}
-                placeholder="Kommentar schreiben…"
-                className="min-w-0 flex-1 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-              />
-              <button
-                type="submit"
-                aria-label="Kommentar senden"
-                className="rounded-lg bg-action px-3 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
-              >
-                ➤
-              </button>
+            <form onSubmit={handleCommentSubmit}>
+              {commentSticker && (
+                <div className="mb-2">
+                  <StickerDraft emote={commentSticker} onRemove={() => setCommentSticker(null)} />
+                </div>
+              )}
+              <div className="flex gap-2">
+                <EmotePicker
+                  onInsertEmoji={(emoji) => setCommentDraft((d) => d + emoji)}
+                  onPickSticker={(emote) => setCommentSticker(emote)}
+                />
+                <input
+                  value={commentDraft}
+                  onChange={(e) => setCommentDraft(e.target.value)}
+                  placeholder={commentSticker ? "Text dazu (optional)" : "Kommentar schreiben…"}
+                  className="min-w-0 flex-1 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+                />
+                <button
+                  type="submit"
+                  aria-label="Kommentar senden"
+                  className="rounded-lg bg-action px-3 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+                >
+                  ➤
+                </button>
+              </div>
             </form>
             )}
           </div>
