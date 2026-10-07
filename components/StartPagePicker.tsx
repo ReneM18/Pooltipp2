@@ -8,7 +8,7 @@ import SaveButton, { useDraft } from "@/components/SaveButton";
 // Im Profil unter "Einstellungen": welche Seite die App beim Öffnen zeigt
 // (siehe lib/startPage.ts).
 export default function StartPagePicker() {
-  const { startPage, setStartPage } = useUser();
+  const { startPage, setStartPage, accountSync } = useUser();
   const { showToast } = useFeedback();
   const draft = useDraft(startPage ?? DEFAULT_START_PAGE);
 
@@ -52,6 +52,11 @@ export default function StartPagePicker() {
           );
         })}
       </div>
+      {accountSync?.startPage === false && (
+        <p className="mt-2 text-[11px] text-muted">
+          ⚠️ Gilt im Moment nur auf diesem Gerät. Damit es auf allen Geräten gilt, fehlt noch ein Datenbank-Update.
+        </p>
+      )}
     </div>
   );
 }

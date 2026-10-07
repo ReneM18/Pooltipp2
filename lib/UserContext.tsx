@@ -174,6 +174,9 @@ interface UserContextValue {
   // Seite, die die App beim Öffnen zeigt (fürs Konto gespeichert, gilt auf
   // jedem Gerät, siehe lib/startPage.ts). null = noch nicht geladen.
   startPage: StartPage | null;
+  // false = die Spalte fehlt in der Datenbank (SQL noch nicht ausgeführt):
+  // die Einstellung gilt dann nur auf diesem Gerät. null = noch nicht geladen.
+  accountSync: { startPage: boolean; seasonDesign: boolean } | null;
   setStartPage: (page: StartPage) => void;
   activeRankIcon: RankIconOption | null;
   hasPremiumPass: boolean;
@@ -716,6 +719,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // gilt die Wahl nur auf diesem Gerät.
   const startPageColumnRef = useRef(false);
   const [startPage, setStartPageState] = useState<StartPage | null>(null);
+  const [accountSync, setAccountSync] = useState<{ startPage: boolean; seasonDesign: boolean } | null>(null);
   function setStartPage(page: StartPage) {
     setStartPageState(page);
     writeLocalStartPage(page);
@@ -797,6 +801,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     seasonColumnRef.current = hasSeason;
     retentionColumnRef.current = hasRetention;
     startPageColumnRef.current = hasStartPage;
+    setAccountSync((current) =>
+      current?.startPage === hasStartPage && current.seasonDesign === hasSeason
+        ? current
+        : { startPage: hasStartPage, seasonDesign: hasSeason }
+    );
     const data = res.data as {
       start_done?: boolean | null;
       review_seen_week?: string | null;
@@ -875,6 +884,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setReviewSeenWeek(null);
     setReviewSeenReady(false);
     setStartPageState(null);
+    setAccountSync(null);
     extrasSyncedRef.current = {};
     seasonColumnRef.current = false;
     retentionColumnRef.current = false;
@@ -1227,6 +1237,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setSeasonDesignOff,
         startPage,
         setStartPage,
+        accountSync,
         activeRankIcon,
         hasPremiumPass,
         buyPremiumPass,
