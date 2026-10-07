@@ -1,5 +1,6 @@
 "use client";
 
+import PlayerAvatar from "@/components/PlayerAvatar";
 import { useEffect, useRef, useState, FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import { useUser, FriendEntry, PlayerSearchResult } from "@/lib/UserContext";
@@ -17,12 +18,14 @@ const SECONDARY_BTN =
 // am Handy zu eng, rutschen die Knöpfe in eine eigene Zeile – der Name wird
 // nie abgeschnitten.
 function PersonRow({
+  id,
   name,
   number,
   link,
   muted,
   children,
 }: {
+  id: string;
   name: string;
   number: number;
   link?: boolean;
@@ -31,9 +34,7 @@ function PersonRow({
 }) {
   const person = (
     <>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-hover font-display text-xs font-semibold text-muted">
-        {name.slice(0, 1).toUpperCase()}
-      </span>
+      <PlayerAvatar id={id} name={name} size={36} className={muted ? "opacity-60" : ""} />
       <span className="min-w-0 flex-1">
         <FitText text={name} className={`text-sm font-semibold ${muted ? "text-muted" : "text-ink"}`} />
         <span className="block text-xs text-muted">#{number}</span>
@@ -260,7 +261,7 @@ export default function FreundePage() {
             </p>
           ) : (
             results.map((r) => (
-              <PersonRow key={r.id} name={r.name} number={r.number}>
+              <PersonRow key={r.id} id={r.id} name={r.name} number={r.number}>
                 {resultActions(r)}
               </PersonRow>
             ))
@@ -274,7 +275,7 @@ export default function FreundePage() {
       {incoming.length > 0 && (
         <Section title={`Anfragen an dich (${incoming.length})`}>
           {incoming.map((f: FriendEntry) => (
-            <PersonRow key={f.id} name={f.name} number={f.number}>
+            <PersonRow key={f.id} id={f.id} name={f.name} number={f.number}>
               <button
                 className={PRIMARY_BTN}
                 disabled={busyId === f.id}
@@ -301,10 +302,15 @@ export default function FreundePage() {
           </p>
         ) : (
           accepted.map((f) => (
-            <PersonRow key={f.id} name={f.name} number={f.number} link>
-              <button onClick={() => openChat(f.id)} className={`${PRIMARY_BTN} relative flex items-center gap-1.5 !px-3.5`}>
-                <ChatIcon className="h-3.5 w-3.5" />
-                Schreiben
+            <PersonRow key={f.id} id={f.id} name={f.name} number={f.number} link>
+              <button
+                onClick={() => openChat(f.id)}
+                aria-label={`${f.name} schreiben`}
+                title="Schreiben"
+                className="relative flex h-9 items-center justify-center gap-1.5 rounded-full border border-action/60 px-2.5 font-display text-xs font-semibold text-action transition-colors hover:bg-action/10 sm:px-3.5"
+              >
+                <ChatIcon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                <span className="hidden sm:inline">Schreiben</span>
                 {(chats.find((c) => c.friendId === f.id)?.unread ?? 0) > 0 && (
                   <span className="absolute -right-1 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-surface bg-red-500 px-1 text-[10px] font-bold text-white">
                     {chats.find((c) => c.friendId === f.id)?.unread}
@@ -333,7 +339,7 @@ export default function FreundePage() {
       {outgoing.length > 0 && (
         <Section title="Gesendete Anfragen">
           {outgoing.map((f) => (
-            <PersonRow key={f.id} name={f.name} number={f.number} muted>
+            <PersonRow key={f.id} id={f.id} name={f.name} number={f.number} muted>
               <span className="flex items-center gap-1.5 text-xs text-muted">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-gold" />
                 wartet
@@ -352,7 +358,7 @@ export default function FreundePage() {
       {blocked.length > 0 && (
         <Section title="Blockiert">
           {blocked.map((b) => (
-            <PersonRow key={b.id} name={b.name} number={b.number} muted>
+            <PersonRow key={b.id} id={b.id} name={b.name} number={b.number} muted>
               <button
                 className={SECONDARY_BTN}
                 disabled={busyId === b.id}
