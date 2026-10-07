@@ -133,7 +133,7 @@ function eliteIcon(idSuffix = ""): RankIconOption {
 }
 
 function isElite(pointsBySport: Partial<Record<Sport, number>>): boolean {
-  return (Object.keys(SPORT_EMOJI) as Sport[]).every((s) => (pointsBySport[s] ?? 0) >= ELITE_MIN_POINTS);
+  return SPORTS.every((s) => (pointsBySport[s] ?? 0) >= ELITE_MIN_POINTS);
 }
 
 // Das allerhöchste Abzeichen "Unsterblich": in ALLEN Sportarten GOAT.
@@ -154,7 +154,7 @@ function unsterblichIcon(idSuffix = ""): RankIconOption {
 }
 
 export function isUnsterblich(pointsBySport: Partial<Record<Sport, number>>): boolean {
-  return (Object.keys(SPORT_EMOJI) as Sport[]).every((s) => (pointsBySport[s] ?? 0) >= GOAT_MIN_POINTS);
+  return SPORTS.every((s) => (pointsBySport[s] ?? 0) >= GOAT_MIN_POINTS);
 }
 
 /**
@@ -164,7 +164,7 @@ export function isUnsterblich(pointsBySport: Partial<Record<Sport, number>>): bo
  */
 export function getAvailableRankIcons(pointsBySport: Partial<Record<Sport, number>>): RankIconOption[] {
   const options: RankIconOption[] = [];
-  for (const sport of Object.keys(SPORT_EMOJI) as Sport[]) {
+  for (const sport of SPORTS) {
     const points = pointsBySport[sport] ?? 0;
     if (points > 0) options.push(getSportRankIcon(sport, points));
   }
@@ -181,7 +181,7 @@ export function getAvailableRankIcons(pointsBySport: Partial<Record<Sport, numbe
 export function getAllRankIcons(
   pointsBySport: Partial<Record<Sport, number>>
 ): { option: RankIconOption; unlocked: boolean; hint: string }[] {
-  const list = (Object.keys(SPORT_EMOJI) as Sport[]).map((sport) => {
+  const list = SPORTS.map((sport) => {
     const points = pointsBySport[sport] ?? 0;
     return {
       option: getSportRankIcon(sport, points),
@@ -246,7 +246,7 @@ export function getIconForPoints(
   pointsBySport: Partial<Record<Sport, number>>,
   idSuffix = ""
 ): RankIconOption | null {
-  const sports = Object.keys(SPORT_EMOJI) as Sport[];
+  const sports = SPORTS;
   const withPoints = sports.filter((s) => (pointsBySport[s] ?? 0) > 0);
   if (withPoints.length === 0) return null;
   if (isUnsterblich(pointsBySport)) return unsterblichIcon(idSuffix);

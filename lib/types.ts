@@ -2,7 +2,33 @@
 // Teams, Rangpunkte). NIE umbenennen – angezeigt wird SPORT_LABELS.
 export type Sport = "Fußball" | "NFL" | "NBA" | "NHL" | "Handball";
 
-export const SPORTS: Sport[] = ["Fußball", "NFL", "NBA", "NHL", "Handball"];
+// Alle Sportarten, die es im Code gibt – auch ausgeblendete. Für Daten
+// (Rangpunkte, Vereine, Statistik), damit alte Einträge erhalten bleiben.
+export const ALL_SPORTS: Sport[] = ["Fußball", "NFL", "NBA", "NHL", "Handball"];
+
+// Ausgeblendete Sportarten: tauchen in der App nirgends mehr auf (Tippen,
+// Spiel anlegen, Rangliste, Statistik, Vereine, Rang-Icons, Legende/
+// Unsterblich), bleiben aber in Code und Datenbank erhalten. In den News
+// bleiben sie wählbar (NEWS_SPORTS). WIEDER EINSCHALTEN: Sportart hier
+// aus der Liste löschen (z. B. HIDDEN_SPORTS = []).
+export const HIDDEN_SPORTS: Sport[] = ["Handball"];
+
+/** Sportarten, die in der App aktiv sind (ohne ausgeblendete). */
+export const SPORTS: Sport[] = ALL_SPORTS.filter((s) => !HIDDEN_SPORTS.includes(s));
+
+/** true, wenn die Sportart aktiv (nicht ausgeblendet) ist. */
+export function isSportActive(sport: Sport | null | undefined): boolean {
+  return !!sport && SPORTS.includes(sport);
+}
+
+/**
+ * Auswahl für Sportart-Felder im Admin: aktive Sportarten, plus die aktuell
+ * gesetzte, falls sie ausgeblendet ist (damit ein altes Spiel beim
+ * Bearbeiten nicht still die Sportart wechselt).
+ */
+export function sportOptions(current?: Sport | null): Sport[] {
+  return current && !SPORTS.includes(current) ? [...SPORTS, current] : SPORTS;
+}
 
 // Anzeige-Namen der Sportarten. Ligen/Wettbewerbe (z. B. "NFL Regular
 // Season") bleiben eigene Namen und werden hier nicht berührt.
@@ -33,7 +59,7 @@ export function sportLabel(sport: string | null | undefined): string {
 // der Datenbank, neue Sportarten brauchen deshalb kein SQL.
 export type NewsSport = Sport | "Formel 1" | "MotoGP" | "Tennis" | "Darts";
 
-export const NEWS_SPORTS: NewsSport[] = [...SPORTS, "Formel 1", "MotoGP", "Tennis", "Darts"];
+export const NEWS_SPORTS: NewsSport[] = [...ALL_SPORTS, "Formel 1", "MotoGP", "Tennis", "Darts"];
 
 export const NEWS_SPORT_ICONS: Record<NewsSport, string> = {
   "Fußball": "⚽",

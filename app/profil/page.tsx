@@ -521,7 +521,7 @@ function ProfilInhalt() {
         {/* Tipps nach Sportart – stand früher unter dem Saison-Pass, gehört aber
             zur Statistik (gleiche Zählung ab Neustart wie "Abgegebene Tipps"). */}
         <p className="mb-2 mt-4 font-display text-sm font-semibold text-ink">Tipps nach Sportart</p>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {SPORTS.map((sport) => (
             <div key={sport} className="rounded-card border border-edge bg-surface px-2 py-3 text-center">
               <div className="mb-1 text-xl">{sportIcon[sport]}</div>

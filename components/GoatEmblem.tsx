@@ -1,6 +1,6 @@
 import { useId } from "react";
 import { SPORT_EMOJI } from "@/lib/rankTiers";
-import { Sport } from "@/lib/types";
+import { Sport, SPORTS } from "@/lib/types";
 
 // GOAT-Abzeichen (einzige Stufe über Meister): goldener Ziegenkopf in
 // Seitenansicht auf einem goldenen Medaillon, unten rechts eine goldene
@@ -11,7 +11,6 @@ import { Sport } from "@/lib/types";
 // Bei "Bewegung reduzieren" bleibt alles still (siehe .goat-fx in globals.css).
 
 const CLIP = "M20 1.5 A18.5 18.5 0 1 1 19.99 1.5 Z";
-const SPORTS = Object.keys(SPORT_EMOJI) as Sport[];
 
 // 4-zackiger Funkel-Stern um (cx, cy) mit Radius r.
 function sparklePath(cx: number, cy: number, r: number) {
