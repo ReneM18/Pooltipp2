@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import Navbar from "./Navbar";
 import NewsTicker from "./NewsTicker";
 import NavTabs from "./NavTabs";
+import BottomNav from "./BottomNav";
 import ChatWidget from "./ChatWidget";
 import OnboardingTour from "./OnboardingTour";
 import Footer from "./Footer";
@@ -42,16 +43,19 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
         <NewsTicker />
         <NavTabs />
       </div>
-      {/* pb-24: reserviert unten Platz, damit der schwebende Chat-Button
-          nicht über den letzten Inhalt/Footer ragt. */}
+      {/* pb-36 (Handy) / pb-24 (lg:): reserviert unten Platz, damit die
+          feste Leiste unten und der schwebende Chat-Button nicht über den
+          letzten Inhalt/Footer ragen. */}
       {/* Saison-Design: verblasste Blätter hinter der ganzen Seite. */}
       <SeasonBackdrop />
-      <div className="pb-24">
+      <div className="pb-36 lg:pb-24">
         <SeasonDesignGate />
         {children}
         <Footer />
       </div>
       <ChatWidget />
+      {/* Handy/Tablet: feste Leiste unten (ersetzt dort die Menüleiste oben). */}
+      <BottomNav />
       {/* Neue Spieler haben auf /start ihr eigenes Start-Erlebnis. */}
       {pathname !== "/start" && <OnboardingTour />}
       <PullToRefresh />
