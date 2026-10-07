@@ -7,6 +7,7 @@ import SeasonFrame from "@/components/SeasonFrame";
 import SeasonDeco from "@/components/SeasonDeco";
 import { useMyOverallRank } from "@/lib/myOverallRank";
 import { CoinIcon } from "@/components/CoinIcon";
+import CountUp from "@/components/CountUp";
 import { TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
 import { useStartHref } from "@/lib/useStartHref";
 
@@ -94,7 +95,7 @@ export default function Navbar() {
                 isLowOnStars ? "text-red-400" : "text-ink"
               }`}
             >
-              {freeStars.toLocaleString("de-DE")}
+              <CountUp value={freeStars} />
             </span>
           </div>
           )}

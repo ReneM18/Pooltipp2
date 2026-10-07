@@ -235,6 +235,17 @@ export default function MatchCard({
 
   const hasTipped = !!myTip;
   hasTippedRef.current = hasTipped;
+  // Kurze Bestätigungs-Animation, sobald ein gerade abgegebener Tipp
+  // gespeichert ist (nicht beim normalen Laden der Seite).
+  const [justSaved, setJustSaved] = useState(false);
+  const awaitingSaveRef = useRef(false);
+  useEffect(() => {
+    if (!hasTipped || !awaitingSaveRef.current) return;
+    awaitingSaveRef.current = false;
+    setJustSaved(true);
+    const t = window.setTimeout(() => setJustSaved(false), 1600);
+    return () => window.clearTimeout(t);
+  }, [hasTipped]);
 
   // Am Handy springt die Seite nach "Tipp abgeben" sonst weg: die Karte wird
   // kleiner/größer, und schließt sich gleichzeitig die Tastatur, verschiebt
@@ -438,6 +449,7 @@ export default function MatchCard({
     const [h, a] = isOneXTwo && nflPick ? oneXTwoToScore(nflPick) : [homeScore ?? 0, awayScore ?? 0];
     closeKeyboard();
     keepInViewRef.current = true;
+    awaitingSaveRef.current = true;
 
     Promise.resolve(onSubmitTip(h, a)).finally(() => {
       submittedRef.current = false;
@@ -675,7 +687,7 @@ export default function MatchCard({
               className={`w-full rounded-full py-2.5 font-display font-semibold tracking-wide text-base transition-all ${
                 notReady
                   ? "cursor-not-allowed border border-edge bg-edge text-muted"
-                  : "bg-action-hover text-pitch shadow-[0_0_22px_rgb(var(--c-action-hover)/0.45)] enabled:hover:brightness-110 enabled:hover:shadow-[0_0_30px_rgb(var(--c-action-hover)/0.6)] disabled:cursor-wait"
+                  : "bg-action-hover text-pitch shadow-[0_0_22px_rgb(var(--c-action-hover)/0.45)] enabled:active:scale-[0.97] enabled:hover:brightness-110 enabled:hover:shadow-[0_0_30px_rgb(var(--c-action-hover)/0.6)] disabled:cursor-wait"
               }`}
             >
               {submitting ? "Wird gespeichert…" : "Tipp abgeben"}
@@ -693,10 +705,12 @@ export default function MatchCard({
           <div className="flex flex-col gap-3">
             {hasTipped && (
               <div
-                className="flex items-center justify-between gap-3 rounded-lg border border-edge bg-pitch px-4 py-2.5"
+                className={`flex items-center justify-between gap-3 rounded-lg border border-edge bg-pitch px-4 py-2.5 ${
+                  justSaved ? "animate-tip-saved" : ""
+                }`}
               >
                 <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-muted">
-                  <span aria-hidden className="font-bold text-action-hover">✓</span>
+                  <span aria-hidden className={`font-bold text-action-hover ${justSaved ? "animate-check-pop" : ""}`}>✓</span>
                   Dein Tipp
                 </span>
                 <span className="flex min-w-0 items-center gap-3">
