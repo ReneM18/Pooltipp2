@@ -20,7 +20,7 @@ const MAIN: Item[] = [
   },
   {
     href: "/matchcenter",
-    label: "Matches",
+    label: "Center",
     icon: (
       <>
         <circle cx="12" cy="12" r="8" />
