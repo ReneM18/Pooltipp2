@@ -3,6 +3,14 @@ import type { Config } from "tailwindcss";
 // Design tokens for PoolTipp — a dark, "stadium at night" base with a
 // warm gold accent for the "Sterne" currency and a muted grass-green
 // accent reserved for actions and live states.
+//
+// Knopf-Farbregel:
+// - Grün (action): die Hauptaktion einer Seite – Tipp abgeben, Speichern,
+//   Weiter, Registrieren, Teilen, Tipprunde beitreten/erstellen.
+// - Gold (gold): nur wo es um Coins oder Belohnungen geht – Bonus abholen,
+//   Premium, Prestige, Herausfordern (Coin-Einsatz), Taschen kaufen.
+// - Nebenaktionen: Umriss (border + Text), kein voller Hintergrund.
+// Im Herbst-Design wird "action" automatisch orange (app/globals.css).
 const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {

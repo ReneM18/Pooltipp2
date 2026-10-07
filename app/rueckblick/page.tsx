@@ -187,7 +187,7 @@ export default function RueckblickPage() {
             <button
               type="button"
               onClick={handleShare}
-              className="flex-1 rounded-full bg-gold py-2.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90"
+              className="flex-1 rounded-full bg-action py-2.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
             >
               Teilen
             </button>

@@ -80,7 +80,7 @@ export default function PasswortNeuPage() {
   const inputClass =
     "w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold";
   const primaryClass =
-    "block w-full rounded-full bg-gold py-3 text-center font-display text-base font-semibold text-pitch transition-colors hover:bg-gold/90 disabled:opacity-60";
+    "block w-full rounded-full bg-action py-3 text-center font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover disabled:opacity-60";
 
   return (
     <main className="mx-auto max-w-md px-5 py-10">

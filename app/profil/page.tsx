@@ -578,7 +578,7 @@ function ProfilInhalt() {
             )}
             <button
               onClick={handleShareRueckblick}
-              className="mt-4 w-full rounded-full bg-gold py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90"
+              className="mt-4 w-full rounded-full bg-action py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
             >
               📋 Rückblick kopieren
             </button>

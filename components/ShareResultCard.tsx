@@ -150,7 +150,7 @@ export default function ShareResultCard({ leagueName, leaderboard, currentUser }
         <button
           onClick={handleShareOrDownload}
           disabled={busy}
-          className="flex items-center gap-1.5 rounded-full bg-gold px-3.5 py-1.5 font-display text-xs font-semibold text-pitch transition-colors hover:bg-gold/90 disabled:opacity-60"
+          className="flex items-center gap-1.5 rounded-full bg-action px-3.5 py-1.5 font-display text-xs font-semibold text-pitch transition-colors hover:bg-action-hover disabled:opacity-60"
         >
           <ShareIcon className="h-3.5 w-3.5" />
           {busy ? "Wird erstellt…" : "Ergebnis teilen"}

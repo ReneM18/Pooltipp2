@@ -339,7 +339,7 @@ function EditLeagueForm({
             if (!name.trim()) return;
             onSave(name.trim(), description.trim());
           }}
-          className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
+          className="rounded-full bg-action px-4 py-2 text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
         >
           Speichern
         </button>
@@ -396,7 +396,7 @@ function AddMatchForm({
       </div>
       <button
         type="submit"
-        className="rounded-full bg-blue-500 px-4 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
+        className="rounded-full bg-action px-4 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
       >
         Spiel anlegen
       </button>
@@ -481,7 +481,7 @@ function LeagueMatchCard({
               if (!editTitle.trim() || !editKickoff) return;
               if (await onUpdateMatch(editTitle.trim(), new Date(editKickoff).toISOString())) setEditing(false);
             }}
-            className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-pitch transition-colors hover:bg-blue-400"
+            className="rounded-full bg-action px-4 py-2 text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
           >
             Speichern
           </button>
@@ -576,7 +576,7 @@ function LeagueMatchCard({
           <button
             onClick={handleTip}
             disabled={submitting}
-            className="rounded-full bg-blue-500 px-4 py-1.5 text-sm font-semibold text-pitch transition-colors hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full bg-action px-4 py-1.5 text-sm font-semibold text-pitch transition-colors hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? "…" : myTip ? "Speichern" : "Tippen"}
           </button>

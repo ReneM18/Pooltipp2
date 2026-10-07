@@ -1195,7 +1195,7 @@ function PointsInfoButton({
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="w-full shrink-0 bg-gold py-3 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90"
+                className="w-full shrink-0 bg-action py-3 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
               >
                 Schließen
               </button>
