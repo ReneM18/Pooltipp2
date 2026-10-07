@@ -20,7 +20,7 @@ const MAIN: Item[] = [
   },
   {
     href: "/matchcenter",
-    label: "Spiele",
+    label: "Matches",
     icon: (
       <>
         <circle cx="12" cy="12" r="8" />
@@ -40,14 +40,29 @@ const MAIN: Item[] = [
   },
 ];
 
-const MORE = [
-  { href: "/duelle", emoji: "⚔️", label: "Duelle", hint: "Fordere Freunde heraus" },
-  { href: "/freunde", emoji: "👥", label: "Freunde", hint: "Nummer & Chat" },
-  { href: "/feed", emoji: "📰", label: "Feed", hint: "Was die anderen tun" },
-  { href: "/teams", emoji: "🤝", label: "Tipprunden", hint: "Private Runden" },
-  { href: "/turnier", emoji: "🏆", label: "Turniere", hint: "WM, EM & Co." },
-  { href: "/shop", emoji: "🛒", label: "Shop", hint: "Joker & Taschen" },
+type MoreItem = { href: string; emoji: string; label: string; hint: string };
+
+// Zwei Spalten im Mehr-Fenster: links alles zum Mitspielen, rechts Freunde,
+// Feed und Shop.
+const MORE_COLUMNS: { title: string; items: MoreItem[] }[] = [
+  {
+    title: "Spielen",
+    items: [
+      { href: "/duelle", emoji: "⚔️", label: "Duelle", hint: "Fordere Freunde heraus" },
+      { href: "/teams", emoji: "🤝", label: "Tipprunden", hint: "Private Runden" },
+      { href: "/turnier", emoji: "🏆", label: "Turniere", hint: "WM, EM & Co." },
+    ],
+  },
+  {
+    title: "Freunde & Shop",
+    items: [
+      { href: "/freunde", emoji: "👥", label: "Freunde", hint: "Nummer & Chat" },
+      { href: "/feed", emoji: "📰", label: "Feed", hint: "Was andere tippen" },
+      { href: "/shop", emoji: "🛒", label: "Shop", hint: "Joker & Taschen" },
+    ],
+  },
 ];
+const MORE = MORE_COLUMNS.flatMap((c) => c.items);
 
 function Badge({ n }: { n: number }) {
   return (
@@ -85,33 +100,41 @@ export default function BottomNav() {
             className="mb-[calc(4rem+env(safe-area-inset-bottom))] w-full animate-[sheetUp_0.2s_ease-out] rounded-t-2xl border-t border-edge bg-surface px-4 pb-4 pt-3"
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-edge" />
-            <div className="grid grid-cols-3 gap-2.5">
-              {MORE.map((m) => {
-                const active = pathname.startsWith(m.href);
-                return (
-                  <Link
-                    key={m.href}
-                    href={m.href}
-                    onClick={() => setOpen(false)}
-                    className={`relative flex min-w-0 flex-col items-center rounded-card border px-1.5 py-3 text-center transition-colors ${
-                      active ? "border-gold/60 bg-gold/10" : "border-edge bg-pitch/60 hover:border-gold/40"
-                    }`}
-                  >
-                    <span className="text-2xl leading-none" aria-hidden>
-                      {m.emoji}
-                    </span>
-                    <span className="mt-1.5 font-display text-[13px] font-semibold leading-tight text-ink">{m.label}</span>
-                    <span className="mt-0.5 text-[11px] leading-tight text-muted">
-                      {m.href === "/duelle" && invites > 0 ? `${invites} ${invites === 1 ? "Einladung" : "Einladungen"}` : m.hint}
-                    </span>
-                    {m.href === "/duelle" && invites > 0 && (
-                      <span className="absolute right-2 top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white">
-                        {invites}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
+            <div className="grid grid-cols-2 gap-3">
+              {MORE_COLUMNS.map((col) => (
+                <div key={col.title} className="flex min-w-0 flex-col gap-2">
+                  <p className="px-1 font-display text-[11px] font-bold uppercase tracking-wider text-muted">{col.title}</p>
+                  {col.items.map((m) => {
+                    const active = pathname.startsWith(m.href);
+                    const hasInvites = m.href === "/duelle" && invites > 0;
+                    return (
+                      <Link
+                        key={m.href}
+                        href={m.href}
+                        onClick={() => setOpen(false)}
+                        className={`relative flex min-w-0 items-center gap-2.5 rounded-card border px-2.5 py-2.5 transition-colors ${
+                          active ? "border-gold/60 bg-gold/10" : "border-edge bg-pitch/60 hover:border-gold/40"
+                        }`}
+                      >
+                        <span className="shrink-0 text-xl leading-none" aria-hidden>
+                          {m.emoji}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block font-display text-[13px] font-semibold leading-tight text-ink">{m.label}</span>
+                          <span className="block text-[11px] leading-tight text-muted">
+                            {hasInvites ? `${invites} ${invites === 1 ? "Einladung" : "Einladungen"}` : m.hint}
+                          </span>
+                        </span>
+                        {hasInvites && (
+                          <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white">
+                            {invites}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           </div>
         </div>
