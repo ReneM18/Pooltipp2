@@ -9,7 +9,7 @@ import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { useMyClubs } from "@/lib/clubs";
-import { Match, Sport, SPORTS, SPORT_ICONS, sportLabel } from "@/lib/types";
+import { Match, Sport, SPORTS, SPORT_ICONS, isSportActive, sportLabel } from "@/lib/types";
 import { matchTitle } from "@/lib/teamOrder";
 
 // Start-Erlebnis nach der Registrierung: 1) Sportarten antippen,
@@ -60,6 +60,7 @@ export default function StartPage() {
       (m) =>
         m.status !== "finished" &&
         m.status !== "cancelled" &&
+        isSportActive(m.sport) &&
         new Date(m.tipDeadline).getTime() > now &&
         !tipped.has(m.id) &&
         getTeam(m.homeTeamId) &&

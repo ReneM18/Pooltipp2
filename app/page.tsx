@@ -11,7 +11,7 @@ import { useJokers } from "@/lib/JokerContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { BOOSTER_STAKE } from "@/lib/poolScore";
-import { Match } from "@/lib/types";
+import { Match, isSportActive } from "@/lib/types";
 import { splitMatchesByTab } from "@/lib/matchTabs";
 import { useStreak } from "@/lib/streak";
 import { readPendingInvite } from "@/lib/leagueInvite";
@@ -110,8 +110,11 @@ export default function DashboardPage() {
   // Geschlossen erst, wenn der Admin den Endstand eingetragen oder das Spiel
   // abgesagt hat, nie nach Uhrzeit (Regel und Test in lib/matchTabs.ts).
   // Spiele, deren Team fehlt (z. B. gelöscht), zeigt die Seite nicht an, also
-  // zählen sie auch nicht als offen.
-  const shownMatches = matches.filter((m) => getTeam(m.homeTeamId) && getTeam(m.awayTeamId));
+  // zählen sie auch nicht als offen. Spiele ausgeblendeter Sportarten
+  // (HIDDEN_SPORTS in lib/types.ts) ebenfalls nicht.
+  const shownMatches = matches.filter(
+    (m) => isSportActive(m.sport) && getTeam(m.homeTeamId) && getTeam(m.awayTeamId)
+  );
   const { offen: offeneMatches, geschlossen: geschlosseneMatches } = splitMatchesByTab(shownMatches, now);
   // Kein offenes Spiel mehr: gleich die geschlossenen zeigen statt einer
   // leeren Seite. Sobald wieder eins offen ist, stehen die offenen vorne.

@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useResumeTick } from "@/lib/appRefresh";
-import { Sport, SPORTS } from "@/lib/types";
+import { Sport, SPORTS, ALL_SPORTS } from "@/lib/types";
 import { WeekWindow } from "@/lib/weeklyLeaderboard";
 
 export interface GlobalPlayer {
@@ -30,13 +30,15 @@ export interface ProfileRow {
 
 export function toPointsBySport(raw: Partial<Record<Sport, number>> | null | undefined): Record<Sport, number> {
   const result = {} as Record<Sport, number>;
-  for (const sport of SPORTS) {
+  for (const sport of ALL_SPORTS) {
     const value = Number(raw?.[sport] ?? 0);
     result[sport] = Number.isFinite(value) ? value : 0;
   }
   return result;
 }
 
+// Gesamtpunkte nur aus aktiven Sportarten (ausgeblendete zählen nicht mit,
+// bleiben aber gespeichert und zählen wieder, sobald sie eingeschaltet sind).
 export function sumPoints(points: Record<Sport, number>): number {
   return SPORTS.reduce((sum, sport) => sum + points[sport], 0);
 }

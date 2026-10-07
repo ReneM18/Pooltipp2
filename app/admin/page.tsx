@@ -7,7 +7,7 @@ import { useUser } from "@/lib/UserContext";
 import { useTournaments } from "@/lib/TournamentContext";
 import { Tournament } from "@/lib/tournamentTypes";
 import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
-import { Sport, SPORTS, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchJersey, MatchStatus, TipMode, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
+import { Sport, SPORTS, sportOptions, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchJersey, MatchStatus, TipMode, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
 import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
@@ -620,7 +620,7 @@ function CompetitionManager() {
               onChange={(e) => setSport(e.target.value as Sport)}
               className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
             >
-              {SPORTS.map((s) => (
+              {sportOptions(sport).map((s) => (
                 <option key={s} value={s}>
                   {sportIcon[s]} {sportLabel(s)}
                 </option>
@@ -1024,7 +1024,7 @@ function TeamManager() {
               onChange={(e) => setSport(e.target.value as Sport)}
               className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
             >
-              {SPORTS.map((s) => (
+              {sportOptions(sport).map((s) => (
                 <option key={s} value={s}>
                   {sportIcon[s]} {sportLabel(s)}
                 </option>
@@ -1580,7 +1580,7 @@ function MatchManager() {
                 }}
                 className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
               >
-                {SPORTS.map((s) => (
+                {sportOptions(sport).map((s) => (
                   <option key={s} value={s}>
                     {sportIcon[s]} {sportLabel(s)}
                   </option>

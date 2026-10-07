@@ -9,7 +9,7 @@ import { usePlayerRankIcons } from "@/lib/playerRankIcons";
 import RankBadge from "@/components/RankBadge";
 import FitText from "@/components/FitText";
 import PassHonorTags, { useOtherPlayersHonors } from "@/components/PassHonors";
-import { EmotePicker, MessageBody, stickerFromText, stickerText } from "@/components/Emotes";
+import { EmotePicker, MessageBody, StickerDraft, stickerFromText, stickerText } from "@/components/Emotes";
 import { SeasonEmote } from "@/lib/seasons";
 
 // ---------------------------------------------------------------------------
@@ -130,11 +130,13 @@ function Composer({
 }: {
   disabled: boolean;
   placeholder: string;
-  onSend: (text: string) => void;
+  onSend: (text: string) => void | Promise<void>;
   autoFocus?: boolean;
 }) {
   const { passHonors } = useUser();
   const [draft, setDraft] = useState("");
+  // Ausgewählter Sticker: erst Vorschau, gesendet wird er mit dem Senden-Knopf.
+  const [sticker, setSticker] = useState<SeasonEmote | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -142,45 +144,56 @@ function Composer({
     if (autoFocus && window.matchMedia("(min-width: 640px)").matches) inputRef.current?.focus();
   }, [autoFocus]);
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const text = draft.trim();
-    if (!text || disabled) return;
+    if ((!text && !sticker) || disabled) return;
     // Sticker-Code von Hand eingetippt, ohne den Sticker zu besitzen: nicht senden.
     const typedSticker = stickerFromText(text);
     if (typedSticker && !passHonors.emotes.some((em) => em.id === typedSticker.id)) return;
+    const pickedSticker = sticker;
     setDraft("");
-    onSend(text);
+    setSticker(null);
+    // Sticker bleibt eine eigene Nachricht (":id:"), der Text kommt danach.
+    if (pickedSticker) await onSend(stickerText(pickedSticker));
+    if (text) await onSend(text);
   }
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex items-stretch gap-2 border-t border-edge bg-surface px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+      className="border-t border-edge bg-surface px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
     >
-      <EmotePicker
-        disabled={disabled}
-        onInsertEmoji={(emoji) => setDraft((d) => (d + emoji).slice(0, MAX_LENGTH))}
-        onSendSticker={(emote: SeasonEmote) => onSend(stickerText(emote))}
-      />
-      <input
-        ref={inputRef}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
-        maxLength={MAX_LENGTH}
-        enterKeyHint="send"
-        className="min-w-0 flex-1 rounded-full border border-edge bg-pitch px-4 py-2 text-base text-ink outline-none transition-colors placeholder:text-muted/70 focus:border-gold disabled:opacity-50 sm:text-sm"
-      />
-      <button
-        type="submit"
-        disabled={disabled || !draft.trim()}
-        aria-label="Nachricht senden"
-        className="flex w-10 shrink-0 items-center justify-center rounded-full bg-action text-pitch transition-all enabled:hover:bg-action-hover disabled:opacity-40"
-      >
-        <SendIcon />
-      </button>
+      {sticker && (
+        <div className="mb-2">
+          <StickerDraft emote={sticker} onRemove={() => setSticker(null)} />
+        </div>
+      )}
+      <div className="flex items-stretch gap-2">
+        <EmotePicker
+          disabled={disabled}
+          onInsertEmoji={(emoji) => setDraft((d) => (d + emoji).slice(0, MAX_LENGTH))}
+          onPickSticker={(emote: SeasonEmote) => setSticker(emote)}
+        />
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={sticker ? "Text dazu (optional)" : placeholder}
+          disabled={disabled}
+          maxLength={MAX_LENGTH}
+          enterKeyHint="send"
+          className="min-w-0 flex-1 rounded-full border border-edge bg-pitch px-4 py-2 text-base text-ink outline-none transition-colors placeholder:text-muted/70 focus:border-gold disabled:opacity-50 sm:text-sm"
+        />
+        <button
+          type="submit"
+          disabled={disabled || (!draft.trim() && !sticker)}
+          aria-label="Nachricht senden"
+          className="flex w-10 shrink-0 items-center justify-center rounded-full bg-action text-pitch transition-all enabled:hover:bg-action-hover disabled:opacity-40"
+        >
+          <SendIcon />
+        </button>
+      </div>
     </form>
   );
 }
@@ -397,7 +410,7 @@ function Conversation({ friendId }: { friendId: string }) {
 
   async function send(text: string) {
     if (!authUserId) return;
-    const tempId = `tmp-${Date.now()}`;
+    const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     stickToBottomRef.current = true;
     setError(null);
     setMessages((current) => [
@@ -633,11 +646,11 @@ function CommunityRoom() {
     if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages.length]);
 
-  function send(text: string) {
+  async function send(text: string) {
     if (!authUserId) return;
-    const id = `chat-${Date.now()}`;
+    const id = `chat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setError(null);
-    supabase
+    await supabase
       .from("chat_messages")
       .insert({ id, user_id: authUserId, author_name: displayName, text })
       .then(({ error: sendError }) => {

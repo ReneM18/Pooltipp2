@@ -8,7 +8,7 @@ import { useDuels, DuelInvitee } from "@/lib/DuelsContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { xpForLevel } from "@/lib/seasonPass";
 import { Duel, DuelPlayer } from "@/lib/duelTypes";
-import { Match, SPORT_ICONS, Sport } from "@/lib/types";
+import { Match, SPORT_ICONS, Sport, isSportActive } from "@/lib/types";
 import { CoinIcon } from "@/components/CoinIcon";
 import { matchTitle, scoreText } from "@/lib/teamOrder";
 
@@ -160,7 +160,13 @@ function CreateDuelForm({ prefill }: { prefill: { invitees: DuelInvitee[]; match
   const { showToast, celebrate } = useFeedback();
 
   const openMatches = [...matches]
-    .filter((m) => m.status !== "cancelled" && m.status !== "finished" && new Date(m.tipDeadline).getTime() > Date.now())
+    .filter(
+      (m) =>
+        isSportActive(m.sport) &&
+        m.status !== "cancelled" &&
+        m.status !== "finished" &&
+        new Date(m.tipDeadline).getTime() > Date.now()
+    )
     .sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime());
   const openIds = new Set(openMatches.map((m) => m.id));
 

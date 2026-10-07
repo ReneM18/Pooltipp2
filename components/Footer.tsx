@@ -23,7 +23,7 @@ export default function Footer() {
         <div className="flex flex-col gap-2 text-sm leading-relaxed text-muted sm:gap-1 sm:text-xs sm:leading-normal">
           <p>
             PoolTipp ist das kostenlose Social-Tippspiel für echte Sportfans: Tippe vor jedem Spiel
-            deiner Lieblingssportarten (Fußball, Football, Basketball, Eishockey, Handball) das Ergebnis. Jeder Tipp ist gratis und
+            deiner Lieblingssportarten (Fußball, Football, Basketball, Eishockey) das Ergebnis. Jeder Tipp ist gratis und
             bringt Rangpunkte: exakt +10, richtige Tordifferenz +7, richtige Tendenz +5, falsch −3.
             Dazu kommt ein Bonus gegen alle, die dasselbe Spiel getippt haben: Bessere zu schlagen
             bringt doppelt, gegen Schwächere zu verlieren kostet doppelt. Wer zwei Wochen lang gar
