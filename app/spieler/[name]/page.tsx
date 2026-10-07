@@ -9,6 +9,7 @@ import { usePlayerRankIcons } from "@/lib/playerRankIcons";
 import RankMeaningBadge from "@/components/RankMeaningBadge";
 import { useChat } from "@/lib/ChatContext";
 import { ChatIcon } from "@/components/Icons";
+import { avatarHue } from "@/components/PlayerAvatar";
 
 export default function SpielerProfilPage() {
   const params = useParams();
@@ -29,6 +30,7 @@ export default function SpielerProfilPage() {
   const leaderboardEntry = mockLeaderboard.find((e) => e.name === name);
   // Eigenes Icon = das im Profil gewählte, bei anderen aus ihren echten Rangpunkten.
   const rankIcon = isSelf ? activeRankIcon : rankIcons.byName(name);
+  const hue = avatarHue(friendEntry?.id ?? name);
   const photosVisible = isSelf || isFriend || profile.photoVisibility === "public";
 
   return (
@@ -41,7 +43,11 @@ export default function SpielerProfilPage() {
       </button>
 
       <div className="mb-6 flex items-center gap-4">
-        <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface font-display text-2xl font-bold text-gold">
+        <div
+          className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface font-display text-2xl font-bold text-gold"
+          // Andere Spieler in ihrer festen Farbe wie im Chat und in der Rangliste.
+          style={isSelf ? undefined : { background: `hsl(${hue} 38% 26%)`, color: `hsl(${hue} 70% 82%)` }}
+        >
           {name.slice(0, 1).toUpperCase()}
           {/* Rang-Icon direkt am Profilbild – Bedeutung (Label + Titel) steht
               nicht zusätzlich als Text daneben, sondern poppt bei
