@@ -59,19 +59,44 @@ export function MessageBody({ text }: { text: string }) {
 }
 
 /**
+ * Vorschau des ausgewählten Stickers über der Textzeile: noch nicht gesendet,
+ * mit ✕ wieder entfernbar. Erst der Senden-Knopf verschickt ihn.
+ */
+export function StickerDraft({ emote, onRemove }: { emote: SeasonEmote; onRemove: () => void }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-gold/40 bg-gold/5 p-2">
+      <EmoteSticker emote={emote} size={44} />
+      <p className="min-w-0 flex-1 text-xs leading-snug text-muted">
+        <span className="block font-semibold text-ink">Sticker „{emote.label}“</span>
+        Mit ➤ senden – Text dazu ist optional.
+      </p>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label="Sticker entfernen"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-edge bg-pitch text-sm text-muted transition-colors hover:border-red-400 hover:text-red-400"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
+/**
  * 🙂-Knopf mit Auswahl. Reiter „Emojis“: große Auswahl nach Kategorien mit
  * Suche und „Zuletzt benutzt“, Emojis werden in den Text eingefügt. Reiter
- * „Sticker“: Saison-Sticker werden direkt als eigene Nachricht gesendet.
+ * „Sticker“: Der gewählte Saison-Sticker kommt erst als Vorschau über die
+ * Textzeile (StickerDraft) und wird erst mit dem Senden-Knopf verschickt.
  * Gesperrte Sticker zeigen ehrlich, ab welchem Level sie freigeschaltet werden.
  */
 export function EmotePicker({
   onInsertEmoji,
-  onSendSticker,
+  onPickSticker,
   disabled = false,
   placement = "above",
 }: {
   onInsertEmoji: (emoji: string) => void;
-  onSendSticker: (emote: SeasonEmote) => void;
+  onPickSticker: (emote: SeasonEmote) => void;
   disabled?: boolean;
   placement?: "above" | "below";
 }) {
@@ -152,8 +177,8 @@ export function EmotePicker({
             <EmojiPanel onInsertEmoji={onInsertEmoji} />
           ) : (
             <StickerPanel
-              onSendSticker={(emote) => {
-                onSendSticker(emote);
+              onPickSticker={(emote) => {
+                onPickSticker(emote);
                 setOpen(false);
               }}
             />
@@ -283,7 +308,7 @@ function EmojiPanel({ onInsertEmoji }: { onInsertEmoji: (emoji: string) => void 
   );
 }
 
-function StickerPanel({ onSendSticker }: { onSendSticker: (emote: SeasonEmote) => void }) {
+function StickerPanel({ onPickSticker }: { onPickSticker: (emote: SeasonEmote) => void }) {
   const { passHonors } = useUser();
   const ownedIds = new Set(passHonors.emotes.map((e) => e.id));
   const unlocked = CURRENT_SEASON.emotes.every((e) => ownedIds.has(e.id));
@@ -310,11 +335,11 @@ function StickerPanel({ onSendSticker }: { onSendSticker: (emote: SeasonEmote) =
               key={emote.id}
               type="button"
               disabled={!owned}
-              onClick={() => onSendSticker(emote)}
+              onClick={() => onPickSticker(emote)}
               className={`flex items-center justify-center rounded-lg p-0.5 transition-transform ${
                 owned ? "hover:scale-110" : "cursor-not-allowed opacity-35 grayscale"
               }`}
-              aria-label={owned ? `Sticker „${emote.label}“ senden` : `${emote.label} (gesperrt)`}
+              aria-label={owned ? `Sticker „${emote.label}“ auswählen` : `${emote.label} (gesperrt)`}
             >
               <EmoteSticker emote={emote} size={48} />
             </button>
@@ -327,9 +352,9 @@ function StickerPanel({ onSendSticker }: { onSendSticker: (emote: SeasonEmote) =
             <button
               key={emote.id}
               type="button"
-              onClick={() => onSendSticker(emote)}
+              onClick={() => onPickSticker(emote)}
               className="flex items-center justify-center rounded-lg p-0.5 hover:scale-110"
-              aria-label={`Sticker „${emote.label}“ senden`}
+              aria-label={`Sticker „${emote.label}“ auswählen`}
             >
               <EmoteSticker emote={emote} size={48} />
             </button>
