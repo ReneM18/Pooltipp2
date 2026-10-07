@@ -1,5 +1,6 @@
 "use client";
 
+import PlayerAvatar from "./PlayerAvatar";
 import { useState, useEffect, useRef, useCallback, FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
@@ -19,32 +20,8 @@ import { SeasonEmote } from "@/lib/seasons";
 const MAX_LENGTH = 1000;
 
 // Jede Person bekommt eine eigene, gleichbleibende Farbe für ihren Kreis.
-function avatarHue(id: string): number {
-  let hash = 2166136261;
-  for (let i = 0; i < id.length; i++) hash = Math.imul(hash ^ id.charCodeAt(i), 16777619);
-  hash = Math.imul(hash ^ (hash >>> 15), 2246822507);
-  hash ^= hash >>> 13;
-  return (hash >>> 0) % 360;
-}
-
-function Avatar({ id, name, size = 40 }: { id: string; name: string; size?: number }) {
-  const hue = avatarHue(id);
-  return (
-    <span
-      aria-hidden
-      className="flex shrink-0 items-center justify-center rounded-full font-display font-semibold"
-      style={{
-        width: size,
-        height: size,
-        fontSize: size * 0.4,
-        background: `hsl(${hue} 38% 26%)`,
-        color: `hsl(${hue} 70% 82%)`,
-        boxShadow: `inset 0 0 0 1px hsl(${hue} 45% 40% / 0.6)`,
-      }}
-    >
-      {name.slice(0, 1).toUpperCase()}
-    </span>
-  );
+function Avatar(props: { id: string; name: string; size?: number }) {
+  return <PlayerAvatar {...props} />;
 }
 
 function sameDay(a: Date, b: Date) {
