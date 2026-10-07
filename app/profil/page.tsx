@@ -10,7 +10,7 @@ import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useMyOverallRank } from "@/lib/myOverallRank";
 import RankBadge from "@/components/RankBadge";
-import { getAllRankIcons, isUnsterblich, SPORT_EMOJI } from "@/lib/rankTiers";
+import { getAllRankIcons, isUnsterblich, prestigeLevel, SPORT_EMOJI } from "@/lib/rankTiers";
 import RankProgress from "@/components/RankProgress";
 import SeasonFrame from "@/components/SeasonFrame";
 import RankMeaningBadge from "@/components/RankMeaningBadge";
@@ -63,6 +63,7 @@ function ProfilInhalt() {
     passHonors,
     tipsSubmitted,
     rangPunkte,
+    prestige,
     selectedRankIconId,
     setSelectedRankIconId,
     activeRankIcon,
@@ -130,7 +131,7 @@ function ProfilInhalt() {
 
   // Alle Icons zeigen, auch die noch gesperrten (ausgegraut), damit man
   // sieht, was man noch erreichen kann.
-  const allRankIcons = getAllRankIcons(rangPunkte);
+  const allRankIcons = getAllRankIcons(rangPunkte, prestige);
   const sportProgressOptions = allRankIcons
     .map((r) => r.option)
     .filter((o) => o.kind === "sport" && o.sport && o.points !== undefined);
@@ -405,7 +406,8 @@ function ProfilInhalt() {
                 <RankProgress
                   sport={selectedProgress.sport!}
                   points={selectedProgress.points!}
-                  unsterblich={isUnsterblich(rangPunkte)}
+                  prestige={prestigeLevel(prestige, selectedProgress.sport!)}
+                  unsterblich={isUnsterblich(rangPunkte, prestige)}
                 />
               )}
             </section>

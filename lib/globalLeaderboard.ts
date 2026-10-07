@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useResumeTick } from "@/lib/appRefresh";
 import { Sport, SPORTS, ALL_SPORTS } from "@/lib/types";
 import { WeekWindow } from "@/lib/weeklyLeaderboard";
+import { PrestigeBySport } from "@/lib/rankTiers";
 
 export interface GlobalPlayer {
   id: string;
@@ -18,6 +19,8 @@ export interface GlobalPlayer {
   total: number;
   /** Im Profil gewähltes Rang-Icon (null = automatisch das stärkste). */
   rankIconId: string | null;
+  /** Prestige-Stufe je Sportart (leer = keine). */
+  prestige: PrestigeBySport;
 }
 
 export interface ProfileRow {
@@ -26,6 +29,8 @@ export interface ProfileRow {
   rang_punkte: Partial<Record<Sport, number>> | null;
   /** Fehlt, solange supabase/rang-icon-auswahl.sql noch nicht ausgeführt ist. */
   rank_icon_id?: string | null;
+  /** Fehlt, solange supabase/prestige.sql noch nicht ausgeführt ist. */
+  prestige?: PrestigeBySport | null;
 }
 
 export function toPointsBySport(raw: Partial<Record<Sport, number>> | null | undefined): Record<Sport, number> {
@@ -108,6 +113,7 @@ export function useGlobalLeaderboard(weekWindow: WeekWindow) {
             pointsBySport,
             total: sumPoints(pointsBySport),
             rankIconId: row.rank_icon_id ?? null,
+            prestige: row.prestige ?? {},
           };
         })
       );
@@ -148,7 +154,7 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  * Lädt alle Profile. Robust gegen zwei Fehlerarten:
  * - kurzer Verbindungsfehler (z. B. direkt nach dem Seitenaufruf, während
  *   die Login-Sitzung noch aufgefrischt wird) -> bis zu 3 Versuche;
- * - fehlende Spalte (z. B. rang_punkte oder rank_icon_id noch nicht angelegt) -> zweiter
+ * - fehlende Spalte (z. B. rang_punkte, rank_icon_id oder prestige noch nicht angelegt) -> zweiter
  *   Versuch mit "*", dann zählen fehlende Punkte einfach als 0.
  */
 export async function loadProfiles(isCancelled: () => boolean): Promise<{ rows: ProfileRow[] } | { error: string }> {
@@ -157,7 +163,7 @@ export async function loadProfiles(isCancelled: () => boolean): Promise<{ rows: 
     if (tryNo > 0) await wait(600 * tryNo);
     if (isCancelled()) return { error: "abgebrochen" };
 
-    const res = await supabase.from("profiles").select("id, display_name, rang_punkte, rank_icon_id");
+    const res = await supabase.from("profiles").select("id, display_name, rang_punkte, rank_icon_id, prestige");
     if (!res.error && res.data) return { rows: res.data as ProfileRow[] };
     lastError = res.error?.message ?? "Keine Daten";
 

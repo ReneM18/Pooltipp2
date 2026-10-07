@@ -6,7 +6,7 @@ import { setFlashToast } from "@/lib/flashToast";
 import { useAppRefresh } from "@/lib/appRefresh";
 import { SEASON_DESIGN_OFF_EVENT, SEASON_DESIGN_STORAGE_KEY } from "@/lib/seasons/design";
 import { mockUser } from "@/lib/mockData";
-import { getAvailableRankIcons, getBestRankIcon, RankIconOption } from "@/lib/rankTiers";
+import { getAvailableRankIcons, getBestRankIcon, PrestigeBySport, RankIconOption } from "@/lib/rankTiers";
 import { PhotoVisibility } from "@/lib/mockUsers";
 import { useAppData, SubmittedTip } from "@/lib/AppDataContext";
 import { Sport, ALL_SPORTS } from "@/lib/types";
@@ -98,6 +98,12 @@ interface UserContextValue {
   // Rangliste-Punkte je Sportart (Rankingsystem), können steigen
   // UND fallen (auch durch die Strafe fürs Nicht-Tippen). Komplett von passXP entkoppelt.
   rangPunkte: Record<Sport, number>;
+  // Prestige-Stufe je Sportart (supabase/prestige.sql). Ändert nur der
+  // Server über goPrestige, kommt per Sofort-Abgleich auf jedes Gerät.
+  prestige: PrestigeBySport;
+  // Als GOAT freiwillig Prestige gehen: Rangpunkte dieser Sportart auf 0,
+  // dafür ein Prestige-Stern. ok: false mit Fehlertext, wenn es nicht ging.
+  goPrestige: (sport: Sport) => Promise<{ ok: true; level: number } | { ok: false; error: string }>;
   canClaimDailyBonus: boolean;
   // Täglicher Bonus – rechnet die Datenbank (claim_daily_bonus). claimed:
   // false, wenn er heute schon abgeholt war.
@@ -286,6 +292,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [passXP, setPassXP] = useState(mockUser.passXP);
   const [passClaims, setPassClaims] = useState<string[]>([]);
   const [rangPunkte, setRangPunkte] = useState<Record<Sport, number>>(initialRangPunkte);
+  const [prestige, setPrestige] = useState<PrestigeBySport>({});
   const [lastClaimedAt, setLastClaimedAt] = useState<string | null>(null);
   const [streakCount, setStreakCount] = useState(0);
   const [lastTipDate, setLastTipDate] = useState<string | null>(null);
@@ -419,8 +426,39 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setLastClaimedAt(wallet.last_claimed_at ?? null);
   }
 
+  // Prestige je Sportart: liegt am Profil, nur der Server ändert es. Fehlt
+  // die Spalte noch (supabase/prestige.sql nicht ausgeführt), bleibt es leer.
+  const prestigeRequestRef = useRef(0);
+  useEffect(() => {
+    setPrestige({});
+  }, [authUserId]);
+  async function reloadPrestige() {
+    if (!authUserId) return;
+    const userId = authUserId;
+    const requestId = ++prestigeRequestRef.current;
+    const { data, error } = await supabase.from("profiles").select("prestige").eq("id", userId).maybeSingle();
+    if (error || !data || requestId !== prestigeRequestRef.current || authUserIdRef.current !== userId) return;
+    const next = (data.prestige ?? {}) as PrestigeBySport;
+    setPrestige((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next));
+  }
+
+  async function goPrestige(sport: Sport): Promise<{ ok: true; level: number } | { ok: false; error: string }> {
+    if (!authUserId) return { ok: false, error: "Bitte zuerst einloggen." };
+    const { data, error } = await supabase.rpc("go_prestige", { p_sport: sport });
+    if (error || !data) {
+      const missing = error && /go_prestige|function|schema cache/i.test(error.message) && !/GOAT/.test(error.message);
+      return { ok: false, error: missing ? "Prestige ist noch nicht freigeschaltet." : error?.message ?? "Unbekannter Fehler" };
+    }
+    await Promise.all([reloadWallet(), reloadPrestige()]);
+    // War das GOAT-Abzeichen dieser Sportart gewählt, gilt jetzt das
+    // Prestige-Abzeichen (sonst stünde dort plötzlich Bronze).
+    if (selectedRankIconId === `sport-${sport}`) setSelectedRankIconId(`prestige-${sport}`);
+    return { ok: true, level: Number((data as { prestige?: number }).prestige ?? 1) };
+  }
+
   async function reloadWallet(): Promise<boolean> {
     if (!authUserId) return false;
+    void reloadPrestige();
     const requestId = ++walletRequestRef.current;
     const { data, error } = await supabase.rpc("my_wallet");
     if (error || !data) {
@@ -638,7 +676,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return true;
   }
 
-  const rankIconOptions = useMemo(() => getAvailableRankIcons(rangPunkte), [rangPunkte]);
+  const rankIconOptions = useMemo(() => getAvailableRankIcons(rangPunkte, prestige), [rangPunkte, prestige]);
   const [selectedRankIconId, setSelectedRankIconId] = useState<string | null>(null);
 
   // Standardmäßig das beste verfügbare Icon (Elite, sonst höchster Sport-Rang) anzeigen.
@@ -1200,6 +1238,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         passClaims,
         passHonors,
         rangPunkte,
+        prestige,
+        goPrestige,
         canClaimDailyBonus,
         claimDailyBonus,
         placeTip,

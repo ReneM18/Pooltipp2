@@ -43,7 +43,7 @@ export function usePlayerRankIcons(): {
   }, []);
 
   const iconFor = (row: ProfileRow | undefined) =>
-    row ? getChosenIconForPoints(toPointsBySport(row.rang_punkte), row.rank_icon_id, `-${row.id}`) : null;
+    row ? getChosenIconForPoints(toPointsBySport(row.rang_punkte), row.rank_icon_id, `-${row.id}`, row.prestige) : null;
 
   return {
     byId: (id) => (!id ? null : id === authUserId ? activeRankIcon : iconFor(rows.find((r) => r.id === id))),
