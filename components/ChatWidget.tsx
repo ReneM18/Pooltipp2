@@ -702,6 +702,8 @@ function CommunityRoom() {
                     </span>
                   )}
                 </div>
+                {/* Im Gruppen-Chat steht auch beim eigenen Beitrag das eigene Bild. */}
+                {msg.isMe && msg.userId && <Avatar id={msg.userId} name={msg.author} size={28} />}
               </div>
             );
           })}
