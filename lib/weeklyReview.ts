@@ -8,29 +8,26 @@
 import { useMemo } from "react";
 import type { SubmittedTip } from "@/lib/AppDataContext";
 import type { Match, Sport } from "@/lib/types";
-import { getCurrentWeekWindow, sumWeeklyRangDelta, WeekWindow } from "@/lib/weeklyLeaderboard";
+import { getCurrentWeekWindow, sumWeeklyRangDelta, viennaParts, WeekWindow } from "@/lib/weeklyLeaderboard";
 import { useGlobalLeaderboard } from "@/lib/globalLeaderboard";
 
-/** Montag der Woche als "2026-09-29" (Ortszeit, nicht UTC). */
+/** Montag der Woche als "2026-09-29" (Wiener Datum, wie week_start in der Datenbank). */
 export function weekKey(window: WeekWindow): string {
-  const d = window.start;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const d = viennaParts(window.start);
+  return `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
 }
 
 /** Die Woche vor der aktuellen. */
 export function getPreviousWeekWindow(now: Date = new Date()): WeekWindow {
-  const current = getCurrentWeekWindow(now);
-  const start = new Date(current.start);
-  start.setDate(start.getDate() - 7);
-  return { start, end: current.start };
+  return getCurrentWeekWindow(now, 1);
 }
 
 /** "29.9. – 5.10." */
 export function weekRangeText(window: WeekWindow): string {
-  const last = new Date(window.end);
-  last.setDate(last.getDate() - 1);
-  const f = (d: Date) => `${d.getDate()}.${d.getMonth() + 1}.`;
-  return `${f(window.start)} – ${f(last)}`;
+  // Sonntag = eine Stunde vor dem Ende sicher noch im letzten Tag.
+  const first = viennaParts(window.start);
+  const last = viennaParts(new Date(window.end.getTime() - 3600_000));
+  return `${first.day}.${first.month}. – ${last.day}.${last.month}.`;
 }
 
 export interface WeeklyReview {

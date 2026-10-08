@@ -443,8 +443,8 @@ function WeekRulesBox() {
   return (
     <div className="mb-5 rounded-card border border-edge bg-surface px-4 py-3 text-sm text-muted">
       <p>
-        Hier zählen alle Rangpunkte, die du von Montag bis Sonntag machst, egal ob mit {sportList}. Am Montag startet die
-        Woche neu.
+        Hier zählen alle Rangpunkte der Woche, egal ob mit {sportList}. Eine neue Woche beginnt jeden Montag um 0:00 Uhr
+        (Wiener Zeit), für alle gleich.
       </p>
       <p className="mt-2 font-semibold text-ink">
         🥇 Der Erste der Woche bekommt <span className="whitespace-nowrap text-gold">+{xp} Pass-XP</span>
