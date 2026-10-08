@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, ReactNode, CSSProperties } from "react";
+import { createContext, memo, useContext, useEffect, useLayoutEffect, useRef, useState, ReactNode } from "react";
 import { useUser } from "@/lib/UserContext";
 import { PASS_LEVELS } from "@/lib/passLevels";
 import { takeFlashToast } from "@/lib/flashToast";
@@ -37,8 +37,19 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     }, 2800);
   }
 
+  // Mehrere Auslöser fast gleichzeitig (z. B. beim Öffnen mehrere frisch
+  // ausgewertete Tipps): ein gemeinsamer Burst statt mehrerer übereinander –
+  // das sah gleich aus, kostete aber das Mehrfache und ruckelte.
+  const lastBurstRef = useRef<{ id: number; at: number } | null>(null);
   function celebrate(big = false) {
+    const now = Date.now();
+    const last = lastBurstRef.current;
+    if (last && now - last.at < 1000) {
+      if (big) setBursts((current) => current.map((b) => (b.id === last.id ? { ...b, big: true } : b)));
+      return;
+    }
     const id = ++idCounter;
+    lastBurstRef.current = { id, at: now };
     setBursts((current) => [...current, { id, big }]);
     setTimeout(() => {
       setBursts((current) => current.filter((b) => b.id !== id));
@@ -137,37 +148,58 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
 // big = die "Große goldene Sternenexplosion" aus Level 6 des Premium-Passes:
 // doppelt so viele Sterne, größer und mit mehr Schwung – sonst derselbe
 // Effekt, kein eigener zweiter Mechanismus nötig.
-function StarBurst({ big = false }: { big?: boolean }) {
-  const stars = Array.from({ length: big ? 28 : 14 }, (_, i) => i);
+//
+// Flüssig auch beim Öffnen der App, während im Hintergrund noch geladen wird:
+// - Flugbahnen werden einmal pro Burst ausgewürfelt (vorher bei JEDEM Neu-
+//   Zeichnen der App neu, die Sterne sprangen und starteten immer wieder).
+// - Die Bewegung läuft mit festen Werten über die Web Animations API, damit
+//   der Browser sie auf der Grafikkarte abspielt, auch wenn er gerade
+//   rechnet. Gleiche Bewegung wie der CSS-Keyframe "star-burst".
+const StarBurst = memo(function StarBurst({ big = false }: { big?: boolean }) {
+  const [stars] = useState(() => {
+    const count = big ? 28 : 14;
+    return Array.from({ length: count }, (_, i) => {
+      const angle = (360 / count) * i;
+      const distance = (big ? 130 : 90) + Math.random() * (big ? 110 : 70);
+      return {
+        dx: Math.cos((angle * Math.PI) / 180) * distance,
+        dy: Math.sin((angle * Math.PI) / 180) * distance,
+        delay: Math.random() * 100,
+        size: (big ? 18 : 14) + Math.random() * (big ? 16 : 12),
+      };
+    });
+  });
+  const refs = useRef<(HTMLSpanElement | null)[]>([]);
+  useLayoutEffect(() => {
+    const animations = stars.map((star, i) =>
+      refs.current[i]?.animate(
+        [
+          { transform: "translate(0px, 0px) scale(0.3) rotate(0deg)", opacity: 1, offset: 0 },
+          { opacity: 1, offset: 0.7 },
+          { transform: `translate(${star.dx}px, ${star.dy}px) scale(1) rotate(180deg)`, opacity: 0, offset: 1 },
+        ],
+        { duration: 1100, delay: star.delay, easing: "ease-out", fill: "both" }
+      )
+    );
+    return () => animations.forEach((a) => a?.cancel());
+  }, [stars]);
   return (
     <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center overflow-hidden">
-      {stars.map((i) => {
-        const angle = (360 / stars.length) * i;
-        const distance = (big ? 130 : 90) + Math.random() * (big ? 110 : 70);
-        const dx = Math.cos((angle * Math.PI) / 180) * distance;
-        const dy = Math.sin((angle * Math.PI) / 180) * distance;
-        const delay = Math.random() * 0.1;
-        const size = (big ? 18 : 14) + Math.random() * (big ? 16 : 12);
-        return (
-          <span
-            key={i}
-            className="absolute text-gold"
-            style={
-              {
-                fontSize: size,
-                animation: `star-burst 1.1s ease-out ${delay}s forwards`,
-                "--dx": `${dx}px`,
-                "--dy": `${dy}px`,
-              } as CSSProperties
-            }
-          >
-            ⭐
-          </span>
-        );
-      })}
+      {stars.map((star, i) => (
+        <span
+          key={i}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
+          className="absolute text-gold"
+          style={{ fontSize: star.size, opacity: 0, willChange: "transform, opacity" }}
+        >
+          ⭐
+        </span>
+      ))}
     </div>
   );
-}
+});
 
 export function useFeedback() {
   const context = useContext(FeedbackContext);
