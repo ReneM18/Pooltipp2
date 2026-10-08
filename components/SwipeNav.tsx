@@ -11,8 +11,12 @@ import { MAIN_HREFS } from "./BottomNav";
 // Bereichen, in festen Fenstern (Chat, Mehr-Fenster, Dialoge) und vom
 // Bildschirmrand aus (dort liegt die Zurück-Geste des Handys).
 
-const MIN_DX = 70; // Mindest-Weg in px
-const RATIO = 2; // waagerecht mindestens doppelt so weit wie senkrecht
+const MIN_DX = 80; // Mindest-Weg in px
+// Ab so vielen px steht die Richtung fest. Bewusst früh: das iPhone legt
+// sich sonst selbst aufs Scrollen fest, und die Seite wandert beim
+// seitlichen Wischen senkrecht mit.
+const LOCK = 6;
+const END_RATIO = 1.5; // am Ende: waagerecht mindestens 1,5× so weit wie senkrecht
 const MAX_MS = 700;
 const EDGE = 24;
 
@@ -60,9 +64,14 @@ export default function SwipeNav() {
     let sy = 0;
     let st = 0;
     let active = false;
+    // Richtung der Geste: erst offen, nach ein paar Pixeln fest. "x" =
+    // seitlich wischen (die Seite scrollt dann nicht senkrecht mit),
+    // "y" = normales Scrollen (dann gibt es keinen Seitenwechsel).
+    let axis: "x" | "y" | null = null;
 
     const onStart = (e: TouchEvent) => {
       active = false;
+      axis = null;
       if (!mobile.matches || e.touches.length !== 1) return;
       const t = e.touches[0];
       if (t.clientX < EDGE || t.clientX > window.innerWidth - EDGE) return;
@@ -72,13 +81,30 @@ export default function SwipeNav() {
       st = Date.now();
       active = true;
     };
+    const onMove = (e: TouchEvent) => {
+      if (!active) return;
+      const t = e.touches[0];
+      const dx = Math.abs(t.clientX - sx);
+      const dy = Math.abs(t.clientY - sy);
+      if (!axis) {
+        if (dx < LOCK && dy < LOCK) return;
+        axis = dx > dy ? "x" : "y";
+      }
+      if (axis === "y") {
+        active = false;
+        return;
+      }
+      // Seitlich gewischt: senkrechtes Mitscrollen unterdrücken.
+      if (e.cancelable) e.preventDefault();
+    };
     const onEnd = (e: TouchEvent) => {
       if (!active) return;
       active = false;
+      if (axis !== "x") return;
       const t = e.changedTouches[0];
       const dx = t.clientX - sx;
       const dy = t.clientY - sy;
-      if (Date.now() - st > MAX_MS || Math.abs(dx) < MIN_DX || Math.abs(dx) < RATIO * Math.abs(dy)) return;
+      if (Date.now() - st > MAX_MS || Math.abs(dx) < MIN_DX || Math.abs(dx) < END_RATIO * Math.abs(dy)) return;
       // Text markiert? Dann war es kein Wischer.
       if (window.getSelection()?.toString()) return;
       const next = dx < 0 ? idx + 1 : idx - 1;
@@ -91,10 +117,12 @@ export default function SwipeNav() {
     };
 
     window.addEventListener("touchstart", onStart, { passive: true });
+    window.addEventListener("touchmove", onMove, { passive: false });
     window.addEventListener("touchend", onEnd, { passive: true });
     window.addEventListener("touchcancel", onCancel, { passive: true });
     return () => {
       window.removeEventListener("touchstart", onStart);
+      window.removeEventListener("touchmove", onMove);
       window.removeEventListener("touchend", onEnd);
       window.removeEventListener("touchcancel", onCancel);
     };
