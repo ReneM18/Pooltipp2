@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { RankIconOption } from "@/lib/rankTiers";
-import RankBadge from "@/components/RankBadge";
+import RankBadge, { RankBadgeSize } from "@/components/RankBadge";
 
 // Interaktive Variante von RankBadge – sieht genauso aus (Icon in Farbverlauf-
 // Abzeichen), zeigt die Bedeutung (Label + Rang-Titel) aber nicht permanent
@@ -18,7 +18,7 @@ export default function RankMeaningBadge({
   popupAlign = "left",
 }: {
   option: RankIconOption;
-  size?: "2xs" | "xs" | "sm" | "md" | "lg";
+  size?: RankBadgeSize;
   className?: string;
   popupAlign?: "left" | "right";
 }) {
