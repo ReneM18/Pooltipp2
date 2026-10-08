@@ -74,7 +74,7 @@ export default function RankEmblem({
   const hasSport = !elite && !unsterblich && !isGoat && !!sport;
   const showSport = hasSport && size >= 24;
   const sportInside = hasSport && size < 24;
-  const sportSize = Math.max(11, Math.round(size * 0.42));
+  const sportSize = Math.max(12, Math.round(size * 0.44));
 
   return (
     <span className="relative inline-flex shrink-0" style={{ width: size, height: size }}>
@@ -124,13 +124,17 @@ export default function RankEmblem({
           )}
         </svg>
       )}
+      {/* Sportart-Punkt: dunkler Kreis mit schwarzem Rand. Das Symbol ist
+          bewusst kleiner als der Kreis und wird abgeschnitten – unter Windows
+          (Segoe-Emoji) ist z. B. der Eishockeyschläger breiter als am Handy
+          und lag sonst über dem Rand, der schwarze Ring war dann weg. */}
       {showSport && sport && (
         <span
-          className="absolute flex items-center justify-center rounded-full border border-edge bg-pitch leading-none"
+          className="absolute flex items-center justify-center overflow-hidden rounded-full border border-black/80 bg-pitch leading-none"
           style={{
             width: sportSize,
             height: sportSize,
-            fontSize: sportSize * 0.62,
+            fontSize: sportSize * 0.5,
             right: -sportSize * 0.25,
             bottom: -sportSize * 0.2,
           }}
