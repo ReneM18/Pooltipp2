@@ -13,6 +13,13 @@ export const ALL_SPORTS: Sport[] = ["Fußball", "NFL", "NBA", "NHL", "Handball"]
 // aus der Liste löschen (z. B. HIDDEN_SPORTS = []).
 export const HIDDEN_SPORTS: Sport[] = ["Handball"];
 
+// Tipprunden (private Runden mit Einladungs-Code, /teams) sind vorerst aus der
+// App ausgeblendet: kein Knopf in Menü/Mehr, kein Hinweis in Tour und Footer,
+// alte Links (/teams, Einladungen) führen zu den Tipps. Code, Tabellen und
+// alle bestehenden Runden/Tipps bleiben unangetastet. WIEDER EINSCHALTEN:
+// hier auf true setzen.
+export const TIPPRUNDEN_ENABLED = false;
+
 /** Sportarten, die in der App aktiv sind (ohne ausgeblendete). */
 export const SPORTS: Sport[] = ALL_SPORTS.filter((s) => !HIDDEN_SPORTS.includes(s));
 

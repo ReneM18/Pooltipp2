@@ -1,3 +1,5 @@
+import { TIPPRUNDEN_ENABLED } from "@/lib/types";
+
 // Einladungscode aus einem Tipprunden-Link (/teams?code=ABC123) kurz im
 // Browser merken. So geht er nicht verloren, wenn man sich nach dem Klick
 // auf den Link erst noch einloggen oder registrieren muss.
@@ -9,6 +11,8 @@ export function inviteLink(code: string): string {
 }
 
 export function readPendingInvite(): string | null {
+  // Tipprunden ausgeblendet: eine alte gemerkte Einladung leitet nirgends hin.
+  if (!TIPPRUNDEN_ENABLED) return null;
   try {
     return window.localStorage.getItem(KEY);
   } catch {

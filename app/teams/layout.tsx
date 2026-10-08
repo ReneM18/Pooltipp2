@@ -1,9 +1,14 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { TIPPRUNDEN_ENABLED } from "@/lib/types";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import StartLink from "@/components/StartLink";
 
 export default function TeamsLayout({ children }: { children: React.ReactNode }) {
+  // Tipprunden ausgeblendet (lib/types.ts): alte Links und Einladungen
+  // landen bei den Tipps statt auf einer leeren Seite.
+  if (!TIPPRUNDEN_ENABLED) redirect("/");
   return (
     <div className="min-h-screen">
       {/* Die normale Navbar (Sterne, Punkte, Profilbild) bleibt hier bewusst
