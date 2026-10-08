@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { PassHonors, getPassHonors, splitClaimedMilestones, CURRENT_SEASON } from "@/lib/seasons";
+import { useUser } from "@/lib/UserContext";
+import { getActiveFrame } from "@/lib/seasonPass";
+import { applyPassDisplay, parsePassDisplay, PublicPassDisplay, verifiedOtherFrame } from "@/lib/passDisplay";
 
 // Titel und Abzeichen aus dem Saison-Pass (Belohnungsarten "title" und
 // "badge"). size "sm" für den Chat neben dem Namen, "md" fürs Profil.
@@ -44,29 +47,51 @@ export default function PassHonorTags({
 }
 
 // ----------------------------------------------------------------------------
-// Titel/Abzeichen ANDERER Spieler (z. B. im Chat oder bei Kommentaren). Kommen
-// aus deren Profil (pass_xp + claimed_milestones, für alle lesbar). Einmal
-// geladene Werte werden für die ganze Sitzung gemerkt.
+// Titel/Abzeichen/Rahmen ANDERER Spieler (Chat, Kommentare, Rangliste,
+// Spielerseite). Kommen aus deren Profil (pass_xp + claimed_milestones +
+// pass_display, für alle lesbar) und zeigen nur, was der Besitzer zeigen will.
+// Einmal geladene Werte werden für die ganze Sitzung gemerkt.
+// Hat man unter Profil -> Einstellungen "Deko anderer Spieler" ausgeschaltet,
+// liefern die Hooks nichts (nur die eigene Ansicht, den anderen bleibt alles).
+// Für die eigene ID gelten immer die eigenen, aktuellen Werte.
 // ----------------------------------------------------------------------------
-const honorsCache = new Map<string, PassHonors>();
+export type OtherFrame = NonNullable<PublicPassDisplay["shownFrame"]>;
 
-type HonorRow = { id: string; pass_xp: unknown; claimed_milestones: unknown; pass_season_id?: string | null };
+interface OtherDeco {
+  honors: PassHonors;
+  frame: OtherFrame | null;
+}
 
-// pass_season_id gibt es erst nach supabase/saisonwechsel.sql – bis dahin
-// ohne diese Spalte laden.
+const decoCache = new Map<string, OtherDeco>();
+
+type HonorRow = {
+  id: string;
+  pass_xp: unknown;
+  claimed_milestones: unknown;
+  pass_season_id?: string | null;
+  pass_display?: unknown;
+};
+
+// pass_season_id gibt es erst nach supabase/saisonwechsel.sql, pass_display
+// erst nach supabase/pass-deko.sql – bis dahin ohne diese Spalten laden.
 async function loadHonorRows(ids: string[]): Promise<HonorRow[] | null> {
-  const withSeason = await supabase
-    .from("profiles")
-    .select("id, pass_xp, claimed_milestones, pass_season_id")
-    .in("id", ids);
-  if (!withSeason.error) return withSeason.data as HonorRow[];
-  const without = await supabase.from("profiles").select("id, pass_xp, claimed_milestones").in("id", ids);
-  return without.error ? null : (without.data as HonorRow[]);
+  const selects = [
+    "id, pass_xp, claimed_milestones, pass_season_id, pass_display",
+    "id, pass_xp, claimed_milestones, pass_season_id",
+    "id, pass_xp, claimed_milestones",
+  ];
+  for (const columns of selects) {
+    const res = await supabase.from("profiles").select(columns).in("id", ids);
+    if (!res.error) return res.data as unknown as HonorRow[];
+  }
+  return null;
 }
 const requested = new Set<string>();
 
-export function useOtherPlayersHonors(userIds: (string | null | undefined)[]): Record<string, PassHonors> {
+function useOtherPlayersDeco(userIds: (string | null | undefined)[]): Record<string, OtherDeco> {
   const [, forceUpdate] = useState(0);
+  const { authUserId, hideOthersDeco, shownPassHonors, passXP, hasPremiumPass, customFrameColors, passDisplay } =
+    useUser();
   const key = Array.from(new Set(userIds.filter((id): id is string => !!id))).sort().join(",");
 
   useEffect(() => {
@@ -87,10 +112,14 @@ export function useOtherPlayersHonors(userIds: (string | null | undefined)[]): R
         const xpCounts =
           typeof row.pass_xp === "number" &&
           (row.pass_season_id === undefined || row.pass_season_id === CURRENT_SEASON.theme.id);
-        honorsCache.set(
-          row.id,
-          getPassHonors(xpCounts ? (row.pass_xp as number) : null, splitClaimedMilestones(row.claimed_milestones).pass)
-        );
+        const xp = xpCounts ? (row.pass_xp as number) : null;
+        const owned = getPassHonors(xp, splitClaimedMilestones(row.claimed_milestones).pass);
+        const display = parsePassDisplay(row.pass_display);
+        const shown = (row.pass_display as PublicPassDisplay | null | undefined)?.shownFrame;
+        decoCache.set(row.id, {
+          honors: applyPassDisplay(owned, display),
+          frame: verifiedOtherFrame(shown, xp) ?? null,
+        });
       }
       if (!cancelled) forceUpdate((n) => n + 1);
     });
@@ -99,10 +128,34 @@ export function useOtherPlayersHonors(userIds: (string | null | undefined)[]): R
     };
   }, [key]);
 
-  const result: Record<string, PassHonors> = {};
+  const result: Record<string, OtherDeco> = {};
   for (const id of key ? key.split(",") : []) {
-    const h = honorsCache.get(id);
-    if (h) result[id] = h;
+    if (id === authUserId) {
+      result[id] = {
+        honors: shownPassHonors,
+        frame: getActiveFrame(passXP, hasPremiumPass, customFrameColors, passDisplay.frame),
+      };
+      continue;
+    }
+    if (hideOthersDeco) continue;
+    const d = decoCache.get(id);
+    if (d) result[id] = d;
   }
+  return result;
+}
+
+/** Titel/Abzeichen anderer Spieler, so wie sie sie zeigen wollen. */
+export function useOtherPlayersHonors(userIds: (string | null | undefined)[]): Record<string, PassHonors> {
+  const deco = useOtherPlayersDeco(userIds);
+  const result: Record<string, PassHonors> = {};
+  for (const [id, d] of Object.entries(deco)) result[id] = d.honors;
+  return result;
+}
+
+/** Rahmen anderer Spieler (null = trägt keinen). */
+export function useOtherPlayersFrames(userIds: (string | null | undefined)[]): Record<string, OtherFrame | null> {
+  const deco = useOtherPlayersDeco(userIds);
+  const result: Record<string, OtherFrame | null> = {};
+  for (const [id, d] of Object.entries(deco)) result[id] = d.frame;
   return result;
 }

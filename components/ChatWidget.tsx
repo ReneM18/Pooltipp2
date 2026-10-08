@@ -9,7 +9,8 @@ import { useChat, friendlyChatError, ChatSummary, DirectMessage } from "@/lib/Ch
 import { usePlayerRankIcons } from "@/lib/playerRankIcons";
 import RankBadge from "@/components/RankBadge";
 import FitText from "@/components/FitText";
-import PassHonorTags, { useOtherPlayersHonors } from "@/components/PassHonors";
+import PassHonorTags, { useOtherPlayersFrames, useOtherPlayersHonors } from "@/components/PassHonors";
+import { OtherFrameRing } from "@/components/SeasonFrame";
 import { EmotePicker, MessageBody, StickerDraft, stickerFromText, stickerText } from "@/components/Emotes";
 import { SeasonEmote } from "@/lib/seasons";
 
@@ -20,8 +21,10 @@ import { SeasonEmote } from "@/lib/seasons";
 const MAX_LENGTH = 1000;
 
 // Jede Person bekommt eine eigene, gleichbleibende Farbe für ihren Kreis.
-function Avatar(props: { id: string; name: string; size?: number }) {
-  return <PlayerAvatar {...props} />;
+// Trägt die Person einen Pass-Rahmen, sitzt er um den Kreis (gleiche Größe).
+function Avatar({ size = 40, ...props }: { id: string; name: string; size?: number }) {
+  const frame = useOtherPlayersFrames([props.id])[props.id];
+  return <OtherFrameRing frame={frame} size={size}>{(inner) => <PlayerAvatar {...props} size={inner} />}</OtherFrameRing>;
 }
 
 function sameDay(a: Date, b: Date) {

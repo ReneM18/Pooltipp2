@@ -4,7 +4,8 @@ import { useEffect, useState, CSSProperties } from "react";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { PASS_LEVELS, PREMIUM_PASS_PRICE } from "@/lib/passLevels";
-import { xpForLevel } from "@/lib/seasonPass";
+import { getActiveFrame, xpForLevel } from "@/lib/seasonPass";
+import Link from "next/link";
 import { SEASON_THEME } from "@/lib/seasonTheme";
 import { SPORTS, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { CURRENT_SEASON, seasonCountdownText, seasonPeriodText } from "@/lib/seasons";
@@ -42,6 +43,9 @@ function communityHitRateForSport(sport: string): number {
   return 28 + Math.round(rand() * 24); // 28–52 % – plausible Trefferquote für "exakt"
 }
 
+// Rahmen, den das jeweilige Gratis-Level bringt (lib/seasonPass.ts).
+const FRAME_OF_LEVEL: Record<number, string> = { 3: "bronze", 5: "silber", 7: "gold", 9: "diamant", 10: "meister" };
+
 export default function FortschrittPage() {
   const {
     passXP,
@@ -51,7 +55,18 @@ export default function FortschrittPage() {
     claimDailyBonus,
     customFrameColors,
     setCustomFrameColors,
+    shownPassHonors,
+    passDisplay,
+    isRegistered,
   } = useUser();
+  // Welche Pass-Belohnung man gerade trägt (Profil -> Einstellungen).
+  const wornFrame = getActiveFrame(passXP, hasPremiumPass, customFrameColors, passDisplay.frame);
+  const isWorn = (lvl: (typeof PASS_LEVELS)[number]): boolean | null => {
+    if (lvl.kind === "frame") return wornFrame?.variant === FRAME_OF_LEVEL[lvl.level];
+    if (lvl.kind === "title") return shownPassHonors.title?.label === lvl.label;
+    if (lvl.kind === "badge") return shownPassHonors.badges.some((b) => b.label === lvl.label);
+    return null;
+  };
   const { countingTips, matches } = useAppData();
   const { showToast, celebrate } = useFeedback();
   const [purchasing, setPurchasing] = useState(false);
@@ -375,6 +390,17 @@ export default function FortschrittPage() {
                   <p className="text-xs text-muted">
                     <span className="text-gold">Wo:</span> {lvl.rewardWhere}
                   </p>
+                  {/* Selbst anlegen oder ablegen (Profil -> Einstellungen). */}
+                  {unlocked && isRegistered && isWorn(lvl) !== null && (
+                    <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs">
+                      <span className={isWorn(lvl) ? "font-semibold text-action" : "text-muted"}>
+                        {isWorn(lvl) ? "✓ Angelegt" : "Abgelegt"}
+                      </span>
+                      <Link href="/profil#pass-belohnungen" className="font-semibold text-gold hover:opacity-80">
+                        {isWorn(lvl) ? "Ablegen oder tauschen →" : "Anlegen →"}
+                      </Link>
+                    </p>
+                  )}
                   {lvl.kind === "emotes" && (
                     <div className="mt-2 flex flex-wrap gap-1">
                       {CURRENT_SEASON.emotes.map((emote) => (

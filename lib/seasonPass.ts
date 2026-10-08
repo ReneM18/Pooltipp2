@@ -38,43 +38,82 @@ export function xpForLevel(level: number): number {
 export function getActiveFrame(
   passXP: number,
   hasPremiumPass: boolean,
+  customColors: CustomFrameColors | null,
+  /** Wahl im Profil (lib/passDisplay.ts): "auto", "none" oder eine Rahmen-Art. */
+  choice?: string
+): ActiveFrame | null {
+  if (choice === "none") return null;
+  if (choice && choice !== "auto") {
+    const chosen = getOwnedFrames(passXP, hasPremiumPass, customColors).find((f) => f.variant === choice);
+    if (chosen) return chosen;
+  }
+  return getBestFrame(passXP, hasPremiumPass, customColors);
+}
+
+/** Alle Rahmen, die man gerade tragen darf (schlechtester zuerst). */
+export function getOwnedFrames(
+  passXP: number,
+  hasPremiumPass: boolean,
+  customColors: CustomFrameColors | null
+): ActiveFrame[] {
+  const owned: ActiveFrame[] = [];
+  const free: [number, FrameVariant][] = [[3, "bronze"], [5, "silber"], [7, "gold"], [9, "diamant"], [10, "meister"]];
+  for (const [level, variant] of free) {
+    if (passXP >= xpForLevel(level)) owned.push(freeFrame(variant));
+  }
+  if (hasPremiumPass && passXP >= xpForLevel(2)) owned.push(neonFrame());
+  if (hasPremiumPass && passXP >= xpForLevel(5) && customColors) owned.push(customFrame(customColors));
+  return owned;
+}
+
+function neonFrame(): ActiveFrame {
+  return {
+    variant: "neon-pulse",
+    colorFrom: SEASON_THEME.colorFrom,
+    colorTo: SEASON_THEME.colorTo,
+    animated: true,
+    label: `Neon-Pulse (${SEASON_THEME.name})`,
+  };
+}
+
+function customFrame(customColors: CustomFrameColors): ActiveFrame {
+  return {
+    variant: "custom",
+    colorFrom: customColors.from,
+    colorTo: customColors.to,
+    animated: false,
+    label: "Eigene Farbmischung",
+  };
+}
+
+function freeFrame(variant: FrameVariant): ActiveFrame {
+  switch (variant) {
+    case "meister":
+      return { variant, colorFrom: SEASON_THEME.colorFrom, colorTo: SEASON_THEME.colorTo, animated: false, label: "Saison-Meister" };
+    case "diamant":
+      return { variant, colorFrom: RANK_COLORS.Diamant.from, colorTo: RANK_COLORS.Diamant.to, animated: false, label: "Saison-Diamant" };
+    case "gold":
+      return { variant, colorFrom: RANK_COLORS.Gold.from, colorTo: RANK_COLORS.Gold.to, animated: false, label: "Saison-Gold" };
+    case "silber":
+      return { variant, colorFrom: RANK_COLORS.Silber.from, colorTo: RANK_COLORS.Silber.to, animated: false, label: "Saison-Silber" };
+    default:
+      return { variant: "bronze", colorFrom: RANK_COLORS.Bronze.from, colorTo: RANK_COLORS.Bronze.to, animated: false, label: "Saison-Bronze" };
+  }
+}
+
+function getBestFrame(
+  passXP: number,
+  hasPremiumPass: boolean,
   customColors: CustomFrameColors | null
 ): ActiveFrame | null {
   if (hasPremiumPass) {
-    if (passXP >= xpForLevel(5) && customColors) {
-      return {
-        variant: "custom",
-        colorFrom: customColors.from,
-        colorTo: customColors.to,
-        animated: false,
-        label: "Eigene Farbmischung",
-      };
-    }
-    if (passXP >= xpForLevel(2)) {
-      return {
-        variant: "neon-pulse",
-        colorFrom: SEASON_THEME.colorFrom,
-        colorTo: SEASON_THEME.colorTo,
-        animated: true,
-        label: `Neon-Pulse (${SEASON_THEME.name})`,
-      };
-    }
+    if (passXP >= xpForLevel(5) && customColors) return customFrame(customColors);
+    if (passXP >= xpForLevel(2)) return neonFrame();
   }
-
-  if (passXP >= xpForLevel(10)) {
-    return { variant: "meister", colorFrom: SEASON_THEME.colorFrom, colorTo: SEASON_THEME.colorTo, animated: false, label: "Saison-Meister" };
-  }
-  if (passXP >= xpForLevel(9)) {
-    return { variant: "diamant", colorFrom: RANK_COLORS.Diamant.from, colorTo: RANK_COLORS.Diamant.to, animated: false, label: "Saison-Diamant" };
-  }
-  if (passXP >= xpForLevel(7)) {
-    return { variant: "gold", colorFrom: RANK_COLORS.Gold.from, colorTo: RANK_COLORS.Gold.to, animated: false, label: "Saison-Gold" };
-  }
-  if (passXP >= xpForLevel(5)) {
-    return { variant: "silber", colorFrom: RANK_COLORS.Silber.from, colorTo: RANK_COLORS.Silber.to, animated: false, label: "Saison-Silber" };
-  }
-  if (passXP >= xpForLevel(3)) {
-    return { variant: "bronze", colorFrom: RANK_COLORS.Bronze.from, colorTo: RANK_COLORS.Bronze.to, animated: false, label: "Saison-Bronze" };
-  }
+  if (passXP >= xpForLevel(10)) return freeFrame("meister");
+  if (passXP >= xpForLevel(9)) return freeFrame("diamant");
+  if (passXP >= xpForLevel(7)) return freeFrame("gold");
+  if (passXP >= xpForLevel(5)) return freeFrame("silber");
+  if (passXP >= xpForLevel(3)) return freeFrame("bronze");
   return null;
 }

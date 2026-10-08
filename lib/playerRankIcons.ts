@@ -28,6 +28,8 @@ function loadOnce(): Promise<ProfileRow[]> {
 export function usePlayerRankIcons(): {
   byId: (id: string | null | undefined) => RankIconOption | null;
   byName: (name: string) => RankIconOption | null;
+  /** Nutzer-ID zu einem Anzeigenamen (null, wenn unbekannt). */
+  idByName: (name: string) => string | null;
 } {
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const { authUserId, displayName, activeRankIcon } = useUser();
@@ -49,5 +51,7 @@ export function usePlayerRankIcons(): {
     byId: (id) => (!id ? null : id === authUserId ? activeRankIcon : iconFor(rows.find((r) => r.id === id))),
     byName: (name) =>
       authUserId && name === displayName ? activeRankIcon : iconFor(rows.find((r) => r.display_name === name)),
+    idByName: (name) =>
+      authUserId && name === displayName ? authUserId : rows.find((r) => r.display_name === name)?.id ?? null,
   };
 }

@@ -71,6 +71,8 @@ export interface PassHonors {
   title: { label: string; icon: string } | null;
   /** Alle Abzeichen, die man je bekommen hat (bleiben für immer). */
   badges: { label: string; icon: string }[];
+  /** Alle erreichten Titel (älteste zuerst) – zum Auswählen im Profil. */
+  allTitles: { label: string; icon: string }[];
   /** Emotes, die man benutzen darf. */
   emotes: SeasonEmote[];
 }
@@ -86,6 +88,7 @@ export function getPassHonors(passXP: number | null, passClaims: string[]): Pass
   }
   return {
     title: last ? { label: last.label!, icon: last.icon } : null,
+    allTitles: titles.map((l) => ({ label: l.label!, icon: l.icon })),
     badges: owned.filter((l) => l.kind === "badge" && l.label).map((l) => ({ label: l.label!, icon: l.icon })),
     emotes,
   };

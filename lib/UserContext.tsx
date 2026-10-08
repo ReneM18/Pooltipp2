@@ -20,6 +20,14 @@ import {
 } from "@/lib/startPage";
 import { CURRENT_SEASON, seasonChangedSinceLoad, getPassHonors, splitClaimedMilestones, PassHonors } from "@/lib/seasons";
 import {
+  applyPassDisplay,
+  normalizePassDisplay,
+  parsePassDisplay,
+  PassDisplay,
+  PublicPassDisplay,
+} from "@/lib/passDisplay";
+import { getActiveFrame } from "@/lib/seasonPass";
+import {
   DAILY_BONUS_STARS,
   DAILY_BONUS_XP,
   DAILY_STAKE_BUDGET,
@@ -94,8 +102,18 @@ interface UserContextValue {
   // lib/seasons/index.ts. Darüber laufen Titel, Abzeichen, Emotes und die
   // einmalige Sterne-Gutschrift.
   passClaims: string[];
-  // Eigene Titel/Abzeichen/Emotes aus dem Saison-Pass.
+  // Eigene Titel/Abzeichen/Emotes aus dem Saison-Pass (alles Erreichte).
   passHonors: PassHonors;
+  // Davon das, was man zeigen will (Wahl unter Profil -> Einstellungen).
+  shownPassHonors: PassHonors;
+  // Welche Pass-Belohnungen man trägt (Rahmen, Titel, Abzeichen, Saison-Icon),
+  // fürs Konto gespeichert (lib/passDisplay.ts).
+  passDisplay: PassDisplay;
+  setPassDisplay: (display: PassDisplay) => void;
+  // true = Rahmen, Titel und Abzeichen ANDERER Spieler ausblenden (nur in der
+  // eigenen Ansicht, die anderen behalten alles).
+  hideOthersDeco: boolean;
+  setHideOthersDeco: (hide: boolean) => void;
   // Rangliste-Punkte je Sportart (Rankingsystem), können steigen
   // UND fallen (auch durch die Strafe fürs Nicht-Tippen). Komplett von passXP entkoppelt.
   rangPunkte: Record<Sport, number>;
@@ -183,7 +201,7 @@ interface UserContextValue {
   startPage: StartPage | null;
   // false = die Spalte fehlt in der Datenbank (SQL noch nicht ausgeführt):
   // die Einstellung gilt dann nur auf diesem Gerät. null = noch nicht geladen.
-  accountSync: { startPage: boolean; seasonDesign: boolean } | null;
+  accountSync: AccountSync | null;
   setStartPage: (page: StartPage) => void;
   activeRankIcon: RankIconOption | null;
   hasPremiumPass: boolean;
@@ -224,6 +242,27 @@ interface UserContextValue {
   // false, solange beim Laden noch nicht feststeht, ob jemand eingeloggt ist.
   sessionChecked: boolean;
   logout: () => Promise<void>;
+}
+
+// JSON mit sortierten Schlüsseln (die Datenbank ordnet jsonb-Felder um).
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    return `{${Object.keys(obj)
+      .filter((k) => obj[k] !== undefined)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${stableJson(obj[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value ?? null);
+}
+
+// false = diese Spalte fehlt in der Datenbank (SQL noch nicht ausgeführt).
+export interface AccountSync {
+  startPage: boolean;
+  seasonDesign: boolean;
+  passDeco: boolean;
 }
 
 // Antwort von my_wallet() (supabase/auswertung-server.sql).
@@ -795,7 +834,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // gilt die Wahl nur auf diesem Gerät.
   const startPageColumnRef = useRef(false);
   const [startPage, setStartPageState] = useState<StartPage | null>(null);
-  const [accountSync, setAccountSync] = useState<{ startPage: boolean; seasonDesign: boolean } | null>(null);
+  const [accountSync, setAccountSync] = useState<AccountSync | null>(null);
+  // Spalten pass_display und hide_others_deco gibt es erst nach
+  // supabase/pass-deko.sql. Fehlen sie, gilt die Wahl nur bis zum Neuladen.
+  const passDecoColumnRef = useRef(false);
+  const [passDisplay, setPassDisplayState] = useState<PassDisplay>({});
+  const [hideOthersDeco, setHideOthersDeco] = useState(false);
+  function setPassDisplay(display: PassDisplay) {
+    setPassDisplayState(normalizePassDisplay(display));
+  }
   function setStartPage(page: StartPage) {
     setStartPageState(page);
     writeLocalStartPage(page, authUserIdRef.current);
@@ -841,11 +888,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
     let hasSeason = true;
     let hasRetention = true;
     let hasStartPage = true;
+    let hasPassDeco = true;
     let res = await supabase
       .from("profile_extras")
-      .select(`${columns}, season_design_off, premium_trial, start_done, review_seen_week, start_page`)
+      .select(
+        `${columns}, season_design_off, premium_trial, start_done, review_seen_week, start_page, pass_display, hide_others_deco`
+      )
       .eq("id", userId)
       .maybeSingle();
+    if (res.error) {
+      hasPassDeco = false;
+      res = await supabase
+        .from("profile_extras")
+        .select(`${columns}, season_design_off, premium_trial, start_done, review_seen_week, start_page`)
+        .eq("id", userId)
+        .maybeSingle();
+    }
     if (res.error) {
       hasStartPage = false;
       res = await supabase
@@ -877,10 +935,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
     seasonColumnRef.current = hasSeason;
     retentionColumnRef.current = hasRetention;
     startPageColumnRef.current = hasStartPage;
+    passDecoColumnRef.current = hasPassDeco;
     setAccountSync((current) =>
-      current?.startPage === hasStartPage && current.seasonDesign === hasSeason
+      current?.startPage === hasStartPage && current.seasonDesign === hasSeason && current.passDeco === hasPassDeco
         ? current
-        : { startPage: hasStartPage, seasonDesign: hasSeason }
+        : { startPage: hasStartPage, seasonDesign: hasSeason, passDeco: hasPassDeco }
     );
     const data = res.data as {
       start_done?: boolean | null;
@@ -892,6 +951,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       season_design_off?: boolean | null;
       premium_trial?: boolean | null;
       start_page?: string | null;
+      pass_display?: unknown;
+      hide_others_deco?: boolean | null;
     } | null;
     const synced = extrasSyncedRef.current;
     if (data) {
@@ -934,6 +995,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
     } else {
       setStartPageState(readLocalStartPage(userId));
     }
+    if (hasPassDeco) {
+      // Immer als abgeglichen merken (auch "noch nie gewählt"), damit nur
+      // eine echte Änderung auf diesem Gerät gespeichert wird und ein Gerät
+      // mit altem Stand nie einen neueren Wert überschreibt.
+      const display = normalizePassDisplay(parsePassDisplay(data?.pass_display));
+      synced.pass_display = JSON.stringify(display);
+      setPassDisplayState((current) => (JSON.stringify(current) === synced.pass_display ? current : display));
+      const hide = data?.hide_others_deco === true;
+      synced.hide_others_deco = JSON.stringify(hide);
+      setHideOthersDeco(hide);
+    }
     if (hasSeason && data?.premium_trial) {
       synced.premium_trial = "true";
       setHasPremiumPass(true);
@@ -961,6 +1033,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setReviewSeenReady(false);
     setStartPageState(null);
     setAccountSync(null);
+    setPassDisplayState({});
+    setHideOthersDeco(false);
+    passDecoColumnRef.current = false;
     extrasSyncedRef.current = {};
     seasonColumnRef.current = false;
     retentionColumnRef.current = false;
@@ -1016,6 +1091,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (retentionColumnRef.current && startDone) current.start_done = true;
     if (retentionColumnRef.current && reviewSeenWeek) current.review_seen_week = reviewSeenWeek;
     if (startPageColumnRef.current && startPage !== null) current.start_page = startPage;
+    if (passDecoColumnRef.current) {
+      current.pass_display = passDisplay;
+      current.hide_others_deco = hideOthersDeco;
+    }
     const synced = extrasSyncedRef.current;
     const changed: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(current)) {
@@ -1039,7 +1118,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           else synced[key] = previous[key];
         }
       });
-  }, [authUserId, extrasLoaded, photos, photoVisibility, selectedRankIconId, customFrameColors, seasonDesignOff, hasPremiumPass, startDone, reviewSeenWeek, startPage]);
+  }, [authUserId, extrasLoaded, photos, photoVisibility, selectedRankIconId, customFrameColors, seasonDesignOff, hasPremiumPass, startDone, reviewSeenWeek, startPage, passDisplay, hideOthersDeco]);
 
   // Die Auswahl zusätzlich im öffentlichen Profil speichern, damit auch
   // andere Spieler sie in Rangliste, Chat und auf der Spielerseite sehen
@@ -1060,6 +1139,44 @@ export function UserProvider({ children }: { children: ReactNode }) {
       });
   }, [authUserId, extrasLoaded, profileLoaded, selectedRankIconId]);
 
+  // Was man von den Pass-Belohnungen trägt, auch im öffentlichen Profil
+  // speichern, damit andere es in Chat, Rangliste und auf der Spielerseite
+  // sehen (supabase/pass-deko.sql). Nur nach dem Laden der eigenen Wahl und
+  // nur bei Änderung. Fehlt die Spalte, bleibt es still beim Alten.
+  const shownPassHonors = useMemo(() => applyPassDisplay(passHonors, passDisplay), [passHonors, passDisplay]);
+  const profilePassDisplayRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!authUserId || !extrasLoaded || !profileLoaded || !passDecoColumnRef.current) return;
+    const frame = getActiveFrame(passXP, hasPremiumPass, customFrameColors, passDisplay.frame);
+    const publicDisplay: PublicPassDisplay = {
+      ...passDisplay,
+      shownFrame: frame
+        ? {
+            variant: frame.variant,
+            colorFrom: frame.colorFrom,
+            colorTo: frame.colorTo,
+            animated: frame.animated,
+            label: frame.label,
+          }
+        : null,
+    };
+    const userId = authUserId;
+    const key = `${userId}:${stableJson(publicDisplay)}`;
+    if (profilePassDisplayRef.current === key) return;
+    profilePassDisplayRef.current = key;
+    void (async () => {
+      // Steht schon so im Profil (z. B. vom anderen Gerät gespiegelt): nicht
+      // nochmal schreiben.
+      const current = await supabase.from("profiles").select("pass_display").eq("id", userId).maybeSingle();
+      if (!current.error && `${userId}:${stableJson(current.data?.pass_display ?? null)}` === key) return;
+      if (profilePassDisplayRef.current !== key) return;
+      const { error } = await supabase.from("profiles").update({ pass_display: publicDisplay }).eq("id", userId);
+      if (!error) return;
+      if (profilePassDisplayRef.current === key) profilePassDisplayRef.current = null;
+      console.warn("Pass-Belohnungen konnten nicht fürs Profil gespeichert werden:", error.message);
+    })();
+  }, [authUserId, extrasLoaded, profileLoaded, passXP, hasPremiumPass, customFrameColors, passDisplay]);
+
   const activeRankIcon =
     rankIconOptions.find((o) => o.id === selectedRankIconId) ?? getBestRankIcon(rankIconOptions);
 
@@ -1078,8 +1195,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       rankIconId: selectedRankIconId,
       premium: hasPremiumPass,
       frameColors: customFrameColors,
+      frameChoice: passDisplay.frame ?? null,
     });
-  }, [authUserId, extrasLoaded, photos, selectedRankIconId, hasPremiumPass, customFrameColors]);
+  }, [authUserId, extrasLoaded, photos, selectedRankIconId, hasPremiumPass, customFrameColors, passDisplay.frame]);
   useEffect(() => {
     if (authUserId && adminCheckedFor === authUserId) writeHeaderCache(authUserId, { isAdmin });
   }, [authUserId, adminCheckedFor, isAdmin]);
@@ -1294,6 +1412,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
         passXP,
         passClaims,
         passHonors,
+        shownPassHonors,
+        passDisplay,
+        setPassDisplay,
+        hideOthersDeco,
+        setHideOthersDeco,
         rangPunkte,
         prestige,
         goPrestige,
