@@ -4,6 +4,7 @@ import { createContext, useContext, useState, ReactNode, useMemo, useEffect, use
 import { supabase } from "@/lib/supabaseClient";
 import { setFlashToast } from "@/lib/flashToast";
 import { useAppRefresh } from "@/lib/appRefresh";
+import { settleWeeklyWinners } from "@/lib/weeklyWinner";
 import { SEASON_DESIGN_OFF_EVENT, SEASON_DESIGN_STORAGE_KEY } from "@/lib/seasons/design";
 import { mockUser } from "@/lib/mockData";
 import { clearHeaderCache, writeHeaderCache } from "@/lib/headerCache";
@@ -548,6 +549,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
     },
     { interval: true }
   );
+
+  // Erster der Woche: abgeschlossene Wochen auszahlen lassen (rechnet die
+  // Datenbank, jede Woche nur einmal, siehe lib/weeklyWinner.ts). Die XP
+  // kommen über den Sofort-Abgleich unten auf alle Geräte.
+  useEffect(() => {
+    if (authUserId && profileLoaded) void settleWeeklyWinners();
+  }, [authUserId, profileLoaded]);
+  useAppRefresh(() => {
+    if (authUserId && profileLoaded) return settleWeeklyWinners();
+  });
 
   // Sofort-Abgleich: ändert sich das eigene Profil (Coins nach Booster-Tipp
   // oder Rücknahme, Auswertung, Tagesbonus auf einem anderen Gerät), meldet

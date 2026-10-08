@@ -6,8 +6,9 @@ import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { SPORTS, SPORT_ICONS, sportLabel } from "@/lib/types";
-import { getCurrentWeekWindow } from "@/lib/weeklyLeaderboard";
-import { computeWeeklyReview, getPreviousWeekWindow, useWeeklyPlace, weekRangeText } from "@/lib/weeklyReview";
+import { getCurrentWeekWindow, weeklyTipPoints } from "@/lib/weeklyLeaderboard";
+import { computeWeeklyReview, getPreviousWeekWindow, useWeeklyPlace, weekKey, weekRangeText } from "@/lib/weeklyReview";
+import { useMyWeeklyWin } from "@/lib/weeklyWinner";
 import { daysLabel, useStreak } from "@/lib/streak";
 import { TIER_BADGE } from "@/components/tierBadges";
 import { matchTitle, oneXTwoText, scoreText } from "@/lib/teamOrder";
@@ -34,6 +35,8 @@ export default function RueckblickPage() {
     review.tips > 0
   );
 
+  const weeklyWin = useMyWeeklyWin(authUserId, weekKey(weekWin));
+
   if (!sessionChecked) return <Shell><p className="py-8 text-center text-sm text-muted">Wird geladen …</p></Shell>;
   if (!isRegistered) {
     return (
@@ -56,6 +59,7 @@ export default function RueckblickPage() {
       `📊 Meine PoolTipp-Woche (${range})`,
       `${review.tips} ${review.tips === 1 ? "Tipp" : "Tipps"} · ${review.exakt} exakt · ${pointsText} Punkte`,
       place ? `Platz ${place} von ${players} in der Wochen-Rangliste` : null,
+      weeklyWin ? "🥇 Erster der Woche" : null,
       streak.count > 0 ? `🔥 ${daysLabel(streak.count)} in Folge` : null,
     ].filter(Boolean);
     const text = lines.join("\n");
@@ -127,6 +131,12 @@ export default function RueckblickPage() {
             />
           </div>
 
+          {weeklyWin && (
+            <p className="mt-4 rounded-lg border border-gold/50 bg-gold/10 px-3 py-2 font-display text-sm font-semibold text-gold">
+              🥇 Erster der Woche · +{weeklyWin.xp} Pass-XP
+            </p>
+          )}
+
           {(tierChips.length > 0 || review.open > 0) && (
             <div className="mt-4 flex flex-wrap gap-1.5">
               {tierChips.map((c) => (
@@ -158,7 +168,7 @@ export default function RueckblickPage() {
                   : scoreText(best.match.sport, best.tip.predictedHomeScore, best.tip.predictedAwayScore)}
                 {best.match.status === "finished" &&
                   ` · Endstand: ${scoreText(best.match.sport, best.match.liveHomeScore, best.match.liveAwayScore)}`}{" "}
-                · <span className="font-semibold text-action">+{best.tip.rangDelta} Punkte</span>
+                · <span className="font-semibold text-action">+{weeklyTipPoints(best.tip)} Punkte</span>
               </p>
             </div>
           )}
@@ -202,8 +212,9 @@ export default function RueckblickPage() {
       )}
 
       <p className="mt-4 text-xs text-muted">
-        Gezählt werden die Tipps, die du in der Woche abgegeben hast. Punkte kommen dazu, sobald ein Spiel ausgewertet
-        ist, genau wie in der Wochen-Rangliste.
+        Gezählt werden die Tipps, die du in der Woche (Montag 0:00 bis Sonntag, Wiener Zeit) abgegeben hast, mit ihren
+        Tipp-Punkten ohne Platz-Bonus. Punkte kommen dazu, sobald ein Spiel ausgewertet ist, genau wie in der
+        Wochen-Rangliste.
       </p>
     </Shell>
   );

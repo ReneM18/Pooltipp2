@@ -65,3 +65,6 @@ psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/duelle-gruppen-test
 
 # Prestige: GOAT freiwillig auf 0, Prestige-Stern, Bonus zählt weiter "oben"
 psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/prestige-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'
+
+# Erster der Woche bekommt Saison-XP (nie Coins), jede Woche nur einmal
+psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/wochensieger-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'

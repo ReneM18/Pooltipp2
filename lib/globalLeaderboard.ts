@@ -2,14 +2,14 @@
 
 // Echte globale Rangliste: liest die Rangliste-Punkte ALLER Spieler aus der
 // "profiles"-Tabelle (jeder darf alle Profile lesen, siehe
-// supabase/social-features.sql) und für die Spieltags-Ansicht die in dieser
+// supabase/social-features.sql) und für die Wochen-Ansicht die in dieser
 // Woche ausgewerteten Tipps aller Spieler. Ersetzt die früheren Mock-Daten.
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useResumeTick } from "@/lib/appRefresh";
 import { Sport, SPORTS, ALL_SPORTS } from "@/lib/types";
-import { WeekWindow } from "@/lib/weeklyLeaderboard";
+import { WeekWindow, weeklyTipPoints } from "@/lib/weeklyLeaderboard";
 import { PrestigeBySport } from "@/lib/rankTiers";
 
 export interface GlobalPlayer {
@@ -51,7 +51,8 @@ export function sumPoints(points: Record<Sport, number>): number {
 interface WeeklyTipRow {
   user_id: string;
   rang_delta: number | null;
-  rang_booked?: number | null;
+  base_points?: number | null;
+  joker?: string | null;
   ranking_legacy?: boolean | null;
 }
 
@@ -60,8 +61,8 @@ interface WeeklyTipRow {
 async function loadWeeklyTips(weekStart: string, weekEnd: string) {
   const query = (columns: string) =>
     supabase.from("tips").select(columns).eq("evaluated", true).gte("submitted_at", weekStart).lt("submitted_at", weekEnd);
-  const res = await query("user_id, rang_delta, rang_booked, ranking_legacy");
-  if (res.error && /ranking_legacy|rang_booked/.test(res.error.message)) return query("user_id, rang_delta");
+  const res = await query("user_id, rang_delta, base_points, joker, ranking_legacy");
+  if (res.error && /ranking_legacy|base_points|joker/.test(res.error.message)) return query("user_id, rang_delta");
   return res;
 }
 
@@ -120,13 +121,18 @@ export function useGlobalLeaderboard(weekWindow: WeekWindow) {
 
       const weekly = new Map<string, number>();
       if (tipsRes.error) {
-        console.warn("Spieltags-Rangliste konnte nicht geladen werden:", tipsRes.error.message);
+        console.warn("Wochen-Rangliste konnte nicht geladen werden:", tipsRes.error.message);
       } else {
         for (const row of (tipsRes.data ?? []) as unknown as WeeklyTipRow[]) {
           // Tipps von vor dem Neustart der Rangpunkte zählen nicht mehr.
           if (row.ranking_legacy) continue;
-          // Wirklich gebuchte Punkte (nie unter 0), sonst die gerechneten.
-          weekly.set(row.user_id, (weekly.get(row.user_id) ?? 0) + (row.rang_booked ?? row.rang_delta ?? 0));
+          // Nur Tipp-Punkte, ohne Platz-Bonus (lib/weeklyLeaderboard.ts).
+          const points = weeklyTipPoints({
+            basePoints: row.base_points ?? undefined,
+            rangDelta: row.rang_delta ?? undefined,
+            joker: row.joker,
+          });
+          weekly.set(row.user_id, (weekly.get(row.user_id) ?? 0) + points);
         }
       }
       setWeeklyByUser(weekly);
