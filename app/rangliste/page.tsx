@@ -21,6 +21,7 @@ import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { getCurrentWeekWindow, sumWeeklyRangDelta } from "@/lib/weeklyLeaderboard";
 import { GlobalPlayer, sumPoints, useGlobalLeaderboard } from "@/lib/globalLeaderboard";
+import { useWeeklyWinnerRules } from "@/lib/weeklyWinner";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -138,7 +139,7 @@ export default function RanglistePage() {
         <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Rangliste</h1>
         {tab === "Woche" ? (
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1 text-xs text-muted">
-            Alle Punkte dieser Woche, egal welche Sportart · <WeeklyCountdown target={weekWindow.end.getTime()} />
+            Punkte dieser Woche · <WeeklyCountdown target={weekWindow.end.getTime()} />
           </p>
         ) : tab === "Vereine" ? (
           <p className="mt-0.5 text-xs text-muted">Herzensvereine im Vergleich, eine Tabelle pro Sportart</p>
@@ -174,6 +175,8 @@ export default function RanglistePage() {
           </button>
         ))}
       </div>
+
+      {tab === "Woche" && <WeekRulesBox />}
 
       {tab === "Vereine" ? (
         <ClubLeaderboard />
@@ -428,5 +431,25 @@ function NameAvatar({ id, name, rank, frame }: { id: string; name: string; rank:
         {(inner) => <PlayerAvatar id={id} name={name} size={inner} />}
       </OtherFrameRing>
     </span>
+  );
+}
+
+// Erklärung im Reiter "Woche": was zählt und was der Erste bekommt
+// (Werte aus supabase/wochensieger.sql, siehe lib/weeklyWinner.ts).
+function WeekRulesBox() {
+  const { xp, minPlayers } = useWeeklyWinnerRules();
+  const sports = SPORTS.map((s) => sportLabel(s));
+  const sportList = sports.length > 1 ? `${sports.slice(0, -1).join(", ")} oder ${sports[sports.length - 1]}` : sports[0];
+  return (
+    <div className="mb-5 rounded-card border border-edge bg-surface px-4 py-3 text-sm text-muted">
+      <p>
+        Hier zählen alle Rangpunkte, die du von Montag bis Sonntag machst, egal ob mit {sportList}. Am Montag startet die
+        Woche neu.
+      </p>
+      <p className="mt-2 font-semibold text-ink">
+        🥇 Der Erste der Woche bekommt <span className="whitespace-nowrap text-gold">+{xp} Pass-XP</span>
+        {minPlayers > 1 && <span className="font-normal text-muted"> (ab {minPlayers} Spielern in der Woche)</span>}.
+      </p>
+    </div>
   );
 }

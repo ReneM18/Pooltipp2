@@ -7,7 +7,8 @@ import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { SPORTS, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { getCurrentWeekWindow } from "@/lib/weeklyLeaderboard";
-import { computeWeeklyReview, getPreviousWeekWindow, useWeeklyPlace, weekRangeText } from "@/lib/weeklyReview";
+import { computeWeeklyReview, getPreviousWeekWindow, useWeeklyPlace, weekKey, weekRangeText } from "@/lib/weeklyReview";
+import { useMyWeeklyWin } from "@/lib/weeklyWinner";
 import { daysLabel, useStreak } from "@/lib/streak";
 import { TIER_BADGE } from "@/components/tierBadges";
 import { matchTitle, oneXTwoText, scoreText } from "@/lib/teamOrder";
@@ -34,6 +35,8 @@ export default function RueckblickPage() {
     review.tips > 0
   );
 
+  const weeklyWin = useMyWeeklyWin(authUserId, weekKey(weekWin));
+
   if (!sessionChecked) return <Shell><p className="py-8 text-center text-sm text-muted">Wird geladen …</p></Shell>;
   if (!isRegistered) {
     return (
@@ -56,6 +59,7 @@ export default function RueckblickPage() {
       `📊 Meine PoolTipp-Woche (${range})`,
       `${review.tips} ${review.tips === 1 ? "Tipp" : "Tipps"} · ${review.exakt} exakt · ${pointsText} Punkte`,
       place ? `Platz ${place} von ${players} in der Wochen-Rangliste` : null,
+      weeklyWin ? "🥇 Erster der Woche" : null,
       streak.count > 0 ? `🔥 ${daysLabel(streak.count)} in Folge` : null,
     ].filter(Boolean);
     const text = lines.join("\n");
@@ -126,6 +130,12 @@ export default function RueckblickPage() {
               label={place ? `Platz von ${players}` : "Platz"}
             />
           </div>
+
+          {weeklyWin && (
+            <p className="mt-4 rounded-lg border border-gold/50 bg-gold/10 px-3 py-2 font-display text-sm font-semibold text-gold">
+              🥇 Erster der Woche · +{weeklyWin.xp} Pass-XP
+            </p>
+          )}
 
           {(tierChips.length > 0 || review.open > 0) && (
             <div className="mt-4 flex flex-wrap gap-1.5">

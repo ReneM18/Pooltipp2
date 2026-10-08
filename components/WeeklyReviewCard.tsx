@@ -5,19 +5,21 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { computeWeeklyReview, getPreviousWeekWindow, weekKey, weekRangeText } from "@/lib/weeklyReview";
+import { useMyWeeklyWin } from "@/lib/weeklyWinner";
 
-// Karte "Deine letzte Woche" oben auf der Spieltag-Seite: erscheint ab
+// Karte "Deine letzte Woche" oben auf der Tipps-Seite: erscheint ab
 // Montag, wenn man in der Vorwoche getippt hat, und bleibt, bis man sie
 // ansieht oder wegklickt. Das "gesehen" gilt fürs Konto, also auf jedem
 // Gerät (profile_extras.review_seen_week, supabase/dranbleiben.sql).
 export default function WeeklyReviewCard() {
-  const { isRegistered, reviewSeenReady, reviewSeenWeek, markReviewSeen } = useUser();
+  const { isRegistered, authUserId, reviewSeenReady, reviewSeenWeek, markReviewSeen } = useUser();
   const { myTips, myTipsLoaded, matches } = useAppData();
   const router = useRouter();
 
   const weekWin = useMemo(() => getPreviousWeekWindow(), []);
   const key = weekKey(weekWin);
   const review = useMemo(() => computeWeeklyReview(myTips, matches, weekWin), [myTips, matches, weekWin]);
+  const weeklyWin = useMyWeeklyWin(isRegistered ? authUserId : null, key);
 
   if (!isRegistered || !reviewSeenReady || !myTipsLoaded || review.tips === 0) return null;
   if (reviewSeenWeek && reviewSeenWeek >= key) return null;
@@ -37,7 +39,7 @@ export default function WeeklyReviewCard() {
         className="flex min-w-0 flex-1 items-center gap-3 rounded-card p-3 text-left sm:p-4"
       >
         <span className="text-2xl" aria-hidden>
-          📊
+          {weeklyWin ? "🥇" : "📊"}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-display text-sm font-semibold text-ink">
@@ -52,6 +54,9 @@ export default function WeeklyReviewCard() {
               {points} Punkte
             </span>
           </span>
+          {weeklyWin && (
+            <span className="block text-xs font-semibold text-gold">Erster der Woche · +{weeklyWin.xp} Pass-XP</span>
+          )}
         </span>
         <span className="shrink-0 whitespace-nowrap font-display text-sm font-semibold text-gold">Ansehen ›</span>
       </button>
