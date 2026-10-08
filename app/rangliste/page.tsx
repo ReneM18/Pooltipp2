@@ -438,19 +438,32 @@ function NameAvatar({ id, name, rank, frame }: { id: string; name: string; rank:
 // (Werte aus supabase/wochensieger.sql, siehe lib/weeklyWinner.ts).
 function WeekRulesBox() {
   const { xp, minPlayers } = useWeeklyWinnerRules();
-  const sports = SPORTS.map((s) => sportLabel(s));
-  const sportList = sports.length > 1 ? `${sports.slice(0, -1).join(", ")} oder ${sports[sports.length - 1]}` : sports[0];
+  const rules: [string, React.ReactNode][] = [
+    ["🗓️", "Die Woche beginnt am Montag um 0:00 Uhr und endet am Sonntag um 24:00 Uhr (Wiener Zeit)."],
+    [
+      "⚽",
+      "Es zählen nur deine Tipp-Punkte, alle Sportarten zusammen: exakt +10, Tordifferenz +7, Tendenz +5, falsch −3.",
+    ],
+    ["⚖️", "Der Platz-Bonus zählt hier nicht. So haben alle die gleiche Chance."],
+    [
+      "🥇",
+      <>
+        Der Erste der Woche bekommt <span className="whitespace-nowrap font-semibold text-gold">+{xp} Pass-XP</span>
+        {minPlayers > 1 && ` (ab ${minPlayers} Spielern)`}.
+      </>,
+    ],
+    ["🔄", "Am Montag startet die Woche wieder bei 0."],
+  ];
   return (
-    <div className="mb-5 rounded-card border border-edge bg-surface px-4 py-3 text-sm text-muted">
-      <p>
-        Hier zählen nur deine Tipp-Punkte (exakt +10, Tordifferenz +7, Tendenz +5, falsch −3), ohne Platz-Bonus. So
-        haben alle die gleichen Chancen, egal wo sie in der Gesamt-Rangliste stehen und egal ob sie {sportList} tippen.
-        Eine neue Woche beginnt jeden Montag um 0:00 Uhr (Wiener Zeit).
-      </p>
-      <p className="mt-2 font-semibold text-ink">
-        🥇 Der Erste der Woche bekommt <span className="whitespace-nowrap text-gold">+{xp} Pass-XP</span>
-        {minPlayers > 1 && <span className="font-normal text-muted"> (ab {minPlayers} Spielern in der Woche)</span>}.
-      </p>
-    </div>
+    <ul className="mb-5 flex flex-col gap-1.5 rounded-card border border-edge bg-surface px-4 py-3 text-sm text-muted">
+      {rules.map(([icon, text]) => (
+        <li key={icon} className="flex gap-2">
+          <span aria-hidden className="shrink-0">
+            {icon}
+          </span>
+          <span>{text}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
