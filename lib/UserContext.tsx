@@ -6,6 +6,7 @@ import { setFlashToast } from "@/lib/flashToast";
 import { useAppRefresh } from "@/lib/appRefresh";
 import { SEASON_DESIGN_OFF_EVENT, SEASON_DESIGN_STORAGE_KEY } from "@/lib/seasons/design";
 import { mockUser } from "@/lib/mockData";
+import { clearHeaderCache, writeHeaderCache } from "@/lib/headerCache";
 import { getAvailableRankIcons, getBestRankIcon, PrestigeBySport, RankIconOption } from "@/lib/rankTiers";
 import { PhotoVisibility } from "@/lib/mockUsers";
 import { useAppData, SubmittedTip } from "@/lib/AppDataContext";
@@ -212,6 +213,8 @@ interface UserContextValue {
   // true, sobald das eigene Profil aus Supabase geladen ist (vorher sind
   // Name/Punkte noch lokale Startwerte).
   profileLoaded: boolean;
+  /** Fotos, Rang-Icon & Co. des Kontos sind geladen (profile_extras). */
+  extrasLoaded: boolean;
   // true nur für den Admin-Account. Kommt direkt aus der Datenbank-Funktion
   // is_admin() – dieselbe Prüfung, die auch das Speichern von Spielen,
   // Teams, News und Turnieren absichert.
@@ -253,6 +256,24 @@ async function startPassSeason(): Promise<number | null> {
     return null;
   }
   return typeof data?.pass_xp === "number" ? data.pass_xp : null;
+}
+
+// Merkt pro Konto, dass der Saisonwechsel dieser Saison schon geprüft ist
+// (nur zum schnelleren Laden; die Datenbank prüft trotzdem jedes Mal).
+const SEASON_STARTED_KEY = "pooltipp:saison-gestartet";
+function seasonAlreadyStarted(userId: string) {
+  try {
+    return localStorage.getItem(SEASON_STARTED_KEY) === `${userId}|${CURRENT_SEASON.theme.id}`;
+  } catch {
+    return false;
+  }
+}
+function markSeasonStarted(userId: string) {
+  try {
+    localStorage.setItem(SEASON_STARTED_KEY, `${userId}|${CURRENT_SEASON.theme.id}`);
+  } catch {
+    // nicht speicherbar: dann beim nächsten Mal wieder nacheinander
+  }
 }
 
 export function UserProvider({ children }: { children: ReactNode }) {
@@ -355,6 +376,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       // neu laden. Nur so verschwinden Name, Foto, Sterne und Tipps des
       // Kontos sicher aus dem Speicher, auch in Safari auf dem iPhone.
       if (event === "SIGNED_OUT" && hadUser) {
+        clearHeaderCache();
         leaveToStart();
         return;
       }
@@ -398,6 +420,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   // Gerät gelöscht, damit niemand eingeloggt hängen bleibt.
   async function logout() {
     setFlashToast("👋 Du bist ausgeloggt.");
+    clearHeaderCache();
     const { error } = await supabase.auth.signOut();
     if (error) await supabase.auth.signOut({ scope: "local" });
     leaveToStart();
@@ -540,6 +563,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (!authUserId) return;
     let cancelled = false;
     (async () => {
+      // Alles gleichzeitig statt nacheinander (vorher drei Runden übers Netz,
+      // bevor oben die Coins standen): Profil lesen und Kontostand holen.
+      // Saisonwechsel prüfen, bevor der Kontostand gelesen wird: setzt die
+      // Saison-XP nach einem Wechsel einmalig auf 0 (supabase/saisonwechsel.sql).
+      // Ist das für dieses Konto in dieser Saison schon erledigt (auf diesem
+      // Gerät gemerkt), kann der Kontostand sofort mitlaufen – die Prüfung
+      // ändert dann nichts mehr.
+      let seasonStarted = false;
+      const seasonPromise = startPassSeason().then((xp) => {
+        seasonStarted = xp !== null;
+      });
+      const walletPromise = seasonAlreadyStarted(authUserId)
+        ? reloadWallet()
+        : seasonPromise.then(() => (cancelled ? false : reloadWallet()));
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("display_name")
@@ -563,12 +600,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
         await supabase.from("profiles").insert({ id: authUserId, display_name: displayName });
       }
       if (cancelled) return;
-      // Saisonwechsel prüfen, bevor der Kontostand gelesen wird: setzt die
-      // Saison-XP nach einem Wechsel einmalig auf 0 (supabase/saisonwechsel.sql).
-      await startPassSeason();
+      // Läuft schon parallel zur Profil-Abfrage (siehe oben). Fehlte die
+      // Profilzeile, wurde sie eben erst angelegt: Kontostand dann neu lesen.
+      let ok = await walletPromise;
       if (cancelled) return;
-      const ok = await reloadWallet();
+      if (!profile) ok = await reloadWallet();
       if (cancelled || !ok) return;
+      if (seasonStarted) markSeasonStarted(authUserId);
       setProfileLoaded(true);
     })();
     return () => {
@@ -1027,6 +1065,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const isLowOnStars = freeStars <= LOW_STARS_THRESHOLD;
 
+  // Zuletzt bekannte Kopfzeilen-Werte für das nächste Öffnen merken – nur
+  // echte Werte aus der Datenbank (lib/headerCache.ts, reine Anzeige).
+  useEffect(() => {
+    if (!authUserId || !profileLoaded) return;
+    writeHeaderCache(authUserId, { coins: freeStars, name: displayName, rangPunkte, prestige, passXP });
+  }, [authUserId, profileLoaded, freeStars, displayName, rangPunkte, prestige, passXP]);
+  useEffect(() => {
+    if (!authUserId || !extrasLoaded) return;
+    writeHeaderCache(authUserId, {
+      photo: photos[0] ?? null,
+      rankIconId: selectedRankIconId,
+      premium: hasPremiumPass,
+      frameColors: customFrameColors,
+    });
+  }, [authUserId, extrasLoaded, photos, selectedRankIconId, hasPremiumPass, customFrameColors]);
+  useEffect(() => {
+    if (authUserId && adminCheckedFor === authUserId) writeHeaderCache(authUserId, { isAdmin });
+  }, [authUserId, adminCheckedFor, isAdmin]);
+
   // Auswertung, Endstand-Korrektur, Absage und Bonusfragen bucht die
   // Datenbank für alle Spieler selbst, sobald der Admin speichert. Sieht
   // dieser Browser ein Spiel, dessen Ergebnis beim eigenen Tipp noch nicht
@@ -1288,6 +1345,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         authEmail,
         authUserId,
         profileLoaded,
+        extrasLoaded,
         isAdmin: isAdminNow,
         adminChecked,
         sessionChecked,
