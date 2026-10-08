@@ -289,7 +289,7 @@ export function getAllRankIcons(
     return {
       option: getSportRankIcon(sport, points, "", level),
       unlocked: points > 0 || level > 0,
-      hint: `Gib deinen ersten ${sportLabel(sport)}-Tipp ab`,
+      hint: "Kommt mit deinen ersten Punkten",
     };
   });
   // Prestige-Abzeichen erscheinen erst, wenn man sie hat (dann für immer).

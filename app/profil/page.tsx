@@ -344,7 +344,10 @@ function ProfilInhalt() {
               Wähle, welches Icon neben deinem Namen in Rangliste, Profil und Chat angezeigt wird.
               Ausgegraute Icons schaltest du noch frei.
             </p>
-            <div className="flex flex-wrap gap-3">
+            {/* Am Handy volle Breite untereinander, ab Tablet ein Raster – alle
+                Kästchen gleich breit und hoch, Icon links in fester Box, Text
+                immer an derselben Stelle, Status (✓ / 🔒) rechts. */}
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               {allRankIcons.map(({ option, unlocked, hint }) => {
                 const active = unlocked && option.id === activeRankIcon?.id;
                 return (
@@ -352,23 +355,46 @@ function ProfilInhalt() {
                     key={option.id}
                     onClick={() => unlocked && setSelectedRankIconId(option.id)}
                     disabled={!unlocked}
+                    aria-pressed={active}
                     aria-label={unlocked ? option.label : `${option.label} (gesperrt: ${hint})`}
-                    className={`flex items-center gap-2 rounded-card border px-3 py-2 text-left transition-colors ${
+                    className={`flex min-h-[68px] w-full items-center gap-3 rounded-card border px-3 py-2.5 text-left transition-colors ${
                       active
-                        ? "border-gold bg-surface-hover"
+                        ? "border-gold bg-gold/10"
                         : unlocked
                         ? "border-edge bg-surface hover:border-muted"
                         : "cursor-not-allowed border-dashed border-edge bg-surface"
                     }`}
                   >
-                    <span className={`relative ${unlocked ? "" : "opacity-40 grayscale"}`}>
+                    <span
+                      className={`relative flex h-11 w-11 shrink-0 items-center justify-center ${
+                        unlocked ? "" : "opacity-40 grayscale"
+                      }`}
+                    >
                       <RankBadge option={option} size="md" />
                     </span>
-                    <span className="min-w-0">
-                      <span className={`block text-xs font-medium ${unlocked ? "text-ink" : "text-muted"}`}>
-                        {unlocked ? option.label : `🔒 ${option.kind === "sport" ? sportLabel(option.sport) : option.label}`}
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className={`block text-sm font-semibold leading-snug ${
+                          active ? "text-gold" : unlocked ? "text-ink" : "text-muted"
+                        }`}
+                      >
+                        {unlocked ? option.label : option.kind === "sport" ? sportLabel(option.sport) : option.label}
                       </span>
-                      {!unlocked && <span className="block text-[11px] text-muted">{hint}</span>}
+                      <span className="block text-xs leading-snug text-muted">
+                        {active ? "Ausgewählt" : unlocked ? "Antippen zum Wählen" : hint}
+                      </span>
+                    </span>
+                    <span
+                      aria-hidden
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                        active
+                          ? "bg-gold text-pitch"
+                          : unlocked
+                          ? "border border-edge"
+                          : "text-sm"
+                      }`}
+                    >
+                      {active ? "✓" : unlocked ? "" : "🔒"}
                     </span>
                   </button>
                 );
@@ -384,12 +410,13 @@ function ProfilInhalt() {
                 der Balken zeigt, wie viele Punkte dir bis zur nächsten Stufe fehlen.
               </p>
 
-              <div className="mb-3 flex flex-wrap gap-2">
+              {/* Gleich breite Knöpfe: am Handy 2 × 2, ab Tablet in einer Reihe. */}
+              <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {sportProgressOptions.map((o) => (
                   <button
                     key={o.sport}
                     onClick={() => setRangSportTab(o.sport!)}
-                    className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                    className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
                       rangSportTab === o.sport
                         ? "border-gold bg-gold/15 text-gold"
                         : "border-edge bg-surface text-muted hover:text-ink"
@@ -720,11 +747,12 @@ function ProfilInhalt() {
                   Gilt für dein Profil, wenn andere User dich antippen (z. B. in der Rangliste).
                 </p>
               </div>
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {/* Am Handy zwei gleich breite Knöpfe nebeneinander (wie bei der Startseite). */}
+              <div className="grid shrink-0 grid-cols-2 items-center gap-2 sm:flex">
                   <button
                     type="button"
                     onClick={() => visibilityDraft.set("public")}
-                    className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                    className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-center text-xs font-semibold transition-colors ${
                       visibilityDraft.value === "public"
                         ? "border-gold bg-gold/15 text-gold"
                         : "border-edge bg-pitch text-muted hover:text-ink"
@@ -735,7 +763,7 @@ function ProfilInhalt() {
                   <button
                     type="button"
                     onClick={() => visibilityDraft.set("friends")}
-                    className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+                    className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-center text-xs font-semibold transition-colors ${
                       visibilityDraft.value === "friends"
                         ? "border-gold bg-gold/15 text-gold"
                         : "border-edge bg-pitch text-muted hover:text-ink"
@@ -744,6 +772,7 @@ function ProfilInhalt() {
                     🔒 Nur für Freunde
                   </button>
                 <SaveButton
+                  className="col-span-2 justify-self-start"
                   dirty={visibilityDraft.dirty}
                   saved={visibilityDraft.saved}
                   onClick={() => visibilityDraft.save((v) => setPhotoVisibility(v))}
