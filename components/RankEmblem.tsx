@@ -50,6 +50,7 @@ export default function RankEmblem({
   colors,
   size,
   prestige = 0,
+  sportScale = 0.44,
 }: {
   rank?: RankName;
   sub?: SubTier;
@@ -63,6 +64,8 @@ export default function RankEmblem({
   size: number;
   /** Prestige-Stufe: Sterne oben am Abzeichen (ab 6 Krone mit Zahl). */
   prestige?: number;
+  /** Größe des Sportart-Symbols im Verhältnis zum Abzeichen (Profilbild: größer). */
+  sportScale?: number;
 }) {
   const gradientId = useId();
   const isGoat = !elite && !unsterblich && rank === "GOAT";
@@ -74,7 +77,7 @@ export default function RankEmblem({
   const hasSport = !elite && !unsterblich && !isGoat && !!sport;
   const showSport = hasSport && size >= 24;
   const sportInside = hasSport && size < 24;
-  const sportSize = Math.max(12, Math.round(size * 0.44));
+  const sportSize = Math.max(12, Math.round(size * sportScale));
 
   return (
     <span className="relative inline-flex shrink-0" style={{ width: size, height: size }}>
