@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TIPPRUNDEN_ENABLED } from "@/lib/types";
 
 const LEGAL_LINKS: { href: string; label: string }[] = [
   { href: "/datenschutz", label: "Datenschutzerklärung" },
@@ -50,8 +51,8 @@ export default function Footer() {
           </p>
           <p>
             Dazu gibt's echte Live-Ergebnisse und Tabellen im Matchcenter, einen Saison-Pass mit
-            Belohnungen fürs tägliche Reinschauen, eine Rangliste pro Sportart und private
-            Tipprunden für Freunde, Verein oder Kollegen. Alles komplett kostenlos – gespielt wird
+            Belohnungen fürs tägliche Reinschauen, eine Rangliste pro Sportart und
+            {TIPPRUNDEN_ENABLED ? " private Tipprunden für Freunde, Verein oder Kollegen" : " Duelle gegen Freunde"}. Alles komplett kostenlos – gespielt wird
             nur um virtuelle Coins, nie um echtes Geld.
           </p>
         </div>

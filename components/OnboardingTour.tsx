@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TIPPRUNDEN_ENABLED } from "@/lib/types";
 
 // v2: neue Punkte-Regeln (Rankingsystem), darum sieht jeder die Tour einmal neu.
 const STORAGE_KEY = "pooltipp_onboarding_v2";
@@ -26,7 +27,7 @@ const SLIDES = [
     title: "Private Tipprunden",
     text: "Gründe mit \"Private Tipprunden\" eine eigene Runde mit Freunden oder Kollegen und tretet gegeneinander an – mit Einladungs-Code zum Teilen.",
   },
-];
+].filter((s) => TIPPRUNDEN_ENABLED || s.title !== "Private Tipprunden");
 
 export default function OnboardingTour() {
   const [visible, setVisible] = useState(false);

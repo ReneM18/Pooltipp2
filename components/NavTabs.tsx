@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useDuels } from "@/lib/DuelsContext";
+import { TIPPRUNDEN_ENABLED } from "@/lib/types";
 
 // Logisch gruppiert: erst die eigene Spiel-Schleife (Tippen, Spiele,
 // Fortschritt), danach alles Community-Bezogene (Rangliste, Feed, Freunde).
@@ -78,12 +79,14 @@ export default function NavTabs() {
               </span>
             )}
           </Link>
-          <Link
-            href="/teams"
-            className="flex shrink-0 items-center gap-1 rounded-full border border-gold/45 bg-surface px-2.5 py-1 font-display text-xs font-semibold text-ink transition-colors hover:border-gold hover:bg-gold/10 lg:px-3 lg:py-1.5 lg:text-sm"
-          >
-            <span aria-hidden>👥</span> Tipprunden
-          </Link>
+          {TIPPRUNDEN_ENABLED && (
+            <Link
+              href="/teams"
+              className="flex shrink-0 items-center gap-1 rounded-full border border-gold/45 bg-surface px-2.5 py-1 font-display text-xs font-semibold text-ink transition-colors hover:border-gold hover:bg-gold/10 lg:px-3 lg:py-1.5 lg:text-sm"
+            >
+              <span aria-hidden>👥</span> Tipprunden
+            </Link>
+          )}
           <Link
             href="/turnier"
             className="flex shrink-0 items-center gap-1 rounded-full border border-gold/45 bg-surface px-2.5 py-1 font-display text-xs font-semibold text-ink transition-colors hover:border-gold hover:bg-gold/10 lg:px-3 lg:py-1.5 lg:text-sm"

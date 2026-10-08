@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useDuels } from "@/lib/DuelsContext";
+import { TIPPRUNDEN_ENABLED } from "@/lib/types";
 
 // Feste Leiste unten am Handy/Tablet (bis lg:), wie in Sport-Apps üblich.
 // Die vier wichtigsten Seiten haben einen eigenen Knopf, alles Weitere
@@ -54,7 +55,7 @@ const MORE_COLUMNS: { title: string; items: MoreItem[] }[] = [
       { href: "/duelle", emoji: "⚔️", label: "Duelle", hint: "Gegen Freunde" },
       { href: "/teams", emoji: "🤝", label: "Tipprunden", hint: "Private Runden" },
       { href: "/turnier", emoji: "🏆", label: "Turniere", hint: "WM, EM & Co." },
-    ],
+    ].filter((m) => TIPPRUNDEN_ENABLED || m.href !== "/teams"),
   },
   {
     title: "Freunde & Shop",
@@ -66,6 +67,9 @@ const MORE_COLUMNS: { title: string; items: MoreItem[] }[] = [
   },
 ];
 const MORE = MORE_COLUMNS.flatMap((c) => c.items);
+// Zeilen im Raster: so viele wie die längere Spalte hat (fehlt links ein
+// Punkt, bleibt das Feld leer statt dass rechts einer verschwindet).
+const MORE_ROWS = Math.max(...MORE_COLUMNS.map((c) => c.items.length));
 
 function Badge({ n }: { n: number }) {
   return (
@@ -149,7 +153,8 @@ export default function BottomNav() {
               ))}
             </div>
             <div className="grid auto-rows-fr grid-cols-2 gap-x-3 gap-y-2">
-              {MORE_COLUMNS[0].items.flatMap((_, row) => MORE_COLUMNS.map((col) => col.items[row])).map((m) => {
+              {Array.from({ length: MORE_ROWS }).flatMap((_, row) => MORE_COLUMNS.map((col) => col.items[row])).map((m, i) => {
+                if (!m) return <div key={`leer-${i}`} aria-hidden />;
                 const active = pathname.startsWith(m.href);
                 const hasInvites = m.href === "/duelle" && invites > 0;
                 return (

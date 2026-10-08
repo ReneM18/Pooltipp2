@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import { TIPPRUNDEN_ENABLED } from "@/lib/types";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { setFlashToast } from "@/lib/flashToast";
@@ -209,9 +210,9 @@ export default function AccountSettings() {
                 <p className="font-semibold text-red-200">Das kann nicht rückgängig gemacht werden.</p>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
                   <li>Gelöscht werden dein Profil, deine Coins, Rangpunkte und Saison-XP, deine Tipps, Freundschaften und Vereine.</li>
-                  <li>Du verschwindest aus Rangliste, Vereinswertung und deinen Tipprunden.</li>
+                  <li>Du verschwindest aus Rangliste, Vereinswertung{TIPPRUNDEN_ENABLED ? " und deinen Tipprunden" : ""}.</li>
                   <li>Offene Duelle werden abgebrochen, deine Gegner bekommen ihren Einsatz zurück.</li>
-                  <li>Tipprunden, die du gegründet hast, übernimmt das Mitglied, das am längsten dabei ist.</li>
+                  {TIPPRUNDEN_ENABLED && <li>Tipprunden, die du gegründet hast, übernimmt das Mitglied, das am längsten dabei ist.</li>}
                   <li>Deine Chat-Nachrichten und Kommentare bleiben stehen, aber als „Gelöschter Spieler“.</li>
                 </ul>
               </div>
