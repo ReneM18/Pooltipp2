@@ -1,7 +1,12 @@
+"use client";
+
+import { usePlayerPhoto } from "@/lib/playerPhotos";
+
 // Spieler-Bild mit Anfangsbuchstaben für andere Spieler (Chat, Freunde,
 // Rangliste, Spieler-Seite). Jede Person bekommt aus ihrer ID immer dieselbe
 // gedämpfte Farbe, damit man sie überall auf einen Blick wiedererkennt.
-// Das eigene Profilbild mit Foto und Pass-Rahmen bleibt davon unberührt.
+// Hat jemand ein Profilfoto (und darf man es sehen), steht stattdessen das
+// Foto im Kreis – auch beim eigenen Konto (lib/playerPhotos.ts).
 
 export function avatarHue(id: string): number {
   let hash = 2166136261;
@@ -23,6 +28,18 @@ export default function PlayerAvatar({
   className?: string;
 }) {
   const hue = avatarHue(id || name);
+  const photo = usePlayerPhoto(id);
+  if (photo) {
+    return (
+      <span
+        className={`flex shrink-0 overflow-hidden rounded-full bg-surface ${className}`}
+        style={{ width: size, height: size }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={photo} alt={`Profilbild von ${name}`} className="h-full w-full object-cover" />
+      </span>
+    );
+  }
   return (
     <span
       aria-hidden

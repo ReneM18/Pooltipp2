@@ -1120,6 +1120,45 @@ export function UserProvider({ children }: { children: ReactNode }) {
       });
   }, [authUserId, extrasLoaded, photos, photoVisibility, selectedRankIconId, customFrameColors, seasonDesignOff, hasPremiumPass, startDone, reviewSeenWeek, startPage, passDisplay, hideOthersDeco]);
 
+  // Kleine Vorschau des Profilbilds (128 px) für andere Spieler speichern:
+  // Rangliste und Chat laden dann nur ein paar KB statt des ganzen Fotos
+  // (supabase/profilfoto-fuer-alle.sql). Kurz warten, bis das Foto selbst
+  // gespeichert ist. Fehlt das SQL noch, bleibt es still (andere sehen dann
+  // eben das große Foto bzw. gar keins).
+  const photoThumbRef = useRef<string | null>(null);
+  useEffect(() => {
+    const photo = photos[0];
+    if (!authUserId || !extrasLoaded || !photo || !photo.startsWith("data:image/")) return;
+    const key = `${authUserId}:${photo.length}:${photo.slice(-64)}`;
+    if (photoThumbRef.current === key) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      const img = new Image();
+      img.onload = () => {
+        if (cancelled) return;
+        const side = 128;
+        const canvas = document.createElement("canvas");
+        canvas.width = side;
+        canvas.height = side;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        // Quadratisch aus der Mitte, wie der runde Kreis es zeigt.
+        const crop = Math.min(img.width, img.height);
+        ctx.drawImage(img, (img.width - crop) / 2, (img.height - crop) / 2, crop, crop, 0, 0, side, side);
+        const thumb = canvas.toDataURL("image/jpeg", 0.82);
+        photoThumbRef.current = key;
+        supabase.rpc("set_my_photo_thumb", { p_thumb: thumb }).then(({ error }) => {
+          if (error && photoThumbRef.current === key) photoThumbRef.current = null;
+        });
+      };
+      img.src = photo;
+    }, 1500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [authUserId, extrasLoaded, photos]);
+
   // Die Auswahl zusätzlich im öffentlichen Profil speichern, damit auch
   // andere Spieler sie in Rangliste, Chat und auf der Spielerseite sehen
   // (supabase/rang-icon-auswahl.sql). Erst nach dem Laden der gespeicherten

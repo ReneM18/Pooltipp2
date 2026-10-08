@@ -11,13 +11,14 @@ import RankMeaningBadge from "@/components/RankMeaningBadge";
 import { useChat } from "@/lib/ChatContext";
 import { ChatIcon } from "@/components/Icons";
 import { avatarHue } from "@/components/PlayerAvatar";
+import { usePlayerPhoto } from "@/lib/playerPhotos";
 import SeasonFrame, { OtherFrameRing } from "@/components/SeasonFrame";
 import PassHonorTags, { useOtherPlayersFrames, useOtherPlayersHonors } from "@/components/PassHonors";
 
 export default function SpielerProfilPage() {
   const params = useParams();
   const router = useRouter();
-  const { displayName, friends, friendEntries, pendingRequests, photos: myPhotos, activeRankIcon, shownPassHonors } = useUser();
+  const { authUserId, displayName, friends, friendEntries, pendingRequests, photos: myPhotos, activeRankIcon, shownPassHonors } = useUser();
   const { openChat } = useChat();
   const rankIcons = usePlayerRankIcons();
 
@@ -40,6 +41,8 @@ export default function SpielerProfilPage() {
   const otherFrame = useOtherPlayersFrames(isSelf ? [] : [playerId])[playerId ?? ""];
   const otherHonors = useOtherPlayersHonors(isSelf ? [] : [playerId])[playerId ?? ""];
   const honors = isSelf ? shownPassHonors : otherHonors;
+  // Profilbild (eigenes bzw. das des Spielers, wenn er es zeigen lässt).
+  const avatarPhoto = usePlayerPhoto(isSelf ? authUserId : playerId);
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
@@ -56,13 +59,24 @@ export default function SpielerProfilPage() {
               (gleich groß wie der Kreis, damit nichts verrutscht). */}
           {isSelf ? (
             <SeasonFrame size={58}>
-              <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-surface font-display text-2xl font-bold text-gold">
-                {name.slice(0, 1).toUpperCase()}
+              <span className="flex h-[58px] w-[58px] items-center justify-center overflow-hidden rounded-full bg-surface font-display text-2xl font-bold text-gold">
+                {avatarPhoto ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarPhoto} alt="Profilbild" className="h-full w-full object-cover" />
+                ) : (
+                  name.slice(0, 1).toUpperCase()
+                )}
               </span>
             </SeasonFrame>
           ) : (
             <OtherFrameRing frame={otherFrame} size={64}>
-              {(inner) => (
+              {(inner) =>
+                avatarPhoto ? (
+                  <span className="flex overflow-hidden rounded-full bg-surface" style={{ width: inner, height: inner }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={avatarPhoto} alt={`Profilbild von ${name}`} className="h-full w-full object-cover" />
+                  </span>
+                ) : (
                 <span
                   className="flex items-center justify-center rounded-full font-display text-2xl font-bold"
                   // Andere Spieler in ihrer festen Farbe wie im Chat und in der Rangliste.
@@ -70,7 +84,8 @@ export default function SpielerProfilPage() {
                 >
                   {name.slice(0, 1).toUpperCase()}
                 </span>
-              )}
+                )
+              }
             </OtherFrameRing>
           )}
           {/* Rang-Abzeichen in der Ecke des Profilbilds – größer als in Listen,
