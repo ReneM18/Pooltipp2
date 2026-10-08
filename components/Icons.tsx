@@ -40,14 +40,14 @@ export function GearIcon({ className }: { className?: string }) {
 
 // Fernseher mit Antenne und Standfuß, dicker Strich: klein am Handy gut
 // erkennbar (Variante A, von Rene am 08.10.2026 ausgesucht, etwas größer
-// und fetter gewünscht).
+// Strich auf Wunsch wieder etwas dünner).
 export function TvIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={2.8}
+      strokeWidth={2.4}
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
