@@ -24,9 +24,9 @@ import { GlobalPlayer, sumPoints, useGlobalLeaderboard } from "@/lib/globalLeade
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
-type ViewTab = "Gesamt" | "Spieltag" | "Vereine" | Sport;
+type ViewTab = "Gesamt" | "Woche" | "Vereine" | Sport;
 
-const TABS: ViewTab[] = ["Gesamt", "Spieltag", ...SPORTS, "Vereine"];
+const TABS: ViewTab[] = ["Gesamt", "Woche", ...SPORTS, "Vereine"];
 
 // Ab so vielen Spielern wird nur die Spitze gezeigt (plus die eigene Zeile,
 // falls man weiter hinten steht), damit die Seite nicht endlos lang wird.
@@ -48,7 +48,7 @@ export default function RanglistePage() {
   const { rangPunkte, prestige, displayName, authUserId, profileLoaded, selectedRankIconId } = useUser();
   const { myTips } = useAppData();
 
-  // Spieltags-Rangliste: nur die Rangpunkte-Änderung aus dieser Kalenderwoche
+  // Wochen-Rangliste: nur die Rangpunkte-Änderung aus dieser Kalenderwoche
   // zählt, mit Countdown bis zum Reset – siehe lib/weeklyLeaderboard.ts.
   // useMemo, damit das Zeitfenster nicht bei jedem Rendern neu entsteht und
   // die Daten nicht ständig neu geladen werden.
@@ -77,7 +77,7 @@ export default function RanglistePage() {
 
   const ranked: RowEntry[] = useMemo(() => {
     let rows: Omit<RowEntry, "rank">[];
-    if (tab === "Spieltag") {
+    if (tab === "Woche") {
       rows = allPlayers
         .filter((p) => weeklyByUser.has(p.id) || p.id === authUserId)
         .map((p) => ({
@@ -136,9 +136,9 @@ export default function RanglistePage() {
     <main className="mx-auto max-w-3xl lg:max-w-4xl px-5 py-8">
       <div className="mb-4">
         <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Rangliste</h1>
-        {tab === "Spieltag" ? (
-          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
-            Zählt nur Punkte dieser Woche · <WeeklyCountdown target={weekWindow.end.getTime()} />
+        {tab === "Woche" ? (
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-1 text-xs text-muted">
+            Alle Punkte dieser Woche, egal welche Sportart · <WeeklyCountdown target={weekWindow.end.getTime()} />
           </p>
         ) : tab === "Vereine" ? (
           <p className="mt-0.5 text-xs text-muted">Herzensvereine im Vergleich, eine Tabelle pro Sportart</p>
@@ -154,7 +154,7 @@ export default function RanglistePage() {
         )}
       </div>
 
-      {/* Tab-Umschalter: Gesamt + Spieltag + je Sportart. Handy: eine Zeile
+      {/* Tab-Umschalter: Gesamt + Woche + je Sportart. Handy: eine Zeile
           zum Wischen; ab Tablet zwei gleich breite Reihen à 4 (alles sichtbar). */}
       <div className="mb-5 flex gap-2 overflow-x-auto sm:grid sm:grid-cols-4 sm:overflow-visible">
         {TABS.map((t) => (
@@ -167,9 +167,9 @@ export default function RanglistePage() {
                 : "border-edge bg-surface text-muted hover:text-ink"
             }`}
           >
-            {t === "Spieltag" && <span aria-hidden>⏱️</span>}
+            {t === "Woche" && <span aria-hidden>⏱️</span>}
             {t === "Vereine" && <span aria-hidden>🛡️</span>}
-            {t !== "Gesamt" && t !== "Spieltag" && t !== "Vereine" && <span>{sportIcon[t as Sport]}</span>}
+            {t !== "Gesamt" && t !== "Woche" && t !== "Vereine" && <span>{sportIcon[t as Sport]}</span>}
             {sportLabel(t)}
           </button>
         ))}
@@ -187,7 +187,7 @@ export default function RanglistePage() {
           onRetry={retry}
         />
       ) : entries.length === 0 ? (
-        tab === "Spieltag" ? (
+        tab === "Woche" ? (
           <EmptyState
             title="Diese Woche noch keine Punkte"
             text="Sobald die ersten Tipps dieser Woche ausgewertet sind, erscheint hier die Wochen-Rangliste."
@@ -241,7 +241,7 @@ export default function RanglistePage() {
               </div>
             ))}
           </div>
-          {tab !== "Spieltag" && ranked.length < 5 && <FewPlayersHint />}
+          {tab !== "Woche" && ranked.length < 5 && <FewPlayersHint />}
         </>
       )}
     </main>
@@ -389,7 +389,7 @@ const PODIUM_RING: Record<number, string> = {
   3: "ring-2 ring-[#CD7F32]/70",
 };
 
-// Countdown bis zum wöchentlichen Reset der Spieltags-Rangliste (Montag
+// Countdown bis zum wöchentlichen Reset der Wochen-Rangliste (Montag
 // 00:00). Eigene, kleine Komponente statt components/Countdown.tsx, weil
 // deren Text ("noch 3 Std. …", "Tipps geschlossen") auf Tipp-Fristen
 // zugeschnitten ist, nicht auf einen Ranglisten-Reset.

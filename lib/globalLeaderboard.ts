@@ -2,7 +2,7 @@
 
 // Echte globale Rangliste: liest die Rangliste-Punkte ALLER Spieler aus der
 // "profiles"-Tabelle (jeder darf alle Profile lesen, siehe
-// supabase/social-features.sql) und für die Spieltags-Ansicht die in dieser
+// supabase/social-features.sql) und für die Wochen-Ansicht die in dieser
 // Woche ausgewerteten Tipps aller Spieler. Ersetzt die früheren Mock-Daten.
 
 import { useEffect, useRef, useState } from "react";
@@ -120,7 +120,7 @@ export function useGlobalLeaderboard(weekWindow: WeekWindow) {
 
       const weekly = new Map<string, number>();
       if (tipsRes.error) {
-        console.warn("Spieltags-Rangliste konnte nicht geladen werden:", tipsRes.error.message);
+        console.warn("Wochen-Rangliste konnte nicht geladen werden:", tipsRes.error.message);
       } else {
         for (const row of (tipsRes.data ?? []) as unknown as WeeklyTipRow[]) {
           // Tipps von vor dem Neustart der Rangpunkte zählen nicht mehr.

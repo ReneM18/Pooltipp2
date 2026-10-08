@@ -1,7 +1,7 @@
 "use client";
 
 // Wochenrückblick: was in einer Kalenderwoche (Montag bis Sonntag) mit den
-// eigenen Tipps passiert ist. Zählt genau wie die Spieltags-Rangliste
+// eigenen Tipps passiert ist. Zählt genau wie die Wochen-Rangliste
 // (lib/weeklyLeaderboard.ts): ein Tipp gehört zur Woche, in der er abgegeben
 // wurde, Punkte zählen, sobald er ausgewertet ist.
 
@@ -44,7 +44,7 @@ export interface WeeklyReview {
   falsch: number;
   /** Sieg/Unentschieden-Tipps (1X2), die richtig waren. */
   richtig1x2: number;
-  /** Rangpunkte der Woche, wie in der Spieltags-Rangliste. */
+  /** Rangpunkte der Woche, wie in der Wochen-Rangliste. */
   points: number;
   /** Ausgewerteter Tipp mit den meisten Punkten. */
   best: { tip: SubmittedTip; match: Match } | null;
@@ -92,7 +92,7 @@ export function computeWeeklyReview(tips: SubmittedTip[], matches: Match[], wind
 }
 
 /**
- * Platz in der Spieltags-Rangliste dieser Woche, gerechnet wie auf der
+ * Platz in der Wochen-Rangliste dieser Woche, gerechnet wie auf der
  * Rangliste (app/rangliste/page.tsx): gleiche Punkte, gleicher Platz.
  * null = noch nicht geladen oder keine Tipps in der Woche.
  */

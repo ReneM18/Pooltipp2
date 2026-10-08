@@ -1,4 +1,4 @@
-// Spieltags-Rangliste: eine auf die aktuelle Kalenderwoche begrenzte
+// Wochen-Rangliste: eine auf die aktuelle Kalenderwoche begrenzte
 // Mini-Rangliste (Montag 00:00 bis Montag 00:00 der Folgewoche, lokale
 // Zeit), als Gegenstück zur nie endenden Gesamt-Rangliste – schafft
 // kurzfristige Dringlichkeit statt eines Ziels, das sich erst nach Monaten
