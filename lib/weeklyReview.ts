@@ -1,17 +1,18 @@
 "use client";
 
-// Wochenrückblick: was in einer Kalenderwoche (Montag bis Sonntag) mit den
-// eigenen Tipps passiert ist. Zählt genau wie die Wochen-Rangliste
-// (lib/weeklyLeaderboard.ts): ein Tipp gehört zur Woche, in der er abgegeben
-// wurde, Punkte zählen, sobald er ausgewertet ist.
+// Wochenrückblick: was in einer PoolTipp-Woche (Dienstag 8:00 bis Dienstag
+// 8:00, mitteleuropäische Zeit) mit den eigenen Tipps passiert ist. Zählt
+// genau wie die Wochen-Rangliste (lib/weeklyLeaderboard.ts): ein Tipp gehört
+// zur Woche, in der das Spiel angepfiffen wird, Punkte zählen, sobald er
+// ausgewertet ist.
 
 import { useMemo } from "react";
 import type { SubmittedTip } from "@/lib/AppDataContext";
 import type { Match, Sport } from "@/lib/types";
-import { getCurrentWeekWindow, sumWeeklyTipPoints, viennaParts, weeklyTipPoints, WeekWindow } from "@/lib/weeklyLeaderboard";
+import { getCurrentWeekWindow, kickoffLookup, sumWeeklyTipPoints, tipWeekTime, viennaParts, weeklyTipPoints, WeekWindow } from "@/lib/weeklyLeaderboard";
 import { useGlobalLeaderboard } from "@/lib/globalLeaderboard";
 
-/** Montag der Woche als "2026-09-29" (Wiener Datum, wie week_start in der Datenbank). */
+/** Starttag (Dienstag) der Woche als "2026-10-06", wie week_start in der Datenbank. */
 export function weekKey(window: WeekWindow): string {
   const d = viennaParts(window.start);
   return `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
@@ -22,11 +23,10 @@ export function getPreviousWeekWindow(now: Date = new Date()): WeekWindow {
   return getCurrentWeekWindow(now, 1);
 }
 
-/** "29.9. – 5.10." */
+/** "6.10. – 13.10." (Dienstag bis Dienstag) */
 export function weekRangeText(window: WeekWindow): string {
-  // Sonntag = eine Stunde vor dem Ende sicher noch im letzten Tag.
   const first = viennaParts(window.start);
-  const last = viennaParts(new Date(window.end.getTime() - 3600_000));
+  const last = viennaParts(window.end);
   return `${first.day}.${first.month}. – ${last.day}.${last.month}.`;
 }
 
@@ -51,9 +51,10 @@ export interface WeeklyReview {
 export function computeWeeklyReview(tips: SubmittedTip[], matches: Match[], window: WeekWindow): WeeklyReview {
   const start = window.start.getTime();
   const end = window.end.getTime();
+  const kickoffOf = kickoffLookup(matches);
   const inWeek = tips.filter((t) => {
     if (t.rankingLegacy || t.refunded) return false;
-    const at = new Date(t.submittedAt).getTime();
+    const at = tipWeekTime(t, kickoffOf);
     return at >= start && at < end;
   });
   const review: WeeklyReview = {
@@ -65,7 +66,7 @@ export function computeWeeklyReview(tips: SubmittedTip[], matches: Match[], wind
     tendenz: 0,
     falsch: 0,
     richtig1x2: 0,
-    points: sumWeeklyTipPoints(tips, window),
+    points: sumWeeklyTipPoints(tips, window, kickoffOf),
     best: null,
     bySport: {},
   };

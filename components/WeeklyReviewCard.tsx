@@ -8,8 +8,8 @@ import { computeWeeklyReview, getPreviousWeekWindow, weekKey, weekRangeText } fr
 import { useMyWeeklyWin } from "@/lib/weeklyWinner";
 
 // Karte "Deine letzte Woche" oben auf der Tipps-Seite: erscheint ab
-// Montag, wenn man in der Vorwoche getippt hat, und bleibt, bis man sie
-// ansieht oder wegklickt. Das "gesehen" gilt fürs Konto, also auf jedem
+// Dienstag 8:00 (Wochenwechsel, lib/weeklyLeaderboard.ts), wenn man in der
+// Vorwoche getippt hat, und bleibt, bis man sie ansieht oder wegklickt. Das "gesehen" gilt fürs Konto, also auf jedem
 // Gerät (profile_extras.review_seen_week, supabase/dranbleiben.sql).
 export default function WeeklyReviewCard() {
   const { isRegistered, authUserId, reviewSeenReady, reviewSeenWeek, markReviewSeen } = useUser();
@@ -22,7 +22,9 @@ export default function WeeklyReviewCard() {
   const weeklyWin = useMyWeeklyWin(isRegistered ? authUserId : null, key);
 
   if (!isRegistered || !reviewSeenReady || !myTipsLoaded || review.tips === 0) return null;
-  if (reviewSeenWeek && reviewSeenWeek >= key) return null;
+  // Bis Oktober 2026 begann die Woche am Montag: ein dort gemerktes "gesehen"
+  // (Montag vor dem Dienstag) gilt weiter für dieselbe Woche.
+  if (reviewSeenWeek && reviewSeenWeek >= dayBefore(key)) return null;
 
   const points = `${review.points > 0 ? "+" : review.points < 0 ? "−" : ""}${Math.abs(review.points).toLocaleString("de-DE")}`;
 
@@ -70,4 +72,11 @@ export default function WeeklyReviewCard() {
       </button>
     </div>
   );
+}
+
+/** "2026-10-06" → "2026-10-05" */
+function dayBefore(key: string): string {
+  const d = new Date(`${key}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
 }

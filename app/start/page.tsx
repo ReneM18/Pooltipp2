@@ -332,7 +332,7 @@ export default function StartPage() {
               <ul className="mt-2 space-y-1.5 text-xs text-muted">
                 <li>🎁 Jeden Tag gibt es einen Bonus für deinen Saison-Pass.</li>
                 <li>🔥 Tippst du an mehreren Tagen hintereinander, wächst deine Tipp-Serie. Ein Tag Pause pro Woche ist erlaubt.</li>
-                <li>📊 Jeden Montag siehst du deinen Wochenrückblick.</li>
+                <li>📊 Jeden Dienstag siehst du deinen Wochenrückblick.</li>
               </ul>
             </div>
 

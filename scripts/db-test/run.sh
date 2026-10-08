@@ -68,3 +68,6 @@ psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/prestige-test.sql 2
 
 # Erster der Woche bekommt Saison-XP (nie Coins), jede Woche nur einmal
 psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/wochensieger-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'
+
+# Woche Dienstag 8:00 bis Dienstag 8:00, nach Anpfiff gezählt
+psql -q -t -A -v ON_ERROR_STOP=1 -d "$DB" -f scripts/db-test/woche-dienstag-test.sql 2>&1 | grep -v "^$" | sed 's/^psql:[^ ]* NOTICE:  //'

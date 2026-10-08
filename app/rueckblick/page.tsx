@@ -13,7 +13,7 @@ import { daysLabel, useStreak } from "@/lib/streak";
 import { TIER_BADGE } from "@/components/tierBadges";
 import { matchTitle, oneXTwoText, scoreText } from "@/lib/teamOrder";
 
-// Wochenrückblick: jederzeit aufrufbar (Profil, Karte auf der Spieltag-Seite,
+// Wochenrückblick: jederzeit aufrufbar (Profil, Karte auf der Tipps-Seite,
 // Admin-Bereich). Die Seite selbst ändert nichts: kein "gesehen", keine
 // Coins, keine Daten. Weggeklickt wird nur die Karte auf der Spieltag-Seite.
 export default function RueckblickPage() {
@@ -212,9 +212,9 @@ export default function RueckblickPage() {
       )}
 
       <p className="mt-4 text-xs text-muted">
-        Gezählt werden die Tipps, die du in der Woche (Montag 0:00 bis Sonntag, Wiener Zeit) abgegeben hast, mit ihren
-        Tipp-Punkten ohne Platz-Bonus. Punkte kommen dazu, sobald ein Spiel ausgewertet ist, genau wie in der
-        Wochen-Rangliste.
+        Gezählt werden deine Tipps auf Spiele, die in der Woche angepfiffen wurden (Dienstag 8:00 bis Dienstag 8:00
+        Uhr, mitteleuropäische Zeit), mit ihren Tipp-Punkten ohne Platz-Bonus. Punkte kommen dazu, sobald ein Spiel
+        ausgewertet ist, genau wie in der Wochen-Rangliste.
       </p>
     </Shell>
   );
