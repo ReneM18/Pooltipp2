@@ -11,11 +11,13 @@ import RankMeaningBadge from "@/components/RankMeaningBadge";
 import { useChat } from "@/lib/ChatContext";
 import { ChatIcon } from "@/components/Icons";
 import { avatarHue } from "@/components/PlayerAvatar";
+import SeasonFrame, { OtherFrameRing } from "@/components/SeasonFrame";
+import PassHonorTags, { useOtherPlayersFrames, useOtherPlayersHonors } from "@/components/PassHonors";
 
 export default function SpielerProfilPage() {
   const params = useParams();
   const router = useRouter();
-  const { displayName, friends, friendEntries, pendingRequests, photos: myPhotos, activeRankIcon } = useUser();
+  const { displayName, friends, friendEntries, pendingRequests, photos: myPhotos, activeRankIcon, shownPassHonors } = useUser();
   const { openChat } = useChat();
   const rankIcons = usePlayerRankIcons();
 
@@ -33,6 +35,11 @@ export default function SpielerProfilPage() {
   const rankIcon = isSelf ? activeRankIcon : rankIcons.byName(name);
   const hue = avatarHue(friendEntry?.id ?? name);
   const photosVisible = isSelf || isFriend || profile.photoVisibility === "public";
+  // Pass-Rahmen, Titel und Abzeichen, so wie der Spieler sie zeigen will.
+  const playerId = friendEntry?.id ?? rankIcons.idByName(name);
+  const otherFrame = useOtherPlayersFrames(isSelf ? [] : [playerId])[playerId ?? ""];
+  const otherHonors = useOtherPlayersHonors(isSelf ? [] : [playerId])[playerId ?? ""];
+  const honors = isSelf ? shownPassHonors : otherHonors;
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
@@ -44,12 +51,28 @@ export default function SpielerProfilPage() {
       </button>
 
       <div className="mb-6 flex items-center gap-6">
-        <div
-          className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface font-display text-2xl font-bold text-gold"
-          // Andere Spieler in ihrer festen Farbe wie im Chat und in der Rangliste.
-          style={isSelf ? undefined : { background: `hsl(${hue} 38% 26%)`, color: `hsl(${hue} 70% 82%)` }}
-        >
-          {name.slice(0, 1).toUpperCase()}
+        <div className="relative flex h-16 w-16 shrink-0 items-center justify-center">
+          {/* Eigener Rahmen wie im Profil, bei anderen ihr gewählter Rahmen
+              (gleich groß wie der Kreis, damit nichts verrutscht). */}
+          {isSelf ? (
+            <SeasonFrame size={58}>
+              <span className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-surface font-display text-2xl font-bold text-gold">
+                {name.slice(0, 1).toUpperCase()}
+              </span>
+            </SeasonFrame>
+          ) : (
+            <OtherFrameRing frame={otherFrame} size={64}>
+              {(inner) => (
+                <span
+                  className="flex items-center justify-center rounded-full font-display text-2xl font-bold"
+                  // Andere Spieler in ihrer festen Farbe wie im Chat und in der Rangliste.
+                  style={{ width: inner, height: inner, background: `hsl(${hue} 38% 26%)`, color: `hsl(${hue} 70% 82%)` }}
+                >
+                  {name.slice(0, 1).toUpperCase()}
+                </span>
+              )}
+            </OtherFrameRing>
+          )}
           {/* Rang-Abzeichen in der Ecke des Profilbilds – größer als in Listen,
               weil Bild und Name hier groß sind. Bedeutung poppt bei
               Hover/Antippen auf. Ragt etwas über den Rand hinaus, damit es
@@ -69,6 +92,11 @@ export default function SpielerProfilPage() {
           <p className="text-sm text-muted">
             {leaderboardEntry ? `Platz ${leaderboardEntry.rank} in der Gesamt-Rangliste` : "Noch nicht platziert"}
           </p>
+          {honors && (honors.title || honors.badges.length > 0) && (
+            <div className="mt-2">
+              <PassHonorTags honors={honors} />
+            </div>
+          )}
         </div>
       </div>
 

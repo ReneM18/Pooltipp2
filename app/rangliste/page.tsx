@@ -1,6 +1,8 @@
 "use client";
 
 import PlayerAvatar from "@/components/PlayerAvatar";
+import { OtherFrame, useOtherPlayersFrames } from "@/components/PassHonors";
+import { OtherFrameRing } from "@/components/SeasonFrame";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import FitText from "@/components/FitText";
@@ -127,6 +129,8 @@ export default function RanglistePage() {
     const me = ranked.find((r) => r.isCurrentUser);
     return me && !top.includes(me) ? [...top, me] : top;
   }, [ranked]);
+  // Pass-Rahmen, die die Spieler tragen (aus allen sichtbaren Zeilen auf einmal).
+  const frames = useOtherPlayersFrames(entries.map((e) => e.id));
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-4xl px-5 py-8">
@@ -208,7 +212,7 @@ export default function RanglistePage() {
               >
                 <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
                   <RankNumber rank={entry.rank} />
-                  <NameAvatar id={entry.id} name={entry.name} rank={entry.rank} />
+                  <NameAvatar id={entry.id} name={entry.name} rank={entry.rank} frame={frames[entry.id]} />
                   <RankBadge option={entry.icon} size="sm" />
                   {entry.isCurrentUser ? (
                     <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -414,12 +418,15 @@ function WeeklyCountdown({ target }: { target: number }) {
 }
 
 // Farbe je Spieler wie im Chat; Gold/Silber/Bronze-Ring für die ersten drei bleibt.
-function NameAvatar({ id, name, rank }: { id: string; name: string; rank: number }) {
+// Trägt der Spieler einen Pass-Rahmen, sitzt er innen am Kreis (gleiche Größe).
+function NameAvatar({ id, name, rank, frame }: { id: string; name: string; rank: number; frame?: OtherFrame | null }) {
   const ring = PODIUM_RING[rank] ?? "";
   // Ring an einer Hülle, weil das Spieler-Bild selbst schon box-shadow nutzt.
   return (
-    <span className={`shrink-0 rounded-full ${ring}`}>
-      <PlayerAvatar id={id} name={name} size={36} />
+    <span className={`flex shrink-0 rounded-full ${ring}`}>
+      <OtherFrameRing frame={frame} size={36}>
+        {(inner) => <PlayerAvatar id={id} name={name} size={inner} />}
+      </OtherFrameRing>
     </span>
   );
 }

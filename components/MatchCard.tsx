@@ -163,7 +163,7 @@ export default function MatchCard({
     useAppData();
   const [bonusPick, setBonusPick] = useState<number | null>(null);
   const myBonusAnswer = myBonusAnswers.find((a) => a.matchId === match.id);
-  const { displayName, passHonors, authUserId, freeStars, sessionChecked, friendEntries } = useUser();
+  const { displayName, passHonors, shownPassHonors, authUserId, freeStars, sessionChecked, friendEntries } = useUser();
   // Ohne Login wird nichts gespeichert: statt Tipp-Knopf und Kommentarfeld
   // gibt es den Weg zum Einloggen (erst wenn die Sitzung geprüft ist, sonst
   // blitzt der Knopf beim Laden auch bei eingeloggten Spielern kurz auf).
@@ -908,7 +908,7 @@ export default function MatchCard({
                 {matchComments.map((comment) => {
                   const liked = comment.likedBy.includes(displayName);
                   const isMine = comment.author === displayName;
-                  const ownHonors = comment.userId && comment.userId === authUserId ? passHonors : null;
+                  const ownHonors = comment.userId && comment.userId === authUserId ? shownPassHonors : null;
                   const honors = ownHonors ?? (comment.userId ? commentHonors[comment.userId] : undefined);
                   return (
                     <div key={comment.id} className="rounded-lg border border-edge bg-pitch px-3 py-2.5">

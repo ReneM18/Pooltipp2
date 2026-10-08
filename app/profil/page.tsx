@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AccountSettings from "@/components/AccountSettings";
 import StartPagePicker from "@/components/StartPagePicker";
+import PassDecoSettings from "@/components/PassDecoSettings";
 import SaveButton, { useDraft } from "@/components/SaveButton";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
@@ -61,7 +62,8 @@ function ProfilInhalt() {
     freeStars,
     passXP,
     passClaims,
-    passHonors,
+    shownPassHonors: passHonors,
+    passDisplay,
     tipsSubmitted,
     rangPunkte,
     prestige,
@@ -287,7 +289,7 @@ function ProfilInhalt() {
             {/* Lange Einzelwort-Namen schrumpfen statt rechts abgeschnitten zu werden. */}
             <FitText text={displayName} minPx={14} />
             {/* Level 3 Premium: Saison-Icon neben dem Namen */}
-            {hasLevelPremium(3) && (
+            {hasLevelPremium(3) && passDisplay.nameIcon !== false && (
               <span className="text-lg" title={`Saison-Icon (${SEASON_THEME.name})`}>
                 {SEASON_THEME.icon}
               </span>
@@ -852,6 +854,13 @@ function ProfilInhalt() {
             )}
           </section>
 
+          {/* Pass-Belohnungen anlegen/ablegen + Deko anderer Spieler */}
+          {isRegistered && (
+            <div id="pass-belohnungen" className="scroll-mt-48">
+              <PassDecoSettings />
+            </div>
+          )}
+
           {/* id für die Links aus der Vereinstabelle */}
           <div id="herzensvereine" className="scroll-mt-48">
             <FavoriteClubs />
@@ -901,6 +910,7 @@ const HASH_TABS: Record<string, ProfileTab> = {
   rang: "Rang",
   einstellungen: "Einstellungen",
   herzensvereine: "Einstellungen",
+  "pass-belohnungen": "Einstellungen",
 };
 
 function StatCard({

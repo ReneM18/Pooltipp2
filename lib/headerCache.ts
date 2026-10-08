@@ -28,6 +28,7 @@ export interface HeaderCache {
   passXP?: number;
   premium?: boolean;
   frameColors?: { from: string; to: string } | null;
+  frameChoice?: string | null;
   isAdmin?: boolean;
 }
 
