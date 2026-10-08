@@ -51,8 +51,9 @@ export default function Footer() {
           </p>
           <p>
             Dazu gibt's echte Live-Ergebnisse und Tabellen im Matchcenter, einen Saison-Pass mit
-            Belohnungen fürs tägliche Reinschauen, eine Rangliste pro Sportart, eine Wochen-Rangliste (Montag 0:00 bis
-            Sonntag 24:00 Uhr Wiener Zeit, nur Tipp-Punkte aller Sportarten ohne Bonus, der Erste bekommt Pass-XP) und
+            Belohnungen fürs tägliche Reinschauen, eine Rangliste pro Sportart, eine Wochen-Rangliste (Dienstag 8:00 bis
+            Dienstag 8:00 Uhr mitteleuropäische Zeit, nur Tipp-Punkte aller Sportarten ohne Bonus, der Erste bekommt
+            Pass-XP) und
             {TIPPRUNDEN_ENABLED ? " private Tipprunden für Freunde, Verein oder Kollegen" : " Duelle gegen Freunde"}. Alles komplett kostenlos – gespielt wird
             nur um virtuelle Coins, nie um echtes Geld.
           </p>

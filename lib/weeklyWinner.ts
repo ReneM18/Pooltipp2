@@ -50,7 +50,7 @@ export function useWeeklyWinnerRules(): WeeklyWinnerRules {
 }
 
 /**
- * Eigener Sieg in der Woche (Montag als "2026-10-05"), sonst null. Kommt
+ * Eigener Sieg in der Woche (Starttag Dienstag als "2026-10-06"), sonst null. Kommt
  * die Auszahlung auf einem anderen Gerät, erscheint der Hinweis sofort.
  */
 export function useMyWeeklyWin(userId: string | null, week: string): { xp: number; points: number } | null {

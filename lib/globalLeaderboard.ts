@@ -56,14 +56,37 @@ interface WeeklyTipRow {
   ranking_legacy?: boolean | null;
 }
 
-// Ausgewertete Tipps der Woche. Fehlt die Spalte ranking_legacy noch (SQL
-// rankingsystem.sql noch nicht ausgeführt), ohne sie laden.
-async function loadWeeklyTips(weekStart: string, weekEnd: string) {
-  const query = (columns: string) =>
-    supabase.from("tips").select(columns).eq("evaluated", true).gte("submitted_at", weekStart).lt("submitted_at", weekEnd);
-  const res = await query("user_id, rang_delta, base_points, joker, ranking_legacy");
-  if (res.error && /ranking_legacy|base_points|joker/.test(res.error.message)) return query("user_id, rang_delta");
-  return res;
+// Tipp-Punkte der Woche je Spieler. Rechnet die Datenbank (weekly_points in
+// supabase/wochensieger.sql, nach Anpfiff wie die Auszahlung "Erster der
+// Woche"); fehlt die Funktion noch, ersatzweise aus den Tipps nach
+// Abgabezeit.
+async function loadWeeklyPoints(weekStart: string, weekEnd: string): Promise<Map<string, number> | { error: string }> {
+  const rpc = await supabase.rpc("weekly_points", { p_from: weekStart, p_to: weekEnd });
+  if (!rpc.error) {
+    const weekly = new Map<string, number>();
+    for (const row of (rpc.data ?? []) as { user_id: string; points: number }[]) weekly.set(row.user_id, row.points ?? 0);
+    return weekly;
+  }
+  const res = await supabase
+    .from("tips")
+    .select("user_id, rang_delta, base_points, joker, ranking_legacy")
+    .eq("evaluated", true)
+    .gte("submitted_at", weekStart)
+    .lt("submitted_at", weekEnd);
+  if (res.error) return { error: res.error.message };
+  const weekly = new Map<string, number>();
+  for (const row of (res.data ?? []) as unknown as WeeklyTipRow[]) {
+    // Tipps von vor dem Neustart der Rangpunkte zählen nicht mehr.
+    if (row.ranking_legacy) continue;
+    // Nur Tipp-Punkte, ohne Platz-Bonus (lib/weeklyLeaderboard.ts).
+    const points = weeklyTipPoints({
+      basePoints: row.base_points ?? undefined,
+      rangDelta: row.rang_delta ?? undefined,
+      joker: row.joker,
+    });
+    weekly.set(row.user_id, (weekly.get(row.user_id) ?? 0) + points);
+  }
+  return weekly;
 }
 
 export function useGlobalLeaderboard(weekWindow: WeekWindow) {
@@ -91,7 +114,7 @@ export function useGlobalLeaderboard(weekWindow: WeekWindow) {
     (async () => {
       const [profilesResult, tipsRes] = await Promise.all([
         loadProfiles(() => cancelled),
-        loadWeeklyTips(weekStart, weekEnd),
+        loadWeeklyPoints(weekStart, weekEnd),
       ]);
       if (cancelled) return;
 
@@ -119,21 +142,11 @@ export function useGlobalLeaderboard(weekWindow: WeekWindow) {
         })
       );
 
-      const weekly = new Map<string, number>();
-      if (tipsRes.error) {
-        console.warn("Wochen-Rangliste konnte nicht geladen werden:", tipsRes.error.message);
+      let weekly = new Map<string, number>();
+      if ("error" in tipsRes) {
+        console.warn("Wochen-Rangliste konnte nicht geladen werden:", tipsRes.error);
       } else {
-        for (const row of (tipsRes.data ?? []) as unknown as WeeklyTipRow[]) {
-          // Tipps von vor dem Neustart der Rangpunkte zählen nicht mehr.
-          if (row.ranking_legacy) continue;
-          // Nur Tipp-Punkte, ohne Platz-Bonus (lib/weeklyLeaderboard.ts).
-          const points = weeklyTipPoints({
-            basePoints: row.base_points ?? undefined,
-            rangDelta: row.rang_delta ?? undefined,
-            joker: row.joker,
-          });
-          weekly.set(row.user_id, (weekly.get(row.user_id) ?? 0) + points);
-        }
+        weekly = tipsRes;
       }
       setWeeklyByUser(weekly);
       setLoading(false);

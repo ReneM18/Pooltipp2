@@ -27,7 +27,7 @@ import { CURRENT_SEASON } from "@/lib/seasons";
 import { xpForLevel } from "@/lib/seasonPass";
 import { useSeasonDesign } from "@/lib/seasonDesign";
 import { matchTitle, oneXTwoText, scoreText } from "@/lib/teamOrder";
-import { getCurrentWeekWindow, sumWeeklyRangDelta, sumWeeklyTipPoints } from "@/lib/weeklyLeaderboard";
+import { getCurrentWeekWindow, kickoffLookup, sumWeeklyRangDelta, sumWeeklyTipPoints } from "@/lib/weeklyLeaderboard";
 import { CoinIcon } from "@/components/CoinIcon";
 import { resetDateText } from "@/lib/rankingReset";
 import { TIER_BADGE } from "@/components/tierBadges";
@@ -163,9 +163,9 @@ function ProfilInhalt() {
 
   // Punkte dieser Woche und dieser Saison: Ein einzelner Tipp kann ins
   // Minus gehen, entscheidend ist die Summe. Die Woche zählt wie die
-  // Wochen-Rangliste nur Tipp-Punkte ohne Platz-Bonus (Montag bis Sonntag
-  // Wiener Zeit, nach Abgabezeit), die Saison die ganzen Rangpunkte.
-  const weekPoints = sumWeeklyTipPoints(myTips, getCurrentWeekWindow());
+  // Wochen-Rangliste nur Tipp-Punkte ohne Platz-Bonus (Dienstag 8:00 bis
+  // Dienstag 8:00 MEZ, nach Anpfiff), die Saison die ganzen Rangpunkte.
+  const weekPoints = sumWeeklyTipPoints(myTips, getCurrentWeekWindow(), kickoffLookup(matches));
   const seasonPoints = sumWeeklyRangDelta(myTips, {
     start: new Date(`${CURRENT_SEASON.startsOn}T00:00:00`),
     end: new Date(new Date(`${CURRENT_SEASON.endsOn}T00:00:00`).getTime() + 24 * 60 * 60 * 1000),

@@ -1,6 +1,5 @@
-// Wochen-Rangliste: eine auf die aktuelle Kalenderwoche begrenzte
-// Mini-Rangliste (Montag 00:00 bis Montag 00:00 der Folgewoche, Wiener
-// Zeit), als Gegenstück zur nie endenden Gesamt-Rangliste – schafft
+// Wochen-Rangliste: eine auf eine Woche begrenzte Mini-Rangliste (Dienstag
+// 8:00 bis Dienstag 8:00 der Folgewoche, mitteleuropäische Zeit), als Gegenstück zur nie endenden Gesamt-Rangliste – schafft
 // kurzfristige Dringlichkeit statt eines Ziels, das sich erst nach Monaten
 // bewegt. Da es kein echtes Backend gibt, werden die Werte der anderen
 // Mitspieler deterministisch pro Woche simuliert (mulberry32-
@@ -33,10 +32,18 @@ export interface WeekWindow {
   end: Date;
 }
 
-// Die Woche läuft für alle Spieler gleich nach österreichischer Zeit
-// (Europe/Vienna), nie nach der Uhr/Zeitzone des Geräts – genau wie die
-// Auszahlung "Erster der Woche" in supabase/wochensieger.sql.
+// Die Woche läuft für alle Spieler gleich nach mitteleuropäischer Zeit
+// (technisch Europe/Vienna, MEZ/MESZ), nie nach der Uhr/Zeitzone des Geräts
+// – genau wie die Auszahlung "Erster der Woche" in supabase/wochensieger.sql.
+// Sie wechselt am Dienstag um 8:00: Dann ist das NFL-Wochenende samt
+// Monday Night Football (Anpfiff Dienstag ~2:15) und den späten NBA-/NHL-
+// Spielen aus Nordamerika (Anpfiff spätestens ~4:30) sicher angepfiffen,
+// und vor 8:00 beginnt kein Spiel. Ein Tipp zählt zur Woche, in der das
+// Spiel angepfiffen wird (siehe tipWeekTime).
 export const WEEK_TIME_ZONE = "Europe/Vienna";
+/** Wochentag (0 = Sonntag) und Uhrzeit des Wochenwechsels. */
+export const WEEK_START_WEEKDAY = 2;
+export const WEEK_START_HOUR = 8;
 
 const viennaFormat = new Intl.DateTimeFormat("en-US", {
   timeZone: WEEK_TIME_ZONE,
@@ -63,24 +70,37 @@ function viennaOffset(date: Date): number {
   return asUtc - Math.floor(date.getTime() / 1000) * 1000;
 }
 
-/** Mitternacht (00:00 Wiener Zeit) eines Kalendertags; Tag darf überlaufen (z. B. 35.10.). */
-export function viennaMidnight(year: number, month: number, day: number): Date {
-  const guess = Date.UTC(year, month - 1, day);
+/** Uhrzeit (volle Stunde, Wiener/MEZ-Zeit) eines Kalendertags; Tag darf überlaufen (z. B. 35.10.). */
+export function viennaTime(year: number, month: number, day: number, hour = 0): Date {
+  const guess = Date.UTC(year, month - 1, day, hour);
   let result = guess - viennaOffset(new Date(guess));
   // Rund um die Zeitumstellung stimmt der Versatz erst im zweiten Anlauf.
   result = guess - viennaOffset(new Date(result));
   return new Date(result);
 }
 
-/** Montag 00:00 bis Montag 00:00 der Folgewoche, Wiener Zeit. weeksBack = 1 → Vorwoche. */
+/** Dienstag 8:00 bis Dienstag 8:00 der Folgewoche (MEZ/MESZ). weeksBack = 1 → Vorwoche. */
 export function getCurrentWeekWindow(now: Date = new Date(), weeksBack = 0): WeekWindow {
   const p = viennaParts(now);
   const weekday = new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay(); // 0 = Sonntag
-  const mondayDay = p.day - (weekday === 0 ? 6 : weekday - 1) - 7 * weeksBack;
+  let daysSince = (weekday - WEEK_START_WEEKDAY + 7) % 7;
+  if (daysSince === 0 && p.hour < WEEK_START_HOUR) daysSince = 7;
+  const startDay = p.day - daysSince - 7 * weeksBack;
   return {
-    start: viennaMidnight(p.year, p.month, mondayDay),
-    end: viennaMidnight(p.year, p.month, mondayDay + 7),
+    start: viennaTime(p.year, p.month, startDay, WEEK_START_HOUR),
+    end: viennaTime(p.year, p.month, startDay + 7, WEEK_START_HOUR),
   };
+}
+
+/**
+ * Zeitpunkt, nach dem ein Tipp einer Woche zugeordnet wird: der Anpfiff des
+ * Spiels, so landet jede Wertung in der Woche, in der gespielt wurde. Ist
+ * das Spiel unbekannt (gelöscht), zählt ersatzweise die Abgabezeit.
+ */
+export function tipWeekTime(tip: { matchId?: string; submittedAt: string }, kickoffOf?: (matchId: string) => string | undefined): number {
+  const kickoff = tip.matchId && kickoffOf ? kickoffOf(tip.matchId) : undefined;
+  const time = new Date(kickoff ?? tip.submittedAt).getTime();
+  return Number.isFinite(time) ? time : new Date(tip.submittedAt).getTime();
 }
 
 export interface WeeklyEntry {
@@ -131,16 +151,32 @@ export function weeklyTipPoints(tip: { basePoints?: number; rangDelta?: number; 
   return tip.joker === "schutz" && base < 0 ? 0 : base;
 }
 
-/** Summe der Tipp-Punkte (ohne Platz-Bonus) aller in der Woche abgegebenen, ausgewerteten Tipps. */
+/** Summe der Tipp-Punkte (ohne Platz-Bonus) aller ausgewerteten Tipps auf Spiele, die in der Woche angepfiffen wurden. */
 export function sumWeeklyTipPoints(
-  tips: { evaluated?: boolean; basePoints?: number; rangDelta?: number; joker?: string | null; submittedAt: string; rankingLegacy?: boolean }[],
-  window: WeekWindow
+  tips: {
+    evaluated?: boolean;
+    basePoints?: number;
+    rangDelta?: number;
+    joker?: string | null;
+    matchId?: string;
+    submittedAt: string;
+    rankingLegacy?: boolean;
+    refunded?: boolean;
+  }[],
+  window: WeekWindow,
+  kickoffOf?: (matchId: string) => string | undefined
 ): number {
   return tips
-    .filter((t) => t.evaluated && (t.basePoints !== undefined || t.rangDelta !== undefined) && !t.rankingLegacy)
+    .filter((t) => t.evaluated && !t.refunded && (t.basePoints !== undefined || t.rangDelta !== undefined) && !t.rankingLegacy)
     .filter((t) => {
-      const submitted = new Date(t.submittedAt).getTime();
-      return submitted >= window.start.getTime() && submitted < window.end.getTime();
+      const at = tipWeekTime(t, kickoffOf);
+      return at >= window.start.getTime() && at < window.end.getTime();
     })
     .reduce((sum, t) => sum + weeklyTipPoints(t), 0);
+}
+
+/** Anpfiff je Spiel-ID aus der Spieleliste, für tipWeekTime/sumWeeklyTipPoints. */
+export function kickoffLookup(matches: { id: string; kickoff: string }[]): (matchId: string) => string | undefined {
+  const map = new Map(matches.map((m) => [m.id, m.kickoff]));
+  return (matchId) => map.get(matchId);
 }

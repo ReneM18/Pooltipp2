@@ -19,7 +19,7 @@ import RankBadge from "@/components/RankBadge";
 import ClubLeaderboard from "@/components/ClubLeaderboard";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
-import { getCurrentWeekWindow, sumWeeklyTipPoints } from "@/lib/weeklyLeaderboard";
+import { getCurrentWeekWindow, kickoffLookup, sumWeeklyTipPoints } from "@/lib/weeklyLeaderboard";
 import { GlobalPlayer, sumPoints, useGlobalLeaderboard } from "@/lib/globalLeaderboard";
 import { useWeeklyWinnerRules } from "@/lib/weeklyWinner";
 
@@ -47,7 +47,8 @@ interface RowEntry {
 export default function RanglistePage() {
   const [tab, setTab] = useState<ViewTab>("Gesamt");
   const { rangPunkte, prestige, displayName, authUserId, profileLoaded, selectedRankIconId } = useUser();
-  const { myTips } = useAppData();
+  const { myTips, matches } = useAppData();
+  const kickoffOf = useMemo(() => kickoffLookup(matches), [matches]);
 
   // Wochen-Rangliste: nur die Tipp-Punkte (ohne Platz-Bonus) aus dieser
   // Kalenderwoche zählen, mit Countdown bis zum Reset – siehe lib/weeklyLeaderboard.ts.
@@ -84,7 +85,7 @@ export default function RanglistePage() {
         .map((p) => ({
           id: p.id,
           name: p.name,
-          points: p.id === authUserId ? sumWeeklyTipPoints(myTips, weekWindow) : weeklyByUser.get(p.id) ?? 0,
+          points: p.id === authUserId ? sumWeeklyTipPoints(myTips, weekWindow, kickoffOf) : weeklyByUser.get(p.id) ?? 0,
           icon: getChosenIconForPoints(p.pointsBySport, p.rankIconId, `-${p.id}`, p.prestige),
           prestige: totalPrestige(p.prestige),
           isCurrentUser: p.id === authUserId,
@@ -122,7 +123,7 @@ export default function RanglistePage() {
       lastRank = rank;
       return { ...row, rank };
     });
-  }, [tab, allPlayers, weeklyByUser, authUserId, myTips, weekWindow]);
+  }, [tab, allPlayers, weeklyByUser, authUserId, myTips, weekWindow, kickoffOf]);
 
   const entries: RowEntry[] = useMemo(() => {
     if (ranked.length <= MAX_ROWS) return ranked;
@@ -392,8 +393,8 @@ const PODIUM_RING: Record<number, string> = {
   3: "ring-2 ring-[#CD7F32]/70",
 };
 
-// Countdown bis zum wöchentlichen Reset der Wochen-Rangliste (Montag
-// 00:00). Eigene, kleine Komponente statt components/Countdown.tsx, weil
+// Countdown bis zum wöchentlichen Wechsel der Wochen-Rangliste (Dienstag
+// 8:00 MEZ/MESZ). Eigene, kleine Komponente statt components/Countdown.tsx, weil
 // deren Text ("noch 3 Std. …", "Tipps geschlossen") auf Tipp-Fristen
 // zugeschnitten ist, nicht auf einen Ranglisten-Reset.
 function WeeklyCountdown({ target }: { target: number }) {
@@ -439,7 +440,11 @@ function NameAvatar({ id, name, rank, frame }: { id: string; name: string; rank:
 function WeekRulesBox() {
   const { xp, minPlayers } = useWeeklyWinnerRules();
   const rules: [string, React.ReactNode][] = [
-    ["🗓️", "Die Woche beginnt am Montag um 0:00 Uhr und endet am Sonntag um 24:00 Uhr (Wiener Zeit)."],
+    [
+      "🗓️",
+      "Die Woche beginnt am Dienstag um 8:00 Uhr und endet am nächsten Dienstag um 8:00 Uhr (mitteleuropäische Zeit), damit auch die späten NFL-, NBA- und NHL-Spiele noch zählen.",
+    ],
+    ["🏟️", "Ein Tipp zählt in der Woche, in der das Spiel angepfiffen wird."],
     [
       "⚽",
       "Es zählen nur deine Tipp-Punkte, alle Sportarten zusammen: exakt +10, Tordifferenz +7, Tendenz +5, falsch −3.",
@@ -452,7 +457,7 @@ function WeekRulesBox() {
         {minPlayers > 1 && ` (ab ${minPlayers} Spielern)`}.
       </>,
     ],
-    ["🔄", "Am Montag startet die Woche wieder bei 0."],
+    ["🔄", "Am Dienstag um 8:00 Uhr startet die Woche wieder bei 0."],
   ];
   return (
     <ul className="mb-5 flex flex-col gap-1.5 rounded-card border border-edge bg-surface px-4 py-3 text-sm text-muted">
