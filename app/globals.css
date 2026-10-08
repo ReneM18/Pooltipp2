@@ -60,10 +60,11 @@ html {
 }
 
 /* Abstand unten für alles, was am Handy unten festklebt (Leiste, Mehr-Fenster,
-   Chat-Knopf): auf dem iPhone die Höhe des weißen Home-Balkens, sonst
-   mindestens 6 px, damit die Leiste nicht ganz am Rand klebt. */
+   Chat-Knopf): auf dem iPhone 8 px, damit die Leiste knapp über dem weißen
+   Home-Balken sitzt (die volle Balken-Höhe von 34 px war Rene zu hoch), auf
+   Geräten ohne Balken 4 px. */
 :root {
-  --safe-bottom: max(6px, env(safe-area-inset-bottom));
+  --safe-bottom: max(4px, min(8px, env(safe-area-inset-bottom)));
 }
 
 /* App-Farben als "R G B" (siehe tailwind.config.ts). Das Saison-Design
