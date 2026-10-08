@@ -50,15 +50,21 @@ export default function SpielerProfilPage() {
           style={isSelf ? undefined : { background: `hsl(${hue} 38% 26%)`, color: `hsl(${hue} 70% 82%)` }}
         >
           {name.slice(0, 1).toUpperCase()}
+          {/* Rang-Abzeichen in der Ecke des Profilbilds – größer als in Listen,
+              weil Bild und Name hier groß sind. Bedeutung poppt bei
+              Hover/Antippen auf. Ragt etwas über den Rand hinaus, damit es
+              möglichst wenig vom Foto verdeckt. */}
+          {rankIcon && (
+            <span className="absolute -bottom-1 -right-1.5 z-10">
+              <RankMeaningBadge option={rankIcon} size="profil" />
+            </span>
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-ink">
             {/* Lange Einzelwort-Namen schrumpfen statt rechts abgeschnitten zu werden. */}
             <FitText text={name} minPx={14} />
             {isSelf && <span className="shrink-0 text-sm font-medium text-muted">(Du)</span>}
-            {/* Rang-Abzeichen groß neben dem Namen statt klein am Profilbild –
-                Bedeutung poppt bei Hover/Antippen auf. */}
-            {rankIcon && <RankMeaningBadge option={rankIcon} size="profil" popupAlign="right" className="shrink-0" />}
           </h1>
           <p className="text-sm text-muted">
             {leaderboardEntry ? `Platz ${leaderboardEntry.rank} in der Gesamt-Rangliste` : "Noch nicht platziert"}

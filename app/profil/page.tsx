@@ -272,6 +272,15 @@ function ProfilInhalt() {
               👑
             </span>
           )}
+          {/* Rang-Abzeichen in der Ecke des Profilbilds – größer als in Listen,
+              weil Bild und Name hier groß sind. Bedeutung poppt bei
+              Hover/Antippen auf. Ragt etwas über den Rand hinaus, damit es
+              möglichst wenig vom Foto verdeckt. */}
+          {activeRankIcon && (
+            <span className="absolute -bottom-1 -right-1.5 z-10">
+              <RankMeaningBadge option={activeRankIcon} size="profil" />
+            </span>
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-ink">
@@ -282,12 +291,6 @@ function ProfilInhalt() {
               <span className="text-lg" title={`Saison-Icon (${SEASON_THEME.name})`}>
                 {SEASON_THEME.icon}
               </span>
-            )}
-            {/* Rang-Abzeichen groß neben dem Namen statt klein am Profilbild:
-                hier schaut man sich die Person genau an (Winkel, Sportart-
-                Symbol, Prestige). Bedeutung poppt bei Hover/Antippen auf. */}
-            {activeRankIcon && (
-              <RankMeaningBadge option={activeRankIcon} size="profil" popupAlign="right" className="shrink-0" />
             )}
           </h1>
           {userNumber !== null && <p className="text-xs font-semibold text-gold">Nummer #{userNumber}</p>}
