@@ -193,10 +193,16 @@ export default function MatchCard({
       // Level 6 Premium: "Große goldene Sternenexplosion bei exaktem Tipp" –
       // ansonsten der normale (kleinere) Sterne-Burst.
       const bigBurst = myTip.resultTier === "exakt" && hasPremiumPass && passXP >= xpForLevel(6);
-      celebrate(bigBurst);
-      if (myTip.narration) {
-        showToast(myTip.narration, myTip.resultTier === "falsch" ? "info" : "gold");
-      }
+      const narration = myTip.narration;
+      const tier = myTip.resultTier;
+      // Beim Öffnen der App lädt gleichzeitig noch alles andere: den Burst
+      // erst starten, wenn der Browser kurz Luft hat (spätestens nach 0,8 s),
+      // sonst kam er ruckelnd und wie in Zeitlupe. Bewusst ohne Abbrechen
+      // beim nächsten Rendern: der Burst gehört der ganzen App, nicht der Karte.
+      whenBrowserIdle(() => {
+        celebrate(bigBurst);
+        if (narration) showToast(narration, tier === "falsch" ? "info" : "gold");
+      });
     }
   }, [myTip?.evaluated, myTip?.refunded, myTip?.narration, myTip?.resultTier, hasPremiumPass, passXP, celebrate, showToast]);
 
@@ -1746,4 +1752,12 @@ function StageTippers({
       <span>{text}</span>
     </div>
   );
+}
+
+// Führt fn aus, sobald der Browser nichts Dringendes mehr zu tun hat
+// (spätestens nach maxWait ms). Safari kennt requestIdleCallback nicht:
+// dort kurz warten.
+function whenBrowserIdle(fn: () => void, maxWait = 800) {
+  if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(fn, { timeout: maxWait });
+  else window.setTimeout(fn, 300);
 }

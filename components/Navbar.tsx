@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import RankBadge from "@/components/RankBadge";
@@ -10,14 +11,55 @@ import { CoinIcon } from "@/components/CoinIcon";
 import CountUp from "@/components/CountUp";
 import { TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
 import { useStartHref } from "@/lib/useStartHref";
+import { useHeaderCache, writeHeaderCache } from "@/lib/headerCache";
+import { getAvailableRankIcons } from "@/lib/rankTiers";
+import { LOW_STARS_THRESHOLD } from "@/lib/poolScore";
 
 export default function Navbar() {
-  const { displayName, freeStars, activeRankIcon, isRegistered, sessionChecked, isLowOnStars, photos, isAdmin } =
-    useUser();
+  const {
+    displayName,
+    freeStars,
+    activeRankIcon,
+    isRegistered,
+    sessionChecked,
+    isLowOnStars,
+    photos,
+    isAdmin,
+    authUserId,
+    profileLoaded,
+    extrasLoaded,
+    adminChecked,
+  } = useUser();
   // Logo führt zur im Profil gewählten Startseite.
   const startHref = useStartHref();
 
   const myRank = useMyOverallRank();
+
+  // Beim Öffnen sofort die Werte vom letzten Besuch zeigen (nur Anzeige,
+  // lib/headerCache.ts), bis die frischen aus der Datenbank da sind. Vorher
+  // stand hier sekundenlang ein Demo-Wert, der dann umsprang.
+  const cache = useHeaderCache();
+  const showCache = cache !== null && (!sessionChecked || cache.userId === authUserId);
+  const loggedIn = sessionChecked ? isRegistered : showCache;
+  const coins = profileLoaded ? freeStars : showCache ? cache.coins ?? null : null;
+  const lowOnCoins = profileLoaded ? isLowOnStars : coins !== null && coins <= LOW_STARS_THRESHOLD;
+  const name = profileLoaded ? displayName : showCache ? cache.name ?? "" : "";
+  const photo = extrasLoaded ? photos[0] : showCache ? cache.photo ?? null : null;
+  const badge =
+    profileLoaded && extrasLoaded
+      ? activeRankIcon
+      : showCache && cache.rangPunkte && cache.rankIconId
+        ? getAvailableRankIcons(cache.rangPunkte, cache.prestige ?? {}).find((o) => o.id === cache.rankIconId) ?? null
+        : null;
+  // Admin-Knopf: nur Anzeige, der Admin-Bereich prüft selbst über die Datenbank.
+  const showAdmin = isAdmin || (!adminChecked && showCache && cache.isAdmin === true);
+  const cachedRank = showCache && (!sessionChecked || myRank.status === "loading") ? cache.rank ?? null : null;
+
+  // Platz fürs nächste Öffnen merken (ohne Platz: nichts zeigen).
+  const rankToCache = myRank.status === "ranked" ? myRank.rank : myRank.status === "none" ? null : undefined;
+  useEffect(() => {
+    if (authUserId && rankToCache !== undefined) writeHeaderCache(authUserId, { rank: rankToCache });
+  }, [authUserId, rankToCache]);
   // Am Handy nur "3." (Platz passt sonst nicht neben Sterne und Profilbild),
   // ab Tablet-Breite ausgeschrieben "Platz 3".
   const rankLabel =
@@ -25,6 +67,12 @@ export default function Navbar() {
       <>
         <span className="hidden sm:inline">Platz </span>
         {myRank.rank.toLocaleString("de-DE")}
+        <span className="sm:hidden">.</span>
+      </>
+    ) : cachedRank !== null ? (
+      <>
+        <span className="hidden sm:inline">Platz </span>
+        {cachedRank.toLocaleString("de-DE")}
         <span className="sm:hidden">.</span>
       </>
     ) : myRank.status === "loading" ? (
@@ -69,7 +117,7 @@ export default function Navbar() {
 
           {/* Admin-Knopf nur für den Admin-Account (Prüfung über die
               Datenbank, siehe isAdmin in lib/UserContext.tsx). */}
-          {isAdmin && (
+          {showAdmin && (
             <Link
               href="/admin"
               title="Admin-Bereich"
@@ -81,22 +129,24 @@ export default function Navbar() {
 
           {/* Coins nur für Eingeloggte: Gäste haben kein Konto, eine
               Demo-Zahl würde nur verwirren. */}
-          {sessionChecked && isRegistered && (
+          {loggedIn && (
           <div
             className={`flex items-center gap-1 rounded-full px-0.5 py-1 sm:gap-2 sm:border sm:px-3 sm:py-1.5 ${
-              isLowOnStars
+              lowOnCoins
                 ? "sm:border-red-400/60 sm:bg-red-400/10"
                 : "sm:border-edge sm:bg-surface"
             }`}
-            title={isLowOnStars ? "Deine Coins werden knapp" : "Deine PoolTipp Coins"}
+            title={lowOnCoins ? "Deine Coins werden knapp" : "Deine PoolTipp Coins"}
           >
             <CoinIcon className="h-5 w-5 sm:h-[22px] sm:w-[22px]" />
             <span
               className={`font-display text-base font-semibold sm:text-lg ${
-                isLowOnStars ? "text-red-400" : "text-ink"
+                lowOnCoins ? "text-red-400" : "text-ink"
               }`}
             >
-              <CountUp value={freeStars} />
+              {/* Noch nichts bekannt (erstes Öffnen): kurz "…" statt einer
+                  falschen Zahl. */}
+              {coins === null ? "…" : <CountUp value={coins} />}
             </span>
           </div>
           )}
@@ -115,9 +165,9 @@ export default function Navbar() {
           {/* Profilbild nur für Eingeloggte. Gäste haben kein Profil und
               sehen stattdessen "Einloggen". Solange beim Laden noch nicht
               feststeht, wer da ist, bleibt der Platz leer. */}
-          {!sessionChecked ? (
+          {!sessionChecked && !showCache ? (
             <span className="ml-0.5 h-11 w-11 shrink-0" aria-hidden />
-          ) : !isRegistered ? (
+          ) : !loggedIn ? (
             <Link
               href="/registrieren"
               className="ml-0.5 shrink-0 whitespace-nowrap rounded-full border border-gold px-2.5 py-1 font-display text-sm font-semibold text-gold transition-colors hover:bg-gold hover:text-pitch sm:px-3 sm:py-1.5"
@@ -134,17 +184,17 @@ export default function Navbar() {
             >
               <SeasonFrame size={40}>
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-base font-semibold text-muted transition-colors hover:text-ink">
-                  {photos[0] ? (
+                  {photo ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={photos[0]} alt="Profilbild" className="h-full w-full object-cover" />
+                    <img src={photo} alt="Profilbild" className="h-full w-full object-cover" />
                   ) : (
-                    displayName.slice(0, 1).toUpperCase()
+                    name.slice(0, 1).toUpperCase()
                   )}
                 </span>
               </SeasonFrame>
-              {activeRankIcon && (
+              {badge && (
                 <span className="absolute -bottom-1 -right-1.5 rounded-full">
-                  <RankBadge option={activeRankIcon} size="2xs" />
+                  <RankBadge option={badge} size="2xs" />
                 </span>
               )}
             </Link>
