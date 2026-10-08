@@ -12,7 +12,6 @@ import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { TIP_JOKER_EFFECT, TIP_JOKER_LABEL, TipJoker, TrendResult, useJokers } from "@/lib/JokerContext";
 import { useTaschen } from "@/lib/TaschenContext";
-import { xpForLevel } from "@/lib/seasonPass";
 import type { SeasonEmote } from "@/lib/seasons";
 import { allowsDraw as sportAllowsDraw, displayOrder, isAwayFirst, oneXTwoText, pickNumber } from "@/lib/teamOrder";
 import TeamBadge, { jerseyFor, matchJerseyProps } from "./TeamBadge";
@@ -164,12 +163,11 @@ export default function MatchCard({
     useAppData();
   const [bonusPick, setBonusPick] = useState<number | null>(null);
   const myBonusAnswer = myBonusAnswers.find((a) => a.matchId === match.id);
-  const { displayName, hasPremiumPass, passXP, passHonors, authUserId, freeStars, sessionChecked, friendEntries } = useUser();
+  const { displayName, passHonors, authUserId, freeStars, sessionChecked, friendEntries } = useUser();
   // Ohne Login wird nichts gespeichert: statt Tipp-Knopf und Kommentarfeld
   // gibt es den Weg zum Einloggen (erst wenn die Sitzung geprüft ist, sonst
   // blitzt der Knopf beim Laden auch bei eingeloggten Spielern kurz auf).
   const isGuest = sessionChecked && !authUserId;
-  const { showToast, celebrate } = useFeedback();
   const [commentsOpen, setCommentsOpen] = useState(false);
   // Liste "Wer hat getippt?" unter der Karte (Klick auf "X getippt").
   const [tippersOpen, setTippersOpen] = useState(false);
@@ -183,28 +181,9 @@ export default function MatchCard({
     commentsOpen ? matchComments.map((c) => (c.userId === authUserId ? null : c.userId)) : []
   );
 
-  // Der PoolScore-"Reveal"-Moment: sobald der eigene Tipp ausgewertet wurde,
-  // einmalig Konfetti + die narrierte Meldung als Toast zeigen (nicht bei
-  // jedem Re-Render erneut).
-  const celebratedRef = useRef(false);
-  useEffect(() => {
-    if (myTip?.evaluated && !myTip.refunded && !celebratedRef.current) {
-      celebratedRef.current = true;
-      // Level 6 Premium: "Große goldene Sternenexplosion bei exaktem Tipp" –
-      // ansonsten der normale (kleinere) Sterne-Burst.
-      const bigBurst = myTip.resultTier === "exakt" && hasPremiumPass && passXP >= xpForLevel(6);
-      const narration = myTip.narration;
-      const tier = myTip.resultTier;
-      // Beim Öffnen der App lädt gleichzeitig noch alles andere: den Burst
-      // erst starten, wenn der Browser kurz Luft hat (spätestens nach 0,8 s),
-      // sonst kam er ruckelnd und wie in Zeitlupe. Bewusst ohne Abbrechen
-      // beim nächsten Rendern: der Burst gehört der ganzen App, nicht der Karte.
-      whenBrowserIdle(() => {
-        celebrate(bigBurst);
-        if (narration) showToast(narration, tier === "falsch" ? "info" : "gold");
-      });
-    }
-  }, [myTip?.evaluated, myTip?.refunded, myTip?.narration, myTip?.resultTier, hasPremiumPass, passXP, celebrate, showToast]);
+  // Der Jubel beim Auswerten (Sterne + Meldung) kommt zentral aus
+  // lib/FeedbackContext.tsx – nur wenn ein Tipp ausgewertet wird, während
+  // die App offen ist, nicht mehr bei jedem Öffnen für alte Tipps.
 
   function handleCommentSubmit(e: FormEvent) {
     e.preventDefault();
@@ -1752,12 +1731,4 @@ function StageTippers({
       <span>{text}</span>
     </div>
   );
-}
-
-// Führt fn aus, sobald der Browser nichts Dringendes mehr zu tun hat
-// (spätestens nach maxWait ms). Safari kennt requestIdleCallback nicht:
-// dort kurz warten.
-function whenBrowserIdle(fn: () => void, maxWait = 800) {
-  if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(fn, { timeout: maxWait });
-  else window.setTimeout(fn, 300);
 }
