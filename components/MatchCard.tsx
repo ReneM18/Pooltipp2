@@ -551,7 +551,7 @@ export default function MatchCard({
           <span>{kickoffLabel}</span>
           {match.tvChannel && (
             <span className="flex items-center gap-1.5 rounded-full border border-edge bg-pitch py-0.5 pl-2 pr-2.5 text-[13px] font-semibold text-ink">
-              <TvIcon className="h-5 w-5 shrink-0 text-ink" />
+              <TvIcon className="h-4 w-4 shrink-0 text-ink" />
               {match.tvChannel}
             </span>
           )}
