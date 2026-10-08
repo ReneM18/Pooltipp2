@@ -19,7 +19,7 @@ import RankBadge from "@/components/RankBadge";
 import ClubLeaderboard from "@/components/ClubLeaderboard";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
-import { getCurrentWeekWindow, sumWeeklyRangDelta } from "@/lib/weeklyLeaderboard";
+import { getCurrentWeekWindow, sumWeeklyTipPoints } from "@/lib/weeklyLeaderboard";
 import { GlobalPlayer, sumPoints, useGlobalLeaderboard } from "@/lib/globalLeaderboard";
 import { useWeeklyWinnerRules } from "@/lib/weeklyWinner";
 
@@ -49,8 +49,8 @@ export default function RanglistePage() {
   const { rangPunkte, prestige, displayName, authUserId, profileLoaded, selectedRankIconId } = useUser();
   const { myTips } = useAppData();
 
-  // Wochen-Rangliste: nur die Rangpunkte-Änderung aus dieser Kalenderwoche
-  // zählt, mit Countdown bis zum Reset – siehe lib/weeklyLeaderboard.ts.
+  // Wochen-Rangliste: nur die Tipp-Punkte (ohne Platz-Bonus) aus dieser
+  // Kalenderwoche zählen, mit Countdown bis zum Reset – siehe lib/weeklyLeaderboard.ts.
   // useMemo, damit das Zeitfenster nicht bei jedem Rendern neu entsteht und
   // die Daten nicht ständig neu geladen werden.
   const weekWindow = useMemo(() => getCurrentWeekWindow(), []);
@@ -84,7 +84,7 @@ export default function RanglistePage() {
         .map((p) => ({
           id: p.id,
           name: p.name,
-          points: p.id === authUserId ? sumWeeklyRangDelta(myTips, weekWindow) : weeklyByUser.get(p.id) ?? 0,
+          points: p.id === authUserId ? sumWeeklyTipPoints(myTips, weekWindow) : weeklyByUser.get(p.id) ?? 0,
           icon: getChosenIconForPoints(p.pointsBySport, p.rankIconId, `-${p.id}`, p.prestige),
           prestige: totalPrestige(p.prestige),
           isCurrentUser: p.id === authUserId,
@@ -139,7 +139,7 @@ export default function RanglistePage() {
         <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Rangliste</h1>
         {tab === "Woche" ? (
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1 text-xs text-muted">
-            Punkte dieser Woche · <WeeklyCountdown target={weekWindow.end.getTime()} />
+            Tipp-Punkte dieser Woche · <WeeklyCountdown target={weekWindow.end.getTime()} />
           </p>
         ) : tab === "Vereine" ? (
           <p className="mt-0.5 text-xs text-muted">Herzensvereine im Vergleich, eine Tabelle pro Sportart</p>
@@ -443,8 +443,9 @@ function WeekRulesBox() {
   return (
     <div className="mb-5 rounded-card border border-edge bg-surface px-4 py-3 text-sm text-muted">
       <p>
-        Hier zählen alle Rangpunkte der Woche, egal ob mit {sportList}. Eine neue Woche beginnt jeden Montag um 0:00 Uhr
-        (Wiener Zeit), für alle gleich.
+        Hier zählen nur deine Tipp-Punkte (exakt +10, Tordifferenz +7, Tendenz +5, falsch −3), ohne Platz-Bonus. So
+        haben alle die gleichen Chancen, egal wo sie in der Gesamt-Rangliste stehen und egal ob sie {sportList} tippen.
+        Eine neue Woche beginnt jeden Montag um 0:00 Uhr (Wiener Zeit).
       </p>
       <p className="mt-2 font-semibold text-ink">
         🥇 Der Erste der Woche bekommt <span className="whitespace-nowrap text-gold">+{xp} Pass-XP</span>

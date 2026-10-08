@@ -8,7 +8,7 @@
 import { useMemo } from "react";
 import type { SubmittedTip } from "@/lib/AppDataContext";
 import type { Match, Sport } from "@/lib/types";
-import { getCurrentWeekWindow, sumWeeklyRangDelta, viennaParts, WeekWindow } from "@/lib/weeklyLeaderboard";
+import { getCurrentWeekWindow, sumWeeklyTipPoints, viennaParts, weeklyTipPoints, WeekWindow } from "@/lib/weeklyLeaderboard";
 import { useGlobalLeaderboard } from "@/lib/globalLeaderboard";
 
 /** Montag der Woche als "2026-09-29" (Wiener Datum, wie week_start in der Datenbank). */
@@ -41,7 +41,7 @@ export interface WeeklyReview {
   falsch: number;
   /** Sieg/Unentschieden-Tipps (1X2), die richtig waren. */
   richtig1x2: number;
-  /** Rangpunkte der Woche, wie in der Wochen-Rangliste. */
+  /** Tipp-Punkte der Woche (ohne Platz-Bonus), wie in der Wochen-Rangliste. */
   points: number;
   /** Ausgewerteter Tipp mit den meisten Punkten. */
   best: { tip: SubmittedTip; match: Match } | null;
@@ -65,7 +65,7 @@ export function computeWeeklyReview(tips: SubmittedTip[], matches: Match[], wind
     tendenz: 0,
     falsch: 0,
     richtig1x2: 0,
-    points: sumWeeklyRangDelta(tips, window),
+    points: sumWeeklyTipPoints(tips, window),
     best: null,
     bySport: {},
   };
@@ -81,7 +81,7 @@ export function computeWeeklyReview(tips: SubmittedTip[], matches: Match[], wind
     const tier = tip.resultTier ?? "falsch";
     if (match?.tipMode === "1x2" && tier !== "falsch") review.richtig1x2++;
     else review[tier]++;
-    if (match && (tip.rangDelta ?? 0) > 0 && (!review.best || (tip.rangDelta ?? 0) > (review.best.tip.rangDelta ?? 0))) {
+    if (match && weeklyTipPoints(tip) > 0 && (!review.best || weeklyTipPoints(tip) > weeklyTipPoints(review.best.tip))) {
       review.best = { tip, match };
     }
   }

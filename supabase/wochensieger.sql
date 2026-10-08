@@ -1,10 +1,12 @@
 -- ============================================================================
 -- PoolTipp – Erster der Woche bekommt Saison-XP
 -- ============================================================================
--- Wer in einer Woche (Montag bis Sonntag, österreichische Zeit) die meisten
--- Rangpunkte gemacht hat, egal in welcher Sportart, bekommt +50 Saison-XP
--- für den Pass. Gezählt wird genau wie im Ranglisten-Reiter "Woche": alle
--- ausgewerteten Tipps, die in der Woche abgegeben wurden.
+-- Wer in einer Woche (Montag 0:00 bis Sonntag, österreichische Zeit) die
+-- meisten Tipp-Punkte gemacht hat, egal in welcher Sportart, bekommt +50
+-- Saison-XP für den Pass. Gezählt wird genau wie im Ranglisten-Reiter
+-- "Woche": alle ausgewerteten Tipps, die in der Woche abgegeben wurden, nur
+-- mit ihren Tipp-Punkten (exakt +10, Tordifferenz +7, Tendenz +5, falsch -3,
+-- 1X2 +5/-3, mit Joker) OHNE Platz-Bonus. Schutz-Joker: kein Minus.
 --   - Gleichstand: alle Erstplatzierten bekommen die XP.
 --   - Nur wenn mindestens 3 Spieler in der Woche Punkte hatten und der Erste
 --     mehr als 0 Punkte hat.
@@ -65,15 +67,19 @@ create policy "Wochensieger lesen" on public.weekly_winners for select to authen
 revoke all on public.weekly_winners from anon, authenticated;
 grant select on public.weekly_winners to authenticated;
 
--- 4) Rangpunkte pro Spieler in einem Zeitraum, wie im Reiter "Woche":
---    ausgewertete Tipps nach Abgabezeit, wirklich gebuchte Punkte.
+-- 4) Tipp-Punkte pro Spieler in einem Zeitraum, wie im Reiter "Woche"
+--    (lib/weeklyLeaderboard.ts weeklyTipPoints): ausgewertete Tipps nach
+--    Abgabezeit, nur Treffer-Punkte ohne Platz-Bonus.
 create or replace function public.weekly_points(p_from timestamptz, p_to timestamptz)
 returns table (user_id uuid, points int)
 language sql
 stable
 security definer set search_path = public
 as $$
-  select t.user_id, sum(coalesce(t.rang_booked, t.rang_delta, 0))::int
+  select t.user_id, sum(
+    case when t.joker = 'schutz' and coalesce(t.base_points, t.rang_delta, 0) < 0 then 0
+         else coalesce(t.base_points, t.rang_delta, 0) end
+  )::int
   from public.tips t
   where t.evaluated
     and not coalesce(t.ranking_legacy, false)

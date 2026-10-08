@@ -6,7 +6,7 @@ import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { SPORTS, SPORT_ICONS, sportLabel } from "@/lib/types";
-import { getCurrentWeekWindow } from "@/lib/weeklyLeaderboard";
+import { getCurrentWeekWindow, weeklyTipPoints } from "@/lib/weeklyLeaderboard";
 import { computeWeeklyReview, getPreviousWeekWindow, useWeeklyPlace, weekKey, weekRangeText } from "@/lib/weeklyReview";
 import { useMyWeeklyWin } from "@/lib/weeklyWinner";
 import { daysLabel, useStreak } from "@/lib/streak";
@@ -168,7 +168,7 @@ export default function RueckblickPage() {
                   : scoreText(best.match.sport, best.tip.predictedHomeScore, best.tip.predictedAwayScore)}
                 {best.match.status === "finished" &&
                   ` · Endstand: ${scoreText(best.match.sport, best.match.liveHomeScore, best.match.liveAwayScore)}`}{" "}
-                · <span className="font-semibold text-action">+{best.tip.rangDelta} Punkte</span>
+                · <span className="font-semibold text-action">+{weeklyTipPoints(best.tip)} Punkte</span>
               </p>
             </div>
           )}
@@ -212,8 +212,9 @@ export default function RueckblickPage() {
       )}
 
       <p className="mt-4 text-xs text-muted">
-        Gezählt werden die Tipps, die du in der Woche abgegeben hast. Punkte kommen dazu, sobald ein Spiel ausgewertet
-        ist, genau wie in der Wochen-Rangliste.
+        Gezählt werden die Tipps, die du in der Woche (Montag 0:00 bis Sonntag, Wiener Zeit) abgegeben hast, mit ihren
+        Tipp-Punkten ohne Platz-Bonus. Punkte kommen dazu, sobald ein Spiel ausgewertet ist, genau wie in der
+        Wochen-Rangliste.
       </p>
     </Shell>
   );

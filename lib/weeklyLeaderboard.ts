@@ -117,3 +117,30 @@ export function sumWeeklyRangDelta(
     })
     .reduce((sum, t) => sum + (t.rangDelta ?? 0), 0);
 }
+
+/**
+ * Tipp-Punkte eines Tipps für die Wochen-Rangliste: nur der Treffer
+ * (exakt +10, Tordifferenz +7, Tendenz +5, falsch −3, 1X2 +5/−3, mit
+ * Doppel- und Toleranz-Joker), OHNE Platz-Bonus – sonst lägen in der Woche
+ * immer die vorne, die in der Gesamt-Rangliste weiter hinten stehen. Der
+ * Schutz-Joker verhindert wie sonst ein Minus. Gleiche Regel wie
+ * weekly_points() in supabase/wochensieger.sql.
+ */
+export function weeklyTipPoints(tip: { basePoints?: number; rangDelta?: number; joker?: string | null }): number {
+  const base = tip.basePoints ?? tip.rangDelta ?? 0;
+  return tip.joker === "schutz" && base < 0 ? 0 : base;
+}
+
+/** Summe der Tipp-Punkte (ohne Platz-Bonus) aller in der Woche abgegebenen, ausgewerteten Tipps. */
+export function sumWeeklyTipPoints(
+  tips: { evaluated?: boolean; basePoints?: number; rangDelta?: number; joker?: string | null; submittedAt: string; rankingLegacy?: boolean }[],
+  window: WeekWindow
+): number {
+  return tips
+    .filter((t) => t.evaluated && (t.basePoints !== undefined || t.rangDelta !== undefined) && !t.rankingLegacy)
+    .filter((t) => {
+      const submitted = new Date(t.submittedAt).getTime();
+      return submitted >= window.start.getTime() && submitted < window.end.getTime();
+    })
+    .reduce((sum, t) => sum + weeklyTipPoints(t), 0);
+}
