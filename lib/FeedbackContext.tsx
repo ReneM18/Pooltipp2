@@ -4,6 +4,8 @@ import { createContext, memo, useContext, useEffect, useLayoutEffect, useRef, us
 import { useUser } from "@/lib/UserContext";
 import { PASS_LEVELS } from "@/lib/passLevels";
 import { takeFlashToast } from "@/lib/flashToast";
+import { useAppData } from "@/lib/AppDataContext";
+import { xpForLevel } from "@/lib/seasonPass";
 
 interface Toast {
   id: number;
@@ -23,7 +25,8 @@ const FeedbackContext = createContext<FeedbackContextValue | null>(null);
 let idCounter = 0;
 
 export function FeedbackProvider({ children }: { children: ReactNode }) {
-  const { passXP, profileLoaded, authUserId } = useUser();
+  const { passXP, profileLoaded, authUserId, hasPremiumPass } = useUser();
+  const { myTips, myTipsLoaded } = useAppData();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [bursts, setBursts] = useState<{ id: number; big: boolean }[]>([]);
   const [levelUpInfo, setLevelUpInfo] = useState<(typeof PASS_LEVELS)[number] | null>(null);
@@ -89,6 +92,36 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passXP]);
+
+  // Ergebnis-Jubel: Sterne + Meldung ("Exakt getroffen …") nur, wenn ein
+  // eigener Tipp ausgewertet wird, WÄHREND die App offen ist – also wenn die
+  // Auswertung gerade neu hereinkommt (Sofort-Abgleich, Aktualisieren). Was
+  // beim Öffnen schon ausgewertet ist, ist nichts Neues mehr: kein Jubel.
+  // Vorher kam er bei jedem Öffnen für jeden alten Tipp erneut.
+  const tipStateRef = useRef<Map<string, boolean> | null>(null);
+  useEffect(() => {
+    tipStateRef.current = null;
+  }, [authUserId]);
+  useEffect(() => {
+    if (!authUserId || !myTipsLoaded) return;
+    const known = tipStateRef.current;
+    const next = new Map(myTips.map((t) => [t.id, t.evaluated && !t.refunded] as [string, boolean]));
+    tipStateRef.current = next;
+    // Erster geladener Stand = Ausgangsbasis.
+    if (!known) return;
+    const fresh = myTips.filter((t) => t.evaluated && !t.refunded && known.get(t.id) === false);
+    if (fresh.length === 0) return;
+    // Level 6 Premium: "Große goldene Sternenexplosion bei exaktem Tipp" –
+    // ansonsten der normale (kleinere) Sterne-Burst. Mehrere auf einmal
+    // ergeben einen Burst (siehe celebrate).
+    const big = hasPremiumPass && passXP >= xpForLevel(6) && fresh.some((t) => t.resultTier === "exakt");
+    celebrate(big);
+    for (const tip of fresh) {
+      if (tip.narration) showToast(tip.narration, tip.resultTier === "falsch" ? "info" : "gold");
+    }
+    // Nur auf neue Tipp-Stände reagieren.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myTips, myTipsLoaded, authUserId]);
 
   return (
     <FeedbackContext.Provider value={{ showToast, celebrate }}>
