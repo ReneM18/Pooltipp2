@@ -550,8 +550,8 @@ export default function MatchCard({
           {match.matchday && !stage ? <span aria-hidden>·</span> : null}
           <span>{kickoffLabel}</span>
           {match.tvChannel && (
-            <span className="flex items-center gap-1 rounded-full border border-edge bg-pitch px-2 py-0.5 text-[13px] font-semibold text-ink">
-              <TvIcon className="h-3.5 w-3.5 text-muted" />
+            <span className="flex items-center gap-1.5 rounded-full border border-edge bg-pitch py-0.5 pl-2 pr-2.5 text-[13px] font-semibold text-ink">
+              <TvIcon className="h-5 w-5 shrink-0 text-ink" />
               {match.tvChannel}
             </span>
           )}

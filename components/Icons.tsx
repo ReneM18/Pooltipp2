@@ -38,11 +38,23 @@ export function GearIcon({ className }: { className?: string }) {
   );
 }
 
+// Fernseher mit Antenne und Standfuß, dicker Strich: klein am Handy gut
+// erkennbar (Variante A, von Rene am 08.10.2026 ausgesucht, etwas größer
+// und fetter gewünscht).
 export function TvIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className={className}>
-      <rect x="3" y="6" width="18" height="13" rx="2" />
-      <path d="M8 3l4 3 4-3" />
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <rect x="2.5" y="7.5" width="19" height="12.5" rx="2.5" />
+      <path d="M7.5 2.5 12 7l4.5-4.5" />
+      <path d="M8 22.5h8" />
     </svg>
   );
 }
