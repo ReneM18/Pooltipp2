@@ -124,19 +124,19 @@ export default function RankEmblem({
           )}
         </svg>
       )}
-      {/* Sportart-Punkt: dunkler Kreis mit schwarzem Rand. Das Symbol ist
-          bewusst kleiner als der Kreis und wird abgeschnitten – unter Windows
-          (Segoe-Emoji) ist z. B. der Eishockeyschläger breiter als am Handy
-          und lag sonst über dem Rand, der schwarze Ring war dann weg. */}
+      {/* Sportart-Symbol unten rechts: nur das Symbol selbst, ohne Kreis
+          dahinter (Rene: schwarzer Kreis gehört weg). Ein feiner Schatten
+          hält es auch auf hellen Abzeichen (Silber, Gold) lesbar. */}
       {showSport && sport && (
         <span
-          className="absolute flex items-center justify-center overflow-hidden rounded-full border border-black/80 bg-pitch leading-none"
+          className="pointer-events-none absolute flex items-center justify-center leading-none"
           style={{
             width: sportSize,
             height: sportSize,
-            fontSize: sportSize * 0.5,
-            right: -sportSize * 0.25,
-            bottom: -sportSize * 0.2,
+            fontSize: sportSize * 0.82,
+            right: -sportSize * 0.3,
+            bottom: -sportSize * 0.25,
+            filter: "drop-shadow(0 0 1px rgba(0,0,0,0.75)) drop-shadow(0 1px 1px rgba(0,0,0,0.45))",
           }}
         >
           {SPORT_EMOJI[sport]}
