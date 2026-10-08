@@ -239,7 +239,7 @@ function ProfilInhalt() {
       {/* Level 8 Premium: Profil-Hintergrundbanner in den Saison-Farben
           (SEASON_THEME) – nur ein Farbverlauf, kein neues Bild pro Saison nötig. */}
       <div
-        className={`mb-8 flex items-center gap-7 ${hasLevelPremium(8) ? "rounded-card p-5" : ""}`}
+        className={`mb-8 flex items-center gap-6 ${hasLevelPremium(8) ? "rounded-card p-5" : ""}`}
         style={
           hasLevelPremium(8)
             ? {
@@ -277,7 +277,7 @@ function ProfilInhalt() {
               Hover/Antippen auf. Ragt etwas über den Rand hinaus, damit es
               möglichst wenig vom Foto verdeckt. */}
           {activeRankIcon && (
-            <span className="absolute -bottom-2 -right-4 z-10">
+            <span className="absolute -bottom-1.5 -right-3 z-10">
               <RankMeaningBadge option={activeRankIcon} size="profil" />
             </span>
           )}

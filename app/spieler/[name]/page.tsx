@@ -43,7 +43,7 @@ export default function SpielerProfilPage() {
         ← Zurück
       </button>
 
-      <div className="mb-6 flex items-center gap-7">
+      <div className="mb-6 flex items-center gap-6">
         <div
           className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-surface font-display text-2xl font-bold text-gold"
           // Andere Spieler in ihrer festen Farbe wie im Chat und in der Rangliste.
@@ -55,7 +55,7 @@ export default function SpielerProfilPage() {
               Hover/Antippen auf. Ragt etwas über den Rand hinaus, damit es
               möglichst wenig vom Foto verdeckt. */}
           {rankIcon && (
-            <span className="absolute -bottom-2 -right-4 z-10">
+            <span className="absolute -bottom-1.5 -right-3 z-10">
               <RankMeaningBadge option={rankIcon} size="profil" />
             </span>
           )}

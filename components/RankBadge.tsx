@@ -5,7 +5,7 @@ import RankEmblem from "@/components/RankEmblem";
 // eines Profilbilds (Kopfzeile bzw. Profil/Spielerseite) – bewusst klein,
 // damit Foto oder Buchstabe gut sichtbar bleiben. "profil" sitzt ebenfalls in
 // der Ecke des großen Profilbilds (eigenes Profil, Spielerseite), aber
-// deutlich größer (Rene: Rang und Sportart-Symbol sollen dort, wo man die
+// größer (Rene: Rang und Sportart-Symbol sollen dort, wo man die
 // Person genau anschaut, gut erkennbar sein), mit größerem Sportart-Symbol.
 const SIZES = {
   "2xs": 15,
@@ -13,7 +13,7 @@ const SIZES = {
   sm: 28,
   md: 36,
   lg: 48,
-  profil: 38,
+  profil: 31,
 };
 
 export type RankBadgeSize = keyof typeof SIZES;
@@ -40,7 +40,7 @@ export default function RankBadge({
         colors={{ from: option.colorFrom, to: option.colorTo, text: option.colorText }}
         size={SIZES[size]}
         prestige={option.prestige ?? 0}
-        sportScale={size === "profil" ? 0.55 : undefined}
+        sportScale={size === "profil" ? 0.52 : undefined}
       />
     </span>
   );
