@@ -161,6 +161,8 @@ export default function MatchCard({
   const [kickedOff, setKickedOff] = useState(false);
   const { getCommentsForMatch, addComment, removeComment, toggleCommentLike, myBonusAnswers, submitBonusAnswer } =
     useAppData();
+  const { tipTendencies } = useAppData();
+  const tendency = tipTendencies[match.id];
   const [bonusPick, setBonusPick] = useState<number | null>(null);
   const myBonusAnswer = myBonusAnswers.find((a) => a.matchId === match.id);
   const { displayName, passHonors, shownPassHonors, authUserId, freeStars, sessionChecked, friendEntries } = useUser();
@@ -813,6 +815,17 @@ export default function MatchCard({
             )}
             {hasTipped && !tippingClosed && !isCancelled && !myTip?.evaluated && (
               <TrendRow matchId={match.id} homeName={homeTeam.name} awayName={awayTeam.name} awayFirst={isUsSport} />
+            )}
+
+            {tippingClosed && !isCancelled && tendency && (
+              <CommunityTrend
+                tendency={tendency}
+                sport={match.sport}
+                homeName={homeTeam.name}
+                awayName={awayTeam.name}
+                finalScore={finalScore}
+                myTip={myTip && !myTip.refunded ? { home: myTip.predictedHomeScore, away: myTip.predictedAwayScore } : null}
+              />
             )}
 
             {hasTipped && myTip?.evaluated && !myTip.refunded && !isCancelled && (
@@ -1663,6 +1676,89 @@ function TrendRow({
             </div>
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+// Community-Tendenz ab Tippschluss (für alle, kostenlos): ein Balken, wie
+// alle getippt haben – Heim / Remis / Gast in Anzeige-Reihenfolge. Nach dem
+// Spiel leuchtet die richtige Tendenz grün, und bei Überraschungen (höchstens
+// ein Viertel lag richtig) gibt es einen Hinweis. Vor Tippschluss bleibt die
+// Verteilung geheim (dafür gibt es den Trend-Joker). Feste Farben, damit es
+// auch im Herbst-Design (Knöpfe orange) klar grün/gold bleibt.
+const TREND_GREEN = "#3FA66B";
+const TREND_GOLD = "#E8B34C";
+const TREND_GREY = "#55625B";
+
+function CommunityTrend({
+  tendency,
+  sport,
+  homeName,
+  awayName,
+  finalScore,
+  myTip,
+}: {
+  tendency: { home: number; draw: number; away: number };
+  sport: string;
+  homeName: string;
+  awayName: string;
+  finalScore: { home: number; away: number } | null;
+  myTip: { home: number; away: number } | null;
+}) {
+  const withDraw = sportAllowsDraw(sport);
+  type Side = "home" | "draw" | "away";
+  const counts: Record<Side, number> = { home: tendency.home, draw: withDraw ? tendency.draw : 0, away: tendency.away };
+  const total = counts.home + counts.draw + counts.away;
+  // Ab 2 Tipps, sonst stünde da nur "100 %".
+  if (total < 2) return null;
+
+  const sideOf = (h: number, a: number): Side => (h > a ? "home" : h < a ? "away" : "draw");
+  const winner = finalScore ? sideOf(finalScore.home, finalScore.away) : null;
+  const myCorrect = !!winner && !!myTip && sideOf(myTip.home, myTip.away) === winner;
+
+  const [leftSide, rightSide] = displayOrder<Side>(sport, "home", "away");
+  const [leftName, rightName] = displayOrder(sport, homeName, awayName);
+  const parts: { side: Side; label: string; base: string }[] = [
+    { side: leftSide, label: leftName, base: TREND_GREEN },
+    ...(withDraw ? [{ side: "draw" as Side, label: "Remis", base: TREND_GREY }] : []),
+    { side: rightSide, label: rightName, base: TREND_GOLD },
+  ];
+  const pct = (n: number) => Math.round((n * 100) / total);
+  const color = (p: (typeof parts)[number]) => (winner ? (p.side === winner ? TREND_GREEN : TREND_GREY) : p.base);
+
+  const correctCount = winner ? counts[winner] : 0;
+  const surprise = !!winner && correctCount * 4 <= total;
+
+  return (
+    <div className="px-1">
+      <p className="mb-1.5 text-xs font-semibold text-muted">
+        So hat die Community getippt ({total.toLocaleString("de-DE")} Tipps)
+      </p>
+      <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full bg-pitch">
+        {parts
+          .filter((p) => counts[p.side] > 0)
+          .map((p) => (
+            <div key={p.side} style={{ width: `${(counts[p.side] * 100) / total}%`, backgroundColor: color(p) }} />
+          ))}
+      </div>
+      <div className="mt-1.5 flex justify-between gap-2 text-xs text-muted">
+        {parts.map((p, i) => (
+          <span
+            key={p.side}
+            className={`min-w-0 ${i === 0 ? "text-left" : i === parts.length - 1 ? "text-right" : "text-center"}`}
+          >
+            <b className="text-ink">{pct(counts[p.side])} %</b> {p.label}
+            {winner === p.side ? " ✓" : ""}
+          </span>
+        ))}
+      </div>
+      {winner && (
+        <p className={`mt-1.5 text-center text-xs font-semibold ${surprise ? "text-gold" : "text-muted"}`}>
+          {correctCount === 0
+            ? "😲 Überraschung! Niemand lag richtig."
+            : `${surprise ? "😲 Überraschung! Nur " : ""}${correctCount.toLocaleString("de-DE")} von ${total.toLocaleString("de-DE")} lagen richtig${myCorrect ? " – du auch." : "."}`}
+        </p>
       )}
     </div>
   );
