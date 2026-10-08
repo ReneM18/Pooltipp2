@@ -67,7 +67,9 @@ export default function RankProgress({
           : `Höchste Stufe erreicht – ${tierLabel(goatTier)}.`}
       </p>
 
-      <div className="flex flex-wrap gap-1.5">
+      {/* Am Handy ein festes Raster (7 pro Reihe), damit die Reihen sauber
+          bündig sind; ab Tablet einfach nebeneinander. */}
+      <div className="grid grid-cols-7 justify-items-center gap-y-1.5 sm:flex sm:flex-wrap sm:gap-1.5">
         {ladder.map((tier, i) => {
           const unlocked = points >= tier.minPoints;
           const isCurrent = tier === current;
@@ -233,12 +235,12 @@ function PrestigeBox({ sport, points, prestige }: { sport: Sport; points: number
 function PrestigeLadder({ current }: { current: number }) {
   const steps = [1, 2, 3, 4, 5, 6];
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-label="Prestige-Stufen">
+    <div className="mt-2 grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap sm:items-center" aria-label="Prestige-Stufen">
       {steps.map((level) => (
         <span
           key={level}
           title={level > PRESTIGE_MAX_STARS ? "Ab Prestige 6: Krone" : `Prestige ${level}`}
-          className={`whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[11px] font-bold leading-none ${
+          className={`whitespace-nowrap rounded-full border px-1.5 py-0.5 text-center text-[11px] font-bold leading-none ${
             current >= level ? "border-gold/70 bg-pitch text-gold" : "border-edge text-muted opacity-60"
           }`}
         >
