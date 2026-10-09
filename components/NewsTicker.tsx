@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useAppData, NewsItem } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import NewsSportIcon from "@/components/NewsSportIcon";
+import CommentThread from "@/components/CommentThread";
 
 export default function NewsTicker() {
   const { newsItems } = useAppData();
@@ -62,7 +63,7 @@ export default function NewsTicker() {
             className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-card border border-edge bg-gradient-to-br from-surface to-surface-hover shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="overflow-y-auto p-8">
+            <div className="overflow-y-auto p-5 sm:p-8">
               <div className="mb-4 flex items-center gap-3">
                 {selected.sport && <span className="text-3xl"><NewsSportIcon sport={selected.sport} /></span>}
                 <h2 className="font-display text-2xl font-bold leading-snug text-ink">
@@ -72,6 +73,10 @@ export default function NewsTicker() {
               <p className="whitespace-pre-line text-base leading-relaxed text-muted">
                 {selected.article ?? "Zu dieser Meldung gibt es noch keinen ausführlichen Artikel."}
               </p>
+              {/* Kommentare zu jeder Meldung (mit oder ohne Artikel) */}
+              <div className="mt-6 border-t border-edge pt-4">
+                <CommentThread threadId={`news:${selected.id}`} />
+              </div>
             </div>
             <button
               onClick={() => setSelected(null)}

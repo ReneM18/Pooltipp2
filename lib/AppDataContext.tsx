@@ -1451,7 +1451,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const match = matches.find((m) => m.id === matchId);
     const home = match ? getTeam(match.homeTeamId) : undefined;
     const away = match ? getTeam(match.awayTeamId) : undefined;
-    const whereText = match ? ` zu ${home?.name ?? "?"} vs. ${away?.name ?? "?"}` : "";
+    // Kommentare zu News laufen unter "news:<id>" (components/CommentThread.tsx).
+    const news = matchId.startsWith("news:") ? newsItems.find((n) => `news:${n.id}` === matchId) : undefined;
+    const whereText = match
+      ? ` zu ${home?.name ?? "?"} vs. ${away?.name ?? "?"}`
+      : news
+        ? ` zur News „${news.text}“`
+        : "";
     addActivity("💬", `Du hast einen Kommentar${whereText} geschrieben.`, {
       author,
       text: `${author} hat einen Kommentar${whereText} geschrieben.`,
