@@ -17,6 +17,12 @@ import { TipResultTier, BOOSTER_STAKE } from "./poolScore";
 import { matchTitle } from "./teamOrder";
 import { countsSinceReset } from "./rankingReset";
 
+export interface TipTendency {
+  home: number;
+  draw: number;
+  away: number;
+}
+
 export interface WithdrawResult {
   // false: der Tipp war schon weg (z. B. auf einem anderen Gerät zurückgenommen)
   withdrawn: boolean;
@@ -378,6 +384,10 @@ interface AppDataContextValue {
   cancelMatch: (id: string) => Promise<{ ok: true; refundedTips: number } | { ok: false; error: string }>;
   getTeam: (id: string) => Team | undefined;
   tipCounts: Record<string, number>;
+  // Community-Tendenz ab Tippschluss: Anzahl Tipps auf Heim / Remis / Gast
+  // (tip_tendencies, supabase/community-tendenz.sql). Leer, solange das SQL
+  // fehlt – dann zeigt die Karte einfach keinen Balken.
+  tipTendencies: Record<string, TipTendency>;
   registerTip: (matchId: string) => void;
   tipsBySport: Record<Sport, number>;
   myTips: SubmittedTip[];
@@ -480,6 +490,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // Spiel (alle Spieler), geladen aus der Datenbank – früher feste
   // Demo-Zahlen, die nur im eigenen Browser hochgezählt wurden.
   const [tipCounts, setTipCounts] = useState<Record<string, number>>({});
+  const [tipTendencies, setTipTendencies] = useState<Record<string, TipTendency>>({});
   const [myTips, setMyTips] = useState<SubmittedTip[]>([]);
   const [myBonusAnswers, setMyBonusAnswers] = useState<SubmittedBonusAnswer[]>([]);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
@@ -509,6 +520,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     async function loadTipCounts() {
+      // Community-Tendenz gleich mitladen (gleicher Takt wie die Tipp-Zähler).
+      supabase.rpc("tip_tendencies").then(({ data, error }) => {
+        if (cancelled || error || !data) return;
+        const next: Record<string, TipTendency> = {};
+        for (const row of data as { match_id: string; home: number; draw: number; away: number }[]) {
+          next[row.match_id] = { home: row.home, draw: row.draw, away: row.away };
+        }
+        setTipTendencies(next);
+      });
       const counts: Record<string, number> = {};
       const counted = await supabase.rpc("tip_counts");
       if (!counted.error && counted.data) {
@@ -1483,6 +1503,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         cancelMatch,
         getTeam,
         tipCounts,
+        tipTendencies,
         registerTip,
         tipsBySport,
         myTips,
