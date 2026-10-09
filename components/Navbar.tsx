@@ -194,7 +194,7 @@ export default function Navbar() {
               </SeasonFrame>
               {badge && (
                 <span className="absolute -bottom-1 -right-1.5 rounded-full">
-                  <RankBadge option={badge} size="2xs" />
+                  <RankBadge option={badge} size="kopf" />
                 </span>
               )}
             </Link>

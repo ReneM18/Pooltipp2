@@ -51,6 +51,7 @@ export default function RankEmblem({
   size,
   prestige = 0,
   sportScale = 0.44,
+  sportOutside = false,
 }: {
   rank?: RankName;
   sub?: SubTier;
@@ -66,6 +67,9 @@ export default function RankEmblem({
   prestige?: number;
   /** Größe des Sportart-Symbols im Verhältnis zum Abzeichen (Profilbild: größer). */
   sportScale?: number;
+  // Winkel im Abzeichen und Sportsymbol unten rechts auch bei kleiner Größe
+  // (Kopfzeile soll genauso aussehen wie das Profil, Rene 09.10.2026).
+  sportOutside?: boolean;
 }) {
   const gradientId = useId();
   const isGoat = !elite && !unsterblich && rank === "GOAT";
@@ -75,9 +79,9 @@ export default function RankEmblem({
   // wäre er nur ein unlesbarer Fleck, dort steht das Symbol stattdessen
   // mittig im Abzeichen. Der GOAT trägt sein Sportsymbol schon als Plakette.
   const hasSport = !elite && !unsterblich && !isGoat && !!sport;
-  const showSport = hasSport && size >= 24;
-  const sportInside = hasSport && size < 24;
-  const sportSize = Math.max(12, Math.round(size * sportScale));
+  const showSport = hasSport && (size >= 24 || sportOutside);
+  const sportInside = hasSport && size < 24 && !sportOutside;
+  const sportSize = Math.max(sportOutside ? 10 : 12, Math.round(size * sportScale));
 
   return (
     <span className="relative inline-flex shrink-0" style={{ width: size, height: size }}>
