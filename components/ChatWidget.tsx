@@ -767,10 +767,13 @@ export default function ChatWidget() {
 
   return (
     <>
+      {/* Ebene 48: über der Leiste unten am Handy (BottomNav, Ebene 45) –
+          sonst verdeckt sie das Eingabefeld (Rene, 09.10.2026) – aber unter
+          Fenstern/Hinweisen (Ebene 50). */}
       {open && (
         <section
           aria-label="Chat"
-          className="fixed inset-0 z-40 flex h-[100dvh] flex-col overflow-hidden bg-surface sm:inset-auto sm:bottom-24 sm:right-5 sm:h-[min(36rem,calc(100dvh-8rem))] sm:w-[23rem] sm:rounded-card sm:border sm:border-edge sm:shadow-[0_24px_60px_rgb(0_0_0/0.55)]"
+          className="fixed inset-0 z-[48] flex h-[100dvh] flex-col overflow-hidden bg-surface sm:inset-auto sm:bottom-24 sm:right-5 sm:h-[min(36rem,calc(100dvh-8rem))] sm:w-[23rem] sm:rounded-card sm:border sm:border-edge sm:shadow-[0_24px_60px_rgb(0_0_0/0.55)]"
         >
           {view.kind === "dm" ? (
             <Conversation key={view.friendId} friendId={view.friendId} />
