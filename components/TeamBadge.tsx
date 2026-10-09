@@ -17,9 +17,17 @@ export function teamColorProps(team: Team) {
   };
 }
 
-/** Trikot eines Teams in einem Spiel: die Wahl des Admins, sonst das normale Heimtrikot im Team-Stil (wie bisher). */
+/**
+ * Trikot eines Teams in einem Spiel: Heim- oder Auswärtstrikot nach Wahl des
+ * Admins (sonst Heim), immer im Stil, der beim Team dafür eingestellt ist.
+ * Ältere Spiele mit einem anderen gespeicherten Stil zeigen so trotzdem die
+ * zwei Trikots, die beim Team angelegt sind (Rene, 09.10.2026).
+ */
 export function jerseyFor(team: Team, chosen?: MatchJersey): MatchJersey {
-  return chosen ?? { variant: "heim", style: team.jerseyStyle ?? "solid" };
+  const variant = chosen?.variant ?? "heim";
+  const style =
+    variant === "auswaerts" ? team.awayJerseyStyle ?? team.jerseyStyle ?? "solid" : team.jerseyStyle ?? "solid";
+  return { variant, style };
 }
 
 /** TeamBadge-Props für ein Team in einem Spiel: <TeamBadge {...matchJerseyProps(match, team)} ... />. */
