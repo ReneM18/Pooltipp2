@@ -40,7 +40,7 @@ export default function AdminPage() {
   // "Spiele" ist bewusst der Start-Tab: das wird im Alltag am häufigsten
   // gebraucht und soll sofort sichtbar sein, ohne erst scrollen zu müssen.
   const [tab, setTab] = useState<AdminTab>("spiele");
-  const { teams, matches, newsItems, competitions } = useAppData();
+  const { teams, allMatches: matches, newsItems, competitions } = useAppData();
   const { tournaments } = useTournaments();
 
   if (!adminChecked) {
@@ -548,7 +548,7 @@ function CompetitionSelect({
 // Pro Sportart eine eigene Liste (wie bei den Teams). Löschen entfernt den
 // Wettbewerb nur aus der Auswahl – bestehende Spiele behalten ihn.
 function CompetitionManager() {
-  const { competitions, matches, addCompetition, renameCompetition, removeCompetition } = useAppData();
+  const { competitions, allMatches: matches, addCompetition, renameCompetition, removeCompetition } = useAppData();
   const { showToast } = useFeedback();
   const [name, setName] = useState("");
   const [sport, setSport] = useState<Sport>("Fußball");
@@ -1518,7 +1518,8 @@ function TeamManager() {
 function MatchManager() {
   const {
     teams,
-    matches,
+    allMatches: matches,
+    publishMatches,
     addMatch,
     removeMatch,
     cancelMatch,
@@ -1662,6 +1663,9 @@ function MatchManager() {
       tipMode,
       ...(homeJersey ? { homeJersey } : {}),
       ...(awayJersey ? { awayJersey } : {}),
+      // Neue Spiele sind erst Entwurf (nur hier sichtbar) und gehen mit
+      // „Veröffentlichen" online – einzeln oder alle auf einmal.
+      draft: true,
     });
 
     setCompetition("");
@@ -1676,7 +1680,7 @@ function MatchManager() {
     setBoosterInput(false);
     setTvChannelInput("");
     setTipModeInput("score");
-    showToast(`✓ Spiel "${matchTitle(sport, homeName, awayName)}" angelegt.`, "success");
+    showToast(`✓ "${matchTitle(sport, homeName, awayName)}" als Entwurf angelegt – noch nicht online.`, "success");
   }
 
   const previewHome = teamsForSport.find((t) => t.id === homeTeamId);
@@ -1892,7 +1896,10 @@ function MatchManager() {
             <p className="text-sm font-semibold text-ink">
               Spiel „{matchTitle(sport, getTeam(homeTeamId)?.name ?? "?", getTeam(awayTeamId)?.name ?? "?")}“ (
               {competition.trim()}) am {new Date(kickoff).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}{" "}
-              anlegen?
+              als Entwurf anlegen?
+            </p>
+            <p className="mt-1 text-sm text-muted">
+              Es ist noch nicht online. Unten bei den Spielen kannst du alle Entwürfe auf einmal veröffentlichen.
             </p>
             {new Date(tipDeadline).getTime() <= Date.now() && (
               <p className="mt-1 text-sm text-gold">
@@ -1905,7 +1912,7 @@ function MatchManager() {
                 onClick={() => handleSubmit()}
                 className="rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
               >
-                Ja, anlegen
+                Ja, als Entwurf anlegen
               </button>
               <button
                 type="button"
@@ -1922,7 +1929,7 @@ function MatchManager() {
             onClick={() => handleSubmit()}
             className="self-start rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
           >
-            Spiel anlegen
+            Spiel anlegen (Entwurf)
           </button>
         )}
         {formError && (
@@ -1942,9 +1949,36 @@ function MatchManager() {
           .filter(isDone)
           .sort((a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime());
         const visibleMatches = matchListTab === "bevorstehend" ? upcomingMatches : finishedMatches;
+        const drafts = matches.filter((m) => m.draft);
 
         return (
           <>
+            {drafts.length > 0 && (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-card border border-gold/50 bg-gold/10 p-4">
+                <div>
+                  <p className="font-display text-base font-semibold text-ink">
+                    📝 {drafts.length} {drafts.length === 1 ? "Entwurf" : "Entwürfe"} – noch nicht online
+                  </p>
+                  <p className="text-sm text-muted">Nur du siehst sie. Wenn alle fertig sind, auf einmal veröffentlichen.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (
+                      !confirm(
+                        `${drafts.length} ${drafts.length === 1 ? "Spiel" : "Spiele"} jetzt veröffentlichen? Danach sehen alle Spieler sie und können tippen.`
+                      )
+                    )
+                      return;
+                    publishMatches();
+                    showToast(`✓ ${drafts.length} ${drafts.length === 1 ? "Spiel ist" : "Spiele sind"} jetzt online.`, "success");
+                  }}
+                  className="rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
+                >
+                  🚀 Alle {drafts.length} veröffentlichen
+                </button>
+              </div>
+            )}
             <div className="mb-4 flex gap-2.5">
               <button
                 onClick={() => setMatchListTab("bevorstehend")}
@@ -1993,6 +2027,11 @@ function MatchManager() {
                   <span>· {new Date(match.kickoff).toLocaleString("de-DE")}</span>
                   {match.tipDeadline !== match.kickoff && (
                     <span>· Tippschluss {new Date(match.tipDeadline).toLocaleString("de-DE")}</span>
+                  )}
+                  {match.draft && (
+                    <span className="rounded-full border border-muted/60 bg-pitch px-2 py-0.5 text-xs font-bold text-ink">
+                      📝 Entwurf – noch nicht online
+                    </span>
                   )}
                   {match.topMatch && (
                     <span className="rounded-full border border-action/60 bg-action/15 px-2 py-0.5 text-xs font-bold text-action-hover">
@@ -2064,6 +2103,18 @@ function MatchManager() {
               <div className="flex flex-wrap items-center gap-2 border-t border-edge pt-4">
                 {match.status !== "cancelled" && (
                   <>
+                    {match.draft && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          publishMatches([match.id]);
+                          showToast("✓ Spiel ist jetzt online.", "success");
+                        }}
+                        className="min-w-[9rem] rounded-lg bg-action px-3 py-2.5 text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
+                      >
+                        🚀 Veröffentlichen
+                      </button>
+                    )}
                     <MatchDetailsEditor match={match} teams={teams} onSave={updateMatchDetails} />
                     {match.status === "upcoming" && (
                       <BoosterToggleButton match={match} matches={matches} onToggle={setBooster} />
@@ -2273,7 +2324,7 @@ function MatchDetailsEditor({
   ) => void;
 }) {
   const { showToast } = useFeedback();
-  const { matches } = useAppData();
+  const { allMatches: matches } = useAppData();
   const [editing, setEditing] = useState(false);
   const [competition, setCompetition] = useState(match.competition);
   const [matchday, setMatchday] = useState(match.matchday ? String(match.matchday) : "");
@@ -2767,7 +2818,7 @@ const tournamentStatusClass: Record<ReturnType<typeof getTournamentStatus>, stri
 function TournamentManager() {
   const { tournaments, createTournament, updateTournament, setTournamentMatches, removeTournament } =
     useTournaments();
-  const { matches, getTeam } = useAppData();
+  const { allMatches: matches, getTeam } = useAppData();
   const { showToast } = useFeedback();
 
   const [name, setName] = useState("");
