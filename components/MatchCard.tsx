@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, FormEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Match, Sport, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
-import { TipResultTier, compareWithOthers, BOOSTER_STAKE, RANKING_BONUS_CAP, RANKING_POINTS, boosterPayouts, gutscheinPayouts } from "@/lib/poolScore";
+import { TipResultTier, compareWithOthers, BOOSTER_STAKE, RANKING_BONUS_CAP, RANKING_POINTS, boosterPayouts, gutscheinPayouts, rankingPointsTable } from "@/lib/poolScore";
 import { MatchTipper, useMatchTips } from "@/lib/matchTips";
 import { flagEmoji } from "@/lib/flags";
 import { useAppData } from "@/lib/AppDataContext";
@@ -695,10 +695,12 @@ export default function MatchCard({
                     {gutscheine > 1 ? ` (du hast ${gutscheine})` : ""}. Daneben kostet der Tipp nichts.
                   </p>
                 )}
-                <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">
+                <p className="mt-2 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted">
+                  <CoinIcon className="h-3 w-3" />
                   {withGutschein ? "Coins: dein Gewinn" : "Coins: dein Gewinn oder Verlust"}
                 </p>
-                <PointsGrid items={withGutschein ? gutscheinPayouts(isOneXTwo) : boosterPayouts(isOneXTwo)} />
+                <PointsGrid items={withGutschein ? gutscheinPayouts(isOneXTwo) : boosterPayouts(isOneXTwo)} coins />
+                <BoosterRankRow isOneXTwo={isOneXTwo} />
               </div>
             )}
             {/* Statt der Punkte-Tabelle nur ein kleiner Hinweis, die
@@ -1096,22 +1098,37 @@ function TippersList({
 }
 
 // Kleine Tabelle "+10 Exakt | +7 Differenz | …" für Rangpunkte und Sterne.
-function PointsGrid({ items }: { items: { label: string; net: number }[] }) {
+// coins: Coin-Beträge (Booster) – Münze davor und Gold, damit man sie nie mit
+// Rangpunkten (grün) verwechselt (Rene, 09.10.2026).
+function PointsGrid({ items, coins = false }: { items: { label: string; net: number }[]; coins?: boolean }) {
   return (
     <div className={`mt-1 grid gap-1.5 text-center ${items.length === 2 ? "grid-cols-2" : "grid-cols-4"}`}>
       {items.map((p) => (
         <div key={p.label} className="rounded-md bg-pitch/60 px-1 py-1">
           <div
-            className={`font-display text-sm font-bold ${
-              p.net > 0 ? "text-action" : p.net < 0 ? "text-[#FF9B5C]" : "text-ink"
+            className={`flex items-center justify-center gap-1 whitespace-nowrap font-display text-sm font-bold ${
+              p.net > 0 ? (coins ? "text-gold" : "text-[#4FC181]") : p.net < 0 ? "text-[#FF9B5C]" : "text-ink"
             }`}
           >
+            {coins && p.net !== 0 && <CoinIcon className="h-3.5 w-3.5" />}
             {p.net > 0 ? `+${p.net}` : p.net < 0 ? `−${-p.net}` : "±0"}
           </div>
           <div className="text-[11px] text-muted">{p.label}</div>
         </div>
       ))}
     </div>
+  );
+}
+
+// Booster: Rangpunkte gibt es zusätzlich zu den Coins, genau wie bei jedem
+// Tipp – als eigene grüne Zeile mit Pokal, damit klar ist: beides zählt.
+function BoosterRankRow({ isOneXTwo }: { isOneXTwo: boolean }) {
+  return (
+    <>
+      <p className="mt-2.5 text-[11px] uppercase tracking-wide text-muted">🏆 Dazu wie immer: Rangpunkte</p>
+      <PointsGrid items={rankingPointsTable(isOneXTwo)} />
+      <p className="mt-1.5 text-center text-xs text-muted">+ Platz-Bonus wie bei jedem Tipp</p>
+    </>
   );
 }
 
@@ -1242,8 +1259,12 @@ function PointsInfoButton({
                         {BOOSTER_STAKE}
                       </span>
                     </div>
-                    <p className="mt-2 text-[11px] uppercase tracking-wide text-muted">Coins: dein Gewinn oder Verlust</p>
-                    <PointsGrid items={boosterPayouts(isOneXTwo)} />
+                    <p className="mt-2 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted">
+                      <CoinIcon className="h-3 w-3" />
+                      Coins: dein Gewinn oder Verlust
+                    </p>
+                    <PointsGrid items={boosterPayouts(isOneXTwo)} coins />
+                    <BoosterRankRow isOneXTwo={isOneXTwo} />
                   </div>
                 )}
               </div>
