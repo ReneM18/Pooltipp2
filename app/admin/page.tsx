@@ -17,6 +17,7 @@ import { autoTeamGroup, countryGroupByKey, groupTeams, hasTeamGroups, withSelect
 import { normalizeTeamName } from "@/lib/teamName";
 import TeamBadge, { helmetLogoColor, jerseyFor, matchJerseyProps, teamColorProps } from "@/components/TeamBadge";
 import JerseyPicker from "@/components/JerseyPicker";
+import DateTimeInput from "@/components/DateTimeInput";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { findDuplicateTeam } from "@/lib/teamName";
 import ScoreInput from "@/components/ScoreInput";
@@ -1617,11 +1618,11 @@ function MatchManager() {
     // das ist aber noch nicht eingetragen. Ist nur die Uhrzeit gesetzt, liefert
     // das Feld gar keinen Wert.
     if (!kickoff) {
-      fail("Beim Anpfiff fehlt noch das Datum (ein grau angezeigtes Datum ist nur ein Vorschlag). Tippe unter dem Feld auf „Heute“ oder „Morgen“ und wähle dann die Uhrzeit.");
+      fail("Beim Anpfiff fehlt noch die Uhrzeit (oder das Datum stimmt nicht).");
       return;
     }
     if (!tipDeadline) {
-      fail("Beim Tippschluss fehlt noch das Datum (ein grau angezeigtes Datum ist nur ein Vorschlag). Tippe unter dem Feld auf „Heute“ oder „Morgen“.");
+      fail("Beim Tippschluss fehlt noch die Uhrzeit (oder das Datum stimmt nicht).");
       return;
     }
     const deadlineProblem = checkDeadline(kickoff, tipDeadline);
@@ -2200,37 +2201,14 @@ function QuickDateTimeField({
     onChange(`${datePart}T${time}`);
   }
 
-  // Nur teilweise ausgefüllt (z. B. in Safari nur die Uhrzeit, das Datum steht
-  // bloß grau als Vorschlag da): das Feld liefert dann keinen Wert.
-  const [incomplete, setIncomplete] = useState(false);
-  function checkComplete(input: HTMLInputElement) {
-    setIncomplete(input.validity.badInput || (input.value === "" && value !== ""));
-  }
-  useEffect(() => {
-    if (value) setIncomplete(false);
-  }, [value]);
-
   return (
     <div>
       <label className="mb-1.5 block text-sm text-muted">{label}</label>
-      <input
-        type="datetime-local"
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          checkComplete(e.target);
-        }}
-        onInput={(e) => checkComplete(e.currentTarget)}
-        onBlur={(e) => checkComplete(e.currentTarget)}
-        className={`mb-1.5 w-full rounded-lg border bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold ${
-          incomplete ? "border-red-400" : "border-edge"
-        }`}
-      />
-      {incomplete && (
-        <p role="alert" className="mb-1.5 text-sm text-red-300">
-          Datum oder Uhrzeit fehlt noch (grau = nur Vorschlag). Tippe auf „Heute“ oder „Morgen“.
-        </p>
-      )}
+      {/* Eigene Eingabe statt Browser-Datumsfeld: heutiges Datum steht schon
+          drin, nur die Uhrzeit tippen (springt von selbst weiter). */}
+      <div className="mb-1.5">
+        <DateTimeInput value={value} onChange={onChange} ariaLabel={label} defaultToday />
+      </div>
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
