@@ -14,6 +14,9 @@ const SIZES = {
   md: 36,
   lg: 48,
   profil: 31,
+  // Kopfzeile oben rechts: wie "profil" aufgebaut (Winkel im Abzeichen,
+  // Sportsymbol unten rechts), nur kleiner – damit es überall gleich aussieht.
+  kopf: 20,
 };
 
 export type RankBadgeSize = keyof typeof SIZES;
@@ -40,7 +43,8 @@ export default function RankBadge({
         colors={{ from: option.colorFrom, to: option.colorTo, text: option.colorText }}
         size={SIZES[size]}
         prestige={option.prestige ?? 0}
-        sportScale={size === "profil" ? 0.52 : undefined}
+        sportScale={size === "profil" || size === "kopf" ? 0.52 : undefined}
+        sportOutside={size === "kopf"}
       />
     </span>
   );
