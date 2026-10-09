@@ -158,7 +158,7 @@ export interface Match {
   fixedStake: number;
   // Topspiel: vom Admin ausgewählt, steht ganz oben groß auf der Tipps-Seite
   // ("Bühne"). Sind mehrere markiert, kommt das nächste davon, auf das man
-  // noch tippen kann. Ohne Markierung wie bisher: Booster, sonst nächstes Spiel.
+  // noch tippen kann. Ohne Markierung gibt es oben kein Topspiel.
   topMatch?: boolean;
   booster?: boolean; // Booster-Spiel: Tipp nur mit 20 Sternen Einsatz (max. 3 pro Tag)
   status: MatchStatus;
