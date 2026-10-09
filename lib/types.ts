@@ -160,6 +160,10 @@ export interface Match {
   // ("Bühne"). Sind mehrere markiert, kommt das nächste davon, auf das man
   // noch tippen kann. Ohne Markierung gibt es oben kein Topspiel.
   topMatch?: boolean;
+  // Entwurf: nur im Admin-Bereich sichtbar, Spieler sehen es erst nach
+  // „Veröffentlichen" (Rene legt alle Spiele an und stellt sie dann auf
+  // einmal online). Fehlt das Feld (alle älteren Spiele), ist es online.
+  draft?: boolean;
   booster?: boolean; // Booster-Spiel: Tipp nur mit 20 Sternen Einsatz (max. 3 pro Tag)
   status: MatchStatus;
   liveHomeScore: number | null;

@@ -366,7 +366,12 @@ function activityRowToItem(row: ActivityRow, me: string | null): ActivityItem | 
 
 interface AppDataContextValue {
   teams: Team[];
+  // Spiele, die Spieler sehen (ohne Entwürfe). Der Admin-Bereich nutzt
+  // allMatches (mit Entwürfen).
   matches: Match[];
+  allMatches: Match[];
+  // Entwürfe online stellen: eine Liste von IDs oder alle Entwürfe.
+  publishMatches: (ids?: string[]) => void;
   addTeam: (team: Omit<Team, "id">) => void;
   updateTeam: (id: string, changes: Omit<Team, "id">) => void;
   removeTeam: (id: string) => void;
@@ -1010,6 +1015,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, []);
   useAppRefresh(() => loadRankingResetAt());
 
+  // Entwürfe sehen nur der Admin-Bereich (allMatches), alle anderen Seiten
+  // bekommen nur veröffentlichte Spiele.
+  const publishedMatches = useMemo(() => matches.filter((m) => !m.draft), [matches]);
+
+  function publishMatches(ids?: string[]) {
+    const only = ids ? new Set(ids) : null;
+    setMatches((current) =>
+      current.map((m) => (m.draft && (!only || only.has(m.id)) ? { ...m, draft: false } : m))
+    );
+  }
+
   const countingTips = useMemo(
     () => myTips.filter((t) => countsSinceReset(t, rankingResetAt)),
     [myTips, rankingResetAt]
@@ -1497,7 +1513,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     <AppDataContext.Provider
       value={{
         teams,
-        matches,
+        matches: publishedMatches,
+        allMatches: matches,
+        publishMatches,
         addTeam,
         updateTeam,
         removeTeam,
