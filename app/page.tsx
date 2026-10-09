@@ -61,6 +61,16 @@ export default function DashboardPage() {
   // Vom Spieler angeklickter Reiter (null = noch nicht gewählt). Solange
   // nichts gewählt ist, entscheidet die Seite selbst, siehe "tab" unten.
   const [chosenTab, setTab] = useState<"offen" | "geschlossen" | null>(null);
+  // Klick aufs Logo: Reiter wieder automatisch wählen (Offen, sobald es
+  // offene Spiele gibt) und nach oben.
+  useEffect(() => {
+    function onLogo() {
+      setTab(null);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    window.addEventListener("pooltipp:logo", onLogo);
+    return () => window.removeEventListener("pooltipp:logo", onLogo);
+  }, []);
   // Uhrzeit für die Sortierung (erst nach dem Laden im Browser gesetzt,
   // sonst passen Server- und Browser-Ansicht nicht zusammen), jede Minute neu.
   const [now, setNow] = useState<number | null>(null);

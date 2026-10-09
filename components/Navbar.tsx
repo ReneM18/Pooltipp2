@@ -95,6 +95,10 @@ export default function Navbar() {
       <div className="relative mx-auto flex max-w-3xl lg:max-w-6xl items-center justify-between gap-2 px-4 py-2.5 sm:px-5 sm:py-4">
         <Link
           href={startHref}
+          // Logo = "zurück an den Anfang": die Tipps-Seite vergisst den
+          // angeklickten Reiter und zeigt wieder Offen, wenn es offene Spiele
+          // gibt (auch wenn man schon auf der Seite ist, Rene 09.10.2026).
+          onClick={() => window.dispatchEvent(new Event("pooltipp:logo"))}
           className="shrink-0 font-logo text-[22px] font-bold min-[380px]:text-2xl tracking-wide text-ink transition-opacity hover:opacity-80 sm:text-3xl"
         >
           Pool<span className="text-gold">Tipp</span>
