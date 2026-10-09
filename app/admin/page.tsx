@@ -1528,6 +1528,7 @@ function MatchManager() {
     setTvChannel,
     setTipMode,
     setBooster,
+    setTopMatch,
     setBonusQuestion,
     setBonusQuestionAnswer,
   } = useAppData();
@@ -1992,6 +1993,11 @@ function MatchManager() {
                   {match.tipDeadline !== match.kickoff && (
                     <span>· Tippschluss {new Date(match.tipDeadline).toLocaleString("de-DE")}</span>
                   )}
+                  {match.topMatch && (
+                    <span className="rounded-full border border-action/60 bg-action/15 px-2 py-0.5 text-xs font-bold text-action-hover">
+                      ⭐ Topspiel
+                    </span>
+                  )}
                   {match.booster && (
                     <span className="rounded-full border border-gold/50 bg-gold/15 px-2 py-0.5 text-xs font-bold text-gold">
                       ⚡ Booster
@@ -2060,6 +2066,9 @@ function MatchManager() {
                     <MatchDetailsEditor match={match} teams={teams} onSave={updateMatchDetails} />
                     {match.status === "upcoming" && (
                       <BoosterToggleButton match={match} matches={matches} onToggle={setBooster} />
+                    )}
+                    {match.status === "upcoming" && (
+                      <TopMatchToggleButton match={match} onToggle={setTopMatch} />
                     )}
                     <LiveScoreEditor
                       match={match}
@@ -3096,6 +3105,40 @@ function BoosterCheckbox({
         </span>
       </span>
     </label>
+  );
+}
+
+// Topspiel in der Spieleliste an- oder ausschalten. Das Topspiel steht bei
+// allen Spielern ganz oben groß auf der Tipps-Seite.
+function TopMatchToggleButton({
+  match,
+  onToggle,
+}: {
+  match: Match;
+  onToggle: (matchId: string, topMatch: boolean) => void;
+}) {
+  const { showToast } = useFeedback();
+  const on = !!match.topMatch;
+
+  function handleClick() {
+    onToggle(match.id, !on);
+    showToast(
+      on ? "✓ Kein Topspiel mehr." : "✓ Ist jetzt Topspiel – steht bei allen ganz oben.",
+      "success"
+    );
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      className={`min-w-[9rem] rounded-lg px-3 py-2.5 text-base font-semibold transition-colors ${
+        on
+          ? "border border-action/60 bg-action/15 text-action-hover hover:bg-action/25"
+          : "bg-surface-hover text-ink hover:text-action-hover"
+      }`}
+    >
+      {on ? "⭐ Topspiel aus" : "⭐ Topspiel an"}
+    </button>
   );
 }
 

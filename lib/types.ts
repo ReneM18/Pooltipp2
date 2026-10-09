@@ -156,6 +156,10 @@ export interface Match {
   // Einsatz in Sternen: 20 bei Booster-Spielen, sonst 0 (alte Spiele können
   // noch einen anderen Wert haben, zählt nicht mehr – die Datenbank entscheidet).
   fixedStake: number;
+  // Topspiel: vom Admin ausgewählt, steht ganz oben groß auf der Tipps-Seite
+  // ("Bühne"). Sind mehrere markiert, kommt das nächste davon, auf das man
+  // noch tippen kann. Ohne Markierung wie bisher: Booster, sonst nächstes Spiel.
+  topMatch?: boolean;
   booster?: boolean; // Booster-Spiel: Tipp nur mit 20 Sternen Einsatz (max. 3 pro Tag)
   status: MatchStatus;
   liveHomeScore: number | null;
