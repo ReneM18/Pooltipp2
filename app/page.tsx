@@ -130,11 +130,12 @@ export default function DashboardPage() {
   // die Karte selbst zeigt oben, dass es ein Booster ist.
   const visibleMatches = tab === "offen" ? offeneMatches : geschlosseneMatches;
 
-  // Top-Spiel für die Bühne ganz oben: das Booster-Spiel, sonst das nächste
-  // Spiel, auf das man noch tippen kann. Es steht dann nicht noch einmal in
-  // der Liste darunter.
+  // Top-Spiel für die Bühne ganz oben: das vom Admin gewählte Topspiel
+  // (das nächste davon, auf das man noch tippen kann), sonst das
+  // Booster-Spiel, sonst das nächste Spiel. Es steht dann nicht noch einmal
+  // in der Liste darunter.
   const tippable = now === null ? [] : offeneMatches.filter((m) => m.status === "upcoming" && Date.parse(m.tipDeadline) > now);
-  const stageMatch = tab === "offen" ? tippable.find((m) => m.booster) ?? tippable[0] ?? null : null;
+  const stageMatch = tab === "offen" ? tippable.find((m) => m.topMatch) ?? tippable.find((m) => m.booster) ?? tippable[0] ?? null : null;
   const listMatches = stageMatch ? visibleMatches.filter((m) => m.id !== stageMatch.id) : visibleMatches;
   const toTip = tippable.filter((m) => !findTipForMatch(m.id)).length;
 

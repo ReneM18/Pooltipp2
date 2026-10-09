@@ -442,6 +442,7 @@ interface AppDataContextValue {
   // Booster-Spiel an/aus (Einsatz fest 20 Sterne, sonst gratis). Gilt nur für
   // neue Tipps – schon abgegebene behalten ihren Einsatz.
   setBooster: (matchId: string, booster: boolean) => void;
+  setTopMatch: (matchId: string, topMatch: boolean) => void;
   // Bonusfrage: Admin legt Frage+Optionen an (oder entfernt sie wieder mit
   // question:null), setzt später die richtige Antwort separat vom Endstand,
   // weil beides zu unterschiedlichen Zeitpunkten feststehen kann.
@@ -1319,6 +1320,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  // Topspiel an/aus (nur Admin). Wird wie alle Spieldaten gespeichert und
+  // kommt per Realtime bei allen Spielern an.
+  function setTopMatch(matchId: string, topMatch: boolean) {
+    setMatches((current) => current.map((m) => (m.id === matchId ? { ...m, topMatch } : m)));
+  }
+
   // question:null entfernt eine bestehende Bonusfrage wieder komplett.
   function setBonusQuestion(matchId: string, question: string | null, options: string[], bonusStars: number) {
     setMatches((current) =>
@@ -1519,6 +1526,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setTvChannel,
         setTipMode,
         setBooster,
+        setTopMatch,
         setBonusQuestion,
         setBonusQuestionAnswer,
         myBonusAnswers,
