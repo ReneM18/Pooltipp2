@@ -21,7 +21,7 @@ import { EmotePicker, MessageBody, StickerDraft, stickerFromText, stickerText } 
 import Countdown from "./Countdown";
 import ScoreInput from "./ScoreInput";
 import { CoinIcon } from "./CoinIcon";
-import { competitionFlag } from "@/lib/competitionFlag";
+import { competitionDisplayName, competitionFlag } from "@/lib/competitionFlag";
 import { TvIcon, PlayIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
 import { SeasonCardWatermark } from "./SeasonDeco";
 
@@ -132,6 +132,7 @@ export default function MatchCard({
   const isCancelled = match.status === "cancelled";
   // Flagge der Liga (nicht der Heimmannschaft), siehe lib/competitionFlag.ts.
   const leagueFlag = competitionFlag(match.sport, match.competition);
+  const competitionName = competitionDisplayName(match.sport, match.competition);
   // Leer (null) statt 0: der Knopf wird erst aktiv, wenn beide Zahlen
   // bewusst eingetragen sind – sonst gab ein versehentliches Antippen 0:0 ab.
   const [homeScore, setHomeScore] = useState<number | null>(null);
@@ -524,7 +525,7 @@ export default function MatchCard({
         <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-ink">
           <span className="shrink-0 text-lg">{sportIcon[match.sport] ?? ""}</span>
           {leagueFlag && <span className="shrink-0">{leagueFlag}</span>}
-          <span className="min-w-0 leading-tight">{match.competition}</span>
+          <span className="min-w-0 leading-tight">{competitionName}</span>
         </span>
         <span className="shrink-0 whitespace-nowrap text-xs font-medium">
           {isCancelled ? (
@@ -545,7 +546,7 @@ export default function MatchCard({
               <span className="flex items-center gap-1.5 font-semibold text-ink">
                 <span aria-hidden>{sportIcon[match.sport] ?? ""}</span>
                 {leagueFlag && <span aria-hidden>{leagueFlag}</span>}
-                {match.competition}
+                {competitionName}
               </span>
               <span aria-hidden>·</span>
             </>

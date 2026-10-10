@@ -52,3 +52,14 @@ export function competitionFlag(sport: Sport, competition: string): string | nul
   const hit = LEAGUE_COUNTRY.find(([key]) => name.includes(key));
   return hit ? flagEmoji(hit[1]) : null;
 }
+
+// Name des Wettbewerbs auf der Spielkarte: Steht die Landesflagge schon davor,
+// fällt das Land im Namen weg ("Österreichische Bundesliga" -> "Bundesliga"
+// mit 🇦🇹, Rene 10.10.2026). Gespeichert bleibt der volle Name – sonst hielte
+// competitionFlag "Bundesliga" für die deutsche Liga.
+export function competitionDisplayName(sport: Sport, competition: string): string {
+  const name = competition ?? "";
+  if (!competitionFlag(sport, name)) return name;
+  const short = name.replace(/^(österreichische|österreich)\s+/i, "");
+  return short || name;
+}
