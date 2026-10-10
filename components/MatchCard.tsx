@@ -551,7 +551,7 @@ export default function MatchCard({
               <span aria-hidden>·</span>
             </>
           )}
-          {match.matchday && !stage ? <span className="font-semibold text-ink/80">Spieltag {match.matchday}</span> : null}
+          {match.matchday && !stage ? <span>Spieltag {match.matchday}</span> : null}
           {match.matchday && !stage ? <span aria-hidden>·</span> : null}
           <span>{kickoffLabel}</span>
           {match.tvChannel && (
