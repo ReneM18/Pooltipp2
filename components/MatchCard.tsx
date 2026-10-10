@@ -365,7 +365,9 @@ export default function MatchCard({
   // Auf der Bühne stehen die Countdown-Kacheln zwischen Teams und Eingabe
   // (nicht mehr in der letzten Minute, dann kommt der "Gleich geschlossen"-Hinweis).
   const showTiles = stage && !showResultView && !closingSoon;
-  const tipRow = closingSoon || showTiles ? "row-start-3" : "row-start-2";
+  // Kacheln gibt es nur ab Tablet-Breite (am Handy eine kleine Zeile beim
+  // Datum), dort rückt die Eingabe am Handy eine Reihe nach oben.
+  const tipRow = closingSoon ? "row-start-3" : showTiles ? "row-start-2 sm:row-start-3" : "row-start-2";
   // Leichter Schimmer in den Trikotfarben links und rechts, auf der Bühne als
   // kräftiges Licht von oben.
   const homeGlow = wornColor(match, homeTeam);
@@ -539,7 +541,9 @@ export default function MatchCard({
       </div>
       )}
 
-      <div className={`flex flex-1 flex-col p-5 ${stage ? "mx-auto w-full max-w-xl" : ""}`}>
+      {/* Topspiel am Handy etwas enger, damit es samt Tipp-Knopf auf einen
+          Bildschirm passt (Rene, 10.10.2026); am PC wie bisher. */}
+      <div className={`flex flex-1 flex-col ${stage ? "mx-auto w-full max-w-xl p-4 sm:p-5" : "p-5"}`}>
         <div className="mb-3 flex min-h-[1.75rem] flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[15px] text-muted">
           {stage && (
             <>
@@ -554,6 +558,12 @@ export default function MatchCard({
           {match.matchday && !stage ? <span>Spieltag {match.matchday}</span> : null}
           {match.matchday && !stage ? <span aria-hidden>·</span> : null}
           <span>{kickoffLabel}</span>
+          {/* Handy: Restzeit als kleine Zeile statt der großen Kacheln */}
+          {showTiles && (
+            <span className="text-[13px] sm:hidden">
+              <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
+            </span>
+          )}
           {match.tvChannel && (
             <span className="flex items-center gap-1.5 rounded-full border border-edge bg-pitch py-0.5 pl-2 pr-2.5 text-[13px] font-semibold text-ink">
               <TvIcon className="h-4 w-4 shrink-0 text-ink" />
@@ -571,7 +581,7 @@ export default function MatchCard({
             als enges Paar mittig. Ohne X-Kasten ist die Mitte nur so breit wie
             "vs" bzw. der Endstand, dann haben die Namen mehr Platz. */}
         <div
-          className={`mb-5 grid items-start gap-x-2 gap-y-4 sm:gap-x-3 ${
+          className={`${stage ? "mb-4 sm:mb-5" : "mb-5"} grid items-start gap-x-2 gap-y-4 sm:gap-x-3 ${
             needsWideMiddle ? "grid-cols-[1fr_1rem_1fr] sm:grid-cols-[1fr_1.5rem_1fr]" : "grid-cols-[1fr_auto_1fr]"
           }`}
         >
@@ -588,7 +598,7 @@ export default function MatchCard({
           ) : (
             <span
               className={`justify-self-center font-display text-muted ${
-                stage ? "pt-8 text-xl font-extrabold tracking-wider text-muted/70 sm:pt-10 sm:text-2xl" : "pt-3 text-xs sm:text-sm"
+                stage ? "pt-5 text-lg font-extrabold tracking-wider text-muted/70 sm:pt-10 sm:text-2xl" : "pt-3 text-xs sm:text-sm"
               }`}
             >
               {stage ? "VS" : "vs"}
@@ -597,7 +607,7 @@ export default function MatchCard({
           <TeamColumn match={match} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} flip big={stage} />
 
           {showTiles && (
-            <div className="col-span-3 col-start-1 row-start-2 flex justify-center">
+            <div className="col-span-3 col-start-1 row-start-2 hidden justify-center sm:flex">
               <CountdownTiles target={match.tipDeadline} />
             </div>
           )}
@@ -703,7 +713,7 @@ export default function MatchCard({
                   {withGutschein ? "Coins: dein Gewinn" : "Coins: dein Gewinn oder Verlust"}
                 </p>
                 <PointsGrid items={withGutschein ? gutscheinPayouts(isOneXTwo) : boosterPayouts(isOneXTwo)} coins />
-                <BoosterRankRow isOneXTwo={isOneXTwo} />
+                <BoosterRankRow isOneXTwo={isOneXTwo} compactOnPhone={stage} />
               </div>
             )}
             {/* Statt der Punkte-Tabelle nur ein kleiner Hinweis, die
@@ -1125,7 +1135,23 @@ function PointsGrid({ items, coins = false }: { items: { label: string; net: num
 
 // Booster: Rangpunkte gibt es zusätzlich zu den Coins, genau wie bei jedem
 // Tipp – als eigene grüne Zeile mit Pokal, damit klar ist: beides zählt.
-function BoosterRankRow({ isOneXTwo }: { isOneXTwo: boolean }) {
+function BoosterRankRow({ isOneXTwo, compactOnPhone = false }: { isOneXTwo: boolean; compactOnPhone?: boolean }) {
+  if (compactOnPhone) {
+    // Topspiel am Handy: Rangpunkte in einer Zeile statt vier Kästchen.
+    const line = rankingPointsTable(isOneXTwo)
+      .map((p) => (p.net > 0 ? `+${p.net}` : `−${-p.net}`))
+      .join(" / ");
+    return (
+      <>
+        <p className="mt-2.5 text-center text-xs text-muted sm:hidden">
+          🏆 Dazu wie immer Rangpunkte: <b className="text-[#4FC181]">{line}</b> + Platz-Bonus
+        </p>
+        <div className="hidden sm:block">
+          <BoosterRankRow isOneXTwo={isOneXTwo} />
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <p className="mt-2.5 text-[11px] uppercase tracking-wide text-muted">🏆 Dazu wie immer: Rangpunkte</p>

@@ -425,6 +425,18 @@ html[data-season-design] .match-card-rand {
   display: flex;
   filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.55));
 }
+/* Topspiel am Handy: Trikots/Helme/Flaggen 52 statt 68 px, damit die Karte
+   auf einen Bildschirm passt (am PC unverändert). */
+@media (max-width: 639px) {
+  .stage-jersey svg,
+  .stage-jersey > span {
+    width: 52px !important;
+    height: 52px !important;
+  }
+  .stage-jersey > span {
+    font-size: 42px !important;
+  }
+}
 @media (prefers-reduced-motion: no-preference) {
   .stage-beam {
     animation: stage-beam-sway 6s ease-in-out infinite alternate;
