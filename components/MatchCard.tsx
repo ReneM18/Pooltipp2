@@ -581,7 +581,7 @@ export default function MatchCard({
             als enges Paar mittig. Ohne X-Kasten ist die Mitte nur so breit wie
             "vs" bzw. der Endstand, dann haben die Namen mehr Platz. */}
         <div
-          className={`${stage ? "mb-4 sm:mb-5" : "mb-5"} grid items-start gap-x-2 gap-y-4 sm:gap-x-3 ${
+          className={`${stage ? "mb-4 gap-y-2.5 sm:mb-5 sm:gap-y-4" : "mb-5 gap-y-4"} grid items-start gap-x-2 sm:gap-x-3 ${
             needsWideMiddle ? "grid-cols-[1fr_1rem_1fr] sm:grid-cols-[1fr_1.5rem_1fr]" : "grid-cols-[1fr_auto_1fr]"
           }`}
         >
@@ -881,8 +881,12 @@ export default function MatchCard({
           </div>
         )}
 
+        {/* "Doris hat schon getippt" nur ab Tablet-Breite – am Handy steht
+            unten ohnehin "X getippt" (Platz sparen, Rene 10.10.2026). */}
         {stage && !tippingClosed && !isCancelled && (
-          <StageTippers tippers={tippers} tipCount={tipCount} myId={authUserId} friendIds={friendEntries.filter((f) => f.relation === "friend").map((f) => f.id)} />
+          <div className="hidden sm:block">
+            <StageTippers tippers={tippers} tipCount={tipCount} myId={authUserId} friendIds={friendEntries.filter((f) => f.relation === "friend").map((f) => f.id)} />
+          </div>
         )}
 
         <div className="mt-auto flex items-center justify-between pt-3 text-xs text-muted">
