@@ -738,7 +738,7 @@ export default function MatchCard({
                   </>
                 )}
                 {!boosterOn && (
-                  <p className="mt-1 text-xs text-muted">Ohne Booster ist der Tipp gratis – du spielst nur um Rangpunkte.</p>
+                  <p className="mt-1 text-xs text-muted">Mit Booster spielst du zusätzlich um Coins.</p>
                 )}
               </div>
             )}
