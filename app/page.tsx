@@ -1,6 +1,7 @@
 "use client";
 
 import EmptyState from "@/components/EmptyState";
+import { viennaDateKey } from "@/lib/seasons/schedule";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import MatchCard from "@/components/MatchCard";
@@ -145,8 +146,17 @@ export default function DashboardPage() {
   // gibt es keine Bühne, nur die normale Liste (Rene, 09.10.2026). Es steht
   // dann nicht noch einmal in der Liste darunter.
   const tippable = now === null ? [] : offeneMatches.filter((m) => m.status === "upcoming" && Date.parse(m.tipDeadline) > now);
-  const stageMatch = tab === "offen" ? tippable.find((m) => m.topMatch) ?? null : null;
-  const listMatches = stageMatch ? visibleMatches.filter((m) => m.id !== stageMatch.id) : visibleMatches;
+  // Bis zu zwei Topspiele oben: das nächste Topspiel und ein weiteres vom
+  // selben Tag (am PC nebeneinander, am Handy untereinander – Rene
+  // 11.10.2026). Topspiele späterer Tage kommen erst an ihrem Tag nach oben.
+  const firstTop = tab === "offen" ? tippable.find((m) => m.topMatch) ?? null : null;
+  const stageMatches = firstTop
+    ? tippable
+        .filter((m) => m.topMatch && viennaDateKey(new Date(m.kickoff)) === viennaDateKey(new Date(firstTop.kickoff)))
+        .slice(0, 2)
+    : [];
+  const stageIds = new Set(stageMatches.map((m) => m.id));
+  const listMatches = stageIds.size ? visibleMatches.filter((m) => !stageIds.has(m.id)) : visibleMatches;
   const toTip = tippable.filter((m) => !findTipForMatch(m.id)).length;
 
   // Laufende Spiele als Streifen ganz oben (Spielstand kommt live mit).
@@ -262,7 +272,11 @@ export default function DashboardPage() {
         />
       </div>
 
-      {stageMatch && <div className="mb-7">{renderCard(stageMatch, true)}</div>}
+      {stageMatches.length > 0 && (
+        <div className={`mb-7 grid gap-5 ${stageMatches.length > 1 ? "lg:grid-cols-2" : ""}`}>
+          {stageMatches.map((m) => renderCard(m, true))}
+        </div>
+      )}
 
       {visibleMatches.length === 0 && (
         tab === "offen" ? (
