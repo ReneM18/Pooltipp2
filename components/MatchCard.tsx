@@ -1408,7 +1408,7 @@ function PoolScoreResultBox({
               </span>
               {/* Abrechnung ausgeschrieben: Der Einsatz ist schon beim Tippen
                   weg, nach dem Spiel kommt etwas zurück. Sonst wirkt "+10 aufs
-                  Konto" nach einem falschen Tipp wie ein Gewinn (Rene 11.10.2026). */}
+                  Konto" nach einem falschen Tipp wie ein Gewinn (Rene, 11.10.2026). */}
               <span className="font-normal text-muted">
                 {myTip.gutschein
                   ? "Mit Gutschein getippt, nichts bezahlt."
