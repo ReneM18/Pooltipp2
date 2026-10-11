@@ -513,9 +513,11 @@ export default function MatchCard({
         <div className="border-b border-gold/30 bg-gold/15 px-4 py-1.5 text-center font-display text-xs font-bold uppercase tracking-[0.14em] text-gold sm:px-5">
           ⭐ Top-Spiel{isBooster ? " · ⚡ Booster" : ""}
         </div>
-      ) : isBooster && (
+      ) : (isBooster || match.topMatch) && (
+        // Auch in der Liste (z. B. Topspiel eines späteren Tages) sieht man,
+        // dass es ein Topspiel ist – nicht nur "Booster".
         <div className="border-b border-gold/30 bg-gold/15 px-4 py-1 text-center font-display text-xs font-bold uppercase tracking-wider text-gold sm:px-5">
-          ⚡ Booster-Spiel
+          {match.topMatch ? `⭐ Top-Spiel${isBooster ? " · ⚡ Booster" : ""}` : "⚡ Booster-Spiel"}
         </div>
       )}
       {/* Sport-Banner (Spieltag steht unten bei der Anstoßzeit). Lange
