@@ -411,7 +411,9 @@ interface AppDataContextValue {
     predictedHomeScore: number,
     predictedAwayScore: number,
     stake: number,
-    authorName?: string
+    authorName?: string,
+    // Booster-Spiel: hat der Spieler den Booster eingeschaltet? (sonst gratis)
+    boosterChosen?: boolean
   ) => Promise<SubmittedTip | null>;
   // "Ändern": nimmt den eigenen, noch offenen Tipp in der Datenbank zurück
   // (supabase/tipp-zuruecknehmen.sql). Danach ist die Karte auf jedem Gerät
@@ -1045,7 +1047,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     predictedHomeScore: number,
     predictedAwayScore: number,
     stake: number,
-    authorName?: string
+    authorName?: string,
+    boosterChosen?: boolean
   ): Promise<SubmittedTip | null> {
     const localTip: SubmittedTip = {
       id: `tip-${Date.now()}`,
@@ -1064,19 +1067,25 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (authUserId) {
       // Einsatz, Tageslimit und Tipp-Serie rechnet die Datenbank
       // (supabase/auswertung-server.sql); zurück kommt der gespeicherte Tipp.
-      const { data, error } = await supabase
-        .from("tips")
-        .insert({
-          id: localTip.id,
-          user_id: authUserId,
-          match_id: matchId,
-          predicted_home_score: predictedHomeScore,
-          predicted_away_score: predictedAwayScore,
-          stake,
-          submitted_at: localTip.submittedAt,
-        })
-        .select()
-        .maybeSingle();
+      const row: Record<string, unknown> = {
+        id: localTip.id,
+        user_id: authUserId,
+        match_id: matchId,
+        predicted_home_score: predictedHomeScore,
+        predicted_away_score: predictedAwayScore,
+        stake,
+        submitted_at: localTip.submittedAt,
+      };
+      // Booster freiwillig (supabase/booster-freiwillig.sql): die Wahl geht
+      // mit, abgebucht wird nur bei "an".
+      if (boosterChosen !== undefined) row.booster_gewaehlt = boosterChosen;
+      let { data, error } = await supabase.from("tips").insert(row).select().maybeSingle();
+      // SQL noch nicht ausgeführt (Spalte fehlt): mit Booster wie bisher
+      // speichern; ohne Booster lieber nicht speichern als ungewollt abbuchen.
+      if (error && boosterChosen === true && /booster_gewaehlt/.test(error.message)) {
+        delete row.booster_gewaehlt;
+        ({ data, error } = await supabase.from("tips").insert(row).select().maybeSingle());
+      }
       pendingTipIdsRef.current.delete(localTip.id);
       if (error || !data) {
         if (error) console.warn("Tipp konnte nicht gespeichert werden:", error.message);

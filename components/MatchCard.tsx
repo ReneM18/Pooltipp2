@@ -81,7 +81,8 @@ interface MatchCardProps {
   myTip?: MyTip;
   // Darf ein Promise zurückgeben (Speichern in der Datenbank): Danach wird
   // der Knopf wieder frei, falls der Tipp nicht angenommen wurde.
-  onSubmitTip: (homeScore: number, awayScore: number) => void | Promise<unknown>;
+  // booster: Booster-Spiel mit eingeschaltetem Booster (20 Coins Einsatz)
+  onSubmitTip: (homeScore: number, awayScore: number, booster?: boolean) => void | Promise<unknown>;
   // "Ändern": nimmt den Tipp bis Tippschluss zurück (auf allen Geräten),
   // danach ist die Karte wieder leer. true = zurückgenommen. Ohne diese
   // Funktion (z. B. auf Seiten ohne Speicher-Logik) gibt es keinen Knopf.
@@ -300,11 +301,15 @@ export default function MatchCard({
   // Booster-Spiel: Tipp nur mit vollem Einsatz (20 Sterne). Normale Spiele
   // sind gratis und bringen nur Rangpunkte.
   const isBooster = !!match.booster;
+  // Booster freiwillig (Rene, 11.10.2026): bei Booster-Spielen schaltet jeder
+  // selbst ein. Nur Vorschau, abgebucht wird erst beim Tipp-Abgeben.
+  const [boosterOn, setBoosterOn] = useState(false);
+  const boosting = isBooster && boosterOn;
   // Booster-Gutschein aus einer Trainingstasche: Die Datenbank löst ihn beim
   // nächsten Booster-Tipp von selbst ein, der Tipp kostet dann nichts.
   const { gutscheine } = useTaschen();
   const withGutschein = isBooster && !isGuest && gutscheine > 0;
-  const notEnoughStars = isBooster && !withGutschein && freeStars < BOOSTER_STAKE;
+  const notEnoughStars = boosting && !withGutschein && freeStars < BOOSTER_STAKE;
   const notReady = missingPick || missingScore || notEnoughStars;
   const limit = scoreLimit[match.sport] ?? scoreLimit["Fußball"];
   // Echte Tipps aller Spieler: für die Liste und für den Vergleich nach der
@@ -460,7 +465,7 @@ export default function MatchCard({
     keepInViewRef.current = true;
     awaitingSaveRef.current = true;
 
-    Promise.resolve(onSubmitTip(h, a)).finally(() => {
+    Promise.resolve(onSubmitTip(h, a, boosting)).finally(() => {
       submittedRef.current = false;
       setSubmitting(false);
       // Nicht gespeichert: Karte bleibt offen, nichts zu verschieben.
@@ -684,36 +689,57 @@ export default function MatchCard({
             )}
 
             {isBooster && (
-              <div className="mb-3 rounded-lg border border-gold/40 bg-gold/[0.07] px-4 py-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-ink">Dieser Tipp kostet</span>
-                  {withGutschein ? (
-                    <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap font-display font-semibold text-gold">
-                      <span className="flex items-center gap-1 text-sm text-muted line-through decoration-1">
-                        <CoinIcon className="h-4 w-4" />
-                        {BOOSTER_STAKE}
-                      </span>
-                      0 Coins
+              <div
+                className={`mb-3 rounded-lg border px-4 py-2.5 transition-colors ${
+                  boosterOn ? "border-gold/50 bg-gold/[0.07]" : "border-edge bg-pitch/60"
+                }`}
+              >
+                {/* Schalter: an = Vorschau, was man gewinnen/verlieren kann.
+                    Abgebucht wird erst mit "Tipp abgeben". */}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={boosterOn}
+                  onClick={() => setBoosterOn((on) => !on)}
+                  className="flex w-full items-center justify-between gap-3 text-left"
+                >
+                  <span className="min-w-0 text-sm text-ink">
+                    ⚡ <span className="font-semibold">{boosterOn ? "Booster an" : "Booster einsetzen"}</span>
+                    <span className="text-muted">
+                      {" · "}
+                      {withGutschein ? "mit Gutschein gratis" : `${BOOSTER_STAKE} Coins Einsatz`}
                     </span>
-                  ) : (
-                    <span className="flex shrink-0 items-center gap-1 whitespace-nowrap font-display font-semibold text-gold">
-                      <CoinIcon className="h-[18px] w-[18px]" />
-                      {BOOSTER_STAKE} Coins
-                    </span>
-                  )}
-                </div>
-                {withGutschein && (
-                  <p className="mt-1 text-xs text-muted">
-                    🎟️ Dein Booster-Gutschein wird eingelöst
-                    {gutscheine > 1 ? ` (du hast ${gutscheine})` : ""}. Daneben kostet der Tipp nichts.
-                  </p>
+                  </span>
+                  <span
+                    aria-hidden
+                    className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${boosterOn ? "bg-gold" : "bg-edge"}`}
+                  >
+                    <span
+                      className={`absolute top-1 h-4 w-4 rounded-full transition-all ${
+                        boosterOn ? "left-5 bg-pitch" : "left-1 bg-muted"
+                      }`}
+                    />
+                  </span>
+                </button>
+                {boosterOn && (
+                  <>
+                    {withGutschein && (
+                      <p className="mt-1.5 text-xs text-muted">
+                        🎟️ Dein Booster-Gutschein wird eingelöst
+                        {gutscheine > 1 ? ` (du hast ${gutscheine})` : ""}. Daneben kostet der Tipp nichts.
+                      </p>
+                    )}
+                    <p className="mt-2 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted">
+                      <CoinIcon className="h-3 w-3" />
+                      {withGutschein ? "Coins: dein Gewinn" : "Coins: dein Gewinn oder Verlust"}
+                    </p>
+                    <PointsGrid items={withGutschein ? gutscheinPayouts(isOneXTwo) : boosterPayouts(isOneXTwo)} coins />
+                    <BoosterRankRow isOneXTwo={isOneXTwo} compactOnPhone={stage} />
+                  </>
                 )}
-                <p className="mt-2 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted">
-                  <CoinIcon className="h-3 w-3" />
-                  {withGutschein ? "Coins: dein Gewinn" : "Coins: dein Gewinn oder Verlust"}
-                </p>
-                <PointsGrid items={withGutschein ? gutscheinPayouts(isOneXTwo) : boosterPayouts(isOneXTwo)} coins />
-                <BoosterRankRow isOneXTwo={isOneXTwo} compactOnPhone={stage} />
+                {!boosterOn && (
+                  <p className="mt-1 text-xs text-muted">Ohne Booster ist der Tipp gratis – du spielst nur um Rangpunkte.</p>
+                )}
               </div>
             )}
             {/* Statt der Punkte-Tabelle nur ein kleiner Hinweis, die
@@ -745,7 +771,7 @@ export default function MatchCard({
                   : "bg-action-hover text-pitch shadow-[0_0_22px_rgb(var(--c-action-hover)/0.45)] enabled:active:scale-[0.97] enabled:hover:brightness-110 enabled:hover:shadow-[0_0_30px_rgb(var(--c-action-hover)/0.6)] disabled:cursor-wait"
               }`}
             >
-              {submitting ? "Wird gespeichert…" : "Tipp abgeben"}
+              {submitting ? "Wird gespeichert…" : boosting ? "Tipp mit Booster abgeben" : "Tipp abgeben"}
             </button>
             )}
             {notEnoughStars && !isGuest && (
@@ -767,6 +793,10 @@ export default function MatchCard({
                 <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-muted">
                   <span aria-hidden className={`font-bold text-action-hover ${justSaved ? "animate-check-pop" : ""}`}>✓</span>
                   Dein Tipp
+                  {/* Mit Booster getippt: kleines Blitz-Zeichen */}
+                  {(myTip?.stake ?? 0) > 0 && (
+                    <span title="Mit Booster getippt" className="font-semibold text-gold">⚡</span>
+                  )}
                 </span>
                 <span className="flex min-w-0 items-center gap-3">
                   {isOneXTwo ? (

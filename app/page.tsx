@@ -85,12 +85,13 @@ export default function DashboardPage() {
     return [...myTips].reverse().find((t) => t.matchId === matchId);
   }
 
-  async function handleSubmitTip(match: Match, homeScore: number, awayScore: number) {
-    // Den Einsatz (nur bei Booster-Spielen, fest 20) zieht die Datenbank ab.
-    const saved = await placeTip(match.id, homeScore, awayScore);
+  async function handleSubmitTip(match: Match, homeScore: number, awayScore: number, booster = false) {
+    // Den Einsatz (nur mit eingeschaltetem Booster, fest 20) zieht die Datenbank ab.
+    const withBooster = !!match.booster && booster;
+    const saved = await placeTip(match.id, homeScore, awayScore, withBooster);
     if (!saved) {
       showToast(
-        match.booster
+        withBooster
           ? `Tipp konnte nicht gespeichert werden – Tippschluss erreicht, schon getippt oder weniger als ${BOOSTER_STAKE} Coins.`
           : "Tipp konnte nicht gespeichert werden – Tippschluss erreicht oder schon getippt.",
         "info"
@@ -98,7 +99,7 @@ export default function DashboardPage() {
       return;
     }
     celebrate();
-    showToast(match.booster ? `✓ Booster-Tipp gespeichert – ${BOOSTER_STAKE} Coins eingesetzt, viel Glück!` : "✓ Tipp gespeichert – viel Glück!");
+    showToast(withBooster ? `✓ Booster-Tipp gespeichert – ${BOOSTER_STAKE} Coins eingesetzt, viel Glück!` : "✓ Tipp gespeichert – viel Glück!");
   }
 
   // "Ändern": der Tipp wird in der Datenbank zurückgenommen, die Karte ist
@@ -215,7 +216,7 @@ export default function DashboardPage() {
               }
             : undefined
         }
-        onSubmitTip={(homeScore, awayScore) => handleSubmitTip(match, homeScore, awayScore)}
+        onSubmitTip={(homeScore, awayScore, booster) => handleSubmitTip(match, homeScore, awayScore, booster)}
         onWithdrawTip={() => handleWithdrawTip(match.id)}
         highlight={match.id === highlightId}
         stage={stage}
