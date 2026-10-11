@@ -1399,11 +1399,21 @@ function PoolScoreResultBox({
       {(hasStake || (!breakdown && comparison)) && (
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
           {hasStake && (
-            <span className={`flex items-center gap-1 font-semibold ${starsDelta >= 0 ? "text-gold" : "text-red-400"}`}>
-              <CoinIcon className="h-4 w-4" />
-              {starsDelta >= 0 ? "+" : ""}
-              {starsDelta} Coins
-              {myTip.gutschein && <span className="font-normal text-muted"> · mit Gutschein</span>}
+            <span className="flex flex-col gap-0.5">
+              <span className={`flex items-center gap-1 font-semibold ${starsDelta >= 0 ? "text-gold" : "text-red-400"}`}>
+                <CoinIcon className="h-4 w-4" />
+                {starsDelta >= 0 ? "+" : ""}
+                {starsDelta} Coins
+                {myTip.gutschein && <span className="font-normal text-muted"> · mit Gutschein</span>}
+              </span>
+              {/* Abrechnung ausgeschrieben: Der Einsatz ist schon beim Tippen
+                  weg, nach dem Spiel kommt etwas zurück. Sonst wirkt "+10 aufs
+                  Konto" nach einem falschen Tipp wie ein Gewinn (Rene 11.10.2026). */}
+              <span className="font-normal text-muted">
+                {myTip.gutschein
+                  ? "Mit Gutschein getippt, nichts bezahlt."
+                  : `Einsatz ${myTip.stake} · zurück ${(myTip.stake ?? 0) + starsDelta} → ${starsDelta > 0 ? "+" : starsDelta < 0 ? "−" : "±"}${Math.abs(starsDelta)} Coins`}
+              </span>
             </span>
           )}
           {!breakdown &&
