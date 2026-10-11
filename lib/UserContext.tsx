@@ -130,7 +130,8 @@ interface UserContextValue {
   claimDailyBonus: () => Promise<{ claimed: boolean; error: string | null; starsAdded?: number }>;
   // Tipp abgeben: Einsatz, Tageslimit, Rettungs-Bonus und Tipp-Serie rechnet
   // die Datenbank. null = nicht gespeichert (z. B. Tippschluss).
-  placeTip: (matchId: string, homeScore: number, awayScore: number) => Promise<SubmittedTip | null>;
+  // booster: bei Booster-Spielen selbst gewählt (an = 20 Coins Einsatz).
+  placeTip: (matchId: string, homeScore: number, awayScore: number, booster?: boolean) => Promise<SubmittedTip | null>;
   // Prämien-Shop: alles oder nichts. true = abgebucht.
   spendStarsInShop: (amount: number) => Promise<boolean>;
   // Holt Sterne, Rangpunkte, XP usw. neu aus der Datenbank (my_wallet), z. B.
@@ -725,10 +726,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return { claimed: result.claimed, error: null, starsAdded };
   }
 
-  async function placeTip(matchId: string, homeScore: number, awayScore: number): Promise<SubmittedTip | null> {
+  async function placeTip(matchId: string, homeScore: number, awayScore: number, booster = false): Promise<SubmittedTip | null> {
     const match = matches.find((m) => m.id === matchId);
-    // Einsatz nur bei Booster-Spielen (fest 20), normale Tipps sind gratis.
-    const wanted = match?.booster ? BOOSTER_STAKE : 0;
+    // Einsatz nur, wenn beim Booster-Spiel der Booster eingeschaltet ist
+    // (fest 20), sonst ist jeder Tipp gratis.
+    const boosterChosen = !!match?.booster && booster;
+    const wanted = boosterChosen ? BOOSTER_STAKE : 0;
     if (!authUserId) {
       // Gast: Demo-Einsatz nur im Browser (gleiche Regeln wie die Datenbank).
       if (wanted > freeStars) return null;
@@ -742,7 +745,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setFreeStars(next);
       return submitTip(matchId, homeScore, awayScore, actual, displayName);
     }
-    const saved = await submitTip(matchId, homeScore, awayScore, wanted, displayName);
+    const saved = await submitTip(matchId, homeScore, awayScore, wanted, displayName, match?.booster ? boosterChosen : undefined);
     await reloadWallet();
     return saved;
   }

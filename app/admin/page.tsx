@@ -3130,7 +3130,7 @@ function BoosterCheckbox({
         <span className="block text-xs text-muted">
           {full
             ? `An diesem Tag gibt es schon ${BOOSTERS_PER_DAY} Booster.`
-            : `${BOOSTER_STAKE} Coins Einsatz, ohne Haken gratis. Schon ${taken} von ${BOOSTERS_PER_DAY} an diesem Tag.`}
+            : `Spieler können hier selbst den Booster einschalten (${BOOSTER_STAKE} Coins Einsatz). Schon ${taken} von ${BOOSTERS_PER_DAY} an diesem Tag.`}
         </span>
       </span>
     </label>
@@ -3190,8 +3190,8 @@ function BoosterToggleButton({
       return;
     }
     const text = on
-      ? "Booster ausschalten? Neue Tipps sind dann gratis."
-      : `Zum Booster machen? Neue Tipps kosten dann ${BOOSTER_STAKE} Coins Einsatz.`;
+      ? "Booster ausschalten? Dann kann bei neuen Tipps niemand mehr boostern."
+      : `Zum Booster-Spiel machen? Jeder Spieler kann dann selbst den Booster einschalten (${BOOSTER_STAKE} Coins Einsatz).`;
     if (!confirm(`${text}\n\nWer schon getippt hat, behält seinen bisherigen Einsatz.`)) return;
     onToggle(match.id, !on);
     showToast(on ? "✓ Booster ausgeschaltet." : "✓ Booster eingeschaltet.", "success");
