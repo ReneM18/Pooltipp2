@@ -34,6 +34,7 @@ import { CoinIcon } from "@/components/CoinIcon";
 import { resetDateText } from "@/lib/rankingReset";
 import { TIER_BADGE } from "@/components/tierBadges";
 import { daysDative, daysLabel, useStreak } from "@/lib/streak";
+import Emoji from "@/components/Emoji";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -562,7 +563,7 @@ function ProfilInhalt() {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {SPORTS.map((sport) => (
             <div key={sport} className="rounded-card border border-edge bg-surface px-2 py-3 text-center">
-              <div className="mb-1 text-xl">{sportIcon[sport]}</div>
+              <div className="mb-1 text-xl"><Emoji e={sportIcon[sport]} /></div>
               <p className="font-display text-lg font-bold text-ink">{(tipsBySport[sport] ?? 0).toLocaleString("de-DE")}</p>
               <p className="text-xs text-muted">{sportLabel(sport)}</p>
             </div>
@@ -687,7 +688,7 @@ function ProfilInhalt() {
               >
                 <div className="min-w-0">
                   <p className="text-xs text-muted">
-                    {sportIcon[match.sport]} {match.competition}
+                    <Emoji e={sportIcon[match.sport]} /> {match.competition}
                     {match.matchday ? ` · Spieltag ${match.matchday}` : ""}
                   </p>
                   <p className="font-display text-sm font-semibold text-ink">

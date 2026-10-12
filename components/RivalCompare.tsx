@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { RivalCompare as Compare, RivalSearchHit, compareRival, searchRivals } from "@/lib/rivals";
 import { SPORT_ICONS } from "@/lib/types";
+import Emoji from "@/components/Emoji";
 
 // Rivalen-Vergleich im Profil (Rene, 12.10.2026): Spieler nach Name oder
 // #Nummer suchen, dann beide Statistiken nebeneinander. Wer seine Statistik
@@ -184,8 +185,8 @@ function CompareTable({ data }: { data: Compare }) {
         ))}
         <tr className="border-t border-edge">
           <td className="py-2 pr-2 text-muted">Beste Sportart</td>
-          <td className="py-2 text-center">{sportIcon(me.bestSport)}</td>
-          <td className="py-2 text-center">{sportIcon(other.bestSport)}</td>
+          <td className="py-2 text-center"><Emoji e={sportIcon(me.bestSport)} /></td>
+          <td className="py-2 text-center"><Emoji e={sportIcon(other.bestSport)} /></td>
         </tr>
         <tr className="border-t border-edge">
           <td className="py-2 pr-2">

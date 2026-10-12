@@ -26,6 +26,7 @@ import { TvIcon, HighlightTvIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon }
 import { SeasonCardWatermark } from "./SeasonDeco";
 import ShareTipButton from "./ShareTipCard";
 import type { ShareCardData } from "@/lib/shareCard";
+import Emoji from "@/components/Emoji";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -573,8 +574,8 @@ export default function MatchCard({
       {!stage && (
       <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-surface-hover/80 to-surface/60 px-4 py-2.5 sm:gap-3 sm:px-5">
         <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-ink">
-          <span className="shrink-0 text-lg">{sportIcon[match.sport] ?? ""}</span>
-          {leagueFlag && <span className="shrink-0">{leagueFlag}</span>}
+          <span className="shrink-0 text-lg"><Emoji e={sportIcon[match.sport]} /></span>
+          {leagueFlag && <span className="shrink-0"><Emoji e={leagueFlag} /></span>}
           <span className="min-w-0 leading-tight">{competitionName}</span>
         </span>
         <span className="shrink-0 whitespace-nowrap text-xs font-medium">
@@ -596,8 +597,8 @@ export default function MatchCard({
           {stage && (
             <>
               <span className="flex items-center gap-1.5 font-semibold text-ink">
-                <span aria-hidden>{sportIcon[match.sport] ?? ""}</span>
-                {leagueFlag && <span aria-hidden>{leagueFlag}</span>}
+                <span aria-hidden><Emoji e={sportIcon[match.sport]} /></span>
+                {leagueFlag && <span aria-hidden><Emoji e={leagueFlag} /></span>}
                 {competitionName}
               </span>
               <span aria-hidden>·</span>

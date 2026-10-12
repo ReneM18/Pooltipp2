@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { SPORT_EMOJI } from "@/lib/rankTiers";
 import { Sport, SPORTS } from "@/lib/types";
+import { SvgEmoji } from "@/components/Emoji";
 
 // GOAT-Abzeichen (einzige Stufe über Meister): goldener Ziegenkopf in
 // Seitenansicht auf einem goldenen Medaillon, unten rechts eine goldene
@@ -124,9 +125,7 @@ function SportPlate({ sport, cx, cy, r }: { sport: Sport; cx: number; cy: number
   return (
     <g>
       <circle cx={cx} cy={cy} r={r} fill="#14110a" stroke="#FFD24A" strokeWidth={Math.min(1.8, r * 0.25)} />
-      <text x={cx} y={cy + r * 0.38} textAnchor="middle" fontSize={r * 1.15}>
-        {SPORT_EMOJI[sport]}
-      </text>
+      <SvgEmoji e={SPORT_EMOJI[sport]} x={cx} y={cy + r * 0.38} size={r * 1.15} />
     </g>
   );
 }

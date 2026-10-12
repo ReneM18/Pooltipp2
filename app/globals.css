@@ -12,6 +12,39 @@ html[data-emoji="noto"] {
   --emoji-stack: var(--font-emoji);
 }
 
+/* Emojis als Bild (components/Emoji.tsx): Apple-Geräte sehen das echte
+   Emoji, alle anderen (data-emoji="noto") das gleiche Symbol als Bild. */
+.emoji-swap {
+  display: inline;
+}
+.emoji-img {
+  display: none;
+}
+html[data-emoji="noto"] .emoji-swap > .emoji-native {
+  display: none;
+}
+html[data-emoji="noto"] .emoji-swap > .emoji-img {
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  vertical-align: -0.22em;
+  object-fit: contain;
+}
+html[data-emoji="noto"] .emoji-swap-svg > .emoji-native {
+  display: none;
+}
+html[data-emoji="noto"] .emoji-swap-svg > .emoji-img {
+  display: inline;
+}
+html[data-emoji="noto"] .emoji-swap > .emoji-flag {
+  width: 1.3em;
+  height: 0.98em;
+  vertical-align: -0.12em;
+  object-fit: cover;
+  border-radius: 0.16em;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.12);
+}
+
 html,
 body {
   /* Sicherheitsnetz gegen versehentliches horizontales Scrollen auf dem Handy,

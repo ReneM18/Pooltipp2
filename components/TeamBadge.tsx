@@ -2,6 +2,7 @@ import { useId } from "react";
 import { JerseyStyle, JerseyVariant, Match, MatchJersey, Sport, Team } from "@/lib/types";
 import { BASKETBALL_JERSEY_MARKUP } from "@/lib/basketballJerseyMarkup";
 import { flagEmoji } from "@/lib/flags";
+import Emoji from "@/components/Emoji";
 
 /** Alle Trikotfarben eines Teams als TeamBadge-Props: <TeamBadge {...teamColorProps(team)} ... />. */
 export function teamColorProps(team: Team) {
@@ -72,7 +73,7 @@ function NationalFlagBadge({ countryCode, size }: { countryCode: string; size: n
       style={{ width: size, height: size, fontSize: Math.round(size * 0.8) }}
       className="flex shrink-0 items-center justify-center leading-none"
     >
-      {flagEmoji(countryCode)}
+      <Emoji e={flagEmoji(countryCode)} />
     </span>
   );
 }

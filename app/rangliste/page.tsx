@@ -22,6 +22,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { getCurrentWeekWindow, kickoffLookup, sumWeeklyTipPoints } from "@/lib/weeklyLeaderboard";
 import { GlobalPlayer, sumPoints, useGlobalLeaderboard } from "@/lib/globalLeaderboard";
 import { useWeeklyWinnerRules } from "@/lib/weeklyWinner";
+import Emoji from "@/components/Emoji";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -171,7 +172,7 @@ export default function RanglistePage() {
           >
             {t === "Woche" && <span aria-hidden>⏱️</span>}
             {t === "Vereine" && <span aria-hidden>🛡️</span>}
-            {t !== "Gesamt" && t !== "Woche" && t !== "Vereine" && <span>{sportIcon[t as Sport]}</span>}
+            {t !== "Gesamt" && t !== "Woche" && t !== "Vereine" && <span><Emoji e={sportIcon[t as Sport]} /></span>}
             {sportLabel(t)}
           </button>
         ))}

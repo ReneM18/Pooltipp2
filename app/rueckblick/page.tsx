@@ -12,6 +12,7 @@ import { useMyWeeklyWin } from "@/lib/weeklyWinner";
 import { daysLabel, useStreak } from "@/lib/streak";
 import { TIER_BADGE } from "@/components/tierBadges";
 import { matchTitle, oneXTwoText, scoreText } from "@/lib/teamOrder";
+import Emoji from "@/components/Emoji";
 
 // Wochenrückblick: jederzeit aufrufbar (Profil, Karte auf der Tipps-Seite,
 // Admin-Bereich). Die Seite selbst ändert nichts: kein "gesehen", keine
@@ -159,7 +160,7 @@ export default function RueckblickPage() {
             <div className="mt-4 rounded-lg border border-edge bg-pitch/60 p-3">
               <p className="text-xs font-semibold text-muted">⭐ Bester Tipp</p>
               <p className="mt-0.5 font-display text-sm font-semibold text-ink">
-                {SPORT_ICONS[best.match.sport]} {matchTitle(best.match.sport, bestHome.name, bestAway.name)}
+                <Emoji e={SPORT_ICONS[best.match.sport]} /> {matchTitle(best.match.sport, bestHome.name, bestAway.name)}
               </p>
               <p className="text-xs text-muted">
                 Getippt:{" "}
@@ -176,7 +177,7 @@ export default function RueckblickPage() {
           <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
             {SPORTS.filter((s) => review.bySport[s]).map((s) => (
               <span key={s} className="whitespace-nowrap">
-                {SPORT_ICONS[s]} {sportLabel(s)}: <span className="font-semibold text-ink">{review.bySport[s]}</span>
+                <Emoji e={SPORT_ICONS[s]} /> {sportLabel(s)}: <span className="font-semibold text-ink">{review.bySport[s]}</span>
               </span>
             ))}
           </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { COUNTRIES, countryName, flagEmoji, normalizeForSearch } from "@/lib/flags";
+import Emoji from "@/components/Emoji";
 
 interface CountryPickerProps {
   value: string;
@@ -60,7 +61,7 @@ export default function CountryPicker({ value, onChange }: CountryPickerProps) {
         aria-expanded={open}
         className="flex w-full items-center gap-2 rounded-lg border border-edge bg-pitch px-4 py-3 text-left text-base text-ink outline-none focus:border-gold"
       >
-        <span className="shrink-0">{flagEmoji(value)}</span>
+        <span className="shrink-0"><Emoji e={flagEmoji(value)} /></span>
         <span className="min-w-0 flex-1 truncate">{countryName(value)}</span>
         <span className="shrink-0 text-xs text-muted">▼</span>
       </button>
@@ -95,7 +96,7 @@ export default function CountryPicker({ value, onChange }: CountryPickerProps) {
                     c.code === value ? "text-gold" : "text-ink"
                   }`}
                 >
-                  <span className="shrink-0">{flagEmoji(c.code)}</span>
+                  <span className="shrink-0"><Emoji e={flagEmoji(c.code)} /></span>
                   <span className="min-w-0 flex-1">{c.name}</span>
                 </button>
               </li>
