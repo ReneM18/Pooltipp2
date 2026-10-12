@@ -22,7 +22,7 @@ import Countdown from "./Countdown";
 import ScoreInput from "./ScoreInput";
 import { CoinIcon } from "./CoinIcon";
 import { competitionDisplayName, competitionFlag } from "@/lib/competitionFlag";
-import { TvIcon, PlayIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
+import { TvIcon, HighlightTvIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
 import { SeasonCardWatermark } from "./SeasonDeco";
 import ShareTipButton from "./ShareTipCard";
 import type { ShareCardData } from "@/lib/shareCard";
@@ -961,7 +961,11 @@ export default function MatchCard({
             {isCancelled ? (
               <CancelledBox stake={hasTipped ? myTip!.stake ?? 0 : null} gutschein={!!myTip?.gutschein} />
             ) : (
-              <ResultBox match={match} kickedOff={kickedOff} />
+              <ResultBox
+                match={match}
+                kickedOff={kickedOff}
+                highlightLine={`${leftTeam.name} – ${rightTeam.name}${finalScore ? ` · ${scoreText(match.sport, finalScore.home, finalScore.away)}` : ""}`}
+              />
             )}
           </div>
         )}
@@ -1544,7 +1548,7 @@ function CancelledBox({ stake, gutschein }: { stake: number | null; gutschein: b
   );
 }
 
-function ResultBox({ match, kickedOff }: { match: Match; kickedOff: boolean }) {
+function ResultBox({ match, kickedOff, highlightLine }: { match: Match; kickedOff: boolean; highlightLine: string }) {
   if (match.status === "live") {
     // Nur der echte Spielstand – es gibt keinen Ereignis-Feed. Früher
     // wurden hier Tore und Karten per Zufall erfunden.
@@ -1564,17 +1568,30 @@ function ResultBox({ match, kickedOff }: { match: Match; kickedOff: boolean }) {
     // Link zur Zusammenfassung (falls es einen gibt).
     if (!match.summaryVideoUrl) return null;
     return (
-      <div className="flex flex-col items-center">
-        <a
-          href={match.summaryVideoUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-[#FF0000]/15 px-4 py-2 font-display text-sm font-semibold text-[#FF4d4d] shadow-[0_0_16px_rgba(255,0,0,0.15)] transition-all hover:bg-[#FF0000]/25 hover:shadow-[0_0_22px_rgba(255,0,0,0.3)]"
-        >
-          <PlayIcon className="h-4 w-4" />
-          Zusammenfassung ansehen
-        </a>
-      </div>
+      // Highlights-Kachel (Rene, 12.10.2026, Entwurf A): sieht aus wie eine
+      // kleine Video-Vorschau. Bewusst ohne fremdes Vorschaubild und ohne
+      // Namen der Video-Plattform – nur ein Link zum Video.
+      <a
+        href={match.summaryVideoUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="group relative flex min-h-[84px] w-full items-center gap-3 overflow-hidden rounded-xl border border-edge px-3.5 py-3 transition-colors hover:border-[#FF0033]/50"
+        style={{
+          background:
+            "linear-gradient(90deg, rgba(10,17,14,0.93) 0%, rgba(10,17,14,0.6) 55%, rgba(10,17,14,0.3) 100%), repeating-linear-gradient(90deg, #2f6b3f 0 34px, #2a6038 34px 68px)",
+        }}
+      >
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-[#FF0033] text-white shadow-[0_0_18px_rgba(255,0,51,0.45)] transition-transform group-hover:scale-105">
+          <HighlightTvIcon className="h-7 w-7" />
+        </span>
+        <span className="flex min-w-0 flex-col pb-4">
+          <span className="font-display text-base font-semibold leading-tight text-ink">Highlights ansehen</span>
+          <span className="mt-0.5 text-xs leading-snug text-[#C9CFCB]">{highlightLine}</span>
+        </span>
+        <span className="absolute bottom-2 right-2.5 rounded-md bg-black/75 px-1.5 py-0.5 text-[11px] font-bold text-white">
+          ▶ Video
+        </span>
+      </a>
     );
   }
 
