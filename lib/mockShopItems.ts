@@ -63,7 +63,17 @@ export const mockShopItems: ShopItem[] = [
     joker: "trend",
     category: "In-Game",
     name: "Trend-Joker",
-    description: "Sieh vor Tippschluss, wie die Mehrheit der Community bei einem Spiel getippt hat.",
+    description:
+      "Sieh vor Tippschluss bei einem Spiel, wie viel Prozent der anderen auf Heimsieg, Remis oder Auswärtssieg getippt haben.",
+    cost: 80,
+  },
+  {
+    id: "experten-joker",
+    joker: "experte",
+    category: "In-Game",
+    name: "Experten-Joker",
+    description:
+      "Wie der Trend-Joker, und zusätzlich siehst du das Ergebnis, das die besten 30 % der Rangliste dieser Sportart am öftesten getippt haben (ab 3 Top-Tippern). Bei 1X2-Spielen ihre häufigste Wahl.",
     cost: 100,
   },
 ];

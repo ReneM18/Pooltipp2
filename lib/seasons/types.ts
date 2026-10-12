@@ -22,7 +22,7 @@ export interface SeasonTheme {
  * Die festen Belohnungsarten – jede Saison benutzt nur diese.
  *
  * REGEL (Rene, 06.10.2026): Ein Pass gibt NIE Coins, Joker (Schutz, Doppel,
- * Toleranz, Trend, Pause), Booster-Gutscheine oder sonst etwas, das beim
+ * Toleranz, Trend, Experten, Pause), Booster-Gutscheine oder sonst etwas, das beim
  * Tippen hilft, weder gratis noch Premium, und vervielfacht auch nichts davon.
  * Premium soll später Geld kosten; Geld darf nie, auch nicht über Coins, zu
  * einem Tipp-Vorteil oder zu den zufälligen Trainingstaschen führen

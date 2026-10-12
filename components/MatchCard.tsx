@@ -9,7 +9,7 @@ import { MatchTipper, useMatchTips } from "@/lib/matchTips";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
-import { TIP_JOKER_EFFECT, TIP_JOKER_LABEL, TipJoker, TrendResult, useJokers } from "@/lib/JokerContext";
+import { ExpertResult, TIP_JOKER_EFFECT, TIP_JOKER_LABEL, TipJoker, TrendResult, useJokers } from "@/lib/JokerContext";
 import { useTaschen } from "@/lib/TaschenContext";
 import type { SeasonEmote } from "@/lib/seasons";
 import { allowsDraw as sportAllowsDraw, displayOrder, isAwayFirst, oneXTwoText, pickNumber, scoreText } from "@/lib/teamOrder";
@@ -1760,8 +1760,11 @@ function JokerRow({
   );
 }
 
-// Trend-Joker: wie haben die anderen bisher getippt? Nur sichtbar, wenn man
-// einen Trend-Joker hat oder ihn für dieses Spiel schon eingesetzt hat.
+// Trend- und Experten-Joker: wie haben die anderen bisher getippt? Nur
+// sichtbar, wenn man den Joker hat oder ihn für dieses Spiel schon eingesetzt
+// hat. Der Experten-Joker zeigt zusätzlich das häufigste Ergebnis der Top 30 %
+// der Sportart (supabase/experten-joker.sql) – mit ihm braucht es den
+// einfachen Trend nicht mehr.
 function TrendRow({
   matchId,
   homeName,
@@ -1775,76 +1778,154 @@ function TrendRow({
   awayFirst: boolean;
   className?: string;
 }) {
-  const { ready, stock, trendMatches, revealTrend } = useJokers();
+  const { ready, stock, trendMatches, expertMatches, revealTrend, revealExpert } = useJokers();
   const { showToast } = useFeedback();
   const [trend, setTrend] = useState<TrendResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const used = trendMatches.includes(matchId);
+  const [expert, setExpert] = useState<ExpertResult | null>(null);
+  const [loading, setLoading] = useState<"trend" | "experte" | null>(null);
+  const usedTrend = trendMatches.includes(matchId);
+  const usedExpert = expertMatches.includes(matchId);
 
-  // Schon bezahlt: Verteilung beim Anzeigen kostenlos neu laden.
+  // Schon bezahlt: beim Anzeigen kostenlos neu laden.
   useEffect(() => {
-    if (!used || trend) return;
     let cancelled = false;
-    revealTrend(matchId).then((result) => {
-      if (!cancelled && typeof result !== "string") setTrend(result);
-    });
+    if (usedExpert && !expert) {
+      revealExpert(matchId).then((result) => {
+        if (!cancelled && typeof result !== "string") setExpert(result);
+      });
+    } else if (usedTrend && !trend && !usedExpert) {
+      revealTrend(matchId).then((result) => {
+        if (!cancelled && typeof result !== "string") setTrend(result);
+      });
+    }
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [used, matchId]);
+  }, [usedTrend, usedExpert, matchId]);
 
-  async function reveal() {
+  async function reveal(kind: "trend" | "experte") {
     if (loading) return;
-    setLoading(true);
-    const result = await revealTrend(matchId);
-    setLoading(false);
-    if (typeof result === "string") showToast(`✗ ${result}`, "info");
-    else setTrend(result);
+    setLoading(kind);
+    if (kind === "experte") {
+      const result = await revealExpert(matchId);
+      setLoading(null);
+      if (typeof result === "string") showToast(`✗ ${result}`, "info");
+      else setExpert(result);
+    } else {
+      const result = await revealTrend(matchId);
+      setLoading(null);
+      if (typeof result === "string") showToast(`✗ ${result}`, "info");
+      else setTrend(result);
+    }
   }
 
-  if (!ready || (!used && stock.trend === 0)) return null;
+  if (!ready) return null;
+  const showTrendButton = !expert && !trend && !usedExpert && (usedTrend || stock.trend > 0);
+  const showExpertButton = !expert && (usedExpert || stock.experte > 0);
+  const shownResult: TrendResult | null = expert ?? trend;
+  if (!shownResult && !showTrendButton && !showExpertButton) return null;
 
-  if (!trend) {
-    return (
-      <button
-        onClick={reveal}
-        disabled={loading || used}
-        className={`flex w-full items-center justify-between gap-3 rounded-lg border border-edge bg-pitch/60 px-4 py-2.5 text-left transition-colors hover:border-gold/40 disabled:cursor-wait ${className}`}
-      >
-        <span className="whitespace-nowrap text-sm font-semibold text-ink">📊 Trend ansehen</span>
-        <span className="min-w-0 text-right text-xs text-muted">
-          {used ? "Wird geladen…" : `Trend-Joker ×${stock.trend}`}
-        </span>
-      </button>
-    );
-  }
-
-  const pct = (n: number) => (trend.tipps > 0 ? Math.round((n * 100) / trend.tipps) : 0);
-  const parts = [
-    { label: homeName, value: trend.heim },
-    { label: "Remis", value: trend.remis },
-    { label: awayName, value: trend.gast },
-  ];
+  const pct = (n: number) => (shownResult && shownResult.tipps > 0 ? Math.round((n * 100) / shownResult.tipps) : 0);
+  const parts: { label: string; value: number }[] = shownResult
+    ? [
+        { label: homeName, value: shownResult.heim },
+        { label: "Remis", value: shownResult.remis },
+        { label: awayName, value: shownResult.gast },
+      ]
+    : [];
   if (awayFirst) parts.reverse();
   const shown = parts.filter((p) => p.label !== "Remis" || p.value > 0);
 
+  // Häufigstes Ergebnis der Top-Tipper, in derselben Reihenfolge wie die Teams.
+  let topText: string | null = null;
+  if (expert?.top) {
+    if (expert.eins_x_zwei) {
+      topText = expert.top.heim > 0 ? `Sieg ${homeName}` : expert.top.heim < 0 ? `Sieg ${awayName}` : "Remis";
+    } else {
+      topText = awayFirst ? `${expert.top.gast}:${expert.top.heim}` : `${expert.top.heim}:${expert.top.gast}`;
+    }
+  }
+
   return (
-    <div className={`rounded-lg border border-edge bg-pitch/60 px-4 py-2.5 ${className}`}>
-      <p className="text-[11px] uppercase tracking-wide text-muted">
-        📊 Trend der anderen ({trend.tipps} {trend.tipps === 1 ? "Tipp" : "Tipps"})
-      </p>
-      {trend.tipps === 0 ? (
-        <p className="mt-1 text-xs text-muted">Noch hat niemand sonst getippt.</p>
-      ) : (
-        <div className={`mt-1 grid gap-1.5 text-center ${shown.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-          {shown.map((p) => (
-            <div key={p.label} className="min-w-0 rounded-md bg-surface/60 px-1 py-1">
-              <p className="font-display text-sm font-bold text-ink">{pct(p.value)}%</p>
-              <p className="text-[11px] leading-tight text-muted [overflow-wrap:anywhere]">{p.label}</p>
+    <div className={`flex flex-col gap-2 ${className}`}>
+      {shownResult && (
+        <div className={`rounded-lg border bg-pitch/60 px-4 py-2.5 ${expert ? "border-gold/40" : "border-edge"}`}>
+          <p className="text-[11px] uppercase tracking-wide text-muted">
+            {expert ? "🎓 Experten-Trend" : "📊 Trend der anderen"} ({shownResult.tipps}{" "}
+            {shownResult.tipps === 1 ? "Tipp" : "Tipps"})
+          </p>
+          {shownResult.tipps === 0 ? (
+            <p className="mt-1 text-xs text-muted">Noch hat niemand sonst getippt.</p>
+          ) : (
+            <div className={`mt-1 grid gap-1.5 text-center ${shown.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+              {shown.map((p) => (
+                <div key={p.label} className="min-w-0 rounded-md bg-surface/60 px-1 py-1">
+                  <p className="font-display text-sm font-bold text-ink">{pct(p.value)}%</p>
+                  <p className="text-[11px] leading-tight text-muted [overflow-wrap:anywhere]">{p.label}</p>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+          {expert && (
+            <div className="mt-2 border-t border-edge pt-2">
+              {expert.top && topText ? (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-ink">Die Top 30 % dieser Sportart tippen am öftesten</p>
+                    <p className="text-[11px] text-muted">
+                      {expert.top.anzahl} von {expert.top_tipper} Top-Tippern
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 font-display font-bold text-gold ${
+                      expert.eins_x_zwei ? "max-w-[45%] text-right text-sm leading-tight" : "text-2xl"
+                    }`}
+                  >
+                    {topText}
+                  </span>
+                </div>
+              ) : (
+                <p className="text-xs text-muted">
+                  Noch zu wenige Top-Tipper bei diesem Spiel ({expert.top_tipper} von mind. 3). Schau später nochmal, das
+                  kostet nichts extra.{" "}
+                  <button
+                    type="button"
+                    onClick={() => reveal("experte")}
+                    disabled={!!loading}
+                    className="font-semibold text-gold hover:underline"
+                  >
+                    Neu laden
+                  </button>
+                </p>
+              )}
+            </div>
+          )}
         </div>
+      )}
+      {showTrendButton && (
+        <button
+          onClick={() => reveal("trend")}
+          disabled={!!loading || usedTrend}
+          className="flex w-full items-center justify-between gap-3 rounded-lg border border-edge bg-pitch/60 px-4 py-2.5 text-left transition-colors hover:border-gold/40 disabled:cursor-wait"
+        >
+          <span className="whitespace-nowrap text-sm font-semibold text-ink">📊 Trend ansehen</span>
+          <span className="min-w-0 text-right text-xs text-muted">
+            {usedTrend || loading === "trend" ? "Wird geladen…" : `Trend-Joker ×${stock.trend}`}
+          </span>
+        </button>
+      )}
+      {showExpertButton && (
+        <button
+          onClick={() => reveal("experte")}
+          disabled={!!loading || usedExpert}
+          className="flex w-full items-center justify-between gap-3 rounded-lg border border-gold/40 bg-pitch/60 px-4 py-2.5 text-left transition-colors hover:border-gold/70 disabled:cursor-wait"
+        >
+          <span className="min-w-0 text-sm font-semibold text-ink">🎓 Experten-Trend ansehen</span>
+          <span className="shrink-0 text-right text-xs text-muted">
+            {usedExpert || loading === "experte" ? "Wird geladen…" : `Experten-Joker ×${stock.experte}`}
+          </span>
+        </button>
       )}
     </div>
   );
