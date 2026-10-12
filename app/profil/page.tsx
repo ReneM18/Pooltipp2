@@ -8,6 +8,8 @@ import AccountSettings from "@/components/AccountSettings";
 import StartPagePicker from "@/components/StartPagePicker";
 import PassDecoSettings from "@/components/PassDecoSettings";
 import SaveButton, { useDraft } from "@/components/SaveButton";
+import RivalCompareButton from "@/components/RivalCompare";
+import { StatsVisibility, useStatsVisibility } from "@/lib/rivals";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useMyOverallRank } from "@/lib/myOverallRank";
@@ -155,6 +157,8 @@ function ProfilInhalt() {
   // Einstellungen mit Auswahl: erst "Speichern" übernimmt sie (components/SaveButton.tsx).
   const designDraft = useDraft(seasonDesign.enabled);
   const visibilityDraft = useDraft(photoVisibility);
+  const statsVisibility = useStatsVisibility(authUserId ?? null);
+  const statsDraft = useDraft<StatsVisibility>(statsVisibility.value);
   const playedEarlierSeason = passClaims.some((c) => !c.startsWith(`${CURRENT_SEASON.theme.id}:`));
 
   // Nur Tipps seit dem Neustart der Rangpunkte, damit Trefferquote und
@@ -518,7 +522,10 @@ function ProfilInhalt() {
       </section>
 
       <section className="mb-8">
-        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Statistik</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-lg font-semibold text-ink">Deine Statistik</h2>
+          {isRegistered && <RivalCompareButton />}
+        </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard label="Coins" value={freeStars.toLocaleString("de-DE")} accent="gold" />
           <StatCard label="Pass-XP" value={passXP.toLocaleString("de-DE")} accent="action" />
@@ -779,6 +786,45 @@ function ProfilInhalt() {
                   dirty={visibilityDraft.dirty}
                   saved={visibilityDraft.saved}
                   onClick={() => visibilityDraft.save((v) => setPhotoVisibility(v))}
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-ink">Wer darf deine Statistik sehen?</p>
+                <p className="text-xs text-muted">
+                  {statsVisibility.missing
+                    ? "Diese Einstellung wird gerade freigeschaltet – bitte später nochmal probieren."
+                    : "Gilt für den Rivalen-Vergleich: Wer dich sucht, sieht sonst nur 🔒."}
+                </p>
+              </div>
+              <div className="grid shrink-0 grid-cols-3 items-center gap-2 sm:flex">
+                {(
+                  [
+                    ["public", "🌐 Alle"],
+                    ["friends", "👥 Nur Freunde"],
+                    ["private", "🔒 Niemand"],
+                  ] as [StatsVisibility, string][]
+                ).map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    disabled={statsVisibility.missing}
+                    onClick={() => statsDraft.set(v)}
+                    className={`whitespace-nowrap rounded-full border px-2.5 py-1.5 text-center text-xs font-semibold transition-colors sm:px-3.5 ${
+                      statsDraft.value === v
+                        ? "border-gold bg-gold/15 text-gold"
+                        : "border-edge bg-pitch text-muted hover:text-ink"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <SaveButton
+                  className="col-span-3 justify-self-start"
+                  dirty={statsDraft.dirty}
+                  saved={statsDraft.saved}
+                  onClick={() => statsDraft.save((v) => statsVisibility.save(v))}
                 />
               </div>
             </div>
