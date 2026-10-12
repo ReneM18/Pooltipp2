@@ -1,4 +1,4 @@
-import { SEASON_FILES } from "./index";
+import { ALL_EVENTS, SEASON_FILES } from "./index";
 import { playableSeasons } from "./schedule";
 import type { SeasonDesign } from "./types";
 
@@ -65,7 +65,15 @@ export function seasonDesignBootScript(): string {
     s: s.startsOn,
     v: s.design ? seasonDesignVars(s.design) : null,
   }));
-  return `(function(){try{var S=${JSON.stringify(seasons)};var t=new Date().toLocaleDateString("sv-SE",{timeZone:"Europe/Vienna"});var c=S[0];for(var i=0;i<S.length;i++){if(S[i].s<=t)c=S[i];}if(!c||!c.v)return;var off=true;try{off=localStorage.getItem(${JSON.stringify(
+  // Events (Halloween): gelten nur zwischen Start und Ende, und nur wenn auf
+  // diesem Gerät das Event-Design freigeschaltet ist (lib/seasonDesign.ts).
+  const events = ALL_EVENTS.filter((e) => e.design).map((e) => ({
+    id: e.theme.id,
+    s: e.startsOn,
+    e: e.endsOn,
+    v: seasonDesignVars(e.design!),
+  }));
+  return `(function(){try{var S=${JSON.stringify(seasons)};var E=${JSON.stringify(events)};var t=new Date().toLocaleDateString("sv-SE",{timeZone:"Europe/Vienna"});var c=S[0];for(var i=0;i<S.length;i++){if(S[i].s<=t)c=S[i];}var off=true,u=null;try{off=localStorage.getItem(${JSON.stringify(
     SEASON_DESIGN_STORAGE_KEY
-  )})==="aus"||localStorage.getItem(${JSON.stringify(SEASON_DESIGN_UNLOCK_KEY)})!==c.id;}catch(e){}if(off)return;var h=document.documentElement;for(var k in c.v)h.style.setProperty(k,c.v[k]);h.setAttribute("data-season-design",c.id);}catch(e){}})();`;
+  )})==="aus";u=localStorage.getItem(${JSON.stringify(SEASON_DESIGN_UNLOCK_KEY)});}catch(e){}if(off)return;for(var j=0;j<E.length;j++){if(E[j].id===u&&E[j].s<=t&&t<=E[j].e)c=E[j];}if(!c||!c.v||c.id!==u)return;var h=document.documentElement;for(var k in c.v)h.style.setProperty(k,c.v[k]);h.setAttribute("data-season-design",c.id);}catch(e){}})();`;
 }

@@ -1200,7 +1200,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const profilePassDisplayRef = useRef<string | null>(null);
   useEffect(() => {
     if (!authUserId || !extrasLoaded || !profileLoaded || !passDecoColumnRef.current) return;
-    const frame = getActiveFrame(passXP, hasPremiumPass, customFrameColors, passDisplay.frame);
+    const frame = getActiveFrame(passXP, hasPremiumPass, customFrameColors, passDisplay.frame, passClaims);
     const publicDisplay: PublicPassDisplay = {
       ...passDisplay,
       shownFrame: frame
@@ -1228,7 +1228,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (profilePassDisplayRef.current === key) profilePassDisplayRef.current = null;
       console.warn("Pass-Belohnungen konnten nicht fürs Profil gespeichert werden:", error.message);
     })();
-  }, [authUserId, extrasLoaded, profileLoaded, passXP, hasPremiumPass, customFrameColors, passDisplay]);
+  }, [authUserId, extrasLoaded, profileLoaded, passXP, hasPremiumPass, customFrameColors, passDisplay, passClaims]);
 
   const activeRankIcon =
     rankIconOptions.find((o) => o.id === selectedRankIconId) ?? getBestRankIcon(rankIconOptions);

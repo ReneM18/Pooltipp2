@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CURRENT_SEASON } from "@/lib/seasons";
+import { ALL_EVENTS, CURRENT_SEASON, eventPhase, passClaimKey } from "@/lib/seasons";
+import type { SeasonDesign } from "@/lib/seasons";
 import { useUser } from "@/lib/UserContext";
 import { xpForLevel } from "@/lib/seasonPass";
 import {
@@ -16,18 +17,53 @@ import {
 // funktioniert, steht in lib/seasons/design.ts.
 
 const OFF_EVENT = SEASON_DESIGN_OFF_EVENT;
+/** Wird ausgelöst, wenn das Design an <html> wechselt (Deko zeichnet neu). */
+export const DESIGN_APPLIED_EVENT = "pooltipp-design-gewechselt";
 
-/** Setzt oder entfernt die Saison-Farben an <html>. */
-export function applySeasonDesign(on: boolean) {
+/** Welches Design gerade gilt: das der Saison oder eines Events (Halloween). */
+export interface DesignSource {
+  id: string;
+  name: string;
+  icon: string;
+  colorFrom: string;
+  colorTo: string;
+  design: SeasonDesign;
+}
+
+function seasonSource(): DesignSource | null {
   const design = CURRENT_SEASON.design;
-  if (!design) return;
-  const html = document.documentElement;
-  for (const [key, value] of Object.entries(seasonDesignVars(design))) {
-    if (on) html.style.setProperty(key, value);
-    else html.style.removeProperty(key);
+  if (!design) return null;
+  const t = CURRENT_SEASON.theme;
+  return { id: t.id, name: t.name, icon: t.icon, colorFrom: t.colorFrom, colorTo: t.colorTo, design };
+}
+
+/** Event-Design (z. B. Halloween), wenn das Event läuft und man die Stufe dafür hat. */
+export function eventDesignSource(claims: string[], date = new Date()): DesignSource | null {
+  for (const ev of ALL_EVENTS) {
+    if (!ev.design || eventPhase(ev, date) !== "laeuft") continue;
+    if (!claims.includes(passClaimKey(ev.theme.id, ev.design.unlockLevel))) continue;
+    const t = ev.theme;
+    return { id: t.id, name: t.name, icon: t.icon, colorFrom: t.colorFrom, colorTo: t.colorTo, design: ev.design };
   }
-  if (on) html.setAttribute("data-season-design", CURRENT_SEASON.theme.id);
-  else html.removeAttribute("data-season-design");
+  return null;
+}
+
+/** Setzt (oder entfernt bei source = null) die Design-Farben an <html>. */
+export function applySeasonDesign(source: DesignSource | null) {
+  const html = document.documentElement;
+  // Erst alles weg, was irgendein Design gesetzt haben kann.
+  const all = [seasonSource(), ...ALL_EVENTS.map((e) => (e.design ? { design: e.design } : null))];
+  for (const s of all) {
+    if (!s) continue;
+    for (const key of Object.keys(seasonDesignVars(s.design))) html.style.removeProperty(key);
+  }
+  if (source) {
+    for (const [key, value] of Object.entries(seasonDesignVars(source.design))) html.style.setProperty(key, value);
+    html.setAttribute("data-season-design", source.id);
+  } else {
+    html.removeAttribute("data-season-design");
+  }
+  window.dispatchEvent(new Event(DESIGN_APPLIED_EVENT));
 }
 
 export function readSwitchedOff(): boolean {
@@ -38,11 +74,11 @@ export function readSwitchedOff(): boolean {
   }
 }
 
-/** Merkt sich auf diesem Gerät, ob das Design der laufenden Saison
- *  freigeschaltet ist (fürs Skript im <head>, siehe lib/seasons/design.ts). */
-export function rememberUnlocked(unlocked: boolean) {
+/** Merkt sich auf diesem Gerät, welches Design freigeschaltet ist (id der
+ *  Saison oder des Events; fürs Skript im <head>, siehe lib/seasons/design.ts). */
+export function rememberUnlocked(id: string | null) {
   try {
-    if (unlocked) localStorage.setItem(SEASON_DESIGN_UNLOCK_KEY, CURRENT_SEASON.theme.id);
+    if (id) localStorage.setItem(SEASON_DESIGN_UNLOCK_KEY, id);
     else localStorage.removeItem(SEASON_DESIGN_UNLOCK_KEY);
   } catch {
     // nicht speicherbar: dann blitzt beim Laden kurz das Grün auf, sonst nichts.
@@ -56,20 +92,28 @@ export function rememberUnlocked(unlocked: boolean) {
  * eine neue Saison muss also wieder neu freigeschaltet werden.
  */
 export function useSeasonDesignUnlock(): "unknown" | "locked" | "unlocked" {
-  const { adminChecked, authUserId, profileLoaded, passXP } = useUser();
-  const design = CURRENT_SEASON.design;
-  if (!design) return "locked";
-  if (!adminChecked) return "unknown";
-  if (!authUserId) return "locked";
-  if (!profileLoaded) return "unknown";
-  return passXP >= xpForLevel(design.unlockLevel) ? "unlocked" : "locked";
+  return useDesignSource().state;
+}
+
+/** Wie oben, plus welches Design gilt. Ein laufendes Event (Halloween) geht
+ *  vor, sobald man dort die Design-Stufe hat; sonst die Saison. */
+export function useDesignSource(): { state: "unknown" | "locked" | "unlocked"; source: DesignSource | null } {
+  const { adminChecked, authUserId, profileLoaded, passXP, passClaims } = useUser();
+  if (!adminChecked) return { state: "unknown", source: null };
+  if (!authUserId) return { state: "locked", source: null };
+  if (!profileLoaded) return { state: "unknown", source: null };
+  const event = eventDesignSource(passClaims);
+  if (event) return { state: "unlocked", source: event };
+  const season = seasonSource();
+  if (season && passXP >= xpForLevel(season.design.unlockLevel)) return { state: "unlocked", source: season };
+  return { state: "locked", source: null };
 }
 
 /** Für den Schalter im Profil. */
 export function useSeasonDesign() {
   const design = CURRENT_SEASON.design;
   const { setSeasonDesignOff } = useUser();
-  const unlock = useSeasonDesignUnlock();
+  const { state: unlock, source } = useDesignSource();
   const [off, setOff] = useState(false);
   useEffect(() => {
     setOff(readSwitchedOff());
@@ -86,17 +130,17 @@ export function useSeasonDesign() {
     } catch {
       // localStorage gesperrt (privater Modus): gilt dann nur bis zum Neuladen.
     }
-    applySeasonDesign(on && unlock === "unlocked");
+    applySeasonDesign(on && unlock === "unlocked" ? source : null);
     window.dispatchEvent(new Event(OFF_EVENT));
     // Fürs Konto speichern: gilt dann auch auf den anderen Geräten.
     setSeasonDesignOff(!on);
   }
 
   return {
-    available: !!design,
+    available: !!design || !!source,
     unlocked: unlock === "unlocked",
     unlockLevel: design?.unlockLevel ?? 0,
-    seasonName: CURRENT_SEASON.theme.name,
+    seasonName: source?.name ?? CURRENT_SEASON.theme.name,
     enabled: !off,
     setEnabled,
   };

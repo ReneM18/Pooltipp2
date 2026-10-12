@@ -90,7 +90,7 @@ const requested = new Set<string>();
 
 function useOtherPlayersDeco(userIds: (string | null | undefined)[]): Record<string, OtherDeco> {
   const [, forceUpdate] = useState(0);
-  const { authUserId, hideOthersDeco, shownPassHonors, passXP, hasPremiumPass, customFrameColors, passDisplay } =
+  const { authUserId, hideOthersDeco, shownPassHonors, passXP, hasPremiumPass, customFrameColors, passDisplay, passClaims } =
     useUser();
   const key = Array.from(new Set(userIds.filter((id): id is string => !!id))).sort().join(",");
 
@@ -133,7 +133,7 @@ function useOtherPlayersDeco(userIds: (string | null | undefined)[]): Record<str
     if (id === authUserId) {
       result[id] = {
         honors: shownPassHonors,
-        frame: getActiveFrame(passXP, hasPremiumPass, customFrameColors, passDisplay.frame),
+        frame: getActiveFrame(passXP, hasPremiumPass, customFrameColors, passDisplay.frame, passClaims),
       };
       continue;
     }

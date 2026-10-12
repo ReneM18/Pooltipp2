@@ -1,15 +1,32 @@
-import type { PassLevel, SeasonData, SeasonEmote } from "./types";
+import type { EventData, PassLevel, SeasonData, SeasonEmote } from "./types";
 import { HERBST_2026 } from "./herbst2026";
 import { WINTER_2026 } from "./winter2026";
-import { playableSeasons, seasonForDate } from "./schedule";
+import { HALLOWEEN_2026 } from "./halloween2026";
+import { playableSeasons, seasonForDate, viennaDateKey } from "./schedule";
 
-export type { PassLevel, SeasonData, SeasonEmote, SeasonTheme, RewardKind } from "./types";
+export type { PassLevel, SeasonData, SeasonEmote, SeasonTheme, RewardKind, EventData, SeasonDesign } from "./types";
 export { seasonCountdownText, seasonPeriodText, seasonForDate } from "./schedule";
 
 // Jede Saison, die es gibt oder geben wird – auch Entwürfe. Eine neue Saison
 // = neue Datei + hier eintragen. Alte Saisons NIE entfernen, damit ihre
 // Abzeichen, Titel und Emotes auch nach Saisonende richtig angezeigt werden.
 export const SEASON_FILES: SeasonData[] = [HERBST_2026, WINTER_2026];
+
+// Events, die zusätzlich zum Saison-Pass laufen (z. B. Halloween). Wie bei
+// den Saisons: alte Events NIE entfernen, sonst verschwinden ihre Sticker,
+// Titel und Abzeichen.
+export const ALL_EVENTS: EventData[] = [HALLOWEEN_2026];
+export { HALLOWEEN_2026 };
+
+/** Phase eines Events an diesem Tag (österreichische Zeit). */
+export type EventPhase = "vorher" | "laeuft" | "beendet" | "vorbei";
+export function eventPhase(event: EventData, date: Date): EventPhase {
+  const today = viennaDateKey(date);
+  if (today < event.startsOn) return "vorher";
+  if (today <= event.endsOn) return "laeuft";
+  if (today <= event.visibleUntil) return "beendet";
+  return "vorbei";
+}
 
 /** Alle spielbaren Saisons (ohne Entwürfe), älteste zuerst. */
 export const ALL_SEASONS: SeasonData[] = playableSeasons(SEASON_FILES);
@@ -58,7 +75,7 @@ function ownedLevels(passXP: number | null, passClaims: string[]): PassLevel[] {
     for (const l of reachedLevels(passXP)) claims.add(passClaimKey(CURRENT_SEASON.theme.id, l.level));
   }
   const result: PassLevel[] = [];
-  for (const season of ALL_SEASONS) {
+  for (const season of [...ALL_SEASONS, ...ALL_EVENTS]) {
     for (const l of season.levels) {
       if (claims.has(passClaimKey(season.theme.id, l.level))) result.push(l);
     }
@@ -83,7 +100,7 @@ export function getPassHonors(passXP: number | null, passClaims: string[]): Pass
   const last = titles[titles.length - 1];
   const ownedSet = new Set(owned);
   const emotes: SeasonEmote[] = [];
-  for (const season of ALL_SEASONS) {
+  for (const season of [...ALL_SEASONS, ...ALL_EVENTS]) {
     if (season.levels.some((l) => l.kind === "emotes" && ownedSet.has(l))) emotes.push(...season.emotes);
   }
   return {
@@ -96,7 +113,7 @@ export function getPassHonors(passXP: number | null, passClaims: string[]): Pass
 
 /** Sucht ein Emote aus irgendeiner Saison (auch alten) anhand der id. */
 export function findEmote(id: string): SeasonEmote | undefined {
-  for (const season of ALL_SEASONS) {
+  for (const season of [...ALL_SEASONS, ...ALL_EVENTS]) {
     const found = season.emotes.find((e) => e.id === id);
     if (found) return found;
   }

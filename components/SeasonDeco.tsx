@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CURRENT_SEASON } from "@/lib/seasons";
+import { ALL_EVENTS, CURRENT_SEASON } from "@/lib/seasons";
+import { DESIGN_APPLIED_EVENT } from "@/lib/seasonDesign";
 
 // Deko-Blätter des Saison-Designs (Farben aus der Saison-Datei). Reine Optik:
 // klickt nicht, liest kein Screenreader vor und liegt immer HINTER dem Inhalt.
@@ -24,12 +25,42 @@ function Leaf({ size, color, rotate }: { size: number; color: string; rotate: nu
   );
 }
 
-function useDecoColors(): string[] | null {
-  const [colors, setColors] = useState<string[] | null>(null);
+// Fledermaus fürs Halloween-Design (decoShape "bat").
+function Bat({ size, color, rotate }: { size: number; color: string; rotate: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ transform: `rotate(${rotate / 4}deg)` }} aria-hidden>
+      <path
+        d="M12 9.2c.6-1 1.2-1.6 1.6-1.7l.2 1.2c1.6-1.9 4.6-3 8.2-2.4-1.5.8-2.3 2-2.4 3.4-1.4-.4-2.6 0-3.3 1-.9-.6-2-.6-2.9.2-.5.4-.9 1.2-1.4 2.6-.5-1.4-.9-2.2-1.4-2.6-.9-.8-2-.8-2.9-.2-.7-1-1.9-1.4-3.3-1C4.3 8.3 3.5 7.1 2 6.3c3.6-.6 6.6.5 8.2 2.4l.2-1.2c.4.1 1 .7 1.6 1.7Z"
+        fill={color}
+      />
+    </svg>
+  );
+}
+
+type DecoShape = { colors: string[]; bat: boolean };
+
+/** Deko des Designs, das gerade an <html> hängt (Saison oder Event). */
+function currentDeco(): DecoShape | null {
+  const id = document.documentElement.getAttribute("data-season-design");
+  const event = ALL_EVENTS.find((e) => e.theme.id === id);
+  const design = event?.design ?? CURRENT_SEASON.design;
+  if (!design) return null;
+  return { colors: design.decoColors, bat: design.decoShape === "bat" };
+}
+
+function useDecoColors(): DecoShape | null {
+  const [deco, setDeco] = useState<DecoShape | null>(null);
   useEffect(() => {
-    setColors(CURRENT_SEASON.design?.decoColors ?? null);
+    const update = () => setDeco(currentDeco());
+    update();
+    window.addEventListener(DESIGN_APPLIED_EVENT, update);
+    return () => window.removeEventListener(DESIGN_APPLIED_EVENT, update);
   }, []);
-  return colors;
+  return deco;
+}
+
+function Shape({ deco, size, color, rotate }: { deco: DecoShape; size: number; color: string; rotate: number }) {
+  return deco.bat ? <Bat size={size} color={color} rotate={rotate} /> : <Leaf size={size} color={color} rotate={rotate} />;
 }
 
 // Blätter in der Kopfleiste: nur am oberen und unteren Rand (halb
@@ -50,13 +81,14 @@ const HEADER_LEAVES = [
 ];
 
 export default function SeasonDeco() {
-  const colors = useDecoColors();
-  if (!colors || colors.length === 0) return null;
+  const deco = useDecoColors();
+  if (!deco || deco.colors.length === 0) return null;
+  const colors = deco.colors;
   return (
     <div className="season-deco pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
       {HEADER_LEAVES.map((l, i) => (
         <span key={i} className="absolute opacity-80" style={{ left: l.x, top: l.top, bottom: l.bottom }}>
-          <Leaf size={l.s} color={colors[i % colors.length]} rotate={l.r} />
+          <Shape deco={deco} size={l.s} color={colors[i % colors.length]} rotate={l.r} />
         </span>
       ))}
     </div>
@@ -65,15 +97,16 @@ export default function SeasonDeco() {
 
 /** Blätter-Gruppe oben rechts im Kopfbereich der Saison-Pass-Seite. */
 export function SeasonHeroLeaves() {
-  const colors = useDecoColors();
-  if (!colors || colors.length === 0) return null;
+  const deco = useDecoColors();
+  if (!deco || deco.colors.length === 0) return null;
+  const colors = deco.colors;
   return (
     <div className="season-deco pointer-events-none absolute -right-1 -top-2 sm:right-2 sm:top-1" aria-hidden>
       {/* Am Handy kleiner und halb angeschnitten, damit sie nicht in den Text ragen. */}
       <div className="flex origin-top-right scale-[0.6] gap-1 opacity-80 sm:scale-100 sm:opacity-100">
-        <Leaf size={44} color={colors[0]} rotate={-25} />
-        <Leaf size={34} color={colors[1 % colors.length]} rotate={35} />
-        <Leaf size={40} color={colors[2 % colors.length]} rotate={-80} />
+        <Shape deco={deco} size={44} color={colors[0]} rotate={-25} />
+        <Shape deco={deco} size={34} color={colors[1 % colors.length]} rotate={35} />
+        <Shape deco={deco} size={40} color={colors[2 % colors.length]} rotate={-80} />
       </div>
     </div>
   );
@@ -94,13 +127,14 @@ const BACKDROP_LEAVES = [
 ];
 
 export function SeasonBackdrop() {
-  const colors = useDecoColors();
-  if (!colors || colors.length === 0) return null;
+  const deco = useDecoColors();
+  if (!deco || deco.colors.length === 0) return null;
+  const colors = deco.colors;
   return (
     <div className="season-deco pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden>
       {BACKDROP_LEAVES.map((l, i) => (
         <span key={i} className="absolute opacity-[0.08]" style={{ left: l.x, top: l.y }}>
-          <Leaf size={l.s} color={colors[i % colors.length]} rotate={l.r} />
+          <Shape deco={deco} size={l.s} color={colors[i % colors.length]} rotate={l.r} />
         </span>
       ))}
     </div>
@@ -111,15 +145,16 @@ export function SeasonBackdrop() {
  *  Karte). Die Karte braucht "relative isolate", dann liegt das Blatt hinter
  *  Teamnamen, Eingaben und Knöpfen. variant verdreht es pro Karte etwas. */
 export function SeasonCardWatermark({ variant = 0 }: { variant?: number }) {
-  const colors = useDecoColors();
-  if (!colors || colors.length === 0) return null;
+  const deco = useDecoColors();
+  if (!deco || deco.colors.length === 0) return null;
+  const colors = deco.colors;
   const rotate = [-35, 20, -110, 65][variant % 4];
   return (
     <span
       className="season-deco pointer-events-none absolute -bottom-6 -right-6 -z-10 opacity-[0.07]"
       aria-hidden
     >
-      <Leaf size={130} color={colors[variant % colors.length]} rotate={rotate} />
+      <Shape deco={deco} size={130} color={colors[variant % colors.length]} rotate={rotate} />
     </span>
   );
 }
