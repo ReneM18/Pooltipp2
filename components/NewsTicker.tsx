@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAppData, NewsItem } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
@@ -11,6 +11,22 @@ export default function NewsTicker() {
   const { newsItems } = useAppData();
   const { isAdmin } = useUser();
   const [selected, setSelected] = useState<NewsItem | null>(null);
+  // Gleichmäßiges Tempo statt fester Dauer: Früher lief das Band immer 22 s
+  // pro Runde – bei vielen Meldungen und am schmalen Handy viel zu schnell
+  // (Rene 12.10.2026). Jetzt Pixel pro Sekunde, am Handy langsamer.
+  const halfRef = useRef<HTMLDivElement>(null);
+  const [duration, setDuration] = useState<number | null>(null);
+  useEffect(() => {
+    function measure() {
+      const width = halfRef.current?.offsetWidth ?? 0;
+      if (!width) return;
+      const speed = window.innerWidth < 640 ? 38 : 55; // Pixel pro Sekunde
+      setDuration(Math.max(12, Math.round(width / speed)));
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [newsItems]);
 
   // Ohne News kein leeres gelbes Band für Spieler – nur der Admin sieht den
   // Hinweis, wo man welche anlegt.
@@ -23,31 +39,36 @@ export default function NewsTicker() {
     );
   }
 
-  // Jede Meldung wird zweimal gerendert (zweite Kopie unsichtbar für Screenreader/Tab),
-  // damit das Laufband nahtlos loopt. Ein einheitliches gap sorgt für gleichmäßige
-  // Abstände zwischen allen Meldungen – auch an der Nahtstelle der beiden Kopien.
-  const doubled = [...newsItems, ...newsItems];
+  // Zwei gleiche Hälften nebeneinander (die zweite unsichtbar für
+  // Screenreader/Tab). Jede Hälfte hat den Abstand auch am Ende, damit das
+  // Verschieben um genau eine halbe Breite nahtlos ist – vorher passte die
+  // Naht nicht ganz, das Band "sprang" bei jedem Neustart kurz (Blinken).
+  const half = (copy: boolean) => (
+    <div ref={copy ? undefined : halfRef} className="flex shrink-0 items-center gap-10 pr-10" aria-hidden={copy || undefined}>
+      {newsItems.map((item) => (
+        <button
+          key={`${item.id}-${copy ? "b" : "a"}`}
+          type="button"
+          onClick={() => setSelected(item)}
+          tabIndex={copy ? -1 : 0}
+          className="flex shrink-0 items-center gap-1.5 whitespace-nowrap font-display text-sm font-semibold text-pitch transition-opacity hover:opacity-70"
+        >
+          {item.sport && <span><NewsSportIcon sport={item.sport} /></span>}
+          <span>{item.text}</span>
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <>
       <div className="overflow-hidden border-b border-edge bg-ticker py-1.5">
-        <div className="ticker-track flex items-center gap-10 px-5">
-          {doubled.map((item, i) => {
-            const isDuplicate = i >= newsItems.length;
-            return (
-              <button
-                key={`${item.id}-${i}`}
-                type="button"
-                onClick={() => setSelected(item)}
-                tabIndex={isDuplicate ? -1 : 0}
-                aria-hidden={isDuplicate || undefined}
-                className="flex shrink-0 items-center gap-1.5 whitespace-nowrap font-display text-sm font-semibold text-pitch transition-opacity hover:opacity-70"
-              >
-                {item.sport && <span><NewsSportIcon sport={item.sport} /></span>}
-                <span>{item.text}</span>
-              </button>
-            );
-          })}
+        <div
+          className="ticker-track flex"
+          style={duration ? { animationDuration: `${duration}s` } : undefined}
+        >
+          {half(false)}
+          {half(true)}
         </div>
       </div>
 

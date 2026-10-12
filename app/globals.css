@@ -160,7 +160,10 @@ input[type="range"].stake-slider::-moz-range-thumb {
 
 .ticker-track {
   width: max-content;
-  animation: ticker-scroll 22s linear infinite;
+  animation: ticker-scroll 40s linear infinite;
+  /* Eigene Grafik-Ebene: verhindert kurzes Aufflackern beim Neuzeichnen */
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 /* Sterne-Burst: ersetzt Konfetti als Feedback-Effekt, passt zur "Sterne"-Währung */
