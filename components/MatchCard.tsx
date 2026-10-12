@@ -9,7 +9,7 @@ import { MatchTipper, useMatchTips } from "@/lib/matchTips";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
-import { ExpertResult, TIP_JOKER_EFFECT, TIP_JOKER_LABEL, TipJoker, TrendResult, useJokers } from "@/lib/JokerContext";
+import { ExpertResult, JOKER_ICON, TIP_JOKER_EFFECT, TIP_JOKER_LABEL, TipJoker, TrendResult, useJokers } from "@/lib/JokerContext";
 import { useTaschen } from "@/lib/TaschenContext";
 import type { SeasonEmote } from "@/lib/seasons";
 import { allowsDraw as sportAllowsDraw, displayOrder, isAwayFirst, oneXTwoText, pickNumber, scoreText } from "@/lib/teamOrder";
@@ -1475,7 +1475,7 @@ function PoolScoreResultBox({
           )}
           {myTip.joker && (
             <span>
-              {JOKER_LABEL[myTip.joker]} eingesetzt
+              {JOKER_ICON[myTip.joker]} {JOKER_LABEL[myTip.joker]} eingesetzt
               {breakdown.fixed + breakdown.bonus < calculated ? ": kein Minus" : ""}
             </span>
           )}
@@ -1718,7 +1718,7 @@ function JokerRow({
     return (
       <div className="rounded-lg border border-gold/40 bg-gold/[0.07] px-4 py-2.5">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-semibold text-ink">🃏 {TIP_JOKER_LABEL[joker]}</span>
+          <span className="text-sm font-semibold text-ink">{JOKER_ICON[joker]} {TIP_JOKER_LABEL[joker]}</span>
           {canChange && (
             <button
               onClick={() => choose(null)}
@@ -1749,10 +1749,16 @@ function JokerRow({
             key={j}
             onClick={() => choose(j)}
             disabled={saving}
-            className="whitespace-nowrap rounded-full border border-gold/40 bg-gold/[0.07] px-1 py-1 text-xs font-semibold text-gold transition-colors hover:border-gold disabled:cursor-wait"
+            className="flex flex-col items-center rounded-xl border border-gold/40 bg-gold/[0.07] px-1 py-1.5 text-xs font-semibold text-gold transition-colors hover:border-gold disabled:cursor-wait"
           >
-            {TIP_JOKER_LABEL[j].replace("-Joker", "")}
-            <span className="ml-0.5 text-muted">×{stock[j]}</span>
+            {/* Emoji oben: in einer Zeile wäre es am Handy (360 px) zu breit. */}
+            <span className="text-base leading-tight" aria-hidden>
+              {JOKER_ICON[j]}
+            </span>
+            <span className="whitespace-nowrap">
+              {TIP_JOKER_LABEL[j].replace("-Joker", "")}
+              <span className="ml-0.5 text-muted">×{stock[j]}</span>
+            </span>
           </button>
         ))}
       </div>
