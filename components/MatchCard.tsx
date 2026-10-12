@@ -738,7 +738,9 @@ export default function MatchCard({
                   </>
                 )}
                 {!boosterOn && (
-                  <p className="mt-1 text-xs text-muted">Mit Booster spielst du zusätzlich um Coins.</p>
+                  <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted">
+                    Mit Booster spielst du zusätzlich um <CoinIcon className="h-3.5 w-3.5" /> Coins.
+                  </p>
                 )}
               </div>
             )}
