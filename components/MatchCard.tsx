@@ -792,14 +792,17 @@ export default function MatchCard({
                   justSaved ? "animate-tip-saved" : ""
                 }`}
               >
-                <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-muted">
-                  <span aria-hidden className={`font-bold text-action-hover ${justSaved ? "animate-check-pop" : ""}`}>✓</span>
-                  Dein Tipp
-                  {/* Mit Booster getippt: kleines Blitz-Zeichen */}
+                {/* Mit Booster getippt: Schild UNTER "Dein Tipp" (am Handy
+                    daneben zu breit, der Tipp rutschte über "Ändern"). */}
+                <span className="flex shrink-0 flex-col items-start gap-1 whitespace-nowrap text-sm text-muted">
+                  <span className="flex items-center gap-1.5">
+                    <span aria-hidden className={`font-bold text-action-hover ${justSaved ? "animate-check-pop" : ""}`}>✓</span>
+                    Dein Tipp
+                  </span>
                   {(myTip?.stake ?? 0) > 0 && (
                     <span
                       title="Mit Booster getippt"
-                      className="rounded-full border border-gold/50 bg-gold/15 px-2 py-px text-[11px] font-bold uppercase tracking-wide text-gold"
+                      className="rounded-full border border-gold/50 bg-gold/15 px-2 py-px text-[10px] font-bold uppercase tracking-wide text-gold"
                     >
                       ⚡ Booster
                     </span>
@@ -824,7 +827,11 @@ export default function MatchCard({
                       >
                         {pickButtonNumber(scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore))}
                       </span>
-                      <span className={allowsDraw ? "text-xs leading-tight text-muted" : "text-sm leading-tight text-ink/85"}>
+                      <span
+                        className={`min-w-0 [overflow-wrap:anywhere] ${
+                          allowsDraw ? "text-xs leading-tight text-muted" : "text-sm leading-tight text-ink/85"
+                        }`}
+                      >
                         {(() => {
                           const pick = scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore);
                           return pick === "1" ? homeTeam.name : pick === "2" ? awayTeam.name : "Unentschieden";
