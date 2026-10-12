@@ -1,5 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import { TIPPRUNDEN_ENABLED } from "@/lib/types";
+import { CoinIcon } from "./CoinIcon";
+
+// Coin-Symbol mitten im Text, auf Höhe der Schrift.
+function Coin() {
+  return <CoinIcon className="relative -top-px inline h-[1.05em] w-[1.05em] align-middle" />;
+}
 
 const LEGAL_LINKS: { href: string; label: string }[] = [
   { href: "/datenschutz", label: "Datenschutzerklärung" },
@@ -41,13 +49,18 @@ export default function Footer() {
             nicht tippt, verliert ab der dritten Woche jede Woche 5 Rangpunkte in jeder Sportart,
             aber nie unter 0. Ein Tipp genügt, und die Strafe ist weg.
           </p>
+          {/* Erst wozu Coins da sind, dann woher, dann der (freiwillige)
+              Booster – mit unserem Coin-Symbol (Rene, 12.10.2026). */}
           <p>
-            Bei den Booster-Spielen setzt du 20 Coins ein: exakt gewinnst du 40 dazu, mit der
-            richtigen Tordifferenz 10, bei der richtigen Tendenz behältst du deinen Einsatz, ein
-            Fehltipp kostet 10. Coins gibt's außerdem mit dem täglichen Bonus, eintauschen kannst
-            du sie im Shop gegen Joker und Trainingstaschen: Mit dem Doppel-Joker zählen bei einem Spiel deiner Wahl die
-            festen Punkte doppelt (exakt 20, Tordifferenz 14, Tendenz 10), ein Pause-Joker schützt
-            dich eine Woche lang vor der Strafe.
+            <strong className="font-semibold text-ink">
+              <Coin /> Coins sind deine Spielwährung.
+            </strong>{" "}
+            Im Shop tauschst du sie gegen Joker und Trainingstaschen: Mit dem Doppel-Joker zählen bei einem Spiel
+            deiner Wahl die festen Punkte doppelt (exakt 20, Tordifferenz 14, Tendenz 10), ein Pause-Joker schützt dich
+            eine Woche lang vor der Strafe. <Coin /> Coins bekommst du jeden Tag mit dem Tagesbonus und für
+            Tipp-Serien. Bei Booster-Spielen kannst du zusätzlich 20 <Coin /> Coins einsetzen, wenn du willst: Exakt
+            gewinnst du 40 dazu, mit der richtigen Tordifferenz 10, bei der richtigen Tendenz behältst du deinen
+            Einsatz, ein Fehltipp kostet 10. <Coin /> Coins kann man nie mit echtem Geld kaufen.
           </p>
           <p>
             Dazu gibt's echte Live-Ergebnisse und Tabellen im Matchcenter, einen Saison-Pass mit
