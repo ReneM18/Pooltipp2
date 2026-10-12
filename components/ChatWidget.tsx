@@ -573,6 +573,19 @@ interface CommunityMessage {
 
 function CommunityRoom() {
   const { displayName, authUserId } = useUser();
+  const { closeChat } = useChat();
+  // Profilbild und Name führen zum Profil (Rene, 12.10.2026). Der Chat geht
+  // dabei zu, sonst läge er am Handy über der Profilseite.
+  const profileLink = (name: string, id: string, size: number) => (
+    <Link
+      href={`/spieler/${encodeURIComponent(name)}`}
+      onClick={closeChat}
+      aria-label={`Profil von ${name}`}
+      className="shrink-0 rounded-full transition-opacity hover:opacity-80"
+    >
+      <Avatar id={id} name={name} size={size} />
+    </Link>
+  );
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -663,7 +676,7 @@ function CommunityRoom() {
             const honors = msg.userId ? honorsByUser[msg.userId] : undefined;
             return (
               <div key={msg.id} className={`flex items-end gap-2 ${msg.isMe ? "justify-end" : "justify-start"}`}>
-                {!msg.isMe && msg.userId && <Avatar id={msg.userId} name={msg.author} size={28} />}
+                {!msg.isMe && msg.userId && profileLink(msg.author, msg.userId, 28)}
                 <div
                   className={`max-w-[78%] text-sm [overflow-wrap:anywhere] ${
                     isSticker
@@ -677,6 +690,7 @@ function CommunityRoom() {
                     <div className="mb-0.5">
                       <Link
                         href={`/spieler/${encodeURIComponent(msg.author)}`}
+                        onClick={closeChat}
                         className="flex items-center gap-1.5 text-xs font-semibold text-gold hover:opacity-80"
                       >
                         <RankBadge option={rankIcons.byId(msg.userId)} size="xs" />
@@ -703,7 +717,7 @@ function CommunityRoom() {
                   )}
                 </div>
                 {/* Im Gruppen-Chat steht auch beim eigenen Beitrag das eigene Bild. */}
-                {msg.isMe && msg.userId && <Avatar id={msg.userId} name={msg.author} size={28} />}
+                {msg.isMe && msg.userId && profileLink(msg.author, msg.userId, 28)}
               </div>
             );
           })}
