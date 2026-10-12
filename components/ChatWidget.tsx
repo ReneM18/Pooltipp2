@@ -1,6 +1,8 @@
 "use client";
 
 import PlayerAvatar from "./PlayerAvatar";
+import OnlineDot from "./OnlineDot";
+import { useOnline } from "@/lib/OnlineContext";
 import { useState, useEffect, useRef, useCallback, FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
@@ -258,7 +260,10 @@ function ChatRow({ chat, onOpen }: { chat: ChatSummary; onOpen: () => void }) {
       onClick={onOpen}
       className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-hover"
     >
-      <Avatar id={chat.friendId} name={chat.name} size={44} />
+      <span className="relative shrink-0">
+        <Avatar id={chat.friendId} name={chat.name} size={44} />
+        <OnlineDot userId={chat.friendId} size={12} />
+      </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
           <span className="min-w-0 flex-1">
@@ -301,6 +306,7 @@ type ShownMessage = DirectMessage & { pending?: boolean };
 function Conversation({ friendId }: { friendId: string }) {
   const { authUserId, friendEntries, refreshFriends } = useUser();
   const { chats, setView, closeChat, onMessage, refreshChats } = useChat();
+  const { isOnline } = useOnline();
   const friendEntry = friendEntries.find((f) => f.id === friendId);
   const chat = chats.find((c) => c.friendId === friendId);
   const name = friendEntry?.name ?? chat?.name ?? "Freund";
@@ -447,10 +453,15 @@ function Conversation({ friendId }: { friendId: string }) {
           onClick={closeChat}
           className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg py-0.5 pr-1 hover:[&_.name]:text-gold"
         >
-          <Avatar id={friendId} name={name} size={36} />
+          <span className="relative shrink-0">
+            <Avatar id={friendId} name={name} size={36} />
+            <OnlineDot userId={friendId} size={11} />
+          </span>
           <span className="min-w-0 flex-1">
             <FitText text={name} className="name text-sm font-semibold text-ink transition-colors" />
-            {number !== undefined && <span className="block text-[11px] leading-tight text-muted">#{number}</span>}
+            <span className="block text-[11px] leading-tight text-muted">
+              {isOnline(friendId) ? <span className="font-semibold text-[#3FCF6E]">online</span> : number !== undefined ? `#${number}` : null}
+            </span>
           </span>
         </Link>
         <div className="relative">
