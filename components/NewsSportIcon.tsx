@@ -1,4 +1,5 @@
 import { NEWS_SPORT_ICONS, NEWS_SPORTS, NewsSport, sportLabel } from "@/lib/types";
+import Emoji from "@/components/Emoji";
 
 // Für MotoGP und Darts gibt es kein passendes Emoji (🏍️ ist ein normales
 // Motorrad, 🎯 eine Zielscheibe). Darum zeichnen wir dort eigene kleine
@@ -54,7 +55,7 @@ function DartIcon() {
 export default function NewsSportIcon({ sport }: { sport: NewsSport }) {
   if (sport === "MotoGP") return <MotoGPIcon />;
   if (sport === "Darts") return <DartIcon />;
-  return <>{NEWS_SPORT_ICONS[sport]}</>;
+  return <Emoji e={NEWS_SPORT_ICONS[sport]} />;
 }
 
 // Feed-Einträge speichern ihr Symbol als Text (Emoji). Neue News zu MotoGP

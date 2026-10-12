@@ -16,6 +16,7 @@ import {
 } from "@/lib/rankTiers";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
+import Emoji from "@/components/Emoji";
 
 export default function RankProgress({
   sport,
@@ -41,7 +42,7 @@ export default function RankProgress({
     <div className="rounded-card border border-edge bg-surface p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-display text-sm font-semibold text-ink">
-          <span>{SPORT_EMOJI[sport]}</span>
+          <span><Emoji e={SPORT_EMOJI[sport]} /></span>
           {sportLabel(sport)} · {tierLabel(current)}
           {prestige > 0 && (
             <span className="whitespace-nowrap text-xs font-bold text-gold" title={`Prestige ${prestige}`}>

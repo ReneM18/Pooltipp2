@@ -11,6 +11,7 @@ import { useFeedback } from "@/lib/FeedbackContext";
 import { useMyClubs } from "@/lib/clubs";
 import { Match, Sport, SPORTS, SPORT_ICONS, isSportActive, sportLabel } from "@/lib/types";
 import { matchTitle } from "@/lib/teamOrder";
+import Emoji from "@/components/Emoji";
 
 // Start-Erlebnis nach der Registrierung: 1) Sportarten antippen,
 // 2) pro gewählter Sportart freiwillig einen Herzensverein, 3) erster Tipp.
@@ -186,7 +187,7 @@ export default function StartPage() {
                     }`}
                   >
                     <span className={`text-xl ${on ? "" : "opacity-60 grayscale"}`} aria-hidden>
-                      {SPORT_ICONS[sport]}
+                      <Emoji e={SPORT_ICONS[sport]} />
                     </span>
                     <span className="font-display text-sm font-semibold">{sportLabel(sport)}</span>
                     <span
@@ -237,7 +238,7 @@ export default function StartPage() {
                   <div key={sport} className="rounded-lg border border-edge bg-pitch/60 p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <p className="text-xs font-semibold text-muted">
-                        {SPORT_ICONS[sport]} {sportLabel(sport)}
+                        <Emoji e={SPORT_ICONS[sport]} /> {sportLabel(sport)}
                       </p>
                       {pick && !currentTeam && (
                         <button
@@ -379,7 +380,7 @@ function SuggestionRow({ match, club, onTip }: { match: Match; club: boolean; on
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-edge bg-pitch/60 p-3">
       <div className="min-w-[12rem] flex-1">
         <p className="text-xs text-muted">
-          {SPORT_ICONS[match.sport]} {match.competition} · {kickoff}
+          <Emoji e={SPORT_ICONS[match.sport]} /> {match.competition} · {kickoff}
           {club && <span className="font-semibold text-gold"> · dein Verein</span>}
         </p>
         <p className="mt-0.5 font-display text-sm font-semibold text-ink">

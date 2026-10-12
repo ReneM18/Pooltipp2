@@ -2,6 +2,7 @@ import { useId } from "react";
 import GoatEmblem, { UnsterblichEmblem } from "@/components/GoatEmblem";
 import { PRESTIGE_MAX_STARS, RANK_COLORS, RankName, SPORT_EMOJI, SubTier } from "@/lib/rankTiers";
 import { Sport } from "@/lib/types";
+import Emoji, { SvgEmoji } from "@/components/Emoji";
 
 // Rang-Abzeichen: jeder Hauptrang hat eine eigene Form (nicht nur eine
 // Farbe), damit man ihn auch klein auf einen Blick erkennt. Die Unterstufe
@@ -112,9 +113,7 @@ export default function RankEmblem({
               {eliteIcon}
             </text>
           ) : sportInside ? (
-            <text x="20" y="27.5" textAnchor="middle" fontSize="21">
-              {SPORT_EMOJI[sport]}
-            </text>
+            <SvgEmoji e={SPORT_EMOJI[sport]} x={20} y={27.5} size={21} />
           ) : (
             sub &&
             chevrons(SUB_COUNT[sub]).map((d, i) => (
@@ -146,7 +145,7 @@ export default function RankEmblem({
             filter: "drop-shadow(0 0 1px rgba(0,0,0,0.75)) drop-shadow(0 1px 1px rgba(0,0,0,0.45))",
           }}
         >
-          {SPORT_EMOJI[sport]}
+          <Emoji e={SPORT_EMOJI[sport]} />
         </span>
       )}
       {prestige > 0 && size >= 36 && <PrestigeStars level={prestige} size={size} />}

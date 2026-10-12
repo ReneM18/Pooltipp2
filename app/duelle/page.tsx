@@ -12,6 +12,7 @@ import { Duel, DuelPlayer } from "@/lib/duelTypes";
 import { Match, SPORT_ICONS, Sport, isSportActive } from "@/lib/types";
 import { CoinIcon } from "@/components/CoinIcon";
 import { matchTitle, scoreText } from "@/lib/teamOrder";
+import Emoji from "@/components/Emoji";
 
 const STAKE_PRESETS = [10, 20, 30, 50];
 
@@ -142,7 +143,7 @@ function GameLine({ match, children }: { match?: Match; children?: ReactNode }) 
   const away = getTeam(match.awayTeamId);
   return (
     <li className="flex items-start gap-2 text-xs">
-      <span aria-hidden className="mt-px">{SPORT_ICONS[match.sport as Sport] ?? "🏟️"}</span>
+      <span aria-hidden className="mt-px"><Emoji e={SPORT_ICONS[match.sport as Sport] ?? "🏟️"} /></span>
       <span className="min-w-0 flex-1">
         <span className="text-ink">{matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")}</span>
         <span className="text-muted">{" · "}</span>
@@ -498,7 +499,7 @@ function MatchOption({
         {checked ? "✓" : ""}
       </span>
       <span aria-hidden className="shrink-0">
-        {SPORT_ICONS[match.sport as Sport] ?? "🏟️"}
+        <Emoji e={SPORT_ICONS[match.sport as Sport] ?? "🏟️"} />
       </span>
       <span className="min-w-0 flex-1">
         <span className={`block text-sm ${checked ? "font-semibold text-ink" : "text-ink"}`}>

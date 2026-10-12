@@ -29,6 +29,7 @@ import { BOOSTER_STAKE, BOOSTERS_PER_DAY } from "@/lib/poolScore";
 import { boostersOnDay } from "@/lib/booster";
 import { useJokers } from "@/lib/JokerContext";
 import { DuelReport } from "@/components/DuelReport";
+import Emoji from "@/components/Emoji";
 
 type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news";
 
@@ -737,7 +738,7 @@ function CompetitionSelect({
       {creating && (
         <div className="mt-2 flex flex-col gap-2 rounded-lg border border-gold/60 bg-gold/5 p-3">
           <label className="text-sm text-muted">
-            Neuer Wettbewerb für {sportIcon[sport]} {sportLabel(sport)}
+            Neuer Wettbewerb für <Emoji e={sportIcon[sport]} /> {sportLabel(sport)}
           </label>
           <input
             autoFocus
@@ -896,7 +897,7 @@ function CompetitionManager() {
             </span>
             <span className="min-w-0">
               <span className="block font-semibold text-red-300">Diesen Wettbewerb gibt es schon!</span>
-              „{duplicate.name}“ ist bei {sportIcon[duplicate.sport]} {sportLabel(duplicate.sport)} bereits angelegt.
+              „{duplicate.name}“ ist bei <Emoji e={sportIcon[duplicate.sport]} /> {sportLabel(duplicate.sport)} bereits angelegt.
             </span>
           </div>
         )}
@@ -921,7 +922,7 @@ function CompetitionManager() {
                 : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
             }`}
           >
-            {sportIcon[s]} {sportLabel(s)} ({competitions.filter((c) => c.sport === s).length})
+            <Emoji e={sportIcon[s]} /> {sportLabel(s)} ({competitions.filter((c) => c.sport === s).length})
           </button>
         ))}
       </div>
@@ -1342,7 +1343,7 @@ function TeamManager() {
             </span>
             <span className="min-w-0">
               <span className="block font-semibold text-red-300">Dieses Team gibt es schon!</span>
-              „{duplicate.name}“ ist bei {sportIcon[duplicate.sport]} {sportLabel(duplicate.sport)} bereits
+              „{duplicate.name}“ ist bei <Emoji e={sportIcon[duplicate.sport]} /> {sportLabel(duplicate.sport)} bereits
               angelegt. Bitte nicht doppelt anlegen, sondern das vorhandene Team verwenden oder
               bearbeiten.
               {!editingId && (
@@ -1675,7 +1676,7 @@ function TeamManager() {
                   : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
               }`}
             >
-              {sportIcon[s]} {sportLabel(s)} ({countForSport})
+              <Emoji e={sportIcon[s]} /> {sportLabel(s)} ({countForSport})
             </button>
           );
         })}
@@ -1729,7 +1730,7 @@ function TeamManager() {
                     />
                     <span className="min-w-0">
                       <span className="block text-sm font-semibold leading-tight text-ink">
-                        {!team.isNationalTeam && flagEmoji(team.countryCode)} {team.name}
+                        {!team.isNationalTeam && <Emoji e={flagEmoji(team.countryCode)} />} {team.name}
                       </span>
                       <span className="text-xs text-muted">
                         {sportLabel(team.sport)}
@@ -2271,7 +2272,7 @@ function MatchManager() {
             <div key={match.id} className="rounded-card border border-edge bg-surface p-5 sm:p-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-                  <span className="text-base">{sportIcon[match.sport]}</span>
+                  <span className="text-base"><Emoji e={sportIcon[match.sport]} /></span>
                   <span className="font-semibold text-ink">
                     {match.competition}
                     {match.matchday ? ` · Spieltag ${match.matchday}` : ""}
@@ -3338,7 +3339,7 @@ function TournamentRow({
                 className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-ink hover:bg-surface-hover"
               >
                 <input type="checkbox" checked={checked} onChange={() => toggleMatch(match.id)} />
-                <span>{sportIcon[match.sport]}</span>
+                <span><Emoji e={sportIcon[match.sport]} /></span>
                 <span className="min-w-0 flex-1 truncate">
                   {matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")}
                 </span>

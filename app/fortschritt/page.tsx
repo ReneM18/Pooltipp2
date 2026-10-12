@@ -13,6 +13,7 @@ import { EmoteSticker } from "@/components/Emotes";
 import { SeasonHeroLeaves } from "@/components/SeasonDeco";
 import { useFeedback } from "@/lib/FeedbackContext";
 import HalloweenEvent, { useHalloweenPhase } from "@/components/HalloweenEvent";
+import Emoji from "@/components/Emoji";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -363,7 +364,7 @@ function SeasonPassView() {
                 <div key={sport} className="rounded-card border border-edge bg-surface p-4">
                   <div className="mb-2 flex items-center justify-between">
                     <span className="flex items-center gap-1.5 font-display text-sm font-semibold text-ink">
-                      {sportIcon[sport]} {sportLabel(sport)}
+                      <Emoji e={sportIcon[sport]} /> {sportLabel(sport)}
                     </span>
                     <span className="text-xs text-muted">{stat?.total ?? 0} ausgewertete Tipps</span>
                   </div>

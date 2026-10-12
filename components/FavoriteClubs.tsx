@@ -12,6 +12,7 @@ import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { SPORTS, Sport, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { CLUB_MIN_ACTIVE_FANS, CLUB_MIN_TIPS, formatDay, MyClub, useMyClubs } from "@/lib/clubs";
+import Emoji from "@/components/Emoji";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -135,7 +136,7 @@ export default function FavoriteClubs() {
             return (
               <div key={sport} className="min-w-0 rounded-card border border-edge bg-surface p-4">
                 <p className="mb-2 text-xs font-semibold text-muted">
-                  {sportIcon[sport]} {sportLabel(sport)}
+                  <Emoji e={sportIcon[sport]} /> {sportLabel(sport)}
                 </p>
                 <div className="flex items-center gap-3">
                   {team ? (

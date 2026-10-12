@@ -8,6 +8,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { SPORTS, Sport, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { CLUB_MIN_ACTIVE_FANS, ClubTableRow, useClubTable, useMyClubs } from "@/lib/clubs";
+import Emoji from "@/components/Emoji";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -41,7 +42,7 @@ export default function ClubLeaderboard() {
               sport === s ? "border-gold bg-gold/15 text-gold" : "border-edge bg-surface text-muted hover:text-ink"
             }`}
           >
-            <span aria-hidden>{sportIcon[s]}</span>
+            <span aria-hidden><Emoji e={sportIcon[s]} /></span>
             {sportLabel(s)}
           </button>
         ))}
@@ -78,7 +79,7 @@ export default function ClubLeaderboard() {
       ) : rows.length === 0 ? (
         <div className="rounded-card border border-edge bg-surface px-6 py-10 text-center">
           <p className="mb-2 text-3xl" aria-hidden>
-            {sportIcon[sport]}
+            <Emoji e={sportIcon[sport]} />
           </p>
           <h2 className="mb-1 font-display text-lg font-semibold text-ink">Noch keine Fans in {sportLabel(sport)}</h2>
           <p className="mx-auto mb-5 max-w-sm text-sm text-muted">

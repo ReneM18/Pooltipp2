@@ -9,6 +9,7 @@ import { Tournament, TournamentStatus } from "@/lib/tournamentTypes";
 import { getTournamentStatus, useTournamentStandings } from "@/lib/tournamentLeaderboard";
 import { Sport, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { matchTitle, scoreText } from "@/lib/teamOrder";
+import Emoji from "@/components/Emoji";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -181,7 +182,7 @@ function TournamentCard({
                 const away = getTeam(match.awayTeamId);
                 return (
                   <p key={match.id} className="text-xs leading-snug text-ink">
-                    {sportIcon[match.sport]} {matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")}
+                    <Emoji e={sportIcon[match.sport]} /> {matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")}
                     {match.status === "finished" && (
                       <span className="text-muted">
                         {" "}
