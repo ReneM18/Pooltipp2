@@ -10,6 +10,7 @@ import { DuelsProvider } from "@/lib/DuelsContext";
 import { TournamentProvider } from "@/lib/TournamentContext";
 import { FeedbackProvider } from "@/lib/FeedbackContext";
 import { ChatProvider } from "@/lib/ChatContext";
+import { OnlineProvider } from "@/lib/OnlineContext";
 import AppChrome from "@/components/AppChrome";
 import { seasonDesignBootScript } from "@/lib/seasons/design";
 import { startPageBootScript } from "@/lib/startPage";
@@ -97,7 +98,9 @@ export default function RootLayout({
                     <FeedbackProvider>
                       <DuelsProvider>
                         <ChatProvider>
-                          <AppChrome>{children}</AppChrome>
+                          <OnlineProvider>
+                            <AppChrome>{children}</AppChrome>
+                          </OnlineProvider>
                         </ChatProvider>
                       </DuelsProvider>
                     </FeedbackProvider>

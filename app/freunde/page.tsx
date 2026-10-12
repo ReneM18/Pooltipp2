@@ -2,6 +2,7 @@
 
 import EmptyState from "@/components/EmptyState";
 import PlayerAvatar from "@/components/PlayerAvatar";
+import OnlineDot from "@/components/OnlineDot";
 import { useEffect, useRef, useState, FormEvent, ReactNode } from "react";
 import Link from "next/link";
 import { useUser, FriendEntry, PlayerSearchResult } from "@/lib/UserContext";
@@ -35,7 +36,10 @@ function PersonRow({
 }) {
   const person = (
     <>
-      <PlayerAvatar id={id} name={name} size={36} className={muted ? "opacity-60" : ""} />
+      <span className="relative shrink-0">
+        <PlayerAvatar id={id} name={name} size={36} className={muted ? "opacity-60" : ""} />
+        {!muted && <OnlineDot userId={id} size={11} />}
+      </span>
       <span className="min-w-0 flex-1">
         <FitText text={name} className={`text-sm font-semibold ${muted ? "text-muted" : "text-ink"}`} />
         <span className="block text-xs text-muted">#{number}</span>

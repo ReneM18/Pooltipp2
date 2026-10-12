@@ -10,6 +10,7 @@ import PassDecoSettings from "@/components/PassDecoSettings";
 import SaveButton, { useDraft } from "@/components/SaveButton";
 import RivalCompareButton from "@/components/RivalCompare";
 import { StatsVisibility, useStatsVisibility } from "@/lib/rivals";
+import { useOnline } from "@/lib/OnlineContext";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useMyOverallRank } from "@/lib/myOverallRank";
@@ -160,6 +161,8 @@ function ProfilInhalt() {
   const visibilityDraft = useDraft(photoVisibility);
   const statsVisibility = useStatsVisibility(authUserId ?? null);
   const statsDraft = useDraft<StatsVisibility>(statsVisibility.value);
+  const online = useOnline();
+  const onlineDraft = useDraft<boolean>(online.showOnline);
   const playedEarlierSeason = passClaims.some((c) => !c.startsWith(`${CURRENT_SEASON.theme.id}:`));
 
   // Nur Tipps seit dem Neustart der Rangpunkte, damit Trefferquote und
@@ -826,6 +829,44 @@ function ProfilInhalt() {
                   dirty={statsDraft.dirty}
                   saved={statsDraft.saved}
                   onClick={() => statsDraft.save((v) => statsVisibility.save(v))}
+                />
+              </div>
+            </div>
+            <div className="mt-3 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-ink">Online-Status zeigen</p>
+                <p className="text-xs text-muted">
+                  {online.settingState === "missing"
+                    ? "Diese Einstellung wird gerade freigeschaltet – bitte später nochmal probieren."
+                    : "Deine Freunde sehen einen grünen Punkt, wenn du gerade in der App bist."}
+                </p>
+              </div>
+              <div className="grid shrink-0 grid-cols-2 items-center gap-2 sm:flex">
+                {(
+                  [
+                    [true, "🟢 An"],
+                    [false, "⚪ Aus"],
+                  ] as [boolean, string][]
+                ).map(([v, label]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    disabled={online.settingState !== "ready"}
+                    onClick={() => onlineDraft.set(v)}
+                    className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-center text-xs font-semibold transition-colors ${
+                      onlineDraft.value === v
+                        ? "border-gold bg-gold/15 text-gold"
+                        : "border-edge bg-pitch text-muted hover:text-ink"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+                <SaveButton
+                  className="col-span-2 justify-self-start"
+                  dirty={onlineDraft.dirty}
+                  saved={onlineDraft.saved}
+                  onClick={() => onlineDraft.save((v) => online.saveShowOnline(v))}
                 />
               </div>
             </div>
