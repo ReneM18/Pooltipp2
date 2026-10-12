@@ -1,10 +1,13 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
-import { mockLeaderboard } from "@/lib/mockLeaderboard";
-import { getMockUserProfile } from "@/lib/mockUsers";
+import { supabase } from "@/lib/supabaseClient";
+import { ProfileRow, loadProfiles, sumPoints, toPointsBySport } from "@/lib/globalLeaderboard";
+import { RivalCompare as Compare, compareRival } from "@/lib/rivals";
+import { CompareTable } from "@/components/RivalCompare";
 import { usePlayerRankIcons } from "@/lib/playerRankIcons";
 import FitText from "@/components/FitText";
 import RankMeaningBadge from "@/components/RankMeaningBadge";
@@ -15,10 +18,15 @@ import { usePlayerPhoto } from "@/lib/playerPhotos";
 import SeasonFrame, { OtherFrameRing } from "@/components/SeasonFrame";
 import PassHonorTags, { useOtherPlayersFrames, useOtherPlayersHonors } from "@/components/PassHonors";
 
+// Seite eines anderen Spielers (Rene, 12.10.2026: echte Daten statt Demo).
+// Die eigene Seite leitet gleich aufs richtige Profil weiter.
+type Gallery = { visibility: string; allowed: boolean; photos: string[]; missing?: boolean };
+
 export default function SpielerProfilPage() {
   const params = useParams();
   const router = useRouter();
-  const { authUserId, displayName, friends, friendEntries, pendingRequests, photos: myPhotos, activeRankIcon, shownPassHonors } = useUser();
+  const { authUserId, displayName, profileLoaded, friends, friendEntries, pendingRequests, activeRankIcon, shownPassHonors } =
+    useUser();
   const { openChat } = useChat();
   const rankIcons = usePlayerRankIcons();
 
@@ -26,16 +34,18 @@ export default function SpielerProfilPage() {
     Array.isArray(params.name) ? params.name[0] : params.name ?? ""
   );
 
-  const isSelf = name === displayName;
+  const isSelf = !!authUserId && profileLoaded && name === displayName;
   const isFriend = friends.includes(name);
   const isPending = pendingRequests.includes(name);
   const friendEntry = friendEntries.find((f) => f.relation === "friend" && f.name === name);
-  const profile = getMockUserProfile(name);
-  const leaderboardEntry = mockLeaderboard.find((e) => e.name === name);
+
+  // Eigene Seite: gleich ins richtige Profil.
+  useEffect(() => {
+    if (isSelf) router.replace("/profil");
+  }, [isSelf, router]);
   // Eigenes Icon = das im Profil gewählte, bei anderen aus ihren echten Rangpunkten.
   const rankIcon = isSelf ? activeRankIcon : rankIcons.byName(name);
   const hue = avatarHue(friendEntry?.id ?? name);
-  const photosVisible = isSelf || isFriend || profile.photoVisibility === "public";
   // Pass-Rahmen, Titel und Abzeichen, so wie der Spieler sie zeigen will.
   const playerId = friendEntry?.id ?? rankIcons.idByName(name);
   const otherFrame = useOtherPlayersFrames(isSelf ? [] : [playerId])[playerId ?? ""];
@@ -43,6 +53,65 @@ export default function SpielerProfilPage() {
   const honors = isSelf ? shownPassHonors : otherHonors;
   // Profilbild (eigenes bzw. das des Spielers, wenn er es zeigen lässt).
   const avatarPhoto = usePlayerPhoto(isSelf ? authUserId : playerId);
+
+  // Platz in der Gesamt-Rangliste (gleiche Rechnung wie dort: Summe der
+  // Rangpunkte, gleiche Punkte = gleicher Platz, nur Spieler mit Punkten).
+  const [rows, setRows] = useState<ProfileRow[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    loadProfiles(() => cancelled).then((res) => {
+      if (!cancelled && "rows" in res) setRows(res.rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const row = rows?.find((r) => r.id === playerId) ?? rows?.find((r) => r.display_name === name);
+  const total = row ? sumPoints(toPointsBySport(row.rang_punkte)) : 0;
+  const totals = (rows ?? []).map((r) => sumPoints(toPointsBySport(r.rang_punkte))).filter((t) => t > 0);
+  const place = total > 0 ? 1 + totals.filter((t) => t > total).length : null;
+
+  // Statistik wie beim Rivalen-Vergleich (nur, wenn er sie freigibt).
+  const [compare, setCompare] = useState<Compare | null | "fehlt">(null);
+  useEffect(() => {
+    if (!authUserId || !playerId || isSelf) return;
+    let cancelled = false;
+    compareRival(playerId).then((res) => {
+      if (!cancelled) setCompare(res ?? "fehlt");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [authUserId, playerId, isSelf]);
+
+  // Echte Fotos (bis zu 3), nur wenn er sie zeigt (supabase/spielerseite.sql).
+  const [gallery, setGallery] = useState<Gallery | null>(null);
+  useEffect(() => {
+    if (!playerId || isSelf) return;
+    let cancelled = false;
+    supabase.rpc("player_gallery", { p_id: playerId }).then(({ data, error }) => {
+      if (cancelled) return;
+      if (error || !data) {
+        setGallery({ visibility: "friends", allowed: false, photos: [], missing: true });
+        return;
+      }
+      const g = data as Partial<Gallery>;
+      setGallery({
+        visibility: g.visibility === "public" ? "public" : "friends",
+        allowed: !!g.allowed,
+        photos: (Array.isArray(g.photos) ? g.photos : []).filter(
+          (x): x is string => typeof x === "string" && x.startsWith("data:image/")
+        ),
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [playerId, isSelf, isFriend]);
+
+  if (isSelf) {
+    return <main className="mx-auto max-w-3xl px-5 py-8 text-sm text-muted">Weiter zu deinem Profil…</main>;
+  }
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
@@ -105,7 +174,11 @@ export default function SpielerProfilPage() {
             {isSelf && <span className="shrink-0 text-sm font-medium text-muted">(Du)</span>}
           </h1>
           <p className="text-sm text-muted">
-            {leaderboardEntry ? `Platz ${leaderboardEntry.rank} in der Gesamt-Rangliste` : "Noch nicht platziert"}
+            {rows === null
+              ? "\u00a0"
+              : place
+                ? `Platz ${place} von ${totals.length} in der Gesamt-Rangliste · ${total.toLocaleString("de-DE")} Rangpunkte`
+                : "Noch keine Rangpunkte"}
           </p>
           {honors && (honors.title || honors.badges.length > 0) && (
             <div className="mt-2">
@@ -162,69 +235,59 @@ export default function SpielerProfilPage() {
         </div>
       )}
 
-      {profile.bio && <p className="mb-6 text-sm text-muted">{profile.bio}</p>}
+      {authUserId && (
+        <section className="mb-8">
+          <h2 className="mb-3 font-display text-lg font-semibold text-ink">Statistik</h2>
+          {compare === null ? (
+            <p className="text-sm text-muted">Lädt…</p>
+          ) : compare === "fehlt" ? (
+            <p className="text-sm text-muted">Die Statistik kann gerade nicht geladen werden.</p>
+          ) : !compare.other.visible ? (
+            <p className="rounded-card border border-dashed border-edge bg-surface p-5 text-center text-sm text-muted">
+              🔒 {name} zeigt seine Statistik nicht.
+            </p>
+          ) : (
+            <div className="rounded-card border border-edge bg-surface p-4">
+              <p className="mb-2 text-xs text-muted">Du im Vergleich mit {name} – der bessere Wert ist grün.</p>
+              <CompareTable data={compare} />
+            </div>
+          )}
+        </section>
+      )}
 
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-lg font-semibold text-ink">Fotos</h2>
-          {!isSelf && (
+          {gallery && !gallery.missing && (
             <span className="text-xs text-muted">
-              {profile.photoVisibility === "public" ? "🌐 Öffentlich" : "🔒 Nur für Freunde"}
+              {gallery.visibility === "public" ? "🌐 Öffentlich" : "🔒 Nur für Freunde"}
             </span>
           )}
         </div>
 
-        {photosVisible ? (
-          isSelf ? (
-            // Für die eigene Person zeigen wir die echten hochgeladenen
-            // Fotos aus dem Profil (global im UserContext), statt der
-            // dekorativen Mock-Platzhalter der anderen User.
-            myPhotos.some((p) => p) ? (
-              <div className="grid grid-cols-3 gap-3">
-                {myPhotos.map((photo, i) =>
-                  photo ? (
-                    <div
-                      key={i}
-                      className="aspect-square overflow-hidden rounded-card border border-edge"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={photo} alt={`Foto ${i + 1}`} className="h-full w-full object-cover" />
-                    </div>
-                  ) : null
-                )}
-              </div>
-            ) : (
-              <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted">
-                Noch keine Fotos hochgeladen.
-              </p>
-            )
-          ) : profile.photos.length > 0 ? (
-            <div className="grid grid-cols-3 gap-3">
-              {profile.photos.map((photo, i) => (
-                <div
-                  key={i}
-                  className="flex aspect-square items-center justify-center rounded-card border border-edge text-4xl"
-                  style={{
-                    background: `linear-gradient(135deg, ${photo.from}, ${photo.to})`,
-                  }}
-                >
-                  {photo.emoji}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted">
-              Noch keine Fotos hochgeladen.
-            </p>
-          )
-        ) : (
+        {gallery === null ? (
+          <p className="text-sm text-muted">Lädt…</p>
+        ) : gallery.missing ? (
+          <p className="text-sm text-muted">Die Fotos werden gerade freigeschaltet.</p>
+        ) : !gallery.allowed ? (
           <div className="flex flex-col items-center gap-2 rounded-card border border-dashed border-edge bg-surface p-8 text-center">
             <span className="text-3xl">🔒</span>
             <p className="text-sm font-semibold text-ink">Fotos sind privat</p>
-            <p className="text-xs text-muted">
-              Sichtbar, sobald {name} deine Freundschaftsanfrage angenommen hat.
-            </p>
+            <p className="text-xs text-muted">Sichtbar, sobald ihr befreundet seid.</p>
           </div>
+        ) : gallery.photos.length > 0 ? (
+          <div className="grid grid-cols-3 gap-3">
+            {gallery.photos.map((photo, i) => (
+              <div key={i} className="aspect-square overflow-hidden rounded-card border border-edge">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photo} alt={`Foto ${i + 1} von ${name}`} className="h-full w-full object-cover" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted">
+            Noch keine Fotos hochgeladen.
+          </p>
         )}
       </section>
     </main>

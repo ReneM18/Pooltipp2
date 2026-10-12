@@ -142,7 +142,7 @@ function RivalDialog({ onClose }: { onClose: () => void }) {
 
 const pct = (part?: number, total?: number) => (total ? Math.round(((part ?? 0) * 100) / total) : null);
 
-function CompareTable({ data }: { data: Compare }) {
+export function CompareTable({ data }: { data: Compare }) {
   const { me, other, h2h } = data;
   // higher = besser; null = nicht vergleichbar
   const rows: { label: string; hint?: string; a: number | null; b: number | null; show: (n: number | null) => string }[] = [
