@@ -42,7 +42,7 @@ export interface ExpertResult extends TrendResult {
 interface JokerRow extends JokerStock {
   shop_open: boolean;
   trend_matches: string[] | null;
-  experte?: number;
+  // Fehlt, solange supabase/experten-joker.sql nicht gelaufen ist.
   experte_matches?: string[] | null;
 }
 
