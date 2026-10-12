@@ -20,7 +20,7 @@ export default function NewsTicker() {
     function measure() {
       const width = halfRef.current?.offsetWidth ?? 0;
       if (!width) return;
-      const speed = window.innerWidth < 640 ? 38 : 55; // Pixel pro Sekunde
+      const speed = window.innerWidth < 640 ? 55 : 75; // Pixel pro Sekunde (Rene: 38/55 war zu langsam)
       setDuration(Math.max(12, Math.round(width / speed)));
     }
     measure();
