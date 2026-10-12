@@ -299,7 +299,7 @@ function NewsManager() {
     if (!text.trim()) return;
     const pollProblem = pollDraftProblem(poll);
     if (pollProblem) {
-      showToast(pollProblem, "error");
+      showToast(pollProblem, "info");
       return;
     }
     if (!confirm(`Headline „${text.trim()}" veröffentlichen?`)) return;
@@ -402,7 +402,7 @@ function NewsItemRow({
     if (!text.trim()) return;
     const pollProblem = pollDraftProblem(poll);
     if (pollProblem) {
-      showToast(pollProblem, "error");
+      showToast(pollProblem, "info");
       return;
     }
     if (!confirm("Änderungen an dieser Headline speichern?")) return;
