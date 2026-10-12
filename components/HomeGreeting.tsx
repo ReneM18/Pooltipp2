@@ -13,9 +13,13 @@ import RankEmblem from "./RankEmblem";
 // live über Realtime), damit es auf jedem Gerät gleich dasteht.
 
 function greetingFor(date: Date): string {
-  const hour = Number(
-    new Intl.DateTimeFormat("de-AT", { hour: "numeric", hourCycle: "h23", timeZone: "Europe/Vienna" }).format(date)
-  );
+  // Nur die Stunde herausnehmen: format() liefert "13 Uhr", daraus wurde
+  // NaN und damit immer "Guten Abend" (Rene, 12.10.2026).
+  const hourPart = new Intl.DateTimeFormat("de-AT", { hour: "numeric", hourCycle: "h23", timeZone: "Europe/Vienna" })
+    .formatToParts(date)
+    .find((p) => p.type === "hour")?.value;
+  const hour = Number(hourPart);
+  if (!Number.isFinite(hour)) return "Hallo";
   if (hour < 5) return "Hallo";
   if (hour < 11) return "Guten Morgen";
   if (hour < 18) return "Hallo";
@@ -26,7 +30,13 @@ export default function HomeGreeting({ streak, toTip, openCount }: { streak: Str
   const { displayName, isRegistered, sessionChecked, profileLoaded, rangPunkte, prestige, canClaimDailyBonus } = useUser();
   // Tageszeit erst im Browser (Server und Browser haben nicht dieselbe Uhr).
   const [hello, setHello] = useState("Hallo");
-  useEffect(() => setHello(greetingFor(new Date())), []);
+  // Jede Minute neu, damit die Begrüßung auch bei lange offener App stimmt.
+  useEffect(() => {
+    const update = () => setHello(greetingFor(new Date()));
+    update();
+    const timer = setInterval(update, 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const name = isRegistered && displayName.trim() ? displayName.trim() : null;
   const sub =
