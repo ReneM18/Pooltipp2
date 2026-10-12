@@ -797,7 +797,12 @@ export default function MatchCard({
                   Dein Tipp
                   {/* Mit Booster getippt: kleines Blitz-Zeichen */}
                   {(myTip?.stake ?? 0) > 0 && (
-                    <span title="Mit Booster getippt" className="font-semibold text-gold">⚡</span>
+                    <span
+                      title="Mit Booster getippt"
+                      className="rounded-full border border-gold/50 bg-gold/15 px-2 py-px text-[11px] font-bold uppercase tracking-wide text-gold"
+                    >
+                      ⚡ Booster
+                    </span>
                   )}
                 </span>
                 <span className="flex min-w-0 items-center gap-3">
