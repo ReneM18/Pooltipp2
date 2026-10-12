@@ -6,7 +6,7 @@ import { CoinIcon } from "@/components/CoinIcon";
 import { mockShopItems, ShopItem } from "@/lib/mockShopItems";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
-import { useJokers } from "@/lib/JokerContext";
+import { JOKER_ICON, useJokers } from "@/lib/JokerContext";
 import { TaschenSection } from "@/components/TaschenShop";
 import { useTaschen } from "@/lib/TaschenContext";
 
@@ -158,7 +158,10 @@ function ShopItemCard({
     <div className="flex flex-col justify-between rounded-card border border-edge bg-surface p-5">
       <div>
         <div className="flex items-start justify-between gap-3">
-          <h3 className="font-display text-base font-semibold text-ink">{item.name}</h3>
+          <h3 className="font-display text-base font-semibold text-ink">
+            <span aria-hidden>{JOKER_ICON[item.joker]} </span>
+            {item.name}
+          </h3>
           {owned !== null && owned > 0 && (
             <span className="shrink-0 rounded-full border border-gold/40 bg-gold/10 px-2 py-0.5 text-xs font-semibold text-gold">
               Im Vorrat: {owned}

@@ -54,6 +54,17 @@ export const TIP_JOKER_LABEL: Record<TipJoker, string> = {
   toleranz: "Toleranz-Joker",
 };
 
+// Emoji je Joker (Rene, 12.10.2026) – im Shop, auf der Tipp-Karte und in
+// den Taschen gleich.
+export const JOKER_ICON: Record<ShopJoker, string> = {
+  schutz: "🛡️",
+  pause: "⏸️",
+  doppel: "✖️2",
+  toleranz: "🎯",
+  trend: "📊",
+  experte: "🎓",
+};
+
 // Kurze Wirkung, steht auf der Tipp-Karte unter dem gesetzten Joker.
 export const TIP_JOKER_EFFECT: Record<TipJoker, string> = {
   schutz: "Liegst du daneben, zählt der Tipp 0 statt Minus.",
