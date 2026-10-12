@@ -4,6 +4,7 @@ import { TICKER_SPEED_MAX, TICKER_SPEED_MIN, TickerSpeed } from "@/lib/appSettin
 import { useState, useRef, useEffect, FormEvent } from "react";
 import Link from "next/link";
 import { useAppData, NewsItem } from "@/lib/AppDataContext";
+import { NewsPoll, POLL_MAX_OPTIONS, cleanPoll, useNewsPoll } from "@/lib/newsPolls";
 import { useUser } from "@/lib/UserContext";
 import { useTournaments } from "@/lib/TournamentContext";
 import { Tournament } from "@/lib/tournamentTypes";
@@ -291,15 +292,22 @@ function NewsManager() {
   const [text, setText] = useState("");
   const [sport, setSport] = useState<NewsSport | "">("");
   const [article, setArticle] = useState("");
+  const [poll, setPoll] = useState<PollDraft | null>(null);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!text.trim()) return;
+    const pollProblem = pollDraftProblem(poll);
+    if (pollProblem) {
+      showToast(pollProblem, "error");
+      return;
+    }
     if (!confirm(`Headline „${text.trim()}" veröffentlichen?`)) return;
-    addNews(text.trim(), sport || null, article.trim() || null);
+    addNews(text.trim(), sport || null, article.trim() || null, pollFromDraft(poll));
     setText("");
     setSport("");
     setArticle("");
+    setPoll(null);
     showToast("✓ Headline veröffentlicht.", "success");
   }
 
@@ -350,6 +358,8 @@ function NewsManager() {
           />
         </div>
 
+        <PollEditor value={poll} onChange={setPoll} />
+
         <button
           type="submit"
           className="self-start rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover"
@@ -378,7 +388,7 @@ function NewsItemRow({
   onRemove,
 }: {
   item: NewsItem;
-  onSave: (id: string, text: string, sport: NewsSport | null, article: string | null) => void;
+  onSave: (id: string, text: string, sport: NewsSport | null, article: string | null, poll?: NewsPoll | null) => void;
   onRemove: (id: string) => void;
 }) {
   const { showToast } = useFeedback();
@@ -386,11 +396,17 @@ function NewsItemRow({
   const [text, setText] = useState(item.text);
   const [sport, setSport] = useState<NewsSport | "">(item.sport ?? "");
   const [article, setArticle] = useState(item.article ?? "");
+  const [poll, setPoll] = useState<PollDraft | null>(draftFromPoll(item.poll));
 
   function handleSave() {
     if (!text.trim()) return;
+    const pollProblem = pollDraftProblem(poll);
+    if (pollProblem) {
+      showToast(pollProblem, "error");
+      return;
+    }
     if (!confirm("Änderungen an dieser Headline speichern?")) return;
-    onSave(item.id, text.trim(), sport || null, article.trim() || null);
+    onSave(item.id, text.trim(), sport || null, article.trim() || null, pollFromDraft(poll));
     setEditing(false);
     showToast("✓ Änderungen gespeichert.", "success");
   }
@@ -399,6 +415,7 @@ function NewsItemRow({
     setText(item.text);
     setSport(item.sport ?? "");
     setArticle(item.article ?? "");
+    setPoll(draftFromPoll(item.poll));
     setEditing(false);
   }
 
@@ -418,6 +435,7 @@ function NewsItemRow({
           placeholder="Artikeltext (optional)"
           className="w-full resize-y rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
         />
+        <PollEditor value={poll} onChange={setPoll} newsId={item.poll ? item.id : undefined} />
         <div className="flex gap-2">
           <button
             onClick={handleSave}
@@ -446,6 +464,9 @@ function NewsItemRow({
             Artikel
           </span>
         )}
+        {item.poll && (
+          <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-semibold text-gold">📊 Abstimmung</span>
+        )}
       </span>
       <span className="flex shrink-0 items-center gap-3">
         <button onClick={() => setEditing(true)} className="text-xs text-muted hover:text-gold">
@@ -463,6 +484,151 @@ function NewsItemRow({
           Entfernen
         </button>
       </span>
+    </div>
+  );
+}
+
+// ---- Abstimmung zur News (lib/newsPolls.ts, supabase/abstimmungen.sql) ----
+// Entwurf im Formular: Ende als Eingabe-Text der Datumsauswahl ("" = nie).
+interface PollDraft {
+  question: string;
+  options: string[];
+  endsLocal: string;
+  endless: boolean;
+}
+
+function draftFromPoll(poll: NewsPoll | null | undefined): PollDraft | null {
+  if (!poll) return null;
+  return {
+    question: poll.question,
+    options: [...poll.options],
+    endsLocal: poll.endsAt ? toLocalInputValue(poll.endsAt) : "",
+    endless: !poll.endsAt,
+  };
+}
+
+function pollFromDraft(draft: PollDraft | null): NewsPoll | null {
+  if (!draft) return null;
+  return cleanPoll({
+    question: draft.question,
+    options: draft.options,
+    endsAt: !draft.endless && draft.endsLocal ? new Date(draft.endsLocal).toISOString() : null,
+  });
+}
+
+function pollDraftProblem(draft: PollDraft | null): string | null {
+  if (!draft) return null;
+  if (!draft.question.trim()) return "Bei der Abstimmung fehlt die Frage.";
+  if (draft.options.filter((o) => o.trim()).length < 2) return "Die Abstimmung braucht mindestens 2 Antworten.";
+  if (!draft.endless && !draft.endsLocal) return "Bei der Abstimmung fehlt das Ende (Datum und Uhrzeit).";
+  return null;
+}
+
+function PollEditor({
+  value,
+  onChange,
+  newsId,
+}: {
+  value: PollDraft | null;
+  onChange: (next: PollDraft | null) => void;
+  newsId?: string;
+}) {
+  // Gibt es schon Stimmen, bleiben Anzahl und Reihenfolge der Antworten fix –
+  // sonst würden Stimmen plötzlich bei einer anderen Antwort zählen.
+  const results = useNewsPoll(newsId ?? null, null);
+  const locked = !!newsId && results.total > 0;
+
+  if (!value) {
+    return (
+      <button
+        type="button"
+        onClick={() => onChange({ question: "", options: ["", ""], endsLocal: "", endless: true })}
+        className="self-start rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold transition-colors hover:bg-gold/10"
+      >
+        📊 Abstimmung hinzufügen
+      </button>
+    );
+  }
+
+  const set = (patch: Partial<PollDraft>) => onChange({ ...value, ...patch });
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-gold/35 bg-gold/[0.05] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-display text-sm font-semibold text-ink">📊 Abstimmung</span>
+        {!locked && (
+          <button type="button" onClick={() => onChange(null)} className="text-xs text-muted hover:text-ink">
+            Entfernen
+          </button>
+        )}
+      </div>
+      <input
+        value={value.question}
+        onChange={(e) => set({ question: e.target.value })}
+        placeholder="Frage, z. B. Soll Alaba heute spielen?"
+        className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+      />
+      {value.options.map((option, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <input
+            value={option}
+            onChange={(e) => set({ options: value.options.map((o, j) => (j === i ? e.target.value : o)) })}
+            placeholder={`Antwort ${i + 1}`}
+            className="min-w-0 flex-1 rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+          />
+          {!locked && value.options.length > 2 && (
+            <button
+              type="button"
+              onClick={() => set({ options: value.options.filter((_, j) => j !== i) })}
+              className="shrink-0 px-1 text-sm text-muted hover:text-ink"
+              aria-label={`Antwort ${i + 1} entfernen`}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      ))}
+      {!locked && value.options.length < POLL_MAX_OPTIONS && (
+        <button
+          type="button"
+          onClick={() => set({ options: [...value.options, ""] })}
+          className="self-start rounded-full border border-edge px-3 py-1 text-xs text-muted hover:text-ink"
+        >
+          + Antwort (max. {POLL_MAX_OPTIONS})
+        </button>
+      )}
+      {locked && (
+        <p className="text-xs text-muted">
+          Es gibt schon {results.total} {results.total === 1 ? "Stimme" : "Stimmen"}: Du kannst die Texte noch ausbessern,
+          aber keine Antworten mehr dazugeben oder entfernen.
+        </p>
+      )}
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-muted">Endet:</span>
+        {([
+          [true, "nie"],
+          [false, "am Datum"],
+        ] as [boolean, string][]).map(([endless, label]) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => set({ endless })}
+            className={`rounded-full border px-3 py-1 font-semibold ${
+              value.endless === endless ? "border-gold bg-gold/15 text-gold" : "border-edge bg-pitch text-muted hover:text-ink"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {!value.endless && (
+        <DateTimeInput value={value.endsLocal} onChange={(v) => set({ endsLocal: v })} ariaLabel="Ende der Abstimmung" defaultToday />
+      )}
+      {results.total > 0 && (
+        <p className="text-xs text-muted">
+          Stand: {value.options.map((o, i) => `${o.trim() || `Antwort ${i + 1}`} ${results.counts[i] ?? 0}`).join(" · ")}
+        </p>
+      )}
     </div>
   );
 }

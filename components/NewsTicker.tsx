@@ -6,6 +6,7 @@ import { useAppData, NewsItem } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import NewsSportIcon from "@/components/NewsSportIcon";
 import CommentThread from "@/components/CommentThread";
+import NewsPollView from "@/components/NewsPoll";
 
 export default function NewsTicker() {
   const { newsItems, tickerSpeed } = useAppData();
@@ -55,6 +56,7 @@ export default function NewsTicker() {
           className="flex shrink-0 items-center gap-1.5 whitespace-nowrap font-display text-sm font-semibold text-pitch transition-opacity hover:opacity-70"
         >
           {item.sport && <span><NewsSportIcon sport={item.sport} /></span>}
+          {item.poll && <span aria-label="mit Abstimmung">📊</span>}
           <span>{item.text}</span>
         </button>
       ))}
@@ -95,6 +97,7 @@ export default function NewsTicker() {
               <p className="whitespace-pre-line text-base leading-relaxed text-muted">
                 {selected.article ?? "Zu dieser Meldung gibt es noch keinen ausführlichen Artikel."}
               </p>
+              {selected.poll && <NewsPollView newsId={selected.id} poll={selected.poll} />}
               {/* Kommentare zu jeder Meldung (mit oder ohne Artikel) */}
               <div className="mt-6 border-t border-edge pt-4">
                 <CommentThread threadId={`news:${selected.id}`} />
