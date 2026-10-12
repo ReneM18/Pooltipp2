@@ -5,6 +5,7 @@ import { createContext, useContext, useState, useEffect, useMemo, useRef, ReactN
 import { supabase } from "@/lib/supabaseClient";
 import { coinText } from "@/lib/coinText";
 import { useAppRefresh } from "./appRefresh";
+import type { NewsPoll } from "./newsPolls";
 import { Match, MatchJersey, NEWS_SPORT_ICONS, NewsSport, Sport, SPORT_ICONS, Team, TipMode } from "./types";
 import {
   Competition,
@@ -148,6 +149,8 @@ export interface NewsItem {
   article: string | null; // ausführlicher Artikeltext, öffnet sich beim Antippen der Headline
   sport: NewsSport | null; // null = allgemeine News ohne Sportart-Icon
   createdAt: string;
+  // Abstimmung zur News (supabase/abstimmungen.sql), sonst leer.
+  poll?: NewsPoll | null;
 }
 
 export interface SubmittedBonusAnswer {
@@ -466,8 +469,8 @@ interface AppDataContextValue {
   // Lädt die eigenen Bonus-Antworten (Tabelle bonus_answers) neu.
   reloadMyBonusAnswers: () => Promise<void>;
   newsItems: NewsItem[];
-  addNews: (text: string, sport: NewsSport | null, article: string | null) => void;
-  updateNews: (id: string, text: string, sport: NewsSport | null, article: string | null) => void;
+  addNews: (text: string, sport: NewsSport | null, article: string | null, poll?: NewsPoll | null) => void;
+  updateNews: (id: string, text: string, sport: NewsSport | null, article: string | null, poll?: NewsPoll | null) => void;
   removeNews: (id: string) => void;
   comments: Comment[];
   getCommentsForMatch: (matchId: string) => Comment[];
@@ -1447,19 +1450,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       });
   }
 
-  function addNews(text: string, sport: NewsSport | null, article: string | null) {
+  function addNews(text: string, sport: NewsSport | null, article: string | null, poll: NewsPoll | null = null) {
     const id = `news-${Date.now()}`;
     setNewsItems((current) => [
-      { id, text, sport, article, createdAt: new Date().toISOString() },
+      { id, text, sport, article, createdAt: new Date().toISOString(), poll },
       ...current,
     ]);
     const newsText = `Neue Schlagzeile: „${text}“`;
     addActivity(sport ? NEWS_SPORT_ICONS[sport] : "📰", newsText, { author: "PoolTipp", text: newsText });
   }
 
-  function updateNews(id: string, text: string, sport: NewsSport | null, article: string | null) {
+  function updateNews(id: string, text: string, sport: NewsSport | null, article: string | null, poll: NewsPoll | null = null) {
     setNewsItems((current) =>
-      current.map((n) => (n.id === id ? { ...n, text, sport, article } : n))
+      current.map((n) => (n.id === id ? { ...n, text, sport, article, poll } : n))
     );
   }
 
