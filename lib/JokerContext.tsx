@@ -12,13 +12,14 @@ import { useAppData } from "@/lib/AppDataContext";
 // "ready" auf false und die App zeigt nur die Shop-Vorschau.
 
 export type TipJoker = "schutz" | "doppel" | "toleranz";
-export type ShopJoker = TipJoker | "pause" | "trend";
+export type ShopJoker = TipJoker | "pause" | "trend" | "experte";
 
 export interface JokerStock {
   schutz: number;
   doppel: number;
   toleranz: number;
   trend: number;
+  experte: number;
   pause: number;
 }
 
@@ -29,12 +30,23 @@ export interface TrendResult {
   gast: number;
 }
 
+// Experten-Joker (supabase/experten-joker.sql): zusätzlich das häufigste
+// Ergebnis der Top 30 % der Sportart – erst ab 3 Top-Tippern (sonst null).
+// Bei 1X2 steht in "heim": 1 = Heimsieg, 0 = Remis, -1 = Auswärtssieg.
+export interface ExpertResult extends TrendResult {
+  top_tipper: number;
+  top: { heim: number; gast: number; anzahl: number } | null;
+  eins_x_zwei: boolean;
+}
+
 interface JokerRow extends JokerStock {
   shop_open: boolean;
   trend_matches: string[] | null;
+  experte?: number;
+  experte_matches?: string[] | null;
 }
 
-const EMPTY: JokerStock = { schutz: 0, doppel: 0, toleranz: 0, trend: 0, pause: 0 };
+const EMPTY: JokerStock = { schutz: 0, doppel: 0, toleranz: 0, trend: 0, experte: 0, pause: 0 };
 
 export const TIP_JOKER_LABEL: Record<TipJoker, string> = {
   schutz: "Schutz-Joker",
@@ -55,9 +67,11 @@ interface JokerContextValue {
   canBuy: boolean;
   stock: JokerStock;
   trendMatches: string[];
+  expertMatches: string[];
   buyJoker: (joker: ShopJoker) => Promise<string | null>;
   setTipJoker: (matchId: string, joker: TipJoker | null) => Promise<string | null>;
   revealTrend: (matchId: string) => Promise<TrendResult | string>;
+  revealExpert: (matchId: string) => Promise<ExpertResult | string>;
   setShopOpen: (open: boolean) => Promise<string | null>;
   reloadJokers: () => Promise<void>;
 }
@@ -72,6 +86,7 @@ function errorText(message: string | undefined): string {
     "Der Joker-Shop ist noch gesperrt.",
     "Kein Joker dieser Art im Vorrat",
     "Kein Trend-Joker im Vorrat",
+    "Kein Experten-Joker im Vorrat",
     "Erst tippen, dann den Joker setzen",
     "Der Toleranz-Joker gilt nur für Ergebnis-Tipps",
     "Tippschluss: Joker können nicht mehr geändert werden",
@@ -87,12 +102,21 @@ export function JokerProvider({ children }: { children: ReactNode }) {
   const [shopOpen, setShopOpenState] = useState(false);
   const [stock, setStock] = useState<JokerStock>(EMPTY);
   const [trendMatches, setTrendMatches] = useState<string[]>([]);
+  const [expertMatches, setExpertMatches] = useState<string[]>([]);
   const requestRef = useRef(0);
 
   function apply(row: JokerRow) {
-    setStock({ schutz: row.schutz, doppel: row.doppel, toleranz: row.toleranz, trend: row.trend, pause: row.pause });
+    setStock({
+      schutz: row.schutz,
+      doppel: row.doppel,
+      toleranz: row.toleranz,
+      trend: row.trend,
+      experte: row.experte ?? 0, // fehlt, solange experten-joker.sql nicht gelaufen ist
+      pause: row.pause,
+    });
     setShopOpenState(row.shop_open);
     setTrendMatches(row.trend_matches ?? []);
+    setExpertMatches(row.experte_matches ?? []);
     setReady(true);
   }
 
@@ -113,6 +137,7 @@ export function JokerProvider({ children }: { children: ReactNode }) {
     setReady(false);
     setStock(EMPTY);
     setTrendMatches([]);
+    setExpertMatches([]);
     void reloadJokers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUserId]);
@@ -175,6 +200,13 @@ export function JokerProvider({ children }: { children: ReactNode }) {
     return data as TrendResult;
   }
 
+  async function revealExpert(matchId: string): Promise<ExpertResult | string> {
+    const { data, error } = await supabase.rpc("use_experten_joker", { p_match_id: matchId });
+    void reloadJokers();
+    if (error || !data) return errorText(error?.message);
+    return data as ExpertResult;
+  }
+
   async function setShopOpen(open: boolean): Promise<string | null> {
     const { error } = await supabase.rpc("set_shop_open", { p_open: open });
     await reloadJokers();
@@ -189,9 +221,11 @@ export function JokerProvider({ children }: { children: ReactNode }) {
         canBuy: ready && (shopOpen || isAdmin),
         stock,
         trendMatches,
+        expertMatches,
         buyJoker,
         setTipJoker,
         revealTrend,
+        revealExpert,
         setShopOpen,
         reloadJokers,
       }}

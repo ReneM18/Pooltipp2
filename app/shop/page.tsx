@@ -89,8 +89,9 @@ export default function ShopPage() {
           <p className="font-semibold text-ink">So setzt du Joker ein</p>
           <p className="mt-1">
             Schutz-, Doppel- und Toleranz-Joker setzt du nach dem Tippen direkt auf der Tipp-Karte, bis zum
-            Tippschluss. Pro Tipp geht ein Joker, abnehmen geht auch. Den Trend-Joker öffnest du ebenfalls auf der
-            Tipp-Karte. Der Pause-Joker wirkt von allein, wenn du eine Woche nicht tippst.
+            Tippschluss. Pro Tipp geht ein Joker, abnehmen geht auch. Trend- und Experten-Joker öffnest du auch
+            auf der Tipp-Karte, vor dem Tippschluss. Einmal bezahlt, kannst du den Trend bei diesem Spiel
+            jederzeit gratis wieder ansehen. Der Pause-Joker wirkt von allein, wenn du eine Woche nicht tippst.
           </p>
         </div>
       )}
