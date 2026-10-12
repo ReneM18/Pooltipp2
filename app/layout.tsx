@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Rajdhani, Inter, Poppins } from "next/font/google";
+import { Rajdhani, Inter, Poppins, Noto_Color_Emoji } from "next/font/google";
 import "./globals.css";
 import { JokerProvider } from "@/lib/JokerContext";
 import { TaschenProvider } from "@/lib/TaschenContext";
@@ -34,6 +34,26 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
+// Emojis (Rene, 12.10.2026): Jedes Gerät zeichnet Emojis selbst. Apple-Geräte
+// behalten ihre eigenen; alle anderen (v. a. Windows, dort sind Flaggen nur
+// Buchstaben wie "AT") bekommen die Google-Emojis "Noto". Welche Geräte das
+// sind, entscheidet das Skript EMOJI_BOOT unten (data-emoji an <html>), die
+// Schrift-Reihenfolge steht in app/globals.css (--emoji-stack). Nicht
+// vorladen: Apple-Geräte laden die Schrift so nie herunter, die anderen nur
+// die Teile, die auf der Seite wirklich vorkommen.
+const notoEmoji = Noto_Color_Emoji({
+  weight: "400",
+  subsets: ["emoji"],
+  variable: "--font-emoji",
+  display: "swap",
+  preload: false,
+  // Keine Ersatz-Schrift mit Arial-Maßen: die würde sonst Sonderzeichen wie
+  // ✓ oder › verzerren.
+  adjustFontFallback: false,
+});
+
+const EMOJI_BOOT = `(function(){try{if(!/iPhone|iPad|iPod|Macintosh|Mac OS X/i.test(navigator.userAgent))document.documentElement.setAttribute("data-emoji","noto");}catch(e){}})();`;
+
 export const metadata: Metadata = {
   title: "PoolTipp",
   description: "Das Social-Tippspiel für echte Sportfans.",
@@ -56,7 +76,7 @@ export default function RootLayout({
   return (
     <html
       lang="de"
-      className={`${rajdhani.variable} ${poppins.variable} ${inter.variable}`}
+      className={`${rajdhani.variable} ${poppins.variable} ${inter.variable} ${notoEmoji.variable}`}
       // Das Saison-Design setzt seine Farben schon vor React an <html>.
       suppressHydrationWarning
     >
@@ -65,6 +85,7 @@ export default function RootLayout({
             Zeichnen, siehe lib/startPage.ts. */}
         <script dangerouslySetInnerHTML={{ __html: startPageBootScript() }} />
         <script dangerouslySetInnerHTML={{ __html: seasonDesignBootScript() }} />
+        <script dangerouslySetInnerHTML={{ __html: EMOJI_BOOT }} />
       </head>
       <body className="font-body min-h-screen bg-pitch text-ink antialiased">
         <AppDataProvider>

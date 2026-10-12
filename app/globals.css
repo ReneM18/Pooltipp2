@@ -4,6 +4,12 @@
 
 html {
   color-scheme: dark;
+  /* Emojis: auf Apple-Geräten die eigenen, sonst Google "Noto"
+     (data-emoji setzt ein Skript in app/layout.tsx). */
+  --emoji-stack: sans-serif;
+}
+html[data-emoji="noto"] {
+  --emoji-stack: var(--font-emoji);
 }
 
 html,
