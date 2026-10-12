@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, FormEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Match, Sport, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
@@ -12,7 +12,7 @@ import { useFeedback } from "@/lib/FeedbackContext";
 import { TIP_JOKER_EFFECT, TIP_JOKER_LABEL, TipJoker, TrendResult, useJokers } from "@/lib/JokerContext";
 import { useTaschen } from "@/lib/TaschenContext";
 import type { SeasonEmote } from "@/lib/seasons";
-import { allowsDraw as sportAllowsDraw, displayOrder, isAwayFirst, oneXTwoText, pickNumber } from "@/lib/teamOrder";
+import { allowsDraw as sportAllowsDraw, displayOrder, isAwayFirst, oneXTwoText, pickNumber, scoreText } from "@/lib/teamOrder";
 import TeamBadge, { jerseyFor, matchJerseyProps } from "./TeamBadge";
 import PlayerAvatar from "./PlayerAvatar";
 import CountdownTiles from "./CountdownTiles";
@@ -24,6 +24,8 @@ import { CoinIcon } from "./CoinIcon";
 import { competitionDisplayName, competitionFlag } from "@/lib/competitionFlag";
 import { TvIcon, PlayIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
 import { SeasonCardWatermark } from "./SeasonDeco";
+import ShareTipButton from "./ShareTipCard";
+import type { ShareCardData } from "@/lib/shareCard";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -341,6 +343,47 @@ export default function MatchCard({
           isOneXTwo
         )
       : null;
+
+  // Tipp-Karte zum Teilen (components/ShareTipCard.tsx): nur nach einem
+  // Treffer, nicht bei alten Tipps vor dem Neustart der Rangpunkte.
+  const shareTier = myTip?.evaluated && !myTip.refunded && !myTip.rankingLegacy ? myTip.resultTier : undefined;
+  const shareData = useMemo<ShareCardData | null>(() => {
+    if (!myTip || !finalScore || !shareTier || shareTier === "falsch") return null;
+    const date = new Date(match.kickoff)
+      .toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", timeZone: "Europe/Vienna" })
+      .replace(".,", "");
+    const tipText = isOneXTwo
+      ? `Mein Tipp: ${oneXTwoText(match.sport, myTip.predictedHomeScore, myTip.predictedAwayScore, homeTeam.name, awayTeam.name)}`
+      : shareTier === "exakt"
+      ? null
+      : `Mein Tipp: ${scoreText(match.sport, myTip.predictedHomeScore, myTip.predictedAwayScore, " : ")}`;
+    return {
+      exact: shareTier === "exakt",
+      playerName: displayName || "Ich",
+      leftName: leftTeam.name,
+      rightName: rightTeam.name,
+      scoreText: scoreText(match.sport, finalScore.home, finalScore.away),
+      tipText,
+      // Ohne Flagge: Windows zeigt Flaggen-Emojis nur als Buchstaben ("AT").
+      metaText: `${competitionName} · ${date}`,
+      rangDelta: myTip.rangDelta ?? 0,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    shareTier,
+    myTip?.predictedHomeScore,
+    myTip?.predictedAwayScore,
+    myTip?.rangDelta,
+    finalScore?.home,
+    finalScore?.away,
+    displayName,
+    match.kickoff,
+    match.sport,
+    leftTeam.name,
+    rightTeam.name,
+    competitionName,
+    isOneXTwo,
+  ]);
 
   // 1X2 mit Teamnamen statt "Heimsieg (1)": eindeutig, egal auf welcher
   // Seite das Heimteam steht. Gespeichert wird weiter 1:0 / 0:0 / 0:1.
@@ -886,7 +929,7 @@ export default function MatchCard({
             )}
 
             {hasTipped && myTip?.evaluated && !myTip.refunded && !isCancelled && (
-              <PoolScoreResultBox myTip={myTip!} comparison={comparison} isOneXTwo={isOneXTwo} />
+              <PoolScoreResultBox myTip={myTip!} comparison={comparison} isOneXTwo={isOneXTwo} shareData={shareData} />
             )}
 
             {match.bonusQuestion && myBonusAnswer && (
@@ -1362,10 +1405,12 @@ function PoolScoreResultBox({
   myTip,
   comparison,
   isOneXTwo,
+  shareData,
 }: {
   myTip: MyTip;
   comparison: { beaten: number; tied: number; ahead: number; total: number } | null;
   isOneXTwo: boolean;
+  shareData: ShareCardData | null;
 }) {
   const tier = myTip.resultTier ?? "falsch";
   const rangDelta = myTip.rangDelta ?? 0;
@@ -1477,6 +1522,7 @@ function PoolScoreResultBox({
           Bonus: Bessere zu schlagen bringt doppelt, gegen Schwächere zu verlieren kostet doppelt.
         </p>
       )}
+      {shareData && <ShareTipButton data={shareData} />}
     </div>
   );
 }
