@@ -827,11 +827,9 @@ export default function MatchCard({
                       >
                         {pickButtonNumber(scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore))}
                       </span>
-                      <span
-                        className={`min-w-0 [overflow-wrap:anywhere] ${
-                          allowsDraw ? "text-xs leading-tight text-muted" : "text-sm leading-tight text-ink/85"
-                        }`}
-                      >
+                      {/* Nur zwischen Wörtern umbrechen ("Buffalo / Bills"), nie
+                          mitten im Wort ("Unentschiede / n"). */}
+                      <span className={allowsDraw ? "text-xs leading-tight text-muted" : "text-sm leading-tight text-ink/85"}>
                         {(() => {
                           const pick = scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore);
                           return pick === "1" ? homeTeam.name : pick === "2" ? awayTeam.name : "Unentschieden";
