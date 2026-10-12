@@ -1,5 +1,6 @@
 "use client";
 
+import { AppSettingsRow, DEFAULT_TICKER_SPEED, SETTINGS_ROW_ID, TickerSpeed, readTickerSpeed } from "./appSettings";
 import { createContext, useContext, useState, useEffect, useMemo, useRef, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { coinText } from "@/lib/coinText";
@@ -393,6 +394,11 @@ interface AppDataContextValue {
   // (tip_tendencies, supabase/community-tendenz.sql). Leer, solange das SQL
   // fehlt – dann zeigt die Karte einfach keinen Balken.
   tipTendencies: Record<string, TipTendency>;
+  // Tempo des News-Bands in Pixel pro Sekunde (Admin stellt ein, lib/appSettings.ts)
+  tickerSpeed: TickerSpeed;
+  tickerSpeedSaved: TickerSpeed;
+  previewTickerSpeed: (speed: TickerSpeed) => void;
+  saveTickerSpeed: (speed: TickerSpeed) => Promise<boolean>;
   registerTip: (matchId: string) => void;
   tipsBySport: Record<Sport, number>;
   myTips: SubmittedTip[];
@@ -502,6 +508,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [myTips, setMyTips] = useState<SubmittedTip[]>([]);
   const [myBonusAnswers, setMyBonusAnswers] = useState<SubmittedBonusAnswer[]>([]);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [tickerSpeed, setTickerSpeed] = useState<TickerSpeed>(DEFAULT_TICKER_SPEED);
+  // Zuletzt gespeicherter Stand (Datenbank) – der Admin-Regler vergleicht damit.
+  const [tickerSpeedSaved, setTickerSpeedSavedState] = useState<TickerSpeed>(DEFAULT_TICKER_SPEED);
+  const tickerSpeedSavedRef = useRef<TickerSpeed>(DEFAULT_TICKER_SPEED);
+  function setTickerSpeedSaved(speed: TickerSpeed) {
+    tickerSpeedSavedRef.current = speed;
+    setTickerSpeedSavedState(speed);
+  }
   const [comments, setComments] = useState<Comment[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
 
@@ -603,8 +617,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         // Die Wettbewerbe liegen als eigene Zeile in derselben Tabelle –
         // die gehört nicht zu den Teams.
         const compRow = teamsRes.data.find((row) => row.id === COMPETITIONS_ROW_ID);
+        // Admin-Einstellungen (z. B. Tempo News-Band) liegen ebenfalls dort.
+        const loadedSpeed = readTickerSpeed(teamsRes.data.find((row) => row.id === SETTINGS_ROW_ID)?.data);
+        setTickerSpeed(loadedSpeed);
+        setTickerSpeedSaved(loadedSpeed);
         const loadedTeams = teamsRes.data
-          .filter((row) => row.id !== COMPETITIONS_ROW_ID)
+          .filter((row) => row.id !== COMPETITIONS_ROW_ID && row.id !== SETTINGS_ROW_ID)
           .map((row) => row.data as Team);
         syncedTeamsRef.current = new Map(loadedTeams.map((t) => [t.id, t]));
         setTeams(loadedTeams);
@@ -664,7 +682,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (adminWriteAtRef.current >= startedAt) return;
     if (loadedFromDb.teams && !teamsRes.error && teamsRes.data) {
       const compRow = teamsRes.data.find((row) => row.id === COMPETITIONS_ROW_ID);
-      const nextTeams = teamsRes.data.filter((row) => row.id !== COMPETITIONS_ROW_ID).map((row) => row.data as Team);
+      const nextSpeed = readTickerSpeed(teamsRes.data.find((row) => row.id === SETTINGS_ROW_ID)?.data);
+      // Nur übernehmen, wenn sich der gespeicherte Stand geändert hat – sonst
+      // würde ein Admin beim Ausprobieren (noch nicht gespeichert) zurückgesetzt.
+      if (!sameJson(tickerSpeedSavedRef.current, nextSpeed)) {
+        setTickerSpeedSaved(nextSpeed);
+        setTickerSpeed(nextSpeed);
+      }
+      const nextTeams = teamsRes.data
+        .filter((row) => row.id !== COMPETITIONS_ROW_ID && row.id !== SETTINGS_ROW_ID)
+        .map((row) => row.data as Team);
       setTeams((current) => {
         if (sameJson(current, nextTeams)) return current;
         remoteContentRef.current.teams = nextTeams;
@@ -900,6 +927,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       .then(({ error }) => {
         if (error) console.warn("Team konnte nicht gelöscht werden:", error.message);
       });
+  }
+
+  // Tempo des News-Bands (Admin, alle Spieler). previewTickerSpeed ändert nur
+  // die eigene Ansicht (Regler ziehen), saveTickerSpeed speichert für alle.
+  function previewTickerSpeed(speed: TickerSpeed) {
+    setTickerSpeed(speed);
+  }
+  async function saveTickerSpeed(speed: TickerSpeed): Promise<boolean> {
+    setTickerSpeed(speed);
+    adminWriteAtRef.current = Date.now();
+    const row: AppSettingsRow = { kind: "settings", tickerSpeed: speed };
+    const { error } = await supabase
+      .from("teams")
+      .upsert({ id: SETTINGS_ROW_ID, data: row, updated_at: new Date().toISOString() }, { onConflict: "id" });
+    if (error) console.warn("Einstellungen konnten nicht gespeichert werden:", error.message);
+    else setTickerSpeedSaved(speed);
+    return !error;
   }
 
   // Speichert die komplette Wettbewerbs-Liste als eine Zeile (siehe
@@ -1544,6 +1588,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         getTeam,
         tipCounts,
         tipTendencies,
+        tickerSpeed,
+        tickerSpeedSaved,
+        previewTickerSpeed,
+        saveTickerSpeed,
         registerTip,
         tipsBySport,
         myTips,

@@ -1,5 +1,6 @@
 "use client";
 
+import { TICKER_SPEED_MAX, TICKER_SPEED_MIN, TickerSpeed } from "@/lib/appSettings";
 import { useState, useRef, useEffect, FormEvent } from "react";
 import Link from "next/link";
 import { useAppData, NewsItem } from "@/lib/AppDataContext";
@@ -201,6 +202,89 @@ function ShopSwitch() {
   );
 }
 
+// Tempo des News-Bands: zwei Regler (Handy / PC). Beim Ziehen läuft das
+// Band oben sofort im neuen Tempo (nur bei dir), "Speichern" stellt es für
+// alle Spieler ein (Rene, 12.10.2026).
+function TickerSpeedEditor() {
+  const { tickerSpeed, tickerSpeedSaved: saved, previewTickerSpeed, saveTickerSpeed } = useAppData();
+  const { showToast } = useFeedback();
+  const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const dirty = saved.mobile !== tickerSpeed.mobile || saved.desktop !== tickerSpeed.desktop;
+
+  async function save() {
+    setSaving(true);
+    const ok = await saveTickerSpeed(tickerSpeed);
+    setSaving(false);
+    if (ok) {
+      setJustSaved(true);
+      window.setTimeout(() => setJustSaved(false), 2500);
+    } else {
+      showToast("Speichern hat nicht geklappt – bitte nochmal versuchen.", "info");
+    }
+  }
+
+  const slider = (label: string, hint: string, key: keyof TickerSpeed) => (
+    <label className="block">
+      <span className="mb-1 flex items-baseline justify-between gap-2 text-sm">
+        <span className="font-semibold text-ink">{label}</span>
+        <span className="tabular-nums text-gold">{tickerSpeed[key]}</span>
+      </span>
+      <input
+        type="range"
+        min={TICKER_SPEED_MIN}
+        max={TICKER_SPEED_MAX}
+        step={1}
+        value={tickerSpeed[key]}
+        onChange={(e) => {
+          setJustSaved(false);
+          previewTickerSpeed({ ...tickerSpeed, [key]: Number(e.target.value) });
+        }}
+        className="w-full accent-[rgb(var(--c-gold))]"
+      />
+      <span className="flex justify-between text-[11px] text-muted">
+        <span>langsamer</span>
+        <span>{hint}</span>
+        <span>schneller</span>
+      </span>
+    </label>
+  );
+
+  return (
+    <div className="mb-6 rounded-card border border-edge bg-surface p-5">
+      <h3 className="font-display text-base font-semibold text-ink">Tempo News-Band</h3>
+      <p className="mb-4 text-xs text-muted">
+        Beim Ziehen läuft das Band oben sofort im neuen Tempo – aber nur bei dir. Erst mit „Speichern" gilt es für
+        alle. Das Handy-Tempo siehst du nur am Handy, das PC-Tempo nur am PC.
+      </p>
+      <div className="grid gap-5 sm:grid-cols-2">
+        {slider("📱 Handy", "", "mobile")}
+        {slider("💻 PC / Tablet", "", "desktop")}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={save}
+          disabled={saving || !dirty}
+          className="rounded-full bg-action px-6 py-2.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover disabled:cursor-not-allowed disabled:bg-edge disabled:text-muted"
+        >
+          {saving ? "Wird gespeichert…" : "Speichern"}
+        </button>
+        {justSaved && <span className="text-sm font-semibold text-action-hover">Gespeichert ✓</span>}
+        {dirty && !saving && (
+          <button
+            type="button"
+            onClick={() => previewTickerSpeed(saved)}
+            className="text-sm text-muted underline-offset-2 hover:text-ink hover:underline"
+          >
+            Zurücksetzen
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function NewsManager() {
   const { newsItems, addNews, updateNews, removeNews } = useAppData();
   const { showToast } = useFeedback();
@@ -227,6 +311,8 @@ function NewsManager() {
         Artikeltext (falls vorhanden). Wählst du eine Sportart aus, wird deren Icon automatisch
         vor die Headline gesetzt.
       </p>
+
+      <TickerSpeedEditor />
 
       <form
         onSubmit={handleSubmit}

@@ -8,7 +8,7 @@ import NewsSportIcon from "@/components/NewsSportIcon";
 import CommentThread from "@/components/CommentThread";
 
 export default function NewsTicker() {
-  const { newsItems } = useAppData();
+  const { newsItems, tickerSpeed } = useAppData();
   const { isAdmin } = useUser();
   const [selected, setSelected] = useState<NewsItem | null>(null);
   // Gleichmäßiges Tempo statt fester Dauer: Früher lief das Band immer 22 s
@@ -20,13 +20,14 @@ export default function NewsTicker() {
     function measure() {
       const width = halfRef.current?.offsetWidth ?? 0;
       if (!width) return;
-      const speed = window.innerWidth < 640 ? 72 : 103; // Pixel pro Sekunde (Rene 12.10.: nochmal 5 % schneller)
+      // Pixel pro Sekunde, im Admin-Bereich einstellbar (Handy / PC)
+      const speed = window.innerWidth < 640 ? tickerSpeed.mobile : tickerSpeed.desktop;
       setDuration(Math.max(12, Math.round(width / speed)));
     }
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [newsItems]);
+  }, [newsItems, tickerSpeed]);
 
   // Ohne News kein leeres gelbes Band für Spieler – nur der Admin sieht den
   // Hinweis, wo man welche anlegt.
