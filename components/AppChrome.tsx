@@ -13,6 +13,7 @@ import { SeasonBackdrop } from "./SeasonDeco";
 import PullToRefresh from "./PullToRefresh";
 import SwipeNav from "./SwipeNav";
 import StartPageRedirect from "./StartPageRedirect";
+import EventDayClaim from "./EventDayClaim";
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -23,6 +24,7 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
     return (
       <>
         <SeasonDesignGate showNotice={false} />
+        <EventDayClaim />
         <PullToRefresh />
         {children}
       </>
@@ -51,6 +53,7 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
       <SeasonBackdrop />
       <div className="pb-[calc(9rem+var(--safe-bottom))] lg:pb-24" data-swipe-root>
         <SeasonDesignGate />
+        <EventDayClaim />
         {children}
         <Footer />
       </div>

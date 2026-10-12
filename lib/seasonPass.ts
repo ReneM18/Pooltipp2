@@ -1,12 +1,22 @@
 import { RANK_COLORS } from "./rankTiers";
 import { SEASON_THEME } from "./seasonTheme";
 import { PASS_LEVELS } from "./passLevels";
+import { HALLOWEEN_2026, eventPhase, passClaimKey } from "./seasons";
 
 // Rahmen-Logik für den Saison-Pass, getrennt von passLevels.ts gehalten,
 // damit die Belohnungs-DATEN (Text/Icon je Level) unabhängig davon bleiben,
 // WIE der aktive Rahmen berechnet wird.
 
-export type FrameVariant = "bronze" | "silber" | "gold" | "diamant" | "meister" | "neon-pulse" | "custom";
+export type FrameVariant =
+  | "bronze"
+  | "silber"
+  | "gold"
+  | "diamant"
+  | "meister"
+  | "neon-pulse"
+  | "custom"
+  | "kuerbis"
+  | "spuk-glow";
 
 export interface ActiveFrame {
   variant: FrameVariant;
@@ -40,21 +50,39 @@ export function getActiveFrame(
   hasPremiumPass: boolean,
   customColors: CustomFrameColors | null,
   /** Wahl im Profil (lib/passDisplay.ts): "auto", "none" oder eine Rahmen-Art. */
-  choice?: string
+  choice?: string,
+  /** Erreichte Stufen (claimed_milestones), für die Event-Rahmen. */
+  claims: string[] = []
 ): ActiveFrame | null {
   if (choice === "none") return null;
   if (choice && choice !== "auto") {
-    const chosen = getOwnedFrames(passXP, hasPremiumPass, customColors).find((f) => f.variant === choice);
+    const chosen = getOwnedFrames(passXP, hasPremiumPass, customColors, claims).find((f) => f.variant === choice);
     if (chosen) return chosen;
   }
+  // Während Halloween trägt man "automatisch" den besten Halloween-Rahmen.
+  if (eventPhase(HALLOWEEN_2026, new Date()) === "laeuft") {
+    const event = eventFrames(claims);
+    if (event.length > 0) return event[event.length - 1];
+  }
   return getBestFrame(passXP, hasPremiumPass, customColors);
+}
+
+// Halloween-Rahmen (lib/seasons/halloween2026.ts, Stufe 3 und 5). Bleiben
+// nach dem Event erhalten.
+function eventFrames(claims: string[]): ActiveFrame[] {
+  const has = (level: number) => claims.includes(passClaimKey(HALLOWEEN_2026.theme.id, level));
+  const frames: ActiveFrame[] = [];
+  if (has(3)) frames.push({ variant: "kuerbis", colorFrom: "#FFB347", colorTo: "#E2561A", animated: false, label: "Kürbis" });
+  if (has(5)) frames.push({ variant: "spuk-glow", colorFrom: "#9B5DE5", colorTo: "#FF8A2B", animated: true, label: "Spuk-Glow" });
+  return frames;
 }
 
 /** Alle Rahmen, die man gerade tragen darf (schlechtester zuerst). */
 export function getOwnedFrames(
   passXP: number,
   hasPremiumPass: boolean,
-  customColors: CustomFrameColors | null
+  customColors: CustomFrameColors | null,
+  claims: string[] = []
 ): ActiveFrame[] {
   const owned: ActiveFrame[] = [];
   const free: [number, FrameVariant][] = [[3, "bronze"], [5, "silber"], [7, "gold"], [9, "diamant"], [10, "meister"]];
@@ -63,6 +91,7 @@ export function getOwnedFrames(
   }
   if (hasPremiumPass && passXP >= xpForLevel(2)) owned.push(neonFrame());
   if (hasPremiumPass && passXP >= xpForLevel(5) && customColors) owned.push(customFrame(customColors));
+  owned.push(...eventFrames(claims));
   return owned;
 }
 

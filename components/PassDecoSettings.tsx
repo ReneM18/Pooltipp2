@@ -13,10 +13,10 @@ import SaveButton, { useDraft } from "@/components/SaveButton";
 // will. Alles fürs Konto gespeichert (lib/passDisplay.ts), gilt sofort auf
 // jedem Gerät. Ablegen nimmt nichts weg.
 export default function PassDecoSettings() {
-  const { passXP, hasPremiumPass, customFrameColors, passHonors, passDisplay, setPassDisplay, hideOthersDeco, setHideOthersDeco, accountSync, extrasLoaded } =
+  const { passXP, hasPremiumPass, customFrameColors, passClaims, passHonors, passDisplay, setPassDisplay, hideOthersDeco, setHideOthersDeco, accountSync, extrasLoaded } =
     useUser();
 
-  const frames = getOwnedFrames(passXP, hasPremiumPass, customFrameColors);
+  const frames = getOwnedFrames(passXP, hasPremiumPass, customFrameColors, passClaims);
   const titles = passHonors.allTitles;
   const badges = passHonors.badges;
   const hasNameIcon = hasPremiumPass && passXP >= xpForLevel(3);

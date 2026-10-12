@@ -12,6 +12,7 @@ import { CURRENT_SEASON, seasonCountdownText, seasonPeriodText } from "@/lib/sea
 import { EmoteSticker } from "@/components/Emotes";
 import { SeasonHeroLeaves } from "@/components/SeasonDeco";
 import { useFeedback } from "@/lib/FeedbackContext";
+import HalloweenEvent, { useHalloweenPhase } from "@/components/HalloweenEvent";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -46,7 +47,45 @@ function communityHitRateForSport(sport: string): number {
 // Rahmen, den das jeweilige Gratis-Level bringt (lib/seasonPass.ts).
 const FRAME_OF_LEVEL: Record<number, string> = { 3: "bronze", 5: "silber", 7: "gold", 9: "diamant", 10: "meister" };
 
+// Seite Fortschritt: Saison-Pass und – während eines Events – ein zweiter
+// Reiter "🎃 Halloween" (components/HalloweenEvent.tsx). Vor dem Start sieht
+// den Reiter nur der Admin (Vorschau), nach dem Ende noch ein paar Tage alle.
 export default function FortschrittPage() {
+  const { isAdmin } = useUser();
+  const phase = useHalloweenPhase();
+  const showEvent = phase === "laeuft" || phase === "beendet" || (phase === "vorher" && isAdmin);
+  const [tab, setTab] = useState<"saison" | "event" | null>(null);
+  // Läuft das Event, öffnet die Seite gleich im Halloween-Reiter (oder mit #halloween).
+  useEffect(() => {
+    if (phase === null || tab !== null) return;
+    const wantsEvent = typeof window !== "undefined" && window.location.hash === "#halloween";
+    setTab(showEvent && (phase === "laeuft" || wantsEvent) ? "event" : "saison");
+  }, [phase, showEvent, tab]);
+
+  if (!showEvent) return <SeasonPassView />;
+  const active = tab ?? "saison";
+  const tabClass = (on: boolean) =>
+    `flex-1 whitespace-nowrap rounded-full px-4 py-2 font-display text-sm font-semibold transition-colors sm:flex-none ${
+      on ? "bg-action text-pitch" : "text-muted hover:text-ink"
+    }`;
+  return (
+    <>
+      <div className="mx-auto max-w-3xl px-5 pt-6 lg:max-w-6xl">
+        <div className="flex gap-1 rounded-full border border-edge bg-surface p-1 sm:inline-flex">
+          <button type="button" onClick={() => setTab("saison")} className={tabClass(active === "saison")}>
+            {SEASON_THEME.icon} Saison-Pass
+          </button>
+          <button type="button" onClick={() => setTab("event")} className={tabClass(active === "event")}>
+            🎃 Halloween
+          </button>
+        </div>
+      </div>
+      {active === "event" && phase ? <HalloweenEvent phase={phase} /> : <SeasonPassView />}
+    </>
+  );
+}
+
+function SeasonPassView() {
   const {
     passXP,
     hasPremiumPass,
@@ -57,10 +96,11 @@ export default function FortschrittPage() {
     setCustomFrameColors,
     shownPassHonors,
     passDisplay,
+    passClaims,
     isRegistered,
   } = useUser();
   // Welche Pass-Belohnung man gerade trägt (Profil -> Einstellungen).
-  const wornFrame = getActiveFrame(passXP, hasPremiumPass, customFrameColors, passDisplay.frame);
+  const wornFrame = getActiveFrame(passXP, hasPremiumPass, customFrameColors, passDisplay.frame, passClaims);
   const isWorn = (lvl: (typeof PASS_LEVELS)[number]): boolean | null => {
     if (lvl.kind === "frame") return wornFrame?.variant === FRAME_OF_LEVEL[lvl.level];
     if (lvl.kind === "title") return shownPassHonors.title?.label === lvl.label;

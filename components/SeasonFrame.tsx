@@ -18,14 +18,14 @@ export default function SeasonFrame({
   size: number;
   children: ReactNode;
 }) {
-  const { passXP, hasPremiumPass, customFrameColors, passDisplay, sessionChecked, authUserId, profileLoaded, extrasLoaded } =
+  const { passXP, hasPremiumPass, customFrameColors, passDisplay, passClaims, sessionChecked, authUserId, profileLoaded, extrasLoaded } =
     useUser();
   // Eingeloggt, aber Konto noch nicht geladen: Rahmen vom letzten Besuch
   // (lib/headerCache.ts) statt des Demo-Werts, sonst springt er gleich um.
   const cache = useHeaderCache();
   const loading = sessionChecked ? authUserId !== null && !(profileLoaded && extrasLoaded) : cache !== null;
   const frame = !loading
-    ? getActiveFrame(passXP, hasPremiumPass, customFrameColors, passDisplay.frame)
+    ? getActiveFrame(passXP, hasPremiumPass, customFrameColors, passDisplay.frame, passClaims)
     : cache && cache.passXP !== undefined
       ? getActiveFrame(cache.passXP, cache.premium ?? false, cache.frameColors ?? null, cache.frameChoice ?? undefined)
       : null;

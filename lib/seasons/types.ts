@@ -84,6 +84,8 @@ export interface SeasonDesign {
   glow: [string, string];
   /** Farben der Deko-Blätter (Kopfleiste und Saison-Pass). */
   decoColors: string[];
+  /** Form der Deko: Blätter (Standard) oder Fledermäuse (Halloween). */
+  decoShape?: "leaf" | "bat";
   /** Verlauf im Kopfbereich der Saison-Pass-Seite. */
   heroFrom: string;
   heroTo: string;
@@ -103,4 +105,18 @@ export interface SeasonData {
   levels: PassLevel[];
   /** Emote-Paket, das mit dem Level der Art "emotes" freigeschaltet wird. */
   emotes: SeasonEmote[];
+}
+
+/**
+ * Ein Event (z. B. Halloween), das ZUSÄTZLICH zum Saison-Pass läuft. Gleiche
+ * Felder wie eine Saison; "xpRequired" der Level sind hier Event-Punkte
+ * (z. B. Kürbisse, siehe supabase/halloween-event.sql). Erreichte Stufen
+ * stehen wie beim Saison-Pass als "<id>:<level>" in claimed_milestones.
+ */
+export interface EventData extends SeasonData {
+  /** Name der Event-Punkte, z. B. "Kürbisse". */
+  pointsName: string;
+  pointIcon: string;
+  /** Bis zu diesem Tag steht der Event-Reiter noch da (nach endsOn: "beendet"). */
+  visibleUntil: string;
 }
