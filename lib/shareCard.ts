@@ -20,10 +20,19 @@ const GOLD = "#EDB94A";
 const INK = "#F3F1EA";
 const MUTED = "#8B9890";
 
+// Emoji-Schrift wie in der App (app/globals.css --emoji-stack): auf
+// Apple-Geräten leer (dort zeichnet das System), sonst Google "Noto".
+function emojiStack(): string {
+  if (typeof document === "undefined") return "";
+  const v = getComputedStyle(document.documentElement).getPropertyValue("--emoji-stack").trim();
+  return v && v !== "sans-serif" ? v : "";
+}
+
 function cssFont(variable: string, fallback: string) {
   if (typeof document === "undefined") return fallback;
   const v = getComputedStyle(document.body).getPropertyValue(variable).trim();
-  return v ? `${v}, ${fallback}` : fallback;
+  const emoji = emojiStack();
+  return [v, emoji, fallback].filter(Boolean).join(", ");
 }
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
@@ -62,6 +71,9 @@ export async function drawShareCard(d: ShareCardData): Promise<Blob | null> {
 
   try {
     await document.fonts?.ready;
+    // Die Emoji-Schrift lädt der Browser erst bei Bedarf – fürs Bild vorher holen.
+    const emoji = emojiStack();
+    if (emoji) await document.fonts.load(`40px ${emoji}`, "🎯✅");
   } catch {
     /* egal, dann eben Ersatzschrift */
   }
