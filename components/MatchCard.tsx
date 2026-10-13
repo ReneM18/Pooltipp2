@@ -565,22 +565,6 @@ export default function MatchCard({
       )}
       {/* Saison-Design: verblasstes Blatt hinter dem Karteninhalt. */}
       <SeasonCardWatermark variant={match.id.length + match.id.charCodeAt(match.id.length - 1)} />
-      {/* "Dein Verein" (Rene, 13.10.2026): schmaler Streifen am äußeren
-          Kartenrand auf der Seite des Herzensvereins, Schrift von unten nach
-          oben. 14 px breit und damit im Innenrand der Karte (Kopfzeile
-          px-4 = 16 px, Inhalt p-4/p-5): nichts wird überdeckt oder schmaler. Gedreht
-          wird nur die Schrift (innen), damit die Randlinie außen bleibt. */}
-      {fanSide && (
-        <span
-          className={`pointer-events-none absolute inset-y-0 z-[1] flex w-[14px] items-center justify-center border-[#6FA8DC]/40 bg-[#6FA8DC]/15 ${
-            fanSide === "left" ? "left-0 border-r" : "right-0 border-l"
-          }`}
-        >
-          <span className="rotate-180 whitespace-nowrap text-[10px] font-extrabold uppercase leading-none tracking-[0.14em] text-[#8EC0EE] [writing-mode:vertical-rl]">
-            Dein Verein
-          </span>
-        </span>
-      )}
       {/* Booster-Spiel: eigene goldene Leiste ganz oben, damit man es auch
           zwischen normalen Spielen (z. B. bei den geschlossenen) sofort sieht. */}
       {stage ? (
@@ -618,6 +602,31 @@ export default function MatchCard({
       {/* Topspiel am Handy etwas enger, damit es samt Tipp-Knopf auf einen
           Bildschirm passt (Rene, 10.10.2026); am PC wie bisher. */}
       <div className={`flex flex-1 flex-col ${stage ? "mx-auto w-full max-w-xl p-4 sm:p-5" : "p-5"}`}>
+        {/* Datum + Teams in einem Block, an dem der Reiter "Dein Verein" hängt
+            (Rene, 13.10.2026): Er reicht von der Unterkante der Kopfzeile bis
+            zur Oberkante von "Dein Tipp" bzw. der Eingabefelder und sitzt am
+            äußeren Kartenrand auf der Seite des Herzensvereins, Schrift von
+            unten nach oben. Die Abstände (-top/-left/-right) sind genau der
+            Innenrand des Inhalts, das Ende folgt dem Außenabstand der
+            Team-Zeile (mb-5), daher passt es auch bei langen Namen. 14 px
+            breit, die Karte wird nicht schmaler. Gedreht wird nur die Schrift
+            (innen), damit die Randlinie außen bleibt. Reine Anzeige. */}
+        <div className="relative">
+          {fanSide && (
+            <span
+              className={`pointer-events-none absolute bottom-0 z-[1] flex w-[14px] items-center justify-center border-[#6FA8DC]/40 bg-[#6FA8DC]/15 ${
+                stage ? "-top-4 sm:-top-5" : "-top-5"
+              } ${
+                fanSide === "left"
+                  ? `${stage ? "-left-4 sm:-left-5" : "-left-5"} rounded-r-md border-r`
+                  : `${stage ? "-right-4 sm:-right-5" : "-right-5"} rounded-l-md border-l`
+              }`}
+            >
+              <span className="rotate-180 whitespace-nowrap text-[10px] font-extrabold uppercase leading-none tracking-[0.14em] text-[#8EC0EE] [writing-mode:vertical-rl]">
+                Dein Verein
+              </span>
+            </span>
+          )}
         <div className="mb-3 flex min-h-[1.75rem] flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[15px] text-muted">
           {stage && (
             <>
@@ -715,6 +724,7 @@ export default function MatchCard({
               )}
             </>
           )}
+        </div>
         </div>
 
         {!showResultView && (
