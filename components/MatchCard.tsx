@@ -797,15 +797,7 @@ export default function MatchCard({
                 und Sieger-Tipp.) Schild in derselben Zeile wie die
                 Punkteverteilung, damit die Karte nicht höher wird. */}
             <div className="mb-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
-              <span
-                className={`whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide ${
-                  isOneXTwo
-                    ? "border-[#6FA8DC]/60 bg-[#6FA8DC]/15 text-[#8EC0EE]"
-                    : "border-[#4FC181]/60 bg-[#4FC181]/15 text-[#4FC181]"
-                }`}
-              >
-                <Emoji e={isOneXTwo ? "👆" : "✏️"} /> {isOneXTwo ? "Nur Sieger tippen" : "Ergebnis tippen"}
-              </span>
+              <TipModeTag isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} />
               <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} />
             </div>
 
@@ -915,7 +907,8 @@ export default function MatchCard({
             {/* Noch nicht ausgewertet: kurz zeigen, was der Tipp bringen kann.
                 Jedes Paar bleibt zusammen ("Tendenz +5" nie getrennt). */}
             {hasTipped && !myTip?.evaluated && !isCancelled && (
-              <div className="flex justify-center">
+              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
+                <TipModeTag isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} done />
                 <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} />
               </div>
             )}
@@ -1243,6 +1236,35 @@ function PointsGrid({ items, coins = false }: { items: { label: string; net: num
 
 // Booster: Rangpunkte gibt es zusätzlich zu den Coins, genau wie bei jedem
 // Tipp – als eigene grüne Zeile mit Pokal, damit klar ist: beides zählt.
+// Schild zur Tipp-Art (Rene, 13.10.2026): "Ergebnis tippen", bei 1X2 mit
+// Unentschieden (Fußball, Football, Handball) "1 · X · 2 tippen", ohne
+// (Eishockey, Basketball) "Nur Sieger tippen". Nach dem Tippen ("done") kurz:
+// Ergebnis-Tipp / 1X2-Tipp / Sieger-Tipp.
+function TipModeTag({ isOneXTwo, allowsDraw, done = false }: { isOneXTwo: boolean; allowsDraw: boolean; done?: boolean }) {
+  const text = !isOneXTwo
+    ? done
+      ? "Ergebnis-Tipp"
+      : "Ergebnis tippen"
+    : allowsDraw
+      ? done
+        ? "1X2-Tipp"
+        : "1 · X · 2 tippen"
+      : done
+        ? "Sieger-Tipp"
+        : "Nur Sieger tippen";
+  return (
+    <span
+      className={`whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide ${
+        isOneXTwo
+          ? "border-[#6FA8DC]/60 bg-[#6FA8DC]/15 text-[#8EC0EE]"
+          : "border-[#4FC181]/60 bg-[#4FC181]/15 text-[#4FC181]"
+      }`}
+    >
+      <Emoji e={isOneXTwo ? "👆" : "✏️"} /> {text}
+    </span>
+  );
+}
+
 function BoosterRankRow({ isOneXTwo, compactOnPhone = false }: { isOneXTwo: boolean; compactOnPhone?: boolean }) {
   if (compactOnPhone) {
     // Topspiel am Handy: Rangpunkte in einer Zeile statt vier Kästchen.
