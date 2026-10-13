@@ -7,7 +7,7 @@ import TeamBadge, { teamColorProps } from "@/components/TeamBadge";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { SPORTS, Sport, SPORT_ICONS, sportLabel } from "@/lib/types";
-import { CLUB_MIN_ACTIVE_FANS, ClubTableRow, useClubTable, useMyClubs } from "@/lib/clubs";
+import { CLUB_MIN_ACTIVE_FANS, CLUB_MIN_TIPS, ClubTableRow, useClubTable, useMyClubs } from "@/lib/clubs";
 import Emoji from "@/components/Emoji";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
@@ -48,8 +48,30 @@ export default function ClubLeaderboard() {
         ))}
       </div>
 
+      <details className="group mb-2 rounded-card border border-edge bg-surface px-3 py-2.5 text-xs text-muted">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 font-display text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
+          <span>ⓘ So zählt die Vereinswertung</span>
+          <span aria-hidden className="text-muted transition-transform group-open:rotate-180">
+            ▾
+          </span>
+        </summary>
+        <ul className="mt-2 list-disc space-y-1 pl-4 leading-relaxed">
+          <li>
+            Jeder Fan bringt seinen <b className="text-ink">Schnitt pro Tipp</b> ein, die Zahl ist der Schnitt aller
+            Fans mal 100 (z. B. 1,42 → <b className="text-ink">142</b>).
+          </li>
+          <li>
+            Darum gewinnt nicht der Verein mit den <b className="text-ink">meisten</b> Fans, sondern mit den{" "}
+            <b className="text-ink">besten</b>.
+          </li>
+          <li>
+            Fan zählt ab <b className="text-ink">{CLUB_MIN_TIPS} Tipps</b>, Verein in der Wertung ab{" "}
+            <b className="text-ink">{CLUB_MIN_ACTIVE_FANS} Fans</b>.
+          </li>
+          <li>Es zählt die Saison 1.7.–30.6.</li>
+        </ul>
+      </details>
       <p className="mb-4 text-xs text-muted">
-        Durchschnitt pro aktivem Fan mal 100. Gewertet ab {CLUB_MIN_ACTIVE_FANS} aktiven Fans.{" "}
         <Link href="/profil#herzensvereine" className="font-semibold text-gold hover:underline">
           {myTeamId ? "Deine Herzensvereine" : "Herzensverein wählen"}
         </Link>
