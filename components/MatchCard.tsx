@@ -81,8 +81,9 @@ interface MatchCardProps {
   homeTeam: Team;
   awayTeam: Team;
   // Herzensverein des Spielers in dieser Sportart (nur wenn "Für Vereine
-  // spielen" an ist): dieses Team bekommt den kleinen Fan-Schal neben dem
-  // Trikot. Reine Anzeige, an Punkten und Wertung ändert sich nichts.
+  // spielen" an ist): Spielt dieses Team mit, steht am äußeren Kartenrand auf
+  // der Seite des Teams der Schriftzug "Dein Verein". Reine Anzeige, an
+  // Punkten und Wertung ändert sich nichts.
   fanTeamId?: string | null;
   tipCount: number;
   myTip?: MyTip;
@@ -137,6 +138,9 @@ export default function MatchCard({
   // Entscheidung), NFL nur ganz selten.
   const isUsSport = isAwayFirst(match.sport);
   const [leftTeam, rightTeam] = displayOrder(match.sport, homeTeam, awayTeam);
+  // Auf welcher Kartenseite steht der Herzensverein (null = keiner)?
+  const fanSide: "left" | "right" | null =
+    fanTeamId && leftTeam.id === fanTeamId ? "left" : fanTeamId && rightTeam.id === fanTeamId ? "right" : null;
   const allowsDraw = sportAllowsDraw(match.sport);
   const isCancelled = match.status === "cancelled";
   // Flagge der Liga (nicht der Heimmannschaft), siehe lib/competitionFlag.ts.
@@ -561,6 +565,22 @@ export default function MatchCard({
       )}
       {/* Saison-Design: verblasstes Blatt hinter dem Karteninhalt. */}
       <SeasonCardWatermark variant={match.id.length + match.id.charCodeAt(match.id.length - 1)} />
+      {/* "Dein Verein" (Rene, 13.10.2026): schmaler Streifen am äußeren
+          Kartenrand auf der Seite des Herzensvereins, Schrift von unten nach
+          oben. 14 px breit und damit im Innenrand der Karte (Kopfzeile
+          px-4 = 16 px, Inhalt p-4/p-5): nichts wird überdeckt oder schmaler. Gedreht
+          wird nur die Schrift (innen), damit die Randlinie außen bleibt. */}
+      {fanSide && (
+        <span
+          className={`pointer-events-none absolute inset-y-0 z-[1] flex w-[14px] items-center justify-center border-[#6FA8DC]/40 bg-[#6FA8DC]/15 ${
+            fanSide === "left" ? "left-0 border-r" : "right-0 border-l"
+          }`}
+        >
+          <span className="rotate-180 whitespace-nowrap text-[10px] font-extrabold uppercase leading-none tracking-[0.14em] text-[#8EC0EE] [writing-mode:vertical-rl]">
+            Dein Verein
+          </span>
+        </span>
+      )}
       {/* Booster-Spiel: eigene goldene Leiste ganz oben, damit man es auch
           zwischen normalen Spielen (z. B. bei den geschlossenen) sofort sieht. */}
       {stage ? (
@@ -639,7 +659,7 @@ export default function MatchCard({
             needsWideMiddle ? "grid-cols-[1fr_1rem_1fr] sm:grid-cols-[1fr_1.5rem_1fr]" : "grid-cols-[1fr_auto_1fr]"
           }`}
         >
-          <TeamColumn match={match} team={leftTeam} tag={isUsSport ? "Gast" : "Heim"} big={stage} fan={!!fanTeamId && leftTeam.id === fanTeamId} />
+          <TeamColumn match={match} team={leftTeam} tag={isUsSport ? "Gast" : "Heim"} big={stage} />
           {finalScore ? (
             // Beendet: oben zwischen den Teams steht direkt der Endstand
             // (unten in der Karte steht er nicht mehr extra).
@@ -658,7 +678,7 @@ export default function MatchCard({
               {stage ? "VS" : "vs"}
             </span>
           )}
-          <TeamColumn match={match} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} flip big={stage} fan={!!fanTeamId && rightTeam.id === fanTeamId} />
+          <TeamColumn match={match} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} flip big={stage} />
 
           {showTiles && (
             <div className="col-span-3 col-start-1 row-start-2 hidden justify-center sm:flex">
@@ -1650,48 +1670,25 @@ function TeamColumn({
   tag,
   flip = false,
   big = false,
-  fan = false,
 }: {
   match: Match;
   team: Team;
   tag: string | null;
   flip?: boolean;
   big?: boolean;
-  fan?: boolean;
 }) {
-  const badge = (
-    <span className={big ? "stage-jersey" : "contents"}>
-      <TeamBadge
-        sport={match.sport}
-        {...matchJerseyProps(match, team)}
-        isNationalTeam={team.isNationalTeam}
-        countryCode={team.countryCode}
-        flip={flip}
-        size={big ? 68 : 44}
-      />
-    </span>
-  );
   return (
     <div className="flex min-w-0 flex-col items-center gap-1.5 self-stretch">
-      {/* Fan-Schal knapp rechts neben dem Trikot (Rene, 13.10.2026). Liegt
-          AUSSEN um das Trikot und ist absolut positioniert: Das Trikot bleibt
-          mittig, die Karte wird nicht höher. Nicht in .stage-jersey, dort
-          erzwingt das CSS 52 px für jedes direkte Unterelement. Ohne Fan
-          bleibt alles exakt wie vorher. */}
-      {fan ? (
-        <span className="relative inline-flex">
-          {badge}
-          <span
-            className={`pointer-events-none absolute left-[calc(100%-6px)] top-[55%] leading-none drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.6)] ${
-              big ? "text-[22px]" : "text-[18px]"
-            }`}
-          >
-            <Emoji e="🧣" label="Dein Verein" />
-          </span>
-        </span>
-      ) : (
-        badge
-      )}
+      <span className={big ? "stage-jersey" : "contents"}>
+        <TeamBadge
+          sport={match.sport}
+          {...matchJerseyProps(match, team)}
+          isNationalTeam={team.isNationalTeam}
+          countryCode={team.countryCode}
+          flip={flip}
+          size={big ? 68 : 44}
+        />
+      </span>
       {/* HEIM/GAST direkt unter dem Wappen: steht so bei beiden Teams auf
           gleicher Höhe, auch wenn ein Name zweizeilig ist. */}
       {tag && <SideTag>{tag}</SideTag>}
