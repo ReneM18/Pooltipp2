@@ -793,7 +793,19 @@ export default function MatchCard({
                 Nur der Booster (was der Tipp an Coins kostet, Gewinn oder
                 Verlust) bleibt als goldene Box auf der Karte, der Hinweis
                 steht immer direkt über dem Knopf. */}
-            <div className="mb-4 flex justify-center">
+            {/* Welche Tipp-Art? (Rene, 13.10.2026: viele verwechseln Ergebnis-
+                und Sieger-Tipp.) Schild in derselben Zeile wie die
+                Punkteverteilung, damit die Karte nicht höher wird. */}
+            <div className="mb-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
+              <span
+                className={`whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide ${
+                  isOneXTwo
+                    ? "border-[#6FA8DC]/60 bg-[#6FA8DC]/15 text-[#8EC0EE]"
+                    : "border-[#4FC181]/60 bg-[#4FC181]/15 text-[#4FC181]"
+                }`}
+              >
+                <Emoji e={isOneXTwo ? "👆" : "✏️"} /> {isOneXTwo ? "Nur Sieger tippen" : "Ergebnis tippen"}
+              </span>
               <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} />
             </div>
 
@@ -817,7 +829,9 @@ export default function MatchCard({
                   : "bg-action-hover text-pitch shadow-[0_0_22px_rgb(var(--c-action-hover)/0.45)] enabled:active:scale-[0.97] enabled:hover:brightness-110 enabled:hover:shadow-[0_0_30px_rgb(var(--c-action-hover)/0.6)] disabled:cursor-wait"
               }`}
             >
-              {submitting ? "Wird gespeichert…" : boosting ? "Tipp mit Booster abgeben" : "Tipp abgeben"}
+              {submitting
+                ? "Wird gespeichert…"
+                : `${isOneXTwo ? "Sieger" : "Ergebnis"}${boosting ? " mit Booster" : ""} abgeben`}
             </button>
             )}
             {notEnoughStars && !isGuest && (
