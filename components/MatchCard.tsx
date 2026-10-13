@@ -907,8 +907,7 @@ export default function MatchCard({
             {/* Noch nicht ausgewertet: kurz zeigen, was der Tipp bringen kann.
                 Jedes Paar bleibt zusammen ("Tendenz +5" nie getrennt). */}
             {hasTipped && !myTip?.evaluated && !isCancelled && (
-              <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
-                <TipModeTag isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} done />
+              <div className="flex justify-center">
                 <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} />
               </div>
             )}
@@ -1238,20 +1237,10 @@ function PointsGrid({ items, coins = false }: { items: { label: string; net: num
 // Tipp – als eigene grüne Zeile mit Pokal, damit klar ist: beides zählt.
 // Schild zur Tipp-Art (Rene, 13.10.2026): "Ergebnis tippen", bei 1X2 mit
 // Unentschieden (Fußball, Football, Handball) "1 · X · 2 tippen", ohne
-// (Eishockey, Basketball) "Nur Sieger tippen". Nach dem Tippen ("done") kurz:
-// Ergebnis-Tipp / 1X2-Tipp / Sieger-Tipp.
-function TipModeTag({ isOneXTwo, allowsDraw, done = false }: { isOneXTwo: boolean; allowsDraw: boolean; done?: boolean }) {
-  const text = !isOneXTwo
-    ? done
-      ? "Ergebnis-Tipp"
-      : "Ergebnis tippen"
-    : allowsDraw
-      ? done
-        ? "1X2-Tipp"
-        : "1 · X · 2 tippen"
-      : done
-        ? "Sieger-Tipp"
-        : "Nur Sieger tippen";
+// (Eishockey, Basketball) "Nur Sieger tippen". Nur solange man tippt – ist
+// der Tipp abgegeben, verschwindet es; bei "Ändern" kommt es wieder.
+function TipModeTag({ isOneXTwo, allowsDraw }: { isOneXTwo: boolean; allowsDraw: boolean }) {
+  const text = !isOneXTwo ? "Ergebnis tippen" : allowsDraw ? "1 · X · 2 tippen" : "Nur Sieger tippen";
   return (
     <span
       className={`whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide ${
