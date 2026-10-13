@@ -80,6 +80,10 @@ interface MatchCardProps {
   match: Match;
   homeTeam: Team;
   awayTeam: Team;
+  // Herzensverein des Spielers in dieser Sportart (nur wenn "Für Vereine
+  // spielen" an ist): dieses Team bekommt den kleinen Fan-Schal neben dem
+  // Trikot. Reine Anzeige, an Punkten und Wertung ändert sich nichts.
+  fanTeamId?: string | null;
   tipCount: number;
   myTip?: MyTip;
   // Darf ein Promise zurückgeben (Speichern in der Datenbank): Danach wird
@@ -119,6 +123,7 @@ export default function MatchCard({
   match,
   homeTeam,
   awayTeam,
+  fanTeamId = null,
   tipCount,
   myTip,
   onSubmitTip,
@@ -634,7 +639,7 @@ export default function MatchCard({
             needsWideMiddle ? "grid-cols-[1fr_1rem_1fr] sm:grid-cols-[1fr_1.5rem_1fr]" : "grid-cols-[1fr_auto_1fr]"
           }`}
         >
-          <TeamColumn match={match} team={leftTeam} tag={isUsSport ? "Gast" : "Heim"} big={stage} />
+          <TeamColumn match={match} team={leftTeam} tag={isUsSport ? "Gast" : "Heim"} big={stage} fan={!!fanTeamId && leftTeam.id === fanTeamId} />
           {finalScore ? (
             // Beendet: oben zwischen den Teams steht direkt der Endstand
             // (unten in der Karte steht er nicht mehr extra).
@@ -653,7 +658,7 @@ export default function MatchCard({
               {stage ? "VS" : "vs"}
             </span>
           )}
-          <TeamColumn match={match} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} flip big={stage} />
+          <TeamColumn match={match} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} flip big={stage} fan={!!fanTeamId && rightTeam.id === fanTeamId} />
 
           {showTiles && (
             <div className="col-span-3 col-start-1 row-start-2 hidden justify-center sm:flex">
@@ -1645,25 +1650,48 @@ function TeamColumn({
   tag,
   flip = false,
   big = false,
+  fan = false,
 }: {
   match: Match;
   team: Team;
   tag: string | null;
   flip?: boolean;
   big?: boolean;
+  fan?: boolean;
 }) {
+  const badge = (
+    <span className={big ? "stage-jersey" : "contents"}>
+      <TeamBadge
+        sport={match.sport}
+        {...matchJerseyProps(match, team)}
+        isNationalTeam={team.isNationalTeam}
+        countryCode={team.countryCode}
+        flip={flip}
+        size={big ? 68 : 44}
+      />
+    </span>
+  );
   return (
     <div className="flex min-w-0 flex-col items-center gap-1.5 self-stretch">
-      <span className={big ? "stage-jersey" : "contents"}>
-        <TeamBadge
-          sport={match.sport}
-          {...matchJerseyProps(match, team)}
-          isNationalTeam={team.isNationalTeam}
-          countryCode={team.countryCode}
-          flip={flip}
-          size={big ? 68 : 44}
-        />
-      </span>
+      {/* Fan-Schal knapp rechts neben dem Trikot (Rene, 13.10.2026). Liegt
+          AUSSEN um das Trikot und ist absolut positioniert: Das Trikot bleibt
+          mittig, die Karte wird nicht höher. Nicht in .stage-jersey, dort
+          erzwingt das CSS 52 px für jedes direkte Unterelement. Ohne Fan
+          bleibt alles exakt wie vorher. */}
+      {fan ? (
+        <span className="relative inline-flex">
+          {badge}
+          <span
+            className={`pointer-events-none absolute left-[calc(100%-6px)] top-[55%] leading-none drop-shadow-[0_1px_1.5px_rgba(0,0,0,0.6)] ${
+              big ? "text-[22px]" : "text-[18px]"
+            }`}
+          >
+            <Emoji e="🧣" label="Dein Verein" />
+          </span>
+        </span>
+      ) : (
+        badge
+      )}
       {/* HEIM/GAST direkt unter dem Wappen: steht so bei beiden Teams auf
           gleicher Höhe, auch wenn ein Name zweizeilig ist. */}
       {tag && <SideTag>{tag}</SideTag>}
