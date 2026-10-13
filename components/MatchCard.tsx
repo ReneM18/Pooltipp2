@@ -568,8 +568,20 @@ export default function MatchCard({
       {/* Booster-Spiel: eigene goldene Leiste ganz oben, damit man es auch
           zwischen normalen Spielen (z. B. bei den geschlossenen) sofort sieht. */}
       {stage ? (
-        <div className="border-b border-gold/30 bg-gold/15 px-4 py-1.5 text-center font-display text-xs font-bold uppercase tracking-[0.14em] text-gold sm:px-5">
-          ⭐ Top-Spiel{isBooster ? " · ⚡ Booster" : ""}
+        <div className="flex items-center justify-between gap-2 border-b border-gold/30 bg-gold/15 px-4 py-1.5 font-display text-xs font-bold uppercase tracking-[0.14em] text-gold sm:px-5">
+          <span className="min-w-0 leading-tight">⭐ Top-Spiel{isBooster ? " · ⚡ Booster" : ""}</span>
+          {/* Countdown rechts oben, genau wie in der Kopfzeile normaler Karten
+              (Rene, 13.10.2026: beim Topspiel fehlte die ablaufende Zeit, nach
+              dem Tippen gab es sie gar nicht mehr). */}
+          <span className="shrink-0 whitespace-nowrap text-xs font-medium normal-case tracking-normal">
+            {isCancelled ? (
+              <span className="rounded-full border border-red-400/60 bg-red-400/10 px-2 py-0.5 font-semibold text-red-300">
+                Abgesagt
+              </span>
+            ) : (
+              <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
+            )}
+          </span>
         </div>
       ) : isBooster && (
         <div className="border-b border-gold/30 bg-gold/15 px-4 py-1 text-center font-display text-xs font-bold uppercase tracking-wider text-gold sm:px-5">
@@ -641,12 +653,6 @@ export default function MatchCard({
           {match.matchday && !stage ? <span>Spieltag {match.matchday}</span> : null}
           {match.matchday && !stage ? <span aria-hidden>·</span> : null}
           <span>{kickoffLabel}</span>
-          {/* Handy: Restzeit als kleine Zeile statt der großen Kacheln */}
-          {showTiles && (
-            <span className="text-[13px] sm:hidden">
-              <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
-            </span>
-          )}
           {match.tvChannel && (
             <span className="flex items-center gap-1.5 rounded-full border border-edge bg-pitch py-0.5 pl-2 pr-2.5 text-[13px] font-semibold text-ink">
               <TvIcon className="h-4 w-4 shrink-0 text-ink" />
