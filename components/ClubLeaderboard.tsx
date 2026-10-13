@@ -57,6 +57,10 @@ export default function ClubLeaderboard() {
         </summary>
         <ul className="mt-2 list-disc space-y-1 pl-4 leading-relaxed">
           <li>
+            <b className="text-ink">Jeder richtige Tipp</b> in dieser Sportart zählt für deinen Verein, egal welches
+            Spiel und egal, ob du für oder gegen deinen Verein tippst.
+          </li>
+          <li>
             Jeder Fan bringt seinen <b className="text-ink">Schnitt pro Tipp</b> ein, die Zahl ist der Schnitt aller
             Fans mal 100 (z. B. 1,42 → <b className="text-ink">142</b>).
           </li>
