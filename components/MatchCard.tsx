@@ -80,6 +80,11 @@ interface MatchCardProps {
   match: Match;
   homeTeam: Team;
   awayTeam: Team;
+  // Herzensverein des Spielers in dieser Sportart (nur wenn "Für Vereine
+  // spielen" an ist): Spielt dieses Team mit, steht am äußeren Kartenrand auf
+  // der Seite des Teams der Schriftzug "Dein Verein". Reine Anzeige, an
+  // Punkten und Wertung ändert sich nichts.
+  fanTeamId?: string | null;
   tipCount: number;
   myTip?: MyTip;
   // Darf ein Promise zurückgeben (Speichern in der Datenbank): Danach wird
@@ -119,6 +124,7 @@ export default function MatchCard({
   match,
   homeTeam,
   awayTeam,
+  fanTeamId = null,
   tipCount,
   myTip,
   onSubmitTip,
@@ -132,6 +138,9 @@ export default function MatchCard({
   // Entscheidung), NFL nur ganz selten.
   const isUsSport = isAwayFirst(match.sport);
   const [leftTeam, rightTeam] = displayOrder(match.sport, homeTeam, awayTeam);
+  // Auf welcher Kartenseite steht der Herzensverein (null = keiner)?
+  const fanSide: "left" | "right" | null =
+    fanTeamId && leftTeam.id === fanTeamId ? "left" : fanTeamId && rightTeam.id === fanTeamId ? "right" : null;
   const allowsDraw = sportAllowsDraw(match.sport);
   const isCancelled = match.status === "cancelled";
   // Flagge der Liga (nicht der Heimmannschaft), siehe lib/competitionFlag.ts.
@@ -556,6 +565,22 @@ export default function MatchCard({
       )}
       {/* Saison-Design: verblasstes Blatt hinter dem Karteninhalt. */}
       <SeasonCardWatermark variant={match.id.length + match.id.charCodeAt(match.id.length - 1)} />
+      {/* "Dein Verein" (Rene, 13.10.2026): schmaler Streifen am äußeren
+          Kartenrand auf der Seite des Herzensvereins, Schrift von unten nach
+          oben. 14 px breit und damit im Innenrand der Karte (Kopfzeile
+          px-4 = 16 px, Inhalt p-4/p-5): nichts wird überdeckt oder schmaler. Gedreht
+          wird nur die Schrift (innen), damit die Randlinie außen bleibt. */}
+      {fanSide && (
+        <span
+          className={`pointer-events-none absolute inset-y-0 z-[1] flex w-[14px] items-center justify-center border-[#6FA8DC]/40 bg-[#6FA8DC]/15 ${
+            fanSide === "left" ? "left-0 border-r" : "right-0 border-l"
+          }`}
+        >
+          <span className="rotate-180 whitespace-nowrap text-[10px] font-extrabold uppercase leading-none tracking-[0.14em] text-[#8EC0EE] [writing-mode:vertical-rl]">
+            Dein Verein
+          </span>
+        </span>
+      )}
       {/* Booster-Spiel: eigene goldene Leiste ganz oben, damit man es auch
           zwischen normalen Spielen (z. B. bei den geschlossenen) sofort sieht. */}
       {stage ? (
