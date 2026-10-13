@@ -36,6 +36,7 @@ import { resetDateText } from "@/lib/rankingReset";
 import { TIER_BADGE } from "@/components/tierBadges";
 import { daysDative, daysLabel, useStreak } from "@/lib/streak";
 import Emoji from "@/components/Emoji";
+import TippTypCard from "@/components/TippTyp";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -577,6 +578,14 @@ function ProfilInhalt() {
           Genauere Statistiken (Trefferquote, Tipp-Verlauf) folgen in einem späteren Update.
         </p>
       </section>
+
+      {/* Dein Tipp-Typ (supabase/tipp-typ.sql): was für ein Tipper du bist, mit Bild zum Teilen. */}
+      {isRegistered && authUserId && (
+        <section className="mb-8">
+          <h2 className="mb-3 font-display text-lg font-semibold text-ink">Dein Tipp-Typ</h2>
+          <TippTypCard userId={authUserId} playerName={displayName} own />
+        </section>
+      )}
 
       {/* Level 9 Premium: automatische, teilbare Saison-Rückblick-Karte –
           läuft komplett mit echten Daten (myTips, streakCount, currentRank),

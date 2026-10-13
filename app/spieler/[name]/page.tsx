@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { ProfileRow, loadProfiles, sumPoints, toPointsBySport } from "@/lib/globalLeaderboard";
 import { RivalCompare as Compare, compareRival } from "@/lib/rivals";
 import { CompareTable } from "@/components/RivalCompare";
+import TippTypCard from "@/components/TippTyp";
 import { usePlayerRankIcons } from "@/lib/playerRankIcons";
 import FitText from "@/components/FitText";
 import RankMeaningBadge from "@/components/RankMeaningBadge";
@@ -251,6 +252,14 @@ export default function SpielerProfilPage() {
               <p className="mb-2 text-xs text-muted">Du im Vergleich mit {name} – der bessere Wert ist grün.</p>
               <CompareTable data={compare} />
             </div>
+          )}
+          {compare !== null && compare !== "fehlt" && compare.other.visible && playerId && (
+            <TippTypCard
+              userId={playerId}
+              playerName={name}
+              own={false}
+              heading={<p className="mb-2 font-display text-sm font-semibold text-ink">Tipp-Typ</p>}
+            />
           )}
         </section>
       )}

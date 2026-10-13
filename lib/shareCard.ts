@@ -2,6 +2,8 @@
 // Treffer ein quadratisches Bild (1080 × 1080, passt für WhatsApp) direkt im
 // Browser zeichnen. Kein Server, keine Datenbank, kostet und bringt nichts.
 
+import { emojiImage } from "@/components/Emoji";
+
 export interface ShareCardData {
   exact: boolean;
   playerName: string;
@@ -166,6 +168,162 @@ export async function drawShareCard(d: ShareCardData): Promise<Blob | null> {
     ctx.fillStyle = GOLD;
     ctx.fillText(`+${d.rangDelta} Rangpunkte`, cx, 990);
   }
+
+  return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
+}
+
+// ---------------------------------------------------------------------------
+// Tipp-Typ zum Teilen (Rene, 13.10.2026): gleicher Stil wie die Tipp-Karte.
+// ---------------------------------------------------------------------------
+
+export interface TypeCardTrait {
+  emoji: string;
+  name: string;
+}
+
+export interface TypeCardData {
+  playerName: string;
+  main: TypeCardTrait & { text: string };
+  traits: TypeCardTrait[];
+  evaluated: number;
+}
+
+// Emoji zeichnen: auf Apple das echte Emoji, sonst dasselbe Bild wie in der App.
+async function drawEmoji(ctx: CanvasRenderingContext2D, e: string, x: number, baseline: number, size: number, font: string) {
+  const useImage = typeof document !== "undefined" && document.documentElement.getAttribute("data-emoji") === "noto";
+  if (useImage) {
+    const info = emojiImage(e);
+    const img = info ? await loadImage(info.src) : null;
+    if (img) {
+      const box = size * 1.05;
+      ctx.drawImage(img, x - box / 2, baseline - box * 0.86, box, box);
+      return;
+    }
+  }
+  ctx.font = `${size}px ${font}`;
+  ctx.fillText(e, x, baseline);
+}
+
+export async function drawTypeCard(d: TypeCardData): Promise<Blob | null> {
+  const canvas = document.createElement("canvas");
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  try {
+    await document.fonts?.ready;
+    const emoji = emojiStack();
+    if (emoji) await document.fonts.load(`40px ${emoji}`, d.main.emoji + d.traits.map((t) => t.emoji).join(""));
+  } catch {
+    /* egal, dann eben Ersatzschrift */
+  }
+  const poppins = cssFont("--font-poppins", "Arial, sans-serif");
+  const inter = cssFont("--font-inter", "Arial, sans-serif");
+  const rajdhani = cssFont("--font-rajdhani", "Arial, sans-serif");
+  const W = SIZE - 140;
+  const cx = SIZE / 2;
+
+  const bg = ctx.createRadialGradient(cx, 420, 0, cx, 420, 820);
+  bg.addColorStop(0, "#21382F");
+  bg.addColorStop(1, "#0A110E");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, SIZE, SIZE);
+  ctx.strokeStyle = "rgba(237,185,74,0.35)";
+  ctx.lineWidth = 4;
+  rounded(ctx, 28, 28, SIZE - 56, SIZE - 56, 44);
+  ctx.stroke();
+  ctx.textBaseline = "alphabetic";
+
+  // Logo wie bei der Tipp-Karte.
+  const logo = await loadImage("/marke/pooltipp-symbol.svg");
+  ctx.font = `700 56px ${rajdhani}`;
+  const word = "PoolTipp";
+  const wordW = ctx.measureText(word).width;
+  const icon = 64;
+  const gap = 16;
+  const startX = cx - (icon + gap + wordW) / 2;
+  if (logo) {
+    ctx.save();
+    rounded(ctx, startX, 76, icon, icon, 16);
+    ctx.clip();
+    ctx.drawImage(logo, startX, 76, icon, icon);
+    ctx.restore();
+  }
+  ctx.fillStyle = INK;
+  ctx.textAlign = "left";
+  ctx.fillText(word, logo ? startX + icon + gap : cx - wordW / 2, 128);
+  ctx.textAlign = "center";
+
+  const head = `Tipp-Typ von ${d.playerName}`;
+  fit(ctx, head, (px) => `600 ${px}px ${inter}`, 40, 26, W);
+  ctx.fillStyle = MUTED;
+  ctx.fillText(head, cx, 206);
+
+  // Großes Emoji + Name mit goldenem Leuchten.
+  ctx.fillStyle = INK;
+  await drawEmoji(ctx, d.main.emoji, cx, 400, 170, emojiStack() || poppins);
+
+  fit(ctx, d.main.name, (px) => `700 ${px}px ${poppins}`, 92, 50, W);
+  const gold = ctx.createLinearGradient(0, 450, 0, 530);
+  gold.addColorStop(0, "#FFE7A3");
+  gold.addColorStop(1, GOLD);
+  ctx.save();
+  ctx.shadowColor = "rgba(237,185,74,0.6)";
+  ctx.shadowBlur = 44;
+  ctx.fillStyle = gold;
+  ctx.fillText(d.main.name, cx, 522);
+  ctx.restore();
+
+  // Erklärsatz, bei Bedarf auf zwei Zeilen.
+  ctx.fillStyle = INK;
+  ctx.font = `500 36px ${inter}`;
+  const words = d.main.text.split(" ");
+  const lines: string[] = [];
+  let line = "";
+  for (const w of words) {
+    const next = line ? `${line} ${w}` : w;
+    if (ctx.measureText(next).width > W && line) {
+      lines.push(line);
+      line = w;
+    } else line = next;
+  }
+  if (line) lines.push(line);
+  lines.slice(0, 2).forEach((l, i) => ctx.fillText(l, cx, 606 + i * 46));
+
+  // Eigenschaften als Pillen untereinander (höchstens 3), jeweils mittig.
+  const pills = d.traits.slice(0, 3);
+  const pillH = 70;
+  const pillGap = 14;
+  const em = 38;
+  let y = 694 - (3 - pills.length) * ((pillH + pillGap) / 2);
+  for (const pill of pills) {
+    const px = fit(ctx, pill.name, (p) => `600 ${p}px ${inter}`, 34, 22, W - em - 90);
+    ctx.font = `600 ${px}px ${inter}`;
+    const textW = ctx.measureText(pill.name).width;
+    const pillW = Math.min(W, em + 14 + textW + 72);
+    const x = cx - pillW / 2;
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    rounded(ctx, x, y, pillW, pillH, pillH / 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(237,185,74,0.35)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    const left = x + 36;
+    ctx.fillStyle = INK;
+    ctx.textAlign = "center";
+    await drawEmoji(ctx, pill.emoji, left + em / 2, y + 49, em, emojiStack() || inter);
+    ctx.font = `600 ${px}px ${inter}`;
+    ctx.textAlign = "left";
+    ctx.fillStyle = INK;
+    ctx.fillText(pill.name, left + em + 14, y + 47);
+    ctx.textAlign = "center";
+    y += pillH + pillGap;
+  }
+
+  ctx.font = `500 30px ${inter}`;
+  ctx.fillStyle = MUTED;
+  ctx.fillText(`Aus ${d.evaluated.toLocaleString("de-DE")} ausgewerteten Tipps · Und du? PoolTipp`, cx, 1006);
 
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
 }

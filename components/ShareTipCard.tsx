@@ -19,12 +19,39 @@ export default function ShareTipButton({ data }: { data: ShareCardData }) {
       >
         📤 Teilen
       </button>
-      {open && typeof document !== "undefined" && createPortal(<ShareDialog data={data} onClose={() => setOpen(false)} />, document.body)}
+      {open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <ShareImageDialog
+            title="Tipp teilen"
+            alt="Deine Tipp-Karte"
+            fileName="pooltipp-tipp.png"
+            shareText={data.exact ? "Volltreffer bei PoolTipp! 🎯" : "Richtig getippt bei PoolTipp! ✅"}
+            draw={() => drawShareCard(data)}
+            onClose={() => setOpen(false)}
+          />,
+          document.body
+        )}
     </>
   );
 }
 
-function ShareDialog({ data, onClose }: { data: ShareCardData; onClose: () => void }) {
+/** Vorschau-Fenster für ein Bild zum Teilen (Tipp-Karte, Tipp-Typ …). */
+export function ShareImageDialog({
+  title,
+  alt,
+  fileName,
+  shareText,
+  draw,
+  onClose,
+}: {
+  title: string;
+  alt: string;
+  fileName: string;
+  shareText: string;
+  draw: () => Promise<Blob | null>;
+  onClose: () => void;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -33,13 +60,13 @@ function ShareDialog({ data, onClose }: { data: ShareCardData; onClose: () => vo
   useEffect(() => {
     let alive = true;
     let objectUrl: string | null = null;
-    drawShareCard(data).then((blob) => {
+    draw().then((blob) => {
       if (!alive) return;
       if (!blob) {
         setFailed(true);
         return;
       }
-      const f = new File([blob], "pooltipp-tipp.png", { type: "image/png" });
+      const f = new File([blob], fileName, { type: "image/png" });
       objectUrl = URL.createObjectURL(blob);
       setFile(f);
       setUrl(objectUrl);
@@ -53,7 +80,9 @@ function ShareDialog({ data, onClose }: { data: ShareCardData; onClose: () => vo
       alive = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [data]);
+    // Nur einmal beim Öffnen zeichnen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -66,7 +95,7 @@ function ShareDialog({ data, onClose }: { data: ShareCardData; onClose: () => vo
     try {
       await navigator.share({
         files: [file],
-        text: data.exact ? "Volltreffer bei PoolTipp! 🎯" : "Richtig getippt bei PoolTipp! ✅",
+        text: shareText,
       });
     } catch {
       /* abgebrochen – nichts tun */
@@ -77,7 +106,7 @@ function ShareDialog({ data, onClose }: { data: ShareCardData; onClose: () => vo
     if (!url) return;
     const a = document.createElement("a");
     a.href = url;
-    a.download = "pooltipp-tipp.png";
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -89,17 +118,17 @@ function ShareDialog({ data, onClose }: { data: ShareCardData; onClose: () => vo
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Tipp teilen"
+      aria-label={title}
     >
       <div
         className="flex w-full max-w-sm flex-col gap-4 rounded-card border border-edge bg-surface p-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="font-display text-base font-semibold text-ink">Tipp teilen</p>
+        <p className="font-display text-base font-semibold text-ink">{title}</p>
         <div className="aspect-square w-full overflow-hidden rounded-xl border border-edge bg-pitch">
           {url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={url} alt="Deine Tipp-Karte" className="h-full w-full" />
+            <img src={url} alt={alt} className="h-full w-full" />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-muted">
               {failed ? "Das Bild konnte nicht erstellt werden." : "Bild wird erstellt…"}
