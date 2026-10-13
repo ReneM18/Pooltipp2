@@ -569,7 +569,18 @@ export default function MatchCard({
           zwischen normalen Spielen (z. B. bei den geschlossenen) sofort sieht. */}
       {stage ? (
         <div className="flex items-center justify-between gap-2 border-b border-gold/30 bg-gold/15 px-4 py-1.5 font-display text-xs font-bold uppercase tracking-[0.14em] text-gold sm:px-5">
-          <span className="min-w-0 leading-tight">⭐ Top-Spiel{isBooster ? " · ⚡ Booster" : ""}</span>
+          {/* Handy: "Top-Spiel" oben, "⚡ Booster" mittig darunter (Blitz und
+              Wort bleiben in einer Zeile). Ab sm wie bisher in einer Zeile:
+              "⭐ Top-Spiel · ⚡ Booster". */}
+          <span className="flex min-w-0 flex-col items-center leading-tight sm:flex-row sm:gap-1.5">
+            <span className="whitespace-nowrap">⭐ Top-Spiel</span>
+            {isBooster && (
+              <>
+                <span aria-hidden className="hidden sm:inline">·</span>
+                <span className="whitespace-nowrap">⚡ Booster</span>
+              </>
+            )}
+          </span>
           {/* Countdown rechts oben, genau wie in der Kopfzeile normaler Karten
               (Rene, 13.10.2026: beim Topspiel fehlte die ablaufende Zeit, nach
               dem Tippen gab es sie gar nicht mehr). */}
