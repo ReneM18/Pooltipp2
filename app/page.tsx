@@ -21,12 +21,16 @@ import { splitMatchesByTab } from "@/lib/matchTabs";
 import { displayOrder } from "@/lib/teamOrder";
 import { useStreak } from "@/lib/streak";
 import { readPendingInvite } from "@/lib/leagueInvite";
+import { useMyClubs } from "@/lib/clubs";
 
 export default function DashboardPage() {
-  const { placeTip, refreshStars, isRegistered, startDone } = useUser();
+  const { placeTip, refreshStars, isRegistered, startDone, authUserId } = useUser();
   const { reloadJokers } = useJokers();
   const { matches, getTeam, tipCounts, withdrawTip, myTips, myTipsLoaded, contentLoaded, matchesLoadFailed } = useAppData();
   const streak = useStreak();
+  // Herzensvereine EINMAL für die ganze Seite laden (nicht pro Karte: jeder
+  // Aufruf holt die Daten und öffnet einen eigenen Realtime-Kanal).
+  const { clubs: myClubs, playForClubs } = useMyClubs(authUserId);
   const router = useRouter();
 
   // Neu registriert (noch kein Tipp, Start-Erlebnis weder fertig noch
@@ -186,6 +190,7 @@ export default function DashboardPage() {
         match={match}
         homeTeam={homeTeam}
         awayTeam={awayTeam}
+        fanTeamId={playForClubs ? myClubs?.[match.sport]?.teamId ?? null : null}
         tipCount={tipCounts[match.id] ?? 0}
         myTip={
           tip
