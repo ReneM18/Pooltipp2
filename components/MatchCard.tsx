@@ -800,10 +800,14 @@ export default function MatchCard({
                   className="flex w-full items-center justify-between gap-3 text-left"
                 >
                   <span className="min-w-0 text-sm text-ink">
-                    ⚡ <span className="font-semibold">{boosterOn ? "Booster an" : "Booster einsetzen"}</span>
+                    ⚡ <span className="font-semibold">{boosterOn ? "Booster an" : "Booster:"}</span>
                     <span className="text-muted">
-                      {" · "}
-                      {withGutschein ? "mit Gutschein gratis" : `${BOOSTER_STAKE} Coins Einsatz`}
+                      {boosterOn ? " · " : " "}
+                      {withGutschein
+                        ? "mit Gutschein gratis"
+                        : boosterOn
+                          ? `${BOOSTER_STAKE} Coins Einsatz`
+                          : `${BOOSTER_STAKE} Coins setzen`}
                     </span>
                   </span>
                   <span
@@ -835,7 +839,7 @@ export default function MatchCard({
                 )}
                 {!boosterOn && (
                   <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted">
-                    Mit Booster spielst du zusätzlich um <CoinIcon className="h-3.5 w-3.5" /> Coins.
+                    Je genauer dein Tipp, desto mehr <CoinIcon className="h-3.5 w-3.5" /> Coins gewinnst du.
                   </p>
                 )}
               </div>

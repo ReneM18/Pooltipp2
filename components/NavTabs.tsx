@@ -14,7 +14,7 @@ const tabs = [
   { href: "/matchcenter", label: "Matchcenter" },
   { href: "/fortschritt", label: "Saison-Pass" },
   { href: "/rangliste", label: "Rangliste" },
-  { href: "/feed", label: "Feed" },
+  { href: "/feed", label: "Was andere tippen" },
   { href: "/freunde", label: "Freunde" },
 ];
 
@@ -47,7 +47,7 @@ export default function NavTabs() {
             <Link
               key={tab.href}
               href={tab.href}
-              className={`relative flex shrink-0 items-center px-3 py-3.5 font-display text-lg font-semibold tracking-wide transition-colors lg:px-4 ${
+              className={`relative flex shrink-0 items-center px-3 py-3.5 font-display text-lg font-semibold tracking-wide transition-colors lg:px-2.5 lg:text-base xl:px-4 xl:text-lg ${
                 isActive ? "text-ink" : "text-muted hover:text-ink"
               }`}
             >

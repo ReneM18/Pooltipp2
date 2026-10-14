@@ -193,7 +193,7 @@ function SeasonPassView() {
         </div>
         <h1 className="font-display text-3xl font-bold text-ink">Saison-Pass</h1>
         <p className="mt-1 text-sm text-muted">
-          Hol dir jeden Tag deinen Bonus, sammle Saison-XP und schalte Level für Level neue Belohnungen frei.
+          Hol dir jeden Tag deinen Bonus, sammle Pass-XP und schalte Level für Level neue Belohnungen frei.
         </p>
       </div>
 
@@ -254,7 +254,7 @@ function SeasonPassView() {
         <p className="mb-2 font-display text-sm font-semibold text-ink">So funktioniert der Pass</p>
         <ul className="flex flex-col gap-1.5 text-xs text-muted">
           <li>
-            <span className="font-semibold text-ink">Saison-XP</span> zeigen, wie aktiv du bist, und füllen nur
+            <span className="font-semibold text-ink">Pass-XP</span> zeigen, wie aktiv du bist, und füllen nur
             diesen Pass.
           </li>
           <li>

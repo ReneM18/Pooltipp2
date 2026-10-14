@@ -40,9 +40,16 @@ export default function Footer() {
           </summary>
         {/* Drei kurze Absätze statt einem Block: Rankingsystem, Coins und Joker, Extras. */}
         <div className="flex flex-col gap-2 px-4 pb-4 text-sm leading-relaxed text-muted sm:gap-1 sm:text-xs sm:leading-normal">
+          {/* Zuerst die drei Sätze aus der Willkommens-Tour, dann die Zahlen
+              (Rene, 14.10.2026). */}
+          <ul className="mb-1 flex flex-col gap-1 text-ink">
+            <li>🏟️ <strong className="font-semibold">Du tippst gegen alle:</strong> Jedes Spiel ist ein Pool, alle, die es tippen, treten gegeneinander an.</li>
+            <li>💪 <strong className="font-semibold">Schlag die Stärkeren:</strong> Tippst du besser als jemand über dir in der Rangliste, gibt es mehr Bonus, gegen Spieler unter dir weniger.</li>
+            <li>🏆 <strong className="font-semibold">Steig Rang für Rang auf:</strong> von Bronze über Silber, Gold, Platin, Diamant und Meister bis zum GOAT.</li>
+          </ul>
           <p>
             PoolTipp ist das kostenlose Social-Tippspiel für echte Sportfans: Tippe vor jedem Spiel
-            deiner Lieblingssportarten (Fußball, Football, Basketball, Eishockey) das Ergebnis. Jeder Tipp ist gratis und
+            deiner Lieblingssportarten (Fußball, American Football, Basketball, Eishockey) das Ergebnis. Jeder Tipp ist gratis und
             bringt Rangpunkte: exakt +10, richtige Tordifferenz +7, richtige Tendenz +5, falsch −3.
             Dazu kommt ein Bonus gegen alle, die dasselbe Spiel getippt haben: Bessere zu schlagen
             bringt doppelt, gegen Schwächere zu verlieren kostet doppelt. Wer zwei Wochen lang gar
@@ -65,7 +72,7 @@ export default function Footer() {
           <p>
             Dazu gibt's echte Live-Ergebnisse und Tabellen im Matchcenter, einen Saison-Pass mit
             Belohnungen fürs tägliche Reinschauen, eine Rangliste pro Sportart, eine Wochen-Rangliste (Dienstag 8:00 bis
-            Dienstag 8:00 Uhr mitteleuropäische Zeit, nur Tipp-Punkte aller Sportarten ohne Bonus, der Erste bekommt
+            Dienstag 8:00 Uhr mitteleuropäische Zeit, nur Wochenpunkte aus Tipps aller Sportarten ohne Bonus, der Erste bekommt
             Pass-XP) und
             {TIPPRUNDEN_ENABLED ? " private Tipprunden für Freunde, Verein oder Kollegen" : " Duelle gegen Freunde"}. Alles komplett kostenlos – gespielt wird
             nur um virtuelle Coins, nie um echtes Geld.

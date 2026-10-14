@@ -90,6 +90,7 @@ function ProfilInhalt() {
   } = useUser();
   // Serie, wie sie gerade wirklich zählt (gerissen = 0), siehe lib/streak.ts.
   const streak = useStreak();
+  const totalRangPunkte = Object.values(rangPunkte).reduce((sum, p) => sum + (p ?? 0), 0);
   const streakCount = streak.count;
   const [loggingOut, setLoggingOut] = useState(false);
   async function handleLogout() {
@@ -199,7 +200,7 @@ function ProfilInhalt() {
   function handleShareRueckblick() {
     const text = `🏆 Mein PoolTipp-Rückblick ${SEASON_THEME.year}\n${tipsSubmitted} Tipps abgegeben · ${trefferquote}% Trefferquote (exakt)${
       currentRank ? `\nRang ${currentRank} in der Gesamt-Rangliste` : ""
-    }${activeRankIcon ? ` · ${activeRankIcon.label}` : ""}\n🔥 ${streakCount} Tage Streak`;
+    }${activeRankIcon ? ` · ${activeRankIcon.label}` : ""}\n🔥 ${streakCount} Tage Tipp-Serie`;
     navigator.clipboard
       ?.writeText(text)
       .then(() => showToast("📋 Rückblick in die Zwischenablage kopiert.", "gold"))
@@ -505,10 +506,9 @@ function ProfilInhalt() {
           <StatCard label="Diese Saison" value={signedPoints(seasonPoints)} accent={seasonPoints >= 0 ? "action" : "ink"} />
         </div>
         <p className="mt-3 text-xs text-muted">
-          Jeder Tipp bringt feste Punkte plus Bonus: exakt +10, Tordifferenz +7, Tendenz +5, falsch −3. Den Bonus
-          gibt es, wenn du dich gegen die anderen Tipper desselben Spiels durchsetzt. Ein einzelner Tipp kann ins
-          Minus gehen, entscheidend ist, was über die Woche und die Saison zusammenkommt. Wer 2 Wochen gar nicht
-          tippt, verliert 5 Punkte pro Woche.
+          Schlägst du Spieler über dir, gibt es mehr Punkte. Gegen Spieler unter dir gibt es weniger. Die genauen
+          Punkte stehen bei jedem Spiel unter „Punkteverteilung“. Wer 2 Wochen gar nicht tippt, verliert 5 Punkte
+          pro Woche.
         </p>
         {isRegistered && (
           <Link
@@ -531,11 +531,21 @@ function ProfilInhalt() {
           <h2 className="font-display text-lg font-semibold text-ink">Deine Statistik</h2>
           {isRegistered && <RivalCompareButton />}
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* Oben nur die drei wichtigsten Zahlen, der Rest unter "Mehr Zahlen"
+            (Rene, 14.10.2026: weniger Zähler auf einmal). */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          <StatCard label="Rangpunkte" value={totalRangPunkte.toLocaleString("de-DE")} accent="action" />
           <StatCard label="Coins" value={freeStars.toLocaleString("de-DE")} accent="gold" />
+          <StatCard label="Tipp-Serie" value={`🔥 ${streakCount.toLocaleString("de-DE")}`} accent="gold" />
+        </div>
+        <details className="group mt-3">
+          <summary className="flex cursor-pointer list-none items-center justify-between rounded-card border border-edge bg-surface px-4 py-3 text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
+            Mehr Zahlen
+            <span className="text-xs text-gold transition-transform group-open:rotate-180" aria-hidden>▼</span>
+          </summary>
+        <div className="mt-3 grid grid-cols-2 gap-3">
           <StatCard label="Pass-XP" value={passXP.toLocaleString("de-DE")} accent="action" />
           <StatCard label="Abgegebene Tipps" value={tipsSubmitted.toLocaleString("de-DE")} accent="ink" />
-          <StatCard label="Tipp-Streak" value={`🔥 ${streakCount.toLocaleString("de-DE")}`} accent="gold" />
         </div>
         {isRegistered && (
           <div className="mt-3 rounded-card border border-edge bg-surface p-4 text-xs text-muted">
@@ -577,6 +587,7 @@ function ProfilInhalt() {
           {resetDate && <>Gezählt werden deine Tipps seit dem Neustart der Rangpunkte am {resetDate}. </>}
           Genauere Statistiken (Trefferquote, Tipp-Verlauf) folgen in einem späteren Update.
         </p>
+        </details>
       </section>
 
       {/* Dein Tipp-Typ (supabase/tipp-typ.sql): was für ein Tipper du bist, mit Bild zum Teilen. */}

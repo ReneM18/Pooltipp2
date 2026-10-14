@@ -253,7 +253,7 @@ export default function DashboardPage() {
 
       {/* Bis die echten Spiele geladen sind (nach Einloggen oder Neuladen),
           stehen nur Demo-Spiele im Speicher. Erst danach wird der Reiter
-          gewählt, sonst blitzt "Offene Tipps" kurz auf. */}
+          gewählt, sonst blitzt "Kommende Spiele" kurz auf. */}
       {!contentLoaded ? (
         <p className="py-8 text-center text-sm text-muted">
           {matchesLoadFailed
@@ -265,13 +265,13 @@ export default function DashboardPage() {
       <LiveStrip items={liveItems} />
       <div className="mb-5 flex gap-2 border-b border-edge">
         <TabButton
-          label="Offene Tipps"
+          label="Kommende Spiele"
           count={offeneMatches.length}
           active={tab === "offen"}
           onClick={() => setTab("offen")}
         />
         <TabButton
-          label="Geschlossene Tipps"
+          label="Beendete Spiele"
           count={geschlosseneMatches.length}
           active={tab === "geschlossen"}
           onClick={() => setTab("geschlossen")}

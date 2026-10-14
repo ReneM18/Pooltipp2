@@ -2159,7 +2159,7 @@ function MatchManager() {
             </p>
             {new Date(tipDeadline).getTime() <= Date.now() && (
               <p className="mt-1 text-sm text-gold">
-                Achtung: Der Tippschluss ist schon vorbei – Spieler sehen das Spiel nur unter „Geschlossene Tipps“.
+                Achtung: Der Tippschluss ist schon vorbei – Spieler sehen das Spiel nur unter „Beendete Spiele“.
               </p>
             )}
             <div className="mt-3 flex flex-wrap gap-2">
@@ -2312,7 +2312,7 @@ function MatchManager() {
                 new Date(match.kickoff).getTime() > Date.now() && (
                   <p className="mb-4 rounded-lg border border-gold/40 bg-gold/10 px-3 py-2 text-sm text-gold">
                     Tippschluss ist schon vorbei ({new Date(match.tipDeadline).toLocaleString("de-DE")}) – Spieler
-                    sehen das Spiel nur unter „Geschlossene Tipps“. Über „Bearbeiten“ den Tippschluss neu setzen.
+                    sehen das Spiel nur unter „Beendete Spiele“. Über „Bearbeiten“ den Tippschluss neu setzen.
                   </p>
                 )}
               <div className="mb-5 flex items-center justify-center gap-4 sm:gap-6">
@@ -2631,7 +2631,7 @@ function MatchDetailsEditor({
     setEditing(false);
     showToast(
       deadlineInPast
-        ? "✓ Gespeichert – aber der Tippschluss ist schon vorbei, Spieler sehen das Spiel nur unter „Geschlossene Tipps“."
+        ? "✓ Gespeichert – aber der Tippschluss ist schon vorbei, Spieler sehen das Spiel nur unter „Beendete Spiele“."
         : "✓ Spieldaten gespeichert.",
       deadlineInPast ? "info" : "success"
     );

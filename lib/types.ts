@@ -41,7 +41,7 @@ export function sportOptions(current?: Sport | null): Sport[] {
 // Season") bleiben eigene Namen und werden hier nicht berührt.
 export const SPORT_LABELS: Record<Sport, string> = {
   "Fußball": "Fußball",
-  NFL: "Football",
+  NFL: "American Football",
   NBA: "Basketball",
   NHL: "Eishockey",
   Handball: "Handball",
