@@ -547,6 +547,79 @@ export default function MatchCard({
     />
   );
 
+  // Knopf-Zustände klar unterscheidbar: tippbereit = kräftiges Grün mit
+  // Leuchten, noch nicht tippbereit = grau (vorher nur halb durchsichtig,
+  // sah aus wie "kaputt"). Ohne Login der Weg zum Einloggen.
+  function submitButton(label: string) {
+    if (isGuest) {
+      return (
+        <Link
+          href="/registrieren"
+          className="block w-full flex-1 rounded-full bg-action-hover py-2.5 text-center font-display text-base font-semibold tracking-wide text-pitch shadow-[0_0_22px_rgb(var(--c-action-hover)/0.45)] transition-all hover:brightness-110"
+        >
+          Zum Tippen einloggen
+        </Link>
+      );
+    }
+    return (
+      <button
+        onClick={handleSubmit}
+        disabled={submitting || notReady}
+        className={`w-full min-w-0 flex-1 rounded-full py-2.5 font-display font-semibold tracking-wide text-base transition-all ${
+          notReady
+            ? "cursor-not-allowed border border-edge bg-edge text-muted"
+            : "bg-action-hover text-pitch shadow-[0_0_22px_rgb(var(--c-action-hover)/0.45)] enabled:active:scale-[0.97] enabled:hover:brightness-110 enabled:hover:shadow-[0_0_30px_rgb(var(--c-action-hover)/0.6)] disabled:cursor-wait"
+        }`}
+      >
+        {submitting ? "Wird gespeichert…" : label}
+      </button>
+    );
+  }
+
+  // Sieger-Knopf der kompakten Karte: ohne Unentschieden steht der Name
+  // drauf ("Knicks gewinnen"), sonst 1 / X / 2 wie gewohnt.
+  function compactPickButton(option: OneXTwo) {
+    const team = option === "1" ? homeTeam : option === "2" ? awayTeam : null;
+    return (
+      <button
+        key={option}
+        onClick={() => setNflPick((current) => (current === option ? null : option))}
+        aria-label={pickLabel(option)}
+        aria-pressed={nflPick === option}
+        className={`flex min-h-[2.75rem] min-w-0 items-center justify-center rounded-lg border px-2 py-1.5 text-center leading-tight transition-colors ${
+          nflPick === option ? "border-gold bg-gold/15 text-gold" : "border-edge bg-pitch text-ink hover:border-muted"
+        }`}
+      >
+        {allowsDraw || !team ? (
+          <span className="font-display text-lg font-bold">{pickButtonNumber(option)}</span>
+        ) : (
+          <span className="font-display text-[13px] font-semibold">{teamNickname(team.name)} gewinnen</span>
+        )}
+      </button>
+    );
+  }
+
+  const homeScoreInputCompact = (
+    <ScoreInput
+      value={homeScore}
+      onChange={setHomeScore}
+      onClear={() => setHomeScore(null)}
+      max={limit.max}
+      label={`${limit.unit} ${homeTeam.name}`}
+      className={scoreInputCompactClass}
+    />
+  );
+  const awayScoreInputCompact = (
+    <ScoreInput
+      value={awayScore}
+      onChange={setAwayScore}
+      onClear={() => setAwayScore(null)}
+      max={limit.max}
+      label={`${limit.unit} ${awayTeam.name}`}
+      className={scoreInputCompactClass}
+    />
+  );
+
   return (
     <div
       ref={cardRef}
@@ -611,7 +684,7 @@ export default function MatchCard({
           {leagueFlag && <span className="shrink-0"><Emoji e={leagueFlag} /></span>}
           <span className="min-w-0 leading-tight">{competitionName}</span>
         </span>
-        <span className="shrink-0 whitespace-nowrap text-xs font-medium">
+        <span className="ml-auto shrink-0 whitespace-nowrap text-xs font-medium">
           {isCancelled ? (
             <span className="rounded-full border border-red-400/60 bg-red-400/10 px-2 py-0.5 font-semibold text-red-300">
               Abgesagt
@@ -620,12 +693,17 @@ export default function MatchCard({
             <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
           )}
         </span>
+        {/* Kompakte Karte (Rene, 14.10.2026): Punkteverteilung als (i) oben
+            rechts statt eigener Zeile über dem Knopf. */}
+        {!isCancelled && !myTip?.evaluated && (
+          <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} iconOnly />
+        )}
       </div>
       )}
 
       {/* Topspiel am Handy etwas enger, damit es samt Tipp-Knopf auf einen
           Bildschirm passt (Rene, 10.10.2026); am PC wie bisher. */}
-      <div className={`flex flex-1 flex-col ${stage ? "mx-auto w-full max-w-xl p-4 sm:p-5" : "p-5"}`}>
+      <div className={`flex flex-1 flex-col ${stage ? "mx-auto w-full max-w-xl p-4 sm:p-5" : "px-3.5 pb-4 pt-3 sm:px-4"}`}>
         {/* Datum + Teams in einem Block, an dem der Reiter "Dein Verein" hängt
             (Rene, 13.10.2026): Er reicht von der Unterkante der Kopfzeile bis
             zur Oberkante von "Dein Tipp" bzw. der Eingabefelder und sitzt am
@@ -639,11 +717,11 @@ export default function MatchCard({
           {fanSide && (
             <span
               className={`pointer-events-none absolute bottom-0 z-[1] flex w-[14px] items-center justify-center border-[#6FA8DC]/45 bg-gradient-to-b from-[#6FA8DC]/30 via-[#6FA8DC]/10 to-[#6FA8DC]/0 [-webkit-mask-image:linear-gradient(to_bottom,#000_65%,transparent)] [mask-image:linear-gradient(to_bottom,#000_65%,transparent)] ${
-                stage ? "-top-4 sm:-top-5" : "-top-5"
+                stage ? "-top-4 sm:-top-5" : "-top-3"
               } ${
                 fanSide === "left"
-                  ? `${stage ? "-left-4 sm:-left-5" : "-left-5"} rounded-r-md border-r`
-                  : `${stage ? "-right-4 sm:-right-5" : "-right-5"} rounded-l-md border-l`
+                  ? `${stage ? "-left-4 sm:-left-5" : "-left-3.5 sm:-left-4"} rounded-r-md border-r`
+                  : `${stage ? "-right-4 sm:-right-5" : "-right-3.5 sm:-right-4"} rounded-l-md border-l`
               }`}
             >
               <span className="rotate-180 whitespace-nowrap text-[10px] font-extrabold uppercase leading-none tracking-[0.14em] text-[#8EC0EE] [writing-mode:vertical-rl]">
@@ -660,7 +738,11 @@ export default function MatchCard({
             <span className="min-w-0 leading-tight">{competitionName}</span>
           </div>
         )}
-        <div className="mb-3 flex min-h-[1.75rem] flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[15px] text-muted">
+        <div
+          className={`flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-muted ${
+            stage ? "mb-3 min-h-[1.75rem] text-[15px]" : "mb-2.5 text-[13px]"
+          }`}
+        >
           {match.matchday && !stage ? <span>Spieltag {match.matchday}</span> : null}
           {match.matchday && !stage ? <span aria-hidden>·</span> : null}
           <span>{kickoffLabel}</span>
@@ -680,6 +762,42 @@ export default function MatchCard({
             hinausragen, braucht dafür eine feste Mitte). Ergebnis-Felder stehen
             als enges Paar mittig. Ohne X-Kasten ist die Mitte nur so breit wie
             "vs" bzw. der Endstand, dann haben die Namen mehr Platz. */}
+        {!stage ? (
+          // Kompakte Karte (Rene, 14.10.2026, Variante 2): beide Teams in einer
+          // Zeile, Ergebnis-Felder dazwischen. Sieger-Tipp: Knöpfe darunter.
+          <div className="mb-3">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-1 sm:gap-x-2">
+              <TeamInline match={match} team={leftTeam} />
+              {finalScore ? (
+                <div className="flex flex-col items-center">
+                  <span className="whitespace-nowrap font-display text-xl font-bold leading-tight text-ink">
+                    {formatScore(finalScore.home, finalScore.away)}
+                  </span>
+                  <span className="text-[10px] uppercase tracking-wide text-muted">Endstand</span>
+                </div>
+              ) : !showResultView && !isOneXTwo ? (
+                <div className="flex items-center gap-0.5">
+                  {isUsSport ? awayScoreInputCompact : homeScoreInputCompact}
+                  <span className="font-display text-lg text-muted">:</span>
+                  {isUsSport ? homeScoreInputCompact : awayScoreInputCompact}
+                </div>
+              ) : (
+                <span className="px-1 font-display text-xs text-muted">vs</span>
+              )}
+              <TeamInline match={match} team={rightTeam} flip />
+            </div>
+            {!showResultView && closingSoon && (
+              <p className="mt-2.5 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">
+                <span aria-hidden>⏰</span> Gleich geschlossen – jetzt noch schnell tippen!
+              </p>
+            )}
+            {!showResultView && isOneXTwo && (
+              <div className={`mt-3 grid gap-2 ${oneXTwoOptions.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+                {oneXTwoOptions.map((option) => compactPickButton(option))}
+              </div>
+            )}
+          </div>
+        ) : (
         <div
           className={`${stage ? "mb-4 gap-y-2.5 sm:mb-5 sm:gap-y-4" : "mb-5 gap-y-4"} grid items-start gap-x-2 sm:gap-x-3 ${
             needsWideMiddle ? "grid-cols-[1fr_1rem_1fr] sm:grid-cols-[1fr_1.5rem_1fr]" : "grid-cols-[1fr_auto_1fr]"
@@ -742,6 +860,7 @@ export default function MatchCard({
             </>
           )}
         </div>
+        )}
         </div>
 
         {!showResultView && (
@@ -784,103 +903,134 @@ export default function MatchCard({
               <TrendRow matchId={match.id} homeName={homeTeam.name} awayName={awayTeam.name} awayFirst={isUsSport} className="mb-3" />
             )}
 
+            {stage ? (
+              <>
             {isBooster && (
-              <div
-                className={`mb-3 rounded-lg border px-4 py-2.5 transition-colors ${
-                  boosterOn ? "border-gold/50 bg-gold/[0.07]" : "border-edge bg-pitch/60"
-                }`}
-              >
-                {/* Schalter: an = Vorschau, was man gewinnen/verlieren kann.
-                    Abgebucht wird erst mit "Tipp abgeben". */}
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={boosterOn}
-                  onClick={() => setBoosterOn((on) => !on)}
-                  className="flex w-full items-center justify-between gap-3 text-left"
+                <div
+                  className={`mb-3 rounded-lg border px-4 py-2.5 transition-colors ${
+                    boosterOn ? "border-gold/50 bg-gold/[0.07]" : "border-edge bg-pitch/60"
+                  }`}
                 >
-                  <span className="min-w-0 text-sm text-ink">
-                    ⚡ <span className="font-semibold">{boosterOn ? "Booster an" : "Booster:"}</span>
-                    <span className="text-muted">
-                      {boosterOn ? " · " : " "}
-                      {withGutschein
-                        ? "mit Gutschein gratis"
-                        : boosterOn
-                          ? `${BOOSTER_STAKE} Coins Einsatz`
-                          : `${BOOSTER_STAKE} Coins setzen`}
-                    </span>
-                  </span>
-                  <span
-                    aria-hidden
-                    className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${boosterOn ? "bg-gold" : "bg-edge"}`}
+                  {/* Schalter: an = Vorschau, was man gewinnen/verlieren kann.
+                      Abgebucht wird erst mit "Tipp abgeben". */}
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={boosterOn}
+                    onClick={() => setBoosterOn((on) => !on)}
+                    className="flex w-full items-center justify-between gap-3 text-left"
                   >
+                    <span className="min-w-0 text-sm text-ink">
+                      ⚡ <span className="font-semibold">{boosterOn ? "Booster an" : "Booster:"}</span>
+                      <span className="text-muted">
+                        {boosterOn ? " · " : " "}
+                        {withGutschein
+                          ? "mit Gutschein gratis"
+                          : boosterOn
+                            ? `${BOOSTER_STAKE} Coins Einsatz`
+                            : `${BOOSTER_STAKE} Coins setzen`}
+                      </span>
+                    </span>
                     <span
-                      className={`absolute top-1 h-4 w-4 rounded-full transition-all ${
-                        boosterOn ? "left-5 bg-pitch" : "left-1 bg-muted"
-                      }`}
-                    />
-                  </span>
-                </button>
-                {boosterOn && (
-                  <>
-                    {withGutschein && (
-                      <p className="mt-1.5 text-xs text-muted">
+                      aria-hidden
+                      className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${boosterOn ? "bg-gold" : "bg-edge"}`}
+                    >
+                      <span
+                        className={`absolute top-1 h-4 w-4 rounded-full transition-all ${
+                          boosterOn ? "left-5 bg-pitch" : "left-1 bg-muted"
+                        }`}
+                      />
+                    </span>
+                  </button>
+                  {boosterOn && (
+                    <>
+                      {withGutschein && (
+                        <p className="mt-1.5 text-xs text-muted">
+                          🎟️ Dein Booster-Gutschein wird eingelöst
+                          {gutscheine > 1 ? ` (du hast ${gutscheine})` : ""}. Daneben kostet der Tipp nichts.
+                        </p>
+                      )}
+                      <p className="mt-2 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted">
+                        <CoinIcon className="h-3 w-3" />
+                        {withGutschein ? "Coins: dein Gewinn" : "Coins: dein Gewinn oder Verlust"}
+                      </p>
+                      <PointsGrid items={withGutschein ? gutscheinPayouts(isOneXTwo) : boosterPayouts(isOneXTwo)} coins />
+                      <BoosterRankRow isOneXTwo={isOneXTwo} compactOnPhone={stage} />
+                    </>
+                  )}
+                  {!boosterOn && (
+                    <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted">
+                      Je genauer dein Tipp, desto mehr <CoinIcon className="h-3.5 w-3.5" /> Coins gewinnst du.
+                    </p>
+                  )}
+                </div>
+              )}
+              {/* Statt der Punkte-Tabelle nur ein kleiner Hinweis, die
+                  Punkteverteilung öffnet sich beim Antippen in einem Fenster.
+                  Nur der Booster (was der Tipp an Coins kostet, Gewinn oder
+                  Verlust) bleibt als goldene Box auf der Karte, der Hinweis
+                  steht immer direkt über dem Knopf. */}
+              {/* Welche Tipp-Art? (Rene, 13.10.2026: viele verwechseln Ergebnis-
+                  und Sieger-Tipp.) Schild in derselben Zeile wie die
+                  Punkteverteilung, damit die Karte nicht höher wird. */}
+              <div className="mb-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
+                <TipModeTag isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} />
+                <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} />
+              </div>
+  
+              {/* Knopf-Zustände klar unterscheidbar: tippbereit = kräftiges
+                  Grün mit Leuchten, noch nicht tippbereit = grau (vorher nur
+                  halb durchsichtig, sah aus wie "kaputt"). */}
+              {submitButton(`${isOneXTwo ? "Sieger" : "Ergebnis"}${boosting ? " mit Booster" : ""} abgeben`)}
+              </>
+            ) : (
+              <>
+                {/* Kompakt: Booster-Schalter links neben dem Knopf, beim
+                    Einschalten stehen Gewinn und Verlust direkt darunter. */}
+                <div className="flex items-center gap-3">
+                  {isBooster && !isGuest && (
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={boosterOn}
+                      onClick={() => setBoosterOn((on) => !on)}
+                      className="flex shrink-0 items-center gap-2 text-sm font-semibold text-gold"
+                    >
+                      <span
+                        aria-hidden
+                        className={`relative h-6 w-10 shrink-0 rounded-full transition-colors ${boosterOn ? "bg-gold" : "bg-edge"}`}
+                      >
+                        <span
+                          className={`absolute top-1 h-4 w-4 rounded-full transition-all ${
+                            boosterOn ? "left-5 bg-pitch" : "left-1 bg-muted"
+                          }`}
+                        />
+                      </span>
+                      ⚡ {boosterOn ? "Booster an" : "Booster"}
+                    </button>
+                  )}
+                  {submitButton(isBooster && !isGuest ? "Abgeben" : "Tipp abgeben")}
+                </div>
+                {isBooster && !isGuest && boosterOn && (
+                  <div className="mt-2.5">
+                    {withGutschein ? (
+                      <p className="text-xs text-muted">
                         🎟️ Dein Booster-Gutschein wird eingelöst
                         {gutscheine > 1 ? ` (du hast ${gutscheine})` : ""}. Daneben kostet der Tipp nichts.
                       </p>
+                    ) : (
+                      <p className="text-xs text-muted">{BOOSTER_STAKE} Coins gesetzt, dein Gewinn oder Verlust:</p>
                     )}
-                    <p className="mt-2 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted">
-                      <CoinIcon className="h-3 w-3" />
-                      {withGutschein ? "Coins: dein Gewinn" : "Coins: dein Gewinn oder Verlust"}
-                    </p>
                     <PointsGrid items={withGutschein ? gutscheinPayouts(isOneXTwo) : boosterPayouts(isOneXTwo)} coins />
-                    <BoosterRankRow isOneXTwo={isOneXTwo} compactOnPhone={stage} />
-                  </>
+                  </div>
                 )}
-                {!boosterOn && (
-                  <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted">
-                    Je genauer dein Tipp, desto mehr <CoinIcon className="h-3.5 w-3.5" /> Coins gewinnst du.
+                {isBooster && !isGuest && !boosterOn && (
+                  <p className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted">
+                    {withGutschein ? "Mit Gutschein gratis:" : `Setz ${BOOSTER_STAKE} Coins:`} je genauer dein Tipp, desto mehr{" "}
+                    <CoinIcon className="h-3.5 w-3.5" /> Coins gewinnst du.
                   </p>
                 )}
-              </div>
-            )}
-            {/* Statt der Punkte-Tabelle nur ein kleiner Hinweis, die
-                Punkteverteilung öffnet sich beim Antippen in einem Fenster.
-                Nur der Booster (was der Tipp an Coins kostet, Gewinn oder
-                Verlust) bleibt als goldene Box auf der Karte, der Hinweis
-                steht immer direkt über dem Knopf. */}
-            {/* Welche Tipp-Art? (Rene, 13.10.2026: viele verwechseln Ergebnis-
-                und Sieger-Tipp.) Schild in derselben Zeile wie die
-                Punkteverteilung, damit die Karte nicht höher wird. */}
-            <div className="mb-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
-              <TipModeTag isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} />
-              <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} />
-            </div>
-
-            {/* Knopf-Zustände klar unterscheidbar: tippbereit = kräftiges
-                Grün mit Leuchten, noch nicht tippbereit = grau (vorher nur
-                halb durchsichtig, sah aus wie "kaputt"). */}
-            {isGuest ? (
-              <Link
-                href="/registrieren"
-                className="block w-full rounded-full bg-action-hover py-2.5 text-center font-display text-base font-semibold tracking-wide text-pitch shadow-[0_0_22px_rgb(var(--c-action-hover)/0.45)] transition-all hover:brightness-110"
-              >
-                Zum Tippen einloggen
-              </Link>
-            ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={submitting || notReady}
-              className={`w-full rounded-full py-2.5 font-display font-semibold tracking-wide text-base transition-all ${
-                notReady
-                  ? "cursor-not-allowed border border-edge bg-edge text-muted"
-                  : "bg-action-hover text-pitch shadow-[0_0_22px_rgb(var(--c-action-hover)/0.45)] enabled:active:scale-[0.97] enabled:hover:brightness-110 enabled:hover:shadow-[0_0_30px_rgb(var(--c-action-hover)/0.6)] disabled:cursor-wait"
-              }`}
-            >
-              {submitting
-                ? "Wird gespeichert…"
-                : `${isOneXTwo ? "Sieger" : "Ergebnis"}${boosting ? " mit Booster" : ""} abgeben`}
-            </button>
+              </>
             )}
             {notEnoughStars && !isGuest && (
               <p className="mt-2 text-center text-xs text-[#FF9B5C]">
@@ -962,7 +1112,7 @@ export default function MatchCard({
 
             {/* Noch nicht ausgewertet: kurz zeigen, was der Tipp bringen kann.
                 Jedes Paar bleibt zusammen ("Tendenz +5" nie getrennt). */}
-            {hasTipped && !myTip?.evaluated && !isCancelled && (
+            {stage && hasTipped && !myTip?.evaluated && !isCancelled && (
               <div className="flex justify-center">
                 <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} />
               </div>
@@ -1367,10 +1517,12 @@ function PointsInfoButton({
   isOneXTwo,
   allowsDraw,
   isBooster,
+  iconOnly = false,
 }: {
   isOneXTwo: boolean;
   allowsDraw: boolean;
   isBooster: boolean;
+  iconOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -1386,15 +1538,21 @@ function PointsInfoButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-1 py-0.5 text-xs font-semibold text-muted transition-colors hover:text-ink"
+        aria-label={iconOnly ? "Punkteverteilung" : undefined}
+        title={iconOnly ? "Punkteverteilung" : undefined}
+        className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full text-xs font-semibold text-muted transition-colors hover:text-ink ${
+          iconOnly ? "-m-1.5 p-1.5" : "px-1 py-0.5"
+        }`}
       >
         <span
           aria-hidden
-          className="flex h-4 w-4 items-center justify-center rounded-full border border-current font-display text-[10px] font-bold leading-none"
+          className={`flex items-center justify-center rounded-full border border-current font-display font-bold leading-none ${
+            iconOnly ? "h-5 w-5 text-[11px]" : "h-4 w-4 text-[10px]"
+          }`}
         >
           i
         </span>
-        Punkteverteilung
+        {!iconOnly && "Punkteverteilung"}
       </button>
 
       {/* Per Portal direkt in <body>, sonst bezieht sich position:fixed auf
@@ -1728,6 +1886,31 @@ function TeamColumn({
   );
 }
 
+// Kompakte Karte: Trikot klein neben dem Namen, rechts gespiegelt.
+function TeamInline({ match, team, flip = false }: { match: Match; team: Team; flip?: boolean }) {
+  return (
+    <div className={`flex min-w-0 items-center gap-1 ${flip ? "flex-row-reverse" : ""}`} lang="de">
+      <span className="shrink-0">
+        <TeamBadge
+          sport={match.sport}
+          {...matchJerseyProps(match, team)}
+          isNationalTeam={team.isNationalTeam}
+          countryCode={team.countryCode}
+          flip={flip}
+          size={22}
+        />
+      </span>
+      <TeamLabel name={team.name} inline={flip ? "right" : "left"} />
+    </div>
+  );
+}
+
+// "New York Knicks" -> "Knicks" (US-Teams heißen nach dem letzten Wort).
+function teamNickname(name: string) {
+  const words = name.trim().split(/\s+/);
+  return words[words.length - 1] ?? name;
+}
+
 function SideTag({ children }: { children: string }) {
   return (
     <span className="rounded-full border border-edge px-2 py-px text-[10px] font-semibold uppercase tracking-wide text-muted">
@@ -1736,7 +1919,7 @@ function SideTag({ children }: { children: string }) {
   );
 }
 
-function TeamLabel({ name }: { name: string }) {
+function TeamLabel({ name, inline }: { name: string; inline?: "left" | "right" }) {
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -1744,27 +1927,43 @@ function TeamLabel({ name }: { name: string }) {
     if (!el) return;
     const fit = () => {
       el.style.fontSize = "";
+      el.style.overflowWrap = "";
       let size = parseFloat(getComputedStyle(el).fontSize);
-      while (el.scrollWidth > el.clientWidth && size > 11) {
+      const min = 11;
+      while (el.scrollWidth > el.clientWidth && size > min) {
         size -= 0.5;
         el.style.fontSize = `${size}px`;
       }
+      // Kompakt: ein Wort, das auch klein nicht passt ("Mönchengladbach"),
+      // wird getrennt (mit Bindestrich, wo der Browser es kann), nie abgeschnitten.
+      if (inline && el.scrollWidth > el.clientWidth) el.style.overflowWrap = "break-word";
     };
     fit();
+    // Nach dem Laden der Schrift neu messen (sie ist breiter als die Ersatzschrift).
+    document.fonts?.ready.then(fit);
     const observer = new ResizeObserver(fit);
     observer.observe(el.parentElement ?? el);
     return () => observer.disconnect();
-  }, [name]);
+  }, [name, inline]);
 
   return (
     <span
       ref={ref}
-      className="flex min-h-[2.5em] w-full items-start justify-center text-center font-display text-base font-semibold leading-tight text-ink [hyphens:manual] [overflow-wrap:normal] sm:text-lg"
+      className={
+        inline
+          ? `min-w-0 flex-1 font-display text-sm font-semibold leading-tight text-ink [hyphens:auto] [overflow-wrap:normal] sm:text-[15px] ${
+              inline === "right" ? "text-right" : "text-left"
+            }`
+          : "flex min-h-[2.5em] w-full items-start justify-center text-center font-display text-base font-semibold leading-tight text-ink [hyphens:manual] [overflow-wrap:normal] sm:text-lg"
+      }
     >
       {name}
     </span>
   );
 }
+
+const scoreInputCompactClass =
+  "h-11 w-9 rounded-lg border border-edge bg-pitch text-center font-display text-lg font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
 
 const scoreInputClass =
   "h-12 w-[4.5rem] max-w-full rounded-lg border border-edge bg-pitch text-center font-display text-xl font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
