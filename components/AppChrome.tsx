@@ -6,7 +6,6 @@ import NewsTicker from "./NewsTicker";
 import NavTabs from "./NavTabs";
 import BottomNav from "./BottomNav";
 import ChatWidget from "./ChatWidget";
-import OnboardingTour from "./OnboardingTour";
 import Footer from "./Footer";
 import SeasonDesignGate from "./SeasonDesignGate";
 import { SeasonBackdrop } from "./SeasonDeco";
@@ -61,7 +60,6 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
       {/* Handy/Tablet: feste Leiste unten (ersetzt dort die Menüleiste oben). */}
       <BottomNav />
       {/* Neue Spieler haben auf /start ihr eigenes Start-Erlebnis. */}
-      {pathname !== "/start" && <OnboardingTour />}
       <PullToRefresh />
       <SwipeNav />
       <StartPageRedirect />
