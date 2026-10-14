@@ -6,21 +6,23 @@ import { TIPPRUNDEN_ENABLED } from "@/lib/types";
 // v2: neue Punkte-Regeln (Rankingsystem), darum sieht jeder die Tour einmal neu.
 const STORAGE_KEY = "pooltipp_onboarding_v2";
 
+// Drei kurze Folien zum Rangsystem, ohne Zahlentabellen (Rene, 14.10.2026:
+// Variante "Kurz und klar"). Die genauen Punkte stehen unter "Punkteverteilung".
 const SLIDES = [
   {
-    icon: "⚽",
-    title: "Willkommen bei PoolTipp!",
-    text: "Tippe kostenlos auf echte Spiele aus Fußball, Football, Basketball und Eishockey – mit Gratis-Coins, kein Echtgeld nötig.",
+    icon: "🏟️",
+    title: "Du tippst gegen alle",
+    text: "Jedes Spiel ist ein Pool. Alle, die es tippen, treten gegeneinander an. Wer besser tippt, holt mehr Punkte.",
   },
   {
-    icon: "🪙",
-    title: "So funktionieren Coins",
-    text: "Alle Tipps sind gratis und bringen Rangpunkte für die Rangliste. Bei den Booster-Spielen des Tages setzt du 20 Gratis-Coins ein: exakt +40, Tordifferenz +10, Tendenz ±0, falsch −10. Mit Coins holst du dir Joker im Shop.",
+    icon: "💪",
+    title: "Schlag die Stärkeren",
+    text: "Tippst du besser als jemand, der über dir in der Rangliste steht, gibt es mehr Bonus. Gegen Spieler unter dir gibt es weniger.",
   },
   {
-    icon: "👑",
-    title: "Ränge & Saison-Pass",
-    text: "Exakt +10, Tordifferenz +7, Tendenz +5, falsch −3. Dazu kommt ein Bonus gegen alle, die dasselbe Spiel getippt haben: Schlägst du Bessere, gibt es doppelten Bonus. Damit steigst du in der Rangliste und den Sport-Rängen auf. Den Saison-Pass füllst du mit deinem täglichen Bonus – schau jeden Tag vorbei und schalte Belohnungen frei, die man überall bei deinem Namen sieht.",
+    icon: "🏆",
+    title: "Steig Rang für Rang auf",
+    text: "Mit deinen Punkten kletterst du von Bronze über Silber, Gold, Platin, Diamant und Meister bis zum GOAT.",
   },
   {
     icon: "🔵",
