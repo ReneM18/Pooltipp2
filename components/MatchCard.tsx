@@ -714,13 +714,17 @@ export default function MatchCard({
             breit, die Karte wird nicht schmaler. Gedreht wird nur die Schrift
             (innen), damit die Randlinie außen bleibt. Reine Anzeige.
             Wieder nur neben Datum + Teams statt über die ganze Karte, oben und
-            unten verblassend, Farbe kräftig wie bisher (Rene, 14.10.2026). */}
+            unten verblassend, Farbe kräftig wie bisher (Rene, 14.10.2026).
+            Kompakte Karte: Streifen reicht bis knapp über "Dein Tipp" (mb-3
+            der Team-Zeile), kürzeres Verblassen und etwas kleinere Schrift,
+            damit "Dein Verein" auf Höhe des Vereins ganz lesbar ist und nicht
+            mehr abgeschnitten wird (Rene, 14.10.2026). */}
         <div className="relative">
           {fanSide && (
             <span
-              className={`pointer-events-none absolute bottom-0 z-[1] flex w-[14px] items-center justify-center border-[#6FA8DC] bg-[#6FA8DC]/30 [-webkit-mask-image:linear-gradient(to_bottom,transparent,#000_25%,#000_75%,transparent)] [mask-image:linear-gradient(to_bottom,transparent,#000_25%,#000_75%,transparent)] ${stage ? "-top-4 sm:-top-5" : "-top-3"} ${fanSide === "left" ? `${stage ? "-left-4 sm:-left-5" : "-left-3.5 sm:-left-4"} border-r` : `${stage ? "-right-4 sm:-right-5" : "-right-3.5 sm:-right-4"} border-l`}`}
+              className={`pointer-events-none absolute z-[1] flex w-[14px] items-center justify-center border-[#6FA8DC] bg-[#6FA8DC]/30 [-webkit-mask-image:linear-gradient(to_bottom,transparent,#000_10%,#000_90%,transparent)] [mask-image:linear-gradient(to_bottom,transparent,#000_10%,#000_90%,transparent)] ${stage ? "-top-4 bottom-0 sm:-top-5" : "-bottom-3 -top-3"} ${fanSide === "left" ? `${stage ? "-left-4 sm:-left-5" : "-left-3.5 sm:-left-4"} border-r` : `${stage ? "-right-4 sm:-right-5" : "-right-3.5 sm:-right-4"} border-l`}`}
             >
-              <span className="rotate-180 whitespace-nowrap text-[10px] font-extrabold uppercase leading-none tracking-[0.14em] text-[#CFE6FF] [writing-mode:vertical-rl]">
+              <span className={`rotate-180 whitespace-nowrap font-extrabold uppercase leading-none text-[#CFE6FF] [writing-mode:vertical-rl] ${stage ? "text-[10px] tracking-[0.14em]" : "text-[9px] tracking-[0.1em]"}`}>
                 Dein Verein
               </span>
             </span>
