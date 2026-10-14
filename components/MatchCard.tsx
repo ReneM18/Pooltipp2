@@ -568,14 +568,21 @@ export default function MatchCard({
       {/* Booster-Spiel: eigene goldene Leiste ganz oben, damit man es auch
           zwischen normalen Spielen (z. B. bei den geschlossenen) sofort sieht. */}
       {stage ? (
-        <div className="flex items-center justify-between gap-2 border-b border-gold/30 bg-gold/15 px-4 py-1.5 font-display text-xs font-bold uppercase tracking-[0.14em] text-gold sm:px-5">
-          {/* Nur "Top-Spiel" (Rene, 13.10.2026). Dass es ein Booster-Spiel ist,
-              zeigt der Booster-Bereich weiter unten in der Karte. */}
-          <span className="whitespace-nowrap">⭐ Top-Spiel</span>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-gold/30 bg-gold/15 px-4 py-1.5 font-display text-xs font-bold uppercase tracking-[0.14em] text-gold sm:px-5">
+          {/* Links Sportart + Wettbewerb wie in der Kopfzeile normaler Karten,
+              "Top-Spiel" zentriert in der Mitte, rechts der Countdown
+              (Rene, 14.10.2026). Nur "Top-Spiel" (13.10.2026); dass es ein
+              Booster-Spiel ist, zeigt der Booster-Bereich weiter unten. */}
+          <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold normal-case tracking-normal text-ink">
+            <span className="shrink-0 text-lg" aria-hidden><Emoji e={sportIcon[match.sport]} /></span>
+            {leagueFlag && <span className="shrink-0" aria-hidden><Emoji e={leagueFlag} /></span>}
+            <span className="min-w-0 leading-tight">{competitionName}</span>
+          </span>
+          <span className="whitespace-nowrap text-center">⭐ Top-Spiel</span>
           {/* Countdown rechts oben, genau wie in der Kopfzeile normaler Karten
               (Rene, 13.10.2026: beim Topspiel fehlte die ablaufende Zeit, nach
               dem Tippen gab es sie gar nicht mehr). */}
-          <span className="shrink-0 whitespace-nowrap text-xs font-medium normal-case tracking-normal">
+          <span className="min-w-0 text-right text-xs font-medium normal-case tracking-normal">
             {isCancelled ? (
               <span className="rounded-full border border-red-400/60 bg-red-400/10 px-2 py-0.5 font-semibold text-red-300">
                 Abgesagt
@@ -642,16 +649,6 @@ export default function MatchCard({
             </span>
           )}
         <div className="mb-3 flex min-h-[1.75rem] flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[15px] text-muted">
-          {stage && (
-            <>
-              <span className="flex items-center gap-1.5 font-semibold text-ink">
-                <span aria-hidden><Emoji e={sportIcon[match.sport]} /></span>
-                {leagueFlag && <span aria-hidden><Emoji e={leagueFlag} /></span>}
-                {competitionName}
-              </span>
-              <span aria-hidden>·</span>
-            </>
-          )}
           {match.matchday && !stage ? <span>Spieltag {match.matchday}</span> : null}
           {match.matchday && !stage ? <span aria-hidden>·</span> : null}
           <span>{kickoffLabel}</span>
