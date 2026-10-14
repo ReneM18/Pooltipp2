@@ -61,6 +61,9 @@ export default function ClubLeaderboard() {
             Spiel und egal, ob du für oder gegen deinen Verein tippst.
           </li>
           <li>
+            Falsche Tipps geben <b className="text-ink">0 Punkte</b> und senken deinen Schnitt.
+          </li>
+          <li>
             Jeder Fan bringt seinen <b className="text-ink">Schnitt pro Tipp</b> ein, die Zahl ist der Schnitt aller
             Fans mal 100 (z. B. 1,42 → <b className="text-ink">142</b>).
           </li>
