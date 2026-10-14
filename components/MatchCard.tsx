@@ -628,7 +628,7 @@ export default function MatchCard({
         <div className="relative">
           {fanSide && (
             <span
-              className={`pointer-events-none absolute bottom-0 z-[1] flex w-[14px] items-center justify-center border-[#6FA8DC]/40 bg-[#6FA8DC]/15 ${
+              className={`pointer-events-none absolute bottom-0 z-[1] flex w-[14px] items-center justify-center border-[#6FA8DC]/45 bg-gradient-to-b from-[#6FA8DC]/30 via-[#6FA8DC]/10 to-[#6FA8DC]/0 [-webkit-mask-image:linear-gradient(to_bottom,#000_65%,transparent)] [mask-image:linear-gradient(to_bottom,#000_65%,transparent)] ${
                 stage ? "-top-4 sm:-top-5" : "-top-5"
               } ${
                 fanSide === "left"
