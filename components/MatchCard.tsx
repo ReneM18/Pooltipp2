@@ -703,21 +703,7 @@ export default function MatchCard({
 
       {/* Topspiel am Handy etwas enger, damit es samt Tipp-Knopf auf einen
           Bildschirm passt (Rene, 10.10.2026); am PC wie bisher. */}
-      <div className={`flex flex-1 flex-col ${stage ? "mx-auto w-full max-w-xl p-4 sm:p-5" : `relative px-3.5 pb-4 pt-3 sm:px-4 ${fanSide === "left" ? "pl-6 sm:pl-7" : fanSide === "right" ? "pr-6 sm:pr-7" : ""}`}`}>
-        {/* Kompakte Karte: "Dein Verein" als kräftiger Streifen über die ganze
-            Kartenhöhe am Rand (Rene, 14.10.2026: am Handy zu schwach zu sehen).
-            Sitzt genau im Innenrand, der Inhalt wird nicht schmaler. */}
-        {!stage && fanSide && (
-          <span
-            className={`pointer-events-none absolute bottom-0 top-0 z-[1] flex w-3.5 items-center justify-center border-[#6FA8DC] bg-[#6FA8DC]/30 sm:w-4 ${
-              fanSide === "left" ? "left-0 border-r" : "right-0 border-l"
-            }`}
-          >
-            <span className="rotate-180 whitespace-nowrap text-[10px] font-extrabold uppercase leading-none tracking-[0.14em] text-[#CFE6FF] [writing-mode:vertical-rl]">
-              Dein Verein
-            </span>
-          </span>
-        )}
+      <div className={`flex flex-1 flex-col ${stage ? "mx-auto w-full max-w-xl p-4 sm:p-5" : "px-3.5 pb-4 pt-3 sm:px-4"}`}>
         {/* Datum + Teams in einem Block, an dem der Reiter "Dein Verein" hängt
             (Rene, 13.10.2026): Er reicht von der Unterkante der Kopfzeile bis
             zur Oberkante von "Dein Tipp" bzw. der Eingabefelder und sitzt am
@@ -726,19 +712,15 @@ export default function MatchCard({
             Innenrand des Inhalts, das Ende folgt dem Außenabstand der
             Team-Zeile (mb-5), daher passt es auch bei langen Namen. 14 px
             breit, die Karte wird nicht schmaler. Gedreht wird nur die Schrift
-            (innen), damit die Randlinie außen bleibt. Reine Anzeige. */}
+            (innen), damit die Randlinie außen bleibt. Reine Anzeige.
+            Wieder nur neben Datum + Teams statt über die ganze Karte, oben und
+            unten verblassend, Farbe kräftig wie bisher (Rene, 14.10.2026). */}
         <div className="relative">
-          {stage && fanSide && (
+          {fanSide && (
             <span
-              className={`pointer-events-none absolute bottom-0 z-[1] flex w-[14px] items-center justify-center border-[#6FA8DC]/45 bg-gradient-to-b from-[#6FA8DC]/30 via-[#6FA8DC]/10 to-[#6FA8DC]/0 [-webkit-mask-image:linear-gradient(to_bottom,#000_65%,transparent)] [mask-image:linear-gradient(to_bottom,#000_65%,transparent)] ${
-                "-top-4 sm:-top-5"
-              } ${
-                fanSide === "left"
-                  ? "-left-4 rounded-r-md border-r sm:-left-5"
-                  : "-right-4 rounded-l-md border-l sm:-right-5"
-              }`}
+              className={`pointer-events-none absolute bottom-0 z-[1] flex w-[14px] items-center justify-center border-[#6FA8DC] bg-[#6FA8DC]/30 [-webkit-mask-image:linear-gradient(to_bottom,transparent,#000_25%,#000_75%,transparent)] [mask-image:linear-gradient(to_bottom,transparent,#000_25%,#000_75%,transparent)] ${stage ? "-top-4 sm:-top-5" : "-top-3"} ${fanSide === "left" ? `${stage ? "-left-4 sm:-left-5" : "-left-3.5 sm:-left-4"} border-r` : `${stage ? "-right-4 sm:-right-5" : "-right-3.5 sm:-right-4"} border-l`}`}
             >
-              <span className="rotate-180 whitespace-nowrap text-[10px] font-extrabold uppercase leading-none tracking-[0.14em] text-[#8EC0EE] [writing-mode:vertical-rl]">
+              <span className="rotate-180 whitespace-nowrap text-[10px] font-extrabold uppercase leading-none tracking-[0.14em] text-[#CFE6FF] [writing-mode:vertical-rl]">
                 Dein Verein
               </span>
             </span>
