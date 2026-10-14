@@ -141,7 +141,7 @@ export default function RanglistePage() {
         <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Rangliste</h1>
         {tab === "Woche" ? (
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1 text-xs text-muted">
-            Tipp-Punkte dieser Woche · <WeeklyCountdown target={weekWindow.end.getTime()} />
+            Wochenpunkte: nur deine Tipps, ohne Bonus · <WeeklyCountdown target={weekWindow.end.getTime()} />
           </p>
         ) : tab === "Vereine" ? (
           <p className="mt-0.5 text-xs text-muted">Herzensvereine im Vergleich, eine Tabelle pro Sportart</p>
@@ -151,7 +151,7 @@ export default function RanglistePage() {
               {loading ? "Lädt…" : failed ? "\u00a0" : `${ranked.length} Spieler`}
             </p>
             <p className="mt-1 text-xs text-muted">
-              Je weiter oben du stehst, desto weniger Bonus gibt ein Sieg und desto mehr kostet eine Niederlage.
+              Schlägst du Spieler über dir, gibt es mehr Punkte. Gegen Spieler unter dir gibt es weniger.
             </p>
           </>
         )}
@@ -207,6 +207,11 @@ export default function RanglistePage() {
         )
       ) : (
         <>
+          {/* Spaltenkopf, damit klar ist, was die Zahl rechts ist (Rene, 14.10.2026). */}
+          <div className="mb-1.5 flex justify-between px-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-5">
+            <span>Spieler</span>
+            <span>{tab === "Woche" ? "Wochenpunkte" : "Rangpunkte"}</span>
+          </div>
           <div className="overflow-hidden rounded-card border border-edge bg-surface">
             {entries.map((entry, index) => (
               <div
@@ -246,6 +251,7 @@ export default function RanglistePage() {
               </div>
             ))}
           </div>
+          <p className="mt-2 px-1 text-xs text-muted">Das Schild zeigt den Rang des Spielers, von Bronze bis GOAT.</p>
           {tab !== "Woche" && ranked.length < 5 && <FewPlayersHint />}
         </>
       )}
@@ -448,7 +454,7 @@ function WeekRulesBox() {
     ["🏟️", "Ein Tipp zählt in der Woche, in der das Spiel angepfiffen wird."],
     [
       "⚽",
-      "Es zählen nur deine Tipp-Punkte, alle Sportarten zusammen: exakt +10, Tordifferenz +7, Tendenz +5, falsch −3.",
+      "Wochenpunkte zählen nur deine Tipps, alle Sportarten zusammen: exakt +10, Tordifferenz +7, Tendenz +5, falsch −3.",
     ],
     ["⚖️", "Der Platz-Bonus zählt hier nicht. So haben alle die gleiche Chance."],
     [

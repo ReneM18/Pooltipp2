@@ -363,7 +363,7 @@ function StickerPanel({ onPickSticker }: { onPickSticker: (emote: SeasonEmote) =
       )}
       {!unlocked && (
         <p className="mt-2 text-[11px] leading-snug text-muted">
-          Sammle Saison-XP (täglicher Bonus), dann schaltest du die Sticker frei.{" "}
+          Sammle Pass-XP (täglicher Bonus), dann schaltest du die Sticker frei.{" "}
           <Link href="/fortschritt" className="font-semibold text-gold hover:underline">
             Zum Saison-Pass
           </Link>

@@ -239,7 +239,7 @@ export default function RegistrierenPage() {
       </h1>
       <p className="mb-6 text-sm text-muted">
         {mode === "register"
-          ? "Leg dein Spieler-Profil an, damit du in Rangliste, Feed und bei Freunden mit deinem Namen erkennbar bist."
+          ? "Leg dein Spieler-Profil an, damit du in der Rangliste, bei „Was andere tippen“ und bei Freunden mit deinem Namen erkennbar bist."
           : mode === "forgot"
           ? "Kein Problem. Gib deine E-Mail ein, wir schicken dir einen Link, mit dem du ein neues Passwort festlegst."
           : "Melde dich mit deiner E-Mail und deinem Passwort an."}
