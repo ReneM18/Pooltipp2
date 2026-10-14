@@ -13,7 +13,8 @@ import { Match, Sport, SPORTS, SPORT_ICONS, isSportActive, sportLabel } from "@/
 import { matchTitle } from "@/lib/teamOrder";
 import Emoji from "@/components/Emoji";
 
-// Start-Erlebnis nach der Registrierung: 1) Sportarten antippen,
+// Start-Erlebnis nach der Registrierung: 0) drei Sätze zum Rangsystem,
+// 1) Sportarten antippen,
 // 2) pro gewählter Sportart freiwillig einen Herzensverein, 3) erster Tipp.
 // Wer schon getippt hat, kommt nie automatisch hierher (app/page.tsx).
 // "Fertig" bzw. "Überspringen" gilt fürs Konto, also auf jedem Gerät
@@ -21,7 +22,28 @@ import Emoji from "@/components/Emoji";
 // Vorschau (/start?vorschau=1, Knopf im Profil und im Admin-Bereich): sieht
 // gleich aus, speichert aber nichts – keine Vereine, kein "fertig".
 
-type Step = 1 | 2 | 3;
+type Step = 0 | 1 | 2 | 3;
+
+// Die Hauptidee in drei Sätzen (Rene, 14.10.2026: "zusammen" – ersetzt die
+// frühere Extra-Einblendung). Keine festen Bonus-Zahlen: der Bonus hängt davon
+// ab, wer das Spiel noch tippt. Genaues steht unter "Punkteverteilung".
+const IDEA = [
+  {
+    icon: "🏟️",
+    title: "Du tippst gegen alle",
+    text: "Jedes Spiel ist ein Pool. Alle, die es tippen, treten gegeneinander an. Wer besser tippt, holt mehr Punkte.",
+  },
+  {
+    icon: "💪",
+    title: "Schlag die Stärkeren",
+    text: "Tippst du besser als jemand, der über dir in der Rangliste steht, gibt es mehr Bonus. Gegen Spieler unter dir gibt es weniger.",
+  },
+  {
+    icon: "🏆",
+    title: "Steig Rang für Rang auf",
+    text: "Mit deinen Punkten kletterst du von Bronze über Silber, Gold, Platin, Diamant und Meister bis zum GOAT.",
+  },
+];
 
 export default function StartPage() {
   const router = useRouter();
@@ -35,7 +57,7 @@ export default function StartPage() {
     setPreview(new URLSearchParams(window.location.search).get("vorschau") === "1");
   }, []);
 
-  const [step, setStep] = useState<Step>(1);
+  const [step, setStep] = useState<Step>(0);
   const [sports, setSports] = useState<Sport[]>([]);
   const [picks, setPicks] = useState<Partial<Record<Sport, string>>>({});
   const [saving, setSaving] = useState(false);
@@ -120,7 +142,7 @@ export default function StartPage() {
           <Link href="/registrieren?modus=registrieren" className="font-semibold text-gold hover:underline">
             Registriere dich
           </Link>
-          , dann richtest du hier in drei kurzen Schritten PoolTipp für dich ein.
+          , dann richtest du hier in ein paar kurzen Schritten PoolTipp für dich ein.
         </div>
       </Frame>
     );
@@ -146,8 +168,8 @@ export default function StartPage() {
       )}
 
       <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex gap-1.5" aria-label={`Schritt ${step} von 3`}>
-          {[1, 2, 3].map((n) => (
+        <div className="flex gap-1.5" aria-label={`Schritt ${step + 1} von 4`}>
+          {[0, 1, 2, 3].map((n) => (
             <span
               key={n}
               className={`h-1.5 rounded-full transition-all ${n === step ? "w-6 bg-gold" : n < step ? "w-3 bg-gold/50" : "w-3 bg-edge"}`}
@@ -158,11 +180,38 @@ export default function StartPage() {
       </div>
 
       <div className="rounded-card border border-edge bg-gradient-to-br from-surface to-surface-hover p-5 sm:p-6">
-        {step === 1 && (
+        {step === 0 && (
           <>
             <h1 className="font-display text-xl font-bold text-ink [overflow-wrap:anywhere] sm:text-2xl">
               Willkommen, {displayName}! 👋
             </h1>
+            <p className="mt-2 text-sm text-muted">So funktioniert PoolTipp:</p>
+            <ul className="mt-4 flex flex-col gap-3">
+              {IDEA.map((item) => (
+                <li key={item.title} className="flex gap-3 rounded-lg border border-edge bg-pitch/60 p-3.5">
+                  <span className="w-8 shrink-0 text-center text-2xl leading-none" aria-hidden>
+                    <Emoji e={item.icon} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-display text-sm font-semibold text-ink">{item.title}</p>
+                    <p className="mt-0.5 text-sm text-muted">{item.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="mt-5 w-full rounded-full bg-action py-3 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+            >
+              Weiter
+            </button>
+          </>
+        )}
+
+        {step === 1 && (
+          <>
+            <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Deine Sportarten</h1>
             <p className="mt-2 text-sm text-muted">
               Welche Sportarten schaust du? Tippe an, was dich interessiert. Du kannst trotzdem jederzeit alles
               tippen.
