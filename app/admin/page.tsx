@@ -29,9 +29,10 @@ import { BOOSTER_STAKE, BOOSTERS_PER_DAY } from "@/lib/poolScore";
 import { boostersOnDay } from "@/lib/booster";
 import { useJokers } from "@/lib/JokerContext";
 import { DuelReport } from "@/components/DuelReport";
+import { GrowthReport } from "@/components/GrowthReport";
 import Emoji from "@/components/Emoji";
 
-type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news";
+type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news" | "wachstum";
 
 // Zugang nur für den eingeloggten Admin-Account – geprüft über die
 // Datenbank-Funktion is_admin() (siehe isAdmin in lib/UserContext.tsx).
@@ -58,12 +59,14 @@ export default function AdminPage() {
     return <NoAccess loggedIn={isRegistered} />;
   }
 
-  const tabs: { id: AdminTab; label: string; icon: string; count: number }[] = [
+  const tabs: { id: AdminTab; label: string; icon: string; count?: number }[] = [
     { id: "spiele", label: "Spiele", icon: "⚽", count: matches.length },
     { id: "wettbewerbe", label: "Wettbewerbe", icon: "🏅", count: competitions.length },
     { id: "teams", label: "Teams", icon: "🛡️", count: teams.length },
     { id: "turniere", label: "Turniere", icon: "🏆", count: tournaments.length },
     { id: "news", label: "News", icon: "📰", count: newsItems.length },
+    // Ohne Zahl: die Werte stehen im Reiter selbst (Rene, 14.10.2026).
+    { id: "wachstum", label: "Wachstum", icon: "📈" },
   ];
 
   return (
@@ -104,15 +107,12 @@ export default function AdminPage() {
           Klick auf einen Reiter zeigt nur noch genau diesen Bereich, auf
           voller Breite. Bewusst groß und mit Zahl, damit auf einen Blick klar
           ist, wo man ist und wie viel schon angelegt wurde. */}
-      <div className="mb-9 grid grid-cols-2 gap-2.5 md:grid-cols-5">
-        {tabs.map((t, i) => (
+      <div className="mb-9 grid grid-cols-2 gap-2.5 md:grid-cols-6">
+        {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`${
-              // 5 Reiter: am Handy nimmt der letzte die ganze Zeile, statt allein halb leer zu stehen
-              i === tabs.length - 1 ? "col-span-2 md:col-span-1" : ""
-            } flex flex-col items-center justify-center gap-1 rounded-card border px-4 py-5 font-display transition-colors ${
+            className={`flex flex-col items-center justify-center gap-1 rounded-card border px-4 py-5 font-display transition-colors ${
               tab === t.id
                 ? "border-gold bg-gold/15 text-gold"
                 : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
@@ -120,13 +120,15 @@ export default function AdminPage() {
           >
             <span className="text-2xl">{t.icon}</span>
             <span className="text-base font-semibold">{t.label}</span>
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                tab === t.id ? "bg-gold/20 text-gold" : "bg-surface-hover text-muted"
-              }`}
-            >
-              {t.count}
-            </span>
+            {t.count !== undefined && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                  tab === t.id ? "bg-gold/20 text-gold" : "bg-surface-hover text-muted"
+                }`}
+              >
+                {t.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -137,6 +139,7 @@ export default function AdminPage() {
         {tab === "teams" && <TeamManager />}
         {tab === "turniere" && <TournamentManager />}
         {tab === "news" && <NewsManager />}
+        {tab === "wachstum" && <GrowthReport />}
       </div>
     </main>
   );
