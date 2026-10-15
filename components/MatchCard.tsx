@@ -1994,7 +1994,7 @@ function ResultBox({
 }
 
 // Teamnamen brechen nur an Leerzeichen um, nie mitten im Wort (kein
-// "Le-/verkusen"). Passt ein langes Einzelwort wie "Mönchengladbach" nicht in
+// "Le-/verkusen"), höchstens zwei Zeilen. Passt ein langes Einzelwort wie "Mönchengladbach" nicht in
 // die Spalte, wird die Schrift schrittweise verkleinert, bis es passt.
 // single: Name immer einzeilig, nur verkleinert, nie umgebrochen (kompakte
 // Karte, Vereins-Zeile in voller Breite). selected: goldene Schrift
@@ -2021,16 +2021,16 @@ function TeamLabel({
     if (!el) return;
     const fit = () => {
       el.style.fontSize = "";
-      el.style.overflowWrap = "";
       let size = parseFloat(getComputedStyle(el).fontSize);
-      const min = single ? 13 : 11;
-      while (el.scrollWidth > el.clientWidth && size > min) {
+      // Nie mitten im Wort trennen, höchstens 2 Zeilen: passt ein Wort nicht
+      // oder wären es mehr Zeilen, wird verkleinert, mehrzeilig bis 12 px
+      // (Rene, 15.10.2026, vorher Trennung mit Bindestrich als Notlösung).
+      const min = single ? 13 : 12;
+      const tooBig = () => el.scrollWidth > el.clientWidth || (!single && el.scrollHeight > el.clientHeight + 1);
+      while (tooBig() && size > min) {
         size -= 0.5;
         el.style.fontSize = `${size}px`;
       }
-      // Kompakt: ein Wort, das auch klein nicht passt ("Mönchengladbach"),
-      // wird getrennt (mit Bindestrich, wo der Browser es kann), nie abgeschnitten.
-      if (inline && !single && el.scrollWidth > el.clientWidth) el.style.overflowWrap = "break-word";
     };
     fit();
     // Nach dem Laden der Schrift neu messen (sie ist breiter als die Ersatzschrift).
@@ -2049,10 +2049,10 @@ function TeamLabel({
               single ? (big ? "text-base sm:text-[17px]" : "text-[15px] sm:text-base") : "text-sm sm:text-[15px]"
             } ${
               selected ? "text-gold" : "text-ink"
-            } ${single ? "overflow-hidden text-ellipsis whitespace-nowrap" : "[hyphens:auto]"} ${
+            } ${single ? "overflow-hidden text-ellipsis whitespace-nowrap" : "line-clamp-2"} [hyphens:none] [word-break:normal] ${
               inline === "right" ? "text-right" : "text-left"
             }`
-          : "flex min-h-[2.5em] w-full items-start justify-center text-center font-display text-base font-semibold leading-tight text-ink [hyphens:manual] [overflow-wrap:normal] sm:text-lg"
+          : "line-clamp-2 min-h-[2.5em] w-full text-center font-display text-base font-semibold leading-tight text-ink [hyphens:none] [overflow-wrap:normal] [word-break:normal] sm:text-lg"
       }
     >
       {name}

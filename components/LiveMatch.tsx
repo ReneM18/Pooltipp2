@@ -6,6 +6,7 @@ import type { TipResultTier } from "@/lib/poolScore";
 import { eventMinuteText, isGoalEvent, shortPlayerName, type LiveEvent, type LiveStatus } from "@/lib/liveScores";
 import { useLiveClock } from "@/lib/useLiveMinute";
 import type { LiveForecast } from "@/lib/liveForecast";
+import FitText from "@/components/FitText";
 
 // Gemeinsame Live-Bausteine für Tippkarte (components/MatchCard.tsx) und
 // Matchcenter (app/matchcenter/page.tsx) (Rene, 15.10.2026: Spieltag-Umbau):
@@ -153,14 +154,16 @@ export function Scoreboard({
   const side = (s: BoardSide) => (
     <div className="flex min-w-0 flex-col items-center gap-1.5 text-center">
       {s.badge && <span className={stage ? "drop-shadow-[0_4px_8px_rgb(0_0_0/0.5)]" : ""}>{s.badge}</span>}
-      <span
-        className={`min-h-[2.5em] w-full break-words font-display font-semibold leading-tight text-ink [hyphens:auto] ${
+      {/* Nie mitten im Wort trennen (vorher "Bayer Le-verkusen"), höchstens
+          2 Zeilen; passt ein Wort nicht, kleiner bis 12 px (Rene, 15.10.2026). */}
+      <FitText
+        text={s.name}
+        maxLines={2}
+        minPx={12}
+        className={`min-h-[2.5em] w-full font-display font-semibold leading-tight text-ink ${
           stage ? "text-[15px] sm:text-base" : "text-sm"
         }`}
-        lang="de"
-      >
-        {s.name}
-      </span>
+      />
     </div>
   );
   return (

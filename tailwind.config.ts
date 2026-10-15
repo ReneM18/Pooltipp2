@@ -50,8 +50,14 @@ const config: Config = {
           "0%, 100%": { filter: "drop-shadow(0 0 2px rgba(182,148,246,0.5))" },
           "50%": { filter: "drop-shadow(0 0 5px rgba(255,215,0,0.6))" },
         },
+        // Matchcenter: Zeile, die in einen anderen Abschnitt wandert (Rene, 15.10.2026).
+        lcRowIn: {
+          "0%": { opacity: "0", transform: "translateY(-4px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
+        "lc-row-in": "lcRowIn 0.45s ease-out",
         // Sanftes Leuchten für das Legende-Abzeichen (alle Sportarten mind.
         // Gold), damit es auf einen Blick als etwas Besonderes erkennbar ist.
         "elite-glow-shape": "eliteGlowShape 2.2s ease-in-out infinite",
