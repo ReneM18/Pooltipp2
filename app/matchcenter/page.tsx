@@ -562,7 +562,9 @@ function ElGameCard({ game, dateLabel, dataAt = 0 }: { game: LiveGame; dateLabel
   const hasScore = game.homeScore !== null && game.awayScore !== null && game.status !== "NS";
   const flash = useGoalFlash(game.id, hasScore ? `${game.homeScore}:${game.awayScore}` : null);
   return (
-    <div className="relative overflow-hidden rounded-card border border-edge bg-surface px-3 py-2.5 sm:px-4">
+    // (Rene, 15.10.2026: Rahmen eine Spur heller als border-edge, damit man die
+    // Kacheln besser sieht – neutral, gleich für alle Spielzustände.)
+    <div className="relative overflow-hidden rounded-card border border-muted/25 bg-surface px-3 py-2.5 sm:px-4">
       {dateLabel && <p className="mb-1 text-xs text-muted">{dateLabel}</p>}
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm">
         <FitText text={game.home} className="text-right leading-tight text-ink" />
