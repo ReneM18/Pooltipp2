@@ -351,8 +351,8 @@ export default function MatchCard({
   const live = !finalScore && !isCancelled && showResultView ? liveScore : null;
   // Anzeigetafel (Rene, 15.10.2026: Anzeigetafel): sobald Live-Daten da sind
   // (LIVE/HT, nach Abpfiff "Beendet"), ersetzt eine große Tafel die
-  // Vereins-Tippzeilen. Roter Kartenrand nur, solange das Spiel läuft.
-  const liveRunning = !!live && !live.finished;
+  // Vereins-Tippzeilen. Kartenrahmen bleibt normal, Live zeigt nur das Pill
+  // (Rene, 15.10.2026: ohne roten Rahmen, passend zum Matchcenter).
   const shieldLeft = useBeginnerShieldLeft();
   const comparison =
     myTip?.evaluated && myTip.resultTier && finalScore && tippers
@@ -726,7 +726,7 @@ export default function MatchCard({
       id={`spiel-${match.id}`}
       className={`relative isolate flex h-full flex-col overflow-hidden match-card-rand rounded-card border bg-surface ${
         highlight ? "outline outline-2 outline-offset-2 outline-gold" : ""
-      } ${stage ? "match-card-stage" : ""} ${liveRunning ? "match-card-live" : ""}`}
+      } ${stage ? "match-card-stage" : ""}`}
       style={{ backgroundImage: cardBackground }}
     >
       {stage && (
@@ -1958,9 +1958,10 @@ function LiveScoreboard({
         >
           {leftScore}:{rightScore}
         </span>
-        <span
-          className={`mt-1.5 whitespace-nowrap text-[11px] font-semibold ${live.finished ? "text-muted" : "text-red-400"}`}
-        >
+        {/* Minute gedämpft mit kleinem rotem Punkt statt knallrot
+            (Rene, 15.10.2026: ohne roten Rahmen, passend zum Matchcenter). */}
+        <span className="mt-1.5 inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-medium text-muted">
+          {!live.finished && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-red-500" />}
           {liveBoardText(live, match.sport)}
         </span>
       </div>
@@ -1969,8 +1970,10 @@ function LiveScoreboard({
   );
 }
 
-// Pill oben rechts statt Countdown: "🔴 LIVE", in der Pause "Halbzeit",
+// Pill oben rechts statt Countdown: "● LIVE", in der Pause "Halbzeit",
 // nach Abpfiff grau "Beendet" (Rene, 15.10.2026: Anzeigetafel).
+// Dezent: dunkler Hintergrund, kleiner roter Punkt, heller Text
+// (Rene, 15.10.2026: ohne roten Rahmen, passend zum Matchcenter).
 function LiveBadge({ live }: { live: LiveScore }) {
   if (live.finished) {
     return (
@@ -1979,12 +1982,12 @@ function LiveBadge({ live }: { live: LiveScore }) {
   }
   const pause = live.status === "HT" || live.status === "BREAK";
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-red-500/60 bg-red-500/15 px-2 py-0.5 font-semibold text-red-300">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-pitch px-2 py-0.5 font-semibold text-ink">
       {pause ? (
         live.status === "HT" ? "Halbzeit" : live.statusText || "Pause"
       ) : (
         <>
-          <span aria-hidden className="animate-pulse">🔴</span> LIVE
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-red-500" /> LIVE
         </>
       )}
     </span>
