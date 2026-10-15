@@ -560,7 +560,9 @@ export default function MatchCard({
   // Harmonischer und daumenfreundlich (Rene, 15.10.2026): Vereins-Zeile am
   // Handy mind. 50 px hoch (Topspiel 56 px), mehr Innenabstand, damit der
   // Name nicht am Rand klebt, 10–12 px zwischen Trikot und Name.
-  const rowHeight = stage ? "min-h-[56px] sm:min-h-[60px]" : "min-h-[50px]";
+  // Mit dem größeren Ergebnisfeld (44–46 px) wachsen die Zeilen mit
+  // (Rene, 15.10.2026).
+  const rowHeight = stage ? "min-h-[58px] sm:min-h-[60px]" : "min-h-[56px] sm:min-h-[58px]";
   const rowGap = stage ? "gap-3" : "gap-2.5";
   const rowPadding = stage ? "px-4" : "px-3 sm:px-4";
   // Mit Zahlenfeld rechts etwas weniger Abstand zum Rand.
@@ -594,12 +596,9 @@ export default function MatchCard({
           {side === "home" ? "Heim" : "Gast"}
         </span>
         {scoreInput}
+        {/* Endstand im selben Kasten-Maß wie das Ergebnisfeld (Rene, 15.10.2026). */}
         {goals !== null && (
-          <span
-            className={`shrink-0 text-right font-display font-bold leading-none text-ink ${
-              stage ? "w-10 text-2xl" : "w-8 text-xl"
-            }`}
-          >
+          <span className="flex h-11 w-12 shrink-0 items-center justify-center font-display text-[20px] font-bold leading-none text-ink sm:h-[46px] sm:w-[52px] sm:text-[22px]">
             {goals}
           </span>
         )}
@@ -669,6 +668,14 @@ export default function MatchCard({
       </div>
     );
   }
+
+  // Kurzer Hinweis je Tipp-Art direkt über den Vereins-Zeilen, nur solange
+  // noch getippt werden kann (Rene, 15.10.2026).
+  const tipHint = !isOneXTwo
+    ? "Tippe das Endergebnis: Tore pro Team eintragen"
+    : compactShowsDraw
+      ? "Sieger oder Unentschieden antippen"
+      : "Tippe auf den Sieger";
 
   const homeScoreInputCompact = (
     <ScoreInput
@@ -835,6 +842,9 @@ export default function MatchCard({
             <p className={`mb-1 text-right text-[10px] uppercase tracking-wide text-muted ${stage ? "pr-4" : "pr-3"}`}>
               Endstand
             </p>
+          )}
+          {!showResultView && (
+            <p className={`mb-2 text-center text-muted/80 ${stage ? "text-[13px]" : "text-xs"}`}>{tipHint}</p>
           )}
           <div className="flex flex-col gap-2">
             {compactTeamRow(leftTeam, isUsSport ? "away" : "home")}
@@ -1922,14 +1932,15 @@ function TeamLabel({
 }
 
 // Sitzt rechts in der Vereins-Zeile, etwas flacher als die Zeile; in
-// voller Breite ist Platz für drei Ziffern (NBA) (Rene, 15.10.2026, Variante B;
-// größer, seit die Zeilen höher sind).
+// voller Breite ist Platz für drei Ziffern (NBA) (Rene, 15.10.2026, Variante B).
+// Deutlich größer und im Gold-Look: ca. 48×44 px am Handy, 52×46 px am PC,
+// Zahl 20–22 px fett (Rene, 15.10.2026).
 const scoreInputCompactClass =
-  "h-10 w-11 shrink-0 rounded-lg border border-edge bg-surface text-center font-display text-lg font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
+  "h-11 w-12 shrink-0 rounded-lg border border-gold/35 bg-surface text-center font-display text-[20px] font-bold leading-none text-ink outline-none transition-colors placeholder:text-muted/50 focus:border-gold focus:ring-2 focus:ring-gold/30 disabled:opacity-60 sm:h-[46px] sm:w-[52px] sm:text-[22px]";
 
-// Topspiel: Zahlenfeld rechts in der größeren Vereins-Zeile (Rene, 15.10.2026).
+// Topspiel: gleich großes Zahlenfeld, Rand etwas kräftiger in Gold (Rene, 15.10.2026).
 const scoreInputStageClass =
-  "h-11 w-12 shrink-0 rounded-lg border border-gold/40 bg-surface text-center font-display text-xl font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
+  "h-11 w-12 shrink-0 rounded-lg border border-gold/50 bg-surface text-center font-display text-[20px] font-bold leading-none text-ink outline-none transition-colors placeholder:text-muted/50 focus:border-gold focus:ring-2 focus:ring-gold/30 disabled:opacity-60 sm:h-[46px] sm:w-[52px] sm:text-[22px]";
 
 
 // Joker auf dem eigenen Tipp (supabase/joker-shop.sql): gesetzten Joker
