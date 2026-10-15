@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ALL_SPORTS, type Sport } from "@/lib/types";
+import { isLiveLeagueEnabled, isLiveSportEnabled } from "@/lib/liveConfig";
 import { liveIntervalSeconds, type LiveGame, type LiveResponse, type LiveStatus } from "@/lib/liveScores";
 
 // Live-Spielstände von API-Sports (Rene, 15.10.2026).
@@ -148,6 +149,9 @@ export async function GET(request: Request) {
   if (!sport || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return NextResponse.json({ sport: sportParam, date, games: [], error: "Ungültige Anfrage" }, { status: 400 });
   }
+  // Abgeschaltete Sportarten: leere Liste, keine API-Abfrage (lib/liveConfig.ts).
+  // (Rene, 15.10.2026: zum Testen nur Europa League)
+  if (!isLiveSportEnabled(sport)) return json({ sport, date, games: [], error: "Live-Stände für diese Sportart abgeschaltet" }, 3600);
   const revalidate = liveIntervalSeconds(sport);
   const key = process.env.API_SPORTS_KEY;
   if (!key) return json({ sport, date, games: [], error: "Kein API_SPORTS_KEY gesetzt" }, revalidate);
@@ -164,7 +168,12 @@ export async function GET(request: Request) {
     const apiError = readApiError(data);
     if (apiError) return json({ sport, date, games: [], error: apiError }, revalidate);
     const list: Raw[] = Array.isArray(data?.response) ? data.response : [];
-    const games = list.map((g) => normalize(sport, g)).filter((g): g is LiveGame => g !== null);
+    // Fußball nach Datum abfragen (league=3&season=2026 ist im Gratis-Plan
+    // gesperrt) und hier nach league.name auf die eingeschalteten Ligen filtern.
+    const games = list
+      .filter((g) => isLiveLeagueEnabled(sport, typeof g?.league?.name === "string" ? g.league.name : null))
+      .map((g) => normalize(sport, g))
+      .filter((g): g is LiveGame => g !== null);
     return json({ sport, date, games }, revalidate);
   } catch {
     return json({ sport, date, games: [], error: "Live-Daten nicht erreichbar" }, 60);

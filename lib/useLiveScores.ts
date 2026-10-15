@@ -12,6 +12,7 @@ import {
   type LiveResponse,
   type LiveStatus,
 } from "./liveScores";
+import { isLiveLeagueEnabled } from "./liveConfig";
 
 // Live-Spielstände für die Tippkarten (Rene, 15.10.2026). Eine gemeinsame
 // Abfrage pro Sportart und Tag für alle Karten (über /api/live, dort für
@@ -94,7 +95,8 @@ export function useLiveScore(match: Match, homeName: string, awayName: string): 
   const [now, setNow] = useState<number | null>(null);
   const [, setVersion] = useState(0);
   const hasFinal = match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null;
-  const relevant = !hasFinal && match.status !== "cancelled";
+  // Nur eingeschaltete Sportarten/Ligen abfragen (lib/liveConfig.ts).
+  const relevant = !hasFinal && match.status !== "cancelled" && isLiveLeagueEnabled(match.sport, match.competition);
   const kickoff = new Date(match.kickoff).getTime();
   const date = viennaDate(match.kickoff);
 
