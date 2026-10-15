@@ -798,7 +798,6 @@ function LcDetail({ sport, game, link, dataAt }: { sport: Sport; game: LiveGame;
           leftScore={leftSide === "home" ? homeScore : awayScore}
           rightScore={rightSide === "home" ? homeScore : awayScore}
           clock={clock}
-          events={events}
         />
       ) : (
         <div className="rounded-lg border border-edge bg-pitch/60 px-3 py-4 text-center">
@@ -838,6 +837,8 @@ function LcDetail({ sport, game, link, dataAt }: { sport: Sport; game: LiveGame;
       {liveLike && (
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Spielverlauf</p>
+          {/* Immer sichtbar, daher kein Pulsknopf: neues Tor erkennt der
+              Spielverlauf selbst und hinterlegt es ~3 s golden (Rene, 15.10.2026). */}
           <EventTimeline events={events} leftSide={leftSide} />
         </div>
       )}

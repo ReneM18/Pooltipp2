@@ -510,3 +510,22 @@ html[data-season-design] .match-card-rand {
     animation: none;
   }
 }
+/* Knopf "Spielverlauf" bei neuem Tor (Rene, 15.10.2026): Text pulsiert
+   sanft golden; bei "Bewegung reduzieren" bleibt nur der goldene Punkt. */
+@keyframes goal-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.animate-goal-pulse {
+  animation: goal-pulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-goal-pulse {
+    animation: none;
+  }
+}

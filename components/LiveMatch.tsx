@@ -93,31 +93,52 @@ export function timelineCount(events: LiveEvent[] | null | undefined): number {
   return events ? events.filter((e) => e.type !== "subst").length : 0;
 }
 
-// Letztes Tor (nach Minute), null ohne Tor.
-function lastGoal(events: LiveEvent[] | null | undefined): LiveEvent | null {
-  let last: LiveEvent | null = null;
-  for (const e of events ?? []) {
-    if (!isGoalEvent(e)) continue;
-    if (!last || e.minute > last.minute || (e.minute === last.minute && (e.extra ?? 0) >= (last.extra ?? 0))) last = e;
-  }
-  return last;
+// Eindeutiger Schlüssel eines Ereignisses (für "neues Tor" und Hervorhebung).
+export function eventKey(e: LiveEvent): string {
+  return `${e.side}-${e.minute}-${e.extra ?? 0}-${e.type}-${e.player ?? ""}`;
+}
+
+export interface NewGoal {
+  key: string; // eventKey des neuesten neuen Tors
+  n: number; // zählt hoch, damit auch ein gleicher Schlüssel neu auslöst
+}
+
+// Neues Tor gegenüber dem letzten Stand (Rene, 15.10.2026): beim ersten
+// Laden nichts, danach liefert jedes Tor, das vorher nicht da war, einen
+// neuen Wert. Für den pulsierenden Knopf "Spielverlauf" und das kurze
+// goldene Hinterlegen im Spielverlauf.
+export function useNewGoal(events: LiveEvent[] | null | undefined): NewGoal | null {
+  const [newGoal, setNewGoal] = useState<NewGoal | null>(null);
+  const seenRef = useRef<Set<string> | null>(null);
+  const keys = (events ?? []).filter(isGoalEvent).map(eventKey);
+  const sig = keys.join("|");
+  useEffect(() => {
+    if (!events) return;
+    const seen = seenRef.current;
+    seenRef.current = new Set(keys);
+    if (!seen) return;
+    const fresh = (events ?? [])
+      .filter((e) => isGoalEvent(e) && !seen.has(eventKey(e)))
+      .sort((a, b) => b.minute - a.minute || (b.extra ?? 0) - (a.extra ?? 0));
+    if (fresh.length === 0) return;
+    setNewGoal((prev) => ({ key: eventKey(fresh[0]), n: (prev?.n ?? 0) + 1 }));
+  }, [sig, !!events]);
+  return newGoal;
 }
 
 // Anzeigetafel: links Verein, Mitte großer Spielstand mit Minute, rechts der
 // zweite Verein (Reihenfolge wie orderFor, US-Ligen Gast links). Namen
 // brechen auf 2 Zeilen um, nie abgeschnitten; die Höhe für 2 Zeilen ist
 // immer reserviert. flash: Spielstand leuchtet nach einem Tor kurz golden.
-// (Rene, 15.10.2026) Keine Torschützen mehr unter den Namen: darunter genau
-// EINE ruhige, mittige Zeile "⚽ Tolisso 45+2'" mit dem letzten Tor, Höhe
-// auch ohne Tor reserviert (nichts springt). Neues Tor: Zeile kurz golden.
-// Alle Tore/Vorlagen/Karten stehen nur im Spielverlauf.
+// (Rene, 15.10.2026) Ganz ruhig: keine Torschützen und keine Zeile "letztes
+// Tor" mehr – nur Trikot, Name, Spielstand, Minute/Status und Balken. Alle
+// Tore/Vorlagen/Karten stehen nur im Spielverlauf.
 export function Scoreboard({
   left,
   right,
   leftScore,
   rightScore,
   clock,
-  events,
   flash = false,
   stage = false,
 }: {
@@ -126,24 +147,9 @@ export function Scoreboard({
   leftScore: number;
   rightScore: number;
   clock: BoardClock;
-  events?: LiveEvent[] | null;
   flash?: boolean;
   stage?: boolean;
 }) {
-  const goal = lastGoal(events);
-  const goalKey = goal ? `${goal.side}-${goal.minute}-${goal.extra ?? 0}-${goal.player ?? ""}` : null;
-  // Neues letztes Tor (nicht beim ersten Laden): Zeile ~2,5 s golden.
-  const [goalGlow, setGoalGlow] = useState(false);
-  const seenGoalRef = useRef<string | null | undefined>(undefined);
-  useEffect(() => {
-    const prev = seenGoalRef.current;
-    seenGoalRef.current = goalKey;
-    if (prev === undefined || !goalKey || prev === goalKey) return;
-    setGoalGlow(true);
-    const t = window.setTimeout(() => setGoalGlow(false), 2500);
-    return () => window.clearTimeout(t);
-  }, [goalKey]);
-  const glow = !!goal && (goalGlow || flash);
   const side = (s: BoardSide) => (
     <div className="flex min-w-0 flex-col items-center gap-1.5 text-center">
       {s.badge && <span className={stage ? "drop-shadow-[0_4px_8px_rgb(0_0_0/0.5)]" : ""}>{s.badge}</span>}
@@ -175,24 +181,6 @@ export function Scoreboard({
           </span>
         </div>
         {side(right)}
-      </div>
-      <div className="flex h-7 items-center justify-center px-3 pb-2 -mt-1">
-        {goal && (
-          <span
-            className={`flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-[13px] leading-5 transition-colors duration-700 ${
-              glow ? "bg-gold/15 text-gold" : "bg-transparent text-ink"
-            }`}
-          >
-            <span aria-label="Letztes Tor" className="shrink-0">
-              ⚽
-            </span>
-            <span className="min-w-0 truncate">
-              {shortPlayerName(goal.player) || "Tor"}
-              {goal.type === "owngoal" ? " (ET)" : goal.type === "penalty" ? " (E)" : ""}
-            </span>
-            <span className={`shrink-0 tabular-nums ${glow ? "text-gold/80" : "text-muted"}`}>{eventMinuteText(goal)}</span>
-          </span>
-        )}
       </div>
       {clock.state !== "finished" && clock.progress !== null && <ProgressBar progress={clock.progress} />}
     </div>
@@ -290,12 +278,33 @@ export function LiveTipLine({
 
 // Spielverlauf: neueste Ereignisse zuerst. Heim links-, Gast rechtsbündig
 // (leftSide = Team, das links steht; US-Ligen gespiegelt). Wechsel nicht.
-export function EventTimeline({ events, leftSide }: { events: LiveEvent[]; leftSide: "home" | "away" }) {
+// (Rene, 15.10.2026) Neuestes neues Tor ~3 s golden hinterlegt: ohne glow
+// erkennt der Spielverlauf neue Tore selbst (Matchcenter, immer sichtbar),
+// die Tippkarte reicht glow beim Aufklappen bzw. bei offenem Verlauf durch.
+export function EventTimeline({
+  events,
+  leftSide,
+  glow,
+}: {
+  events: LiveEvent[];
+  leftSide: "home" | "away";
+  glow?: NewGoal | null;
+}) {
+  const ownNew = useNewGoal(glow === undefined ? events : null);
+  const signal = glow === undefined ? ownNew : glow;
+  const [glowKey, setGlowKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (!signal) return;
+    setGlowKey(signal.key);
+    const t = window.setTimeout(() => setGlowKey(null), 3000);
+    return () => window.clearTimeout(t);
+  }, [signal?.n, signal?.key]);
   const shown = events
     .filter((e) => e.type !== "subst")
     .slice()
     .sort((a, b) => b.minute - a.minute || (b.extra ?? 0) - (a.extra ?? 0));
-  if (shown.length === 0) return <p className="py-1 text-xs text-muted">Noch keine Tore oder Karten.</p>;
+  // Spielverlauf-Einträge je 1 px größer für bessere Lesbarkeit (Rene, 15.10.2026).
+  if (shown.length === 0) return <p className="py-1 text-[13px] text-muted">Noch keine Tore oder Karten.</p>;
   return (
     <ul className="flex flex-col gap-1.5">
       {shown.map((e, i) => {
@@ -306,7 +315,9 @@ export function EventTimeline({ events, leftSide }: { events: LiveEvent[]; leftS
         return (
           <li
             key={`${e.minute}-${e.extra ?? 0}-${e.type}-${i}`}
-            className={`flex items-start gap-2 text-[13px] ${isLeft ? "flex-row text-left" : "flex-row-reverse text-right"}`}
+            className={`-mx-1.5 flex items-start gap-2 rounded-md px-1.5 text-[14px] transition-colors duration-700 ${
+              isLeft ? "flex-row text-left" : "flex-row-reverse text-right"
+            } ${glowKey && eventKey(e) === glowKey ? "bg-gold/15" : "bg-transparent"}`}
           >
             <span className="w-10 shrink-0 tabular-nums text-muted" style={{ textAlign: isLeft ? "left" : "right" }}>
               {eventMinuteText(e)}
@@ -320,7 +331,7 @@ export function EventTimeline({ events, leftSide }: { events: LiveEvent[]; leftS
                 {mark}
               </span>
               {e.assist && (e.type === "goal" || e.type === "penalty") && (
-                <span className="block text-[11px] leading-tight text-muted">Vorlage {shortPlayerName(e.assist)}</span>
+                <span className="block text-[12px] leading-tight text-muted">Vorlage {shortPlayerName(e.assist)}</span>
               )}
             </span>
           </li>
