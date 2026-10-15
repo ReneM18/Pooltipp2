@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, FormEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Match, Sport, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
-import { TipResultTier, compareWithOthers, BOOSTER_STAKE, RANKING_BONUS_CAP, RANKING_POINTS, boosterPayouts, gutscheinPayouts, rankingPointsTable } from "@/lib/poolScore";
+import { TipResultTier, compareWithOthers, BEGINNER_SHIELD_TIPS, BOOSTER_STAKE, RANKING_BONUS_CAP, RANKING_POINTS, boosterPayouts, gutscheinPayouts, rankingPointsTable } from "@/lib/poolScore";
 import { MatchTipper, useMatchTips } from "@/lib/matchTips";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
@@ -60,6 +60,8 @@ interface MyTip {
   opponents?: number;
   beaten?: number;
   joker?: "doppel" | "schutz" | "toleranz";
+  // Anfänger-Schutz: Minus auf 0 gesetzt (erste 10 Tipps der Sportart).
+  beginnerShielded?: boolean;
   rankingScored?: boolean;
   // Vor dem Neustart der Rangpunkte gewertet: Punkte zählen nicht mehr.
   rankingLegacy?: boolean;
@@ -1612,6 +1614,9 @@ function PointsInfoButton({
                   es mehr, gegen jemanden hinter dir zu verlieren. Der Bonus oder Abzug ist höchstens{"\u00a0"}
                   {RANKING_BONUS_CAP}{"\u00a0"}Punkte pro Tipp.
                 </p>
+                <p className="mt-2 text-xs leading-relaxed text-muted">
+                  🐣 Deine ersten {BEGINNER_SHIELD_TIPS} Tipps je Sportart kosten keine Punkte.
+                </p>
 
                 {isBooster && (
                   <div className="mt-4 rounded-lg border border-gold/40 bg-gold/[0.07] px-4 py-2.5">
@@ -1717,8 +1722,11 @@ function PoolScoreResultBox({
           {myTip.joker && (
             <span>
               {JOKER_ICON[myTip.joker]} {JOKER_LABEL[myTip.joker]} eingesetzt
-              {breakdown.fixed + breakdown.bonus < calculated ? ": kein Minus" : ""}
+              {breakdown.fixed + breakdown.bonus < calculated && !myTip.beginnerShielded ? ": kein Minus" : ""}
             </span>
+          )}
+          {myTip.beginnerShielded && (
+            <span>🐣 Anfänger-Schutz: kein Minus, deine ersten {BEGINNER_SHIELD_TIPS} Tipps je Sportart kosten keine Punkte.</span>
           )}
           {calculated !== rangDelta && (
             <span>

@@ -213,6 +213,7 @@ export default function DashboardPage() {
                 opponents: tip.opponents,
                 beaten: tip.beaten,
                 joker: tip.joker,
+                beginnerShielded: tip.beginnerShielded,
                 rankingScored: tip.rankingScored,
                 rankingLegacy: tip.rankingLegacy,
                 stake: tip.stake,
