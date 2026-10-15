@@ -150,3 +150,40 @@ export function findLiveGame(
   }
   return best && !tie ? best.result : null;
 }
+
+// ---------------------------------------------------------------------------
+// Mitlaufende Spielminute (Rene, 15.10.2026: Live-Gefühl)
+//
+// Die API liefert die Minute nur alle 3 Minuten. Aus "elapsed" und dem
+// Zeitpunkt, zu dem diese Daten im Browser ankamen, rechnen wir die aktuelle
+// Minute hoch – nur im Fußball und nur im 1./2. Durchgang. Über 45 bzw. 90
+// hinaus wird nicht geraten, dann steht "45+" bzw. "90+". In der Halbzeit
+// bleibt "Halbzeit" stehen. progress = Anteil an 90 Minuten (Halbzeit 50 %).
+export interface LiveClock {
+  text: string; // "18'", "45+", "90+", "Halbzeit"
+  progress: number; // 0..1
+}
+
+export function liveClock(
+  sport: Sport,
+  statusShort: string,
+  elapsed: number | null,
+  dataAt: number,
+  now: number,
+): LiveClock | null {
+  if (sport !== "Fußball") return null;
+  const s = statusShort.toUpperCase();
+  if (s === "HT") return { text: "Halbzeit", progress: 0.5 };
+  if ((s !== "1H" && s !== "2H") || elapsed === null || !dataAt) return null;
+  const end = s === "1H" ? 45 : 90;
+  const start = s === "1H" ? 1 : 46;
+  const minute = Math.max(start, elapsed + Math.max(0, Math.floor((now - dataAt) / 60000)));
+  if (minute > end) return { text: `${end}+`, progress: end / 90 };
+  return { text: `${minute}'`, progress: minute / 90 };
+}
+
+// "aktualisiert vor 1 Min." (Rene, 15.10.2026: Live-Gefühl)
+export function updatedAgoText(dataAt: number, now: number): string {
+  const min = Math.max(0, Math.floor((now - dataAt) / 60000));
+  return min === 0 ? "aktualisiert gerade eben" : `aktualisiert vor ${min} Min.`;
+}

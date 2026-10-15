@@ -28,6 +28,9 @@ interface Entry {
   date: string;
   games: LiveGame[] | null;
   fetchedAt: number;
+  // Wann die aktuellen Spieldaten ankamen (nur bei Erfolg, für die
+  // mitlaufende Minute; Rene, 15.10.2026: Live-Gefühl).
+  gamesAt: number;
   loading: boolean;
   listeners: Set<() => void>;
   pollers: Set<symbol>;
@@ -40,7 +43,7 @@ function entryFor(sport: Sport, date: string): Entry {
   const key = `${sport}|${date}`;
   let entry = entries.get(key);
   if (!entry) {
-    entry = { sport, date, games: null, fetchedAt: 0, loading: false, listeners: new Set(), pollers: new Set(), timer: null };
+    entry = { sport, date, games: null, fetchedAt: 0, gamesAt: 0, loading: false, listeners: new Set(), pollers: new Set(), timer: null };
     entries.set(key, entry);
   }
   return entry;
@@ -53,7 +56,10 @@ async function load(entry: Entry) {
     const res = await fetch(`/api/live?sport=${encodeURIComponent(entry.sport)}&date=${entry.date}`);
     const data = (await res.json()) as LiveResponse;
     // Bei einem Fehler (z. B. Tageslimit) bleiben die letzten Daten stehen.
-    if (Array.isArray(data.games) && (data.games.length > 0 || !data.error)) entry.games = data.games;
+    if (Array.isArray(data.games) && (data.games.length > 0 || !data.error)) {
+      entry.games = data.games;
+      entry.gamesAt = Date.now();
+    }
   } catch {
     // Netzwerkfehler: einfach beim nächsten Takt wieder versuchen.
   } finally {
@@ -86,6 +92,10 @@ export interface LiveScore {
   statusText: string;
   // true = laut Live-Daten abgepfiffen (offizieller Endstand fehlt noch).
   finished: boolean;
+  // Für die mitlaufende Minute (Rene, 15.10.2026: Live-Gefühl).
+  statusShort: string;
+  elapsed: number | null;
+  dataAt: number;
 }
 
 // Live-Stand eines App-Spiels oder null (nicht gestartet, schon mit Endstand
@@ -139,5 +149,8 @@ export function useLiveScore(match: Match, homeName: string, awayName: string): 
     status,
     statusText: found.game.statusText,
     finished: isLiveFinished(status),
+    statusShort: found.game.statusShort,
+    elapsed: found.game.elapsed,
+    dataAt: entry?.gamesAt ?? 0,
   };
 }

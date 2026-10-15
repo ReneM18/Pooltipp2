@@ -488,3 +488,25 @@ html[data-season-design] .match-card-rand {
   from { opacity: 0.7; }
   to { opacity: 1; }
 }
+
+/* Live-Punkt (Rene, 15.10.2026: Live-Gefühl): ruhiges Pulsieren, bei
+   "Bewegung reduzieren" gar nicht. */
+@keyframes live-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+.animate-live-dot {
+  animation: live-dot 1.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-live-dot {
+    animation: none;
+  }
+}

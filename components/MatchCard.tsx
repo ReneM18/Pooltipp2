@@ -28,6 +28,7 @@ import ShareTipButton from "./ShareTipCard";
 import type { ShareCardData } from "@/lib/shareCard";
 import Emoji from "@/components/Emoji";
 import { useLiveScore, type LiveScore } from "@/lib/useLiveScores";
+import { useLiveClock } from "@/lib/useLiveMinute";
 import { useBeginnerShieldLeft } from "./BeginnerShieldHint";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
@@ -1926,6 +1927,14 @@ function LiveScoreboard({
   stage: boolean;
 }) {
   const [leftScore, rightScore] = displayOrder(order, live.homeScore, live.awayScore);
+  // Minute zählt im Browser mit (Rene, 15.10.2026: Live-Gefühl).
+  const clock = useLiveClock(match.sport, live.statusShort, live.elapsed, live.dataAt);
+  const boardText =
+    !live.finished && clock && clock.text !== "Halbzeit"
+      ? clock.text.endsWith("'")
+        ? `${clock.text.slice(0, -1)}. Minute`
+        : clock.text
+      : liveBoardText(live, match.sport);
   const team = (t: Team) => (
     <div className="flex min-w-0 flex-col items-center gap-1.5 text-center">
       <span className={stage ? "drop-shadow-[0_4px_8px_rgb(0_0_0/0.5)]" : ""}>
@@ -1961,8 +1970,13 @@ function LiveScoreboard({
         {/* Minute gedämpft mit kleinem rotem Punkt statt knallrot
             (Rene, 15.10.2026: ohne roten Rahmen, passend zum Matchcenter). */}
         <span className="mt-1.5 inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-medium text-muted">
-          {!live.finished && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-red-500" />}
-          {liveBoardText(live, match.sport)}
+          {!live.finished && (
+            <span
+              aria-hidden
+              className={`h-1.5 w-1.5 rounded-full bg-red-500 ${live.status === "LIVE" ? "animate-live-dot" : ""}`}
+            />
+          )}
+          {boardText}
         </span>
       </div>
       {team(rightTeam)}
@@ -1987,7 +2001,9 @@ function LiveBadge({ live }: { live: LiveScore }) {
         live.status === "HT" ? "Halbzeit" : live.statusText || "Pause"
       ) : (
         <>
-          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-red-500" /> LIVE
+          {/* Punkt pulsiert sanft (Rene, 15.10.2026: Live-Gefühl). */}
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-red-500 animate-live-dot" />
+          <span className="font-bold text-red-400">LIVE</span>
         </>
       )}
     </span>
