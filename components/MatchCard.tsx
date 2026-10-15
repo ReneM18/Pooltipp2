@@ -1314,9 +1314,9 @@ export default function MatchCard({
         )}
 
         {/* Footer (Rene, 15.10.2026): immer EINE Zeile (auch 3er-Reihe am PC
-            und 375 px): "👥 2 ▼ · Verlauf (6) ▼ · 💬 Kommentieren", kleine
+            und 375 px): "👥 2 ▼ · Spielverlauf (6) ▾ · 💬 Kommentieren", kleine
             Abstände, Icons statt Wörter, nie umbrechen. */}
-        <div className="mt-auto flex flex-nowrap items-center justify-between gap-2 whitespace-nowrap pt-3 text-xs text-muted">
+        <div className="mt-auto flex flex-nowrap items-center justify-between gap-1.5 whitespace-nowrap pt-3 text-xs text-muted">
           {tipCount > 0 ? (
             <button
               onClick={() => setTippersOpen((current) => !current)}
@@ -1334,34 +1334,41 @@ export default function MatchCard({
             </span>
           )}
           {/* getippt · Spielverlauf (live, beendet, gewertet) · Kommentieren.
-              Neues Tor: Spielverlauf golden mit pulsierendem Punkt. */}
-          <div className="flex min-w-0 items-center gap-2.5">
+              Neues Tor: Spielverlauf golden mit pulsierendem Punkt.
+              Spielverlauf-Knopf (Rene, 15.10.2026): 2 px größer als der Rest
+              (14 statt 12 px), Farbe ink statt muted, Pfeil ▾/▴ – ruhig, gold
+              nur beim Puls. Damit die Zeile hält, ist "Kommentieren" in der
+              engen PC-3er-Reihe (lg bis xl) nur das Sprechblasen-Icon. */}
+          <div className="flex min-w-0 items-center gap-2">
             {showEventsButton && (
               <button
                 onClick={toggleEvents}
                 aria-expanded={eventsOpen}
                 aria-label={`Spielverlauf${timelineCount(events) > 0 ? ` (${timelineCount(events)})` : ""}${eventsPulse ? " – neues Tor" : ""}`}
-                className={`flex shrink-0 items-center gap-1 font-semibold transition-colors ${
-                  eventsPulse ? "text-gold" : "text-muted hover:text-ink"
+                className={`flex shrink-0 items-center gap-1 text-[14px] font-semibold transition-colors ${
+                  eventsPulse ? "text-gold" : "text-ink hover:text-gold"
                 }`}
               >
                 {eventsPulse && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-gold animate-live-dot" />}
                 <span className={eventsPulse ? "animate-goal-pulse" : ""}>
-                  Verlauf
+                  Spielverlauf
                   {timelineCount(events) > 0 ? ` (${timelineCount(events)})` : ""}
                 </span>
-                <span aria-hidden className="text-[10px]">{eventsOpen ? "▲" : "▼"}</span>
+                <span aria-hidden className="text-[12px] leading-none">{eventsOpen ? "▴" : "▾"}</span>
               </button>
             )}
             <button
               onClick={() => setCommentsOpen((current) => !current)}
               aria-label={matchComments.length === 0 ? "Kommentieren" : undefined}
+              title={matchComments.length === 0 ? "Kommentieren" : undefined}
               className="flex min-w-0 items-center gap-1 font-semibold text-muted transition-colors hover:text-ink"
             >
               <ChatIcon className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">
-                {matchComments.length === 0 ? "Kommentieren" : matchComments.length.toLocaleString("de-DE")}
-              </span>
+              {matchComments.length === 0 ? (
+                <span className="truncate lg:max-xl:hidden">Kommentieren</span>
+              ) : (
+                <span className="truncate">{matchComments.length.toLocaleString("de-DE")}</span>
+              )}
             </button>
           </div>
         </div>

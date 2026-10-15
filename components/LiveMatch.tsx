@@ -303,7 +303,8 @@ export function EventTimeline({
     .filter((e) => e.type !== "subst")
     .slice()
     .sort((a, b) => b.minute - a.minute || (b.extra ?? 0) - (a.extra ?? 0));
-  if (shown.length === 0) return <p className="py-1 text-xs text-muted">Noch keine Tore oder Karten.</p>;
+  // Spielverlauf-Einträge je 1 px größer für bessere Lesbarkeit (Rene, 15.10.2026).
+  if (shown.length === 0) return <p className="py-1 text-[13px] text-muted">Noch keine Tore oder Karten.</p>;
   return (
     <ul className="flex flex-col gap-1.5">
       {shown.map((e, i) => {
@@ -314,7 +315,7 @@ export function EventTimeline({
         return (
           <li
             key={`${e.minute}-${e.extra ?? 0}-${e.type}-${i}`}
-            className={`-mx-1.5 flex items-start gap-2 rounded-md px-1.5 text-[13px] transition-colors duration-700 ${
+            className={`-mx-1.5 flex items-start gap-2 rounded-md px-1.5 text-[14px] transition-colors duration-700 ${
               isLeft ? "flex-row text-left" : "flex-row-reverse text-right"
             } ${glowKey && eventKey(e) === glowKey ? "bg-gold/15" : "bg-transparent"}`}
           >
@@ -330,7 +331,7 @@ export function EventTimeline({
                 {mark}
               </span>
               {e.assist && (e.type === "goal" || e.type === "penalty") && (
-                <span className="block text-[11px] leading-tight text-muted">Vorlage {shortPlayerName(e.assist)}</span>
+                <span className="block text-[12px] leading-tight text-muted">Vorlage {shortPlayerName(e.assist)}</span>
               )}
             </span>
           </li>
