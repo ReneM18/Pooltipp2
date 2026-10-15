@@ -1,5 +1,7 @@
 import type { Sport } from "./types";
 import { flagEmoji } from "./flags";
+import type { Competition } from "./competitions";
+import { normalizeTeamName } from "./teamName";
 
 // Flagge neben dem Wettbewerb auf der Spielkarte: gehört zur LIGA, nie zu
 // einer Mannschaft (Rene, 09.10.2026: die NHL ist eine US-Liga, auch wenn
@@ -42,7 +44,23 @@ const LEAGUE_COUNTRY: [string, string][] = [
   ["mls", "US"],
 ];
 
-export function competitionFlag(sport: Sport, competition: string): string | null {
+// Gespeichertes Land des Wettbewerbs (Admin -> Wettbewerbe), gefunden über
+// Sportart + Name (Schreibweise egal). null = keins gewählt -> Automatik
+// (Rene, 15.10.2026).
+function storedCountry(sport: Sport, competition: string, competitions?: Competition[]): string | null {
+  if (!competitions?.length) return null;
+  const key = normalizeTeamName(competition ?? "");
+  if (!key) return null;
+  const hit = competitions.find((c) => c.sport === sport && normalizeTeamName(c.name) === key);
+  return hit?.countryCode || null;
+}
+
+// competitions = Liste aus useAppData. Zuerst zählt das dort gewählte Land
+// (z. B. 🇦🇹 für die ICE Hockey League, obwohl Eishockey sonst USA ist),
+// dann wie bisher (Rene, 15.10.2026).
+export function competitionFlag(sport: Sport, competition: string, competitions?: Competition[]): string | null {
+  const stored = storedCountry(sport, competition, competitions);
+  if (stored) return flagEmoji(stored);
   if (US_SPORTS.includes(sport)) return flagEmoji("US");
   const name = (competition ?? "").toLowerCase();
   // International: keine Flagge
@@ -57,9 +75,12 @@ export function competitionFlag(sport: Sport, competition: string): string | nul
 // fällt das Land im Namen weg ("Österreichische Bundesliga" -> "Bundesliga"
 // mit 🇦🇹, Rene 10.10.2026). Gespeichert bleibt der volle Name – sonst hielte
 // competitionFlag "Bundesliga" für die deutsche Liga.
-export function competitionDisplayName(sport: Sport, competition: string): string {
+// Bei gewähltem Land nur kürzen, wenn es auch Österreich ist – sonst stünde
+// der Name ohne passende Flagge da (Rene, 15.10.2026).
+export function competitionDisplayName(sport: Sport, competition: string, competitions?: Competition[]): string {
   const name = competition ?? "";
-  if (!competitionFlag(sport, name)) return name;
+  const stored = storedCountry(sport, name, competitions);
+  if (stored ? stored !== "AT" : !competitionFlag(sport, name)) return name;
   const short = name.replace(/^(österreichische|österreich)\s+/i, "");
   return short || name;
 }

@@ -146,8 +146,10 @@ export default function MatchCard({
   const allowsDraw = sportAllowsDraw(match.sport);
   const isCancelled = match.status === "cancelled";
   // Flagge der Liga (nicht der Heimmannschaft), siehe lib/competitionFlag.ts.
-  const leagueFlag = competitionFlag(match.sport, match.competition);
-  const competitionName = competitionDisplayName(match.sport, match.competition);
+  // Gewähltes Land des Wettbewerbs zählt zuerst (Rene, 15.10.2026).
+  const { competitions } = useAppData();
+  const leagueFlag = competitionFlag(match.sport, match.competition, competitions);
+  const competitionName = competitionDisplayName(match.sport, match.competition, competitions);
   // Leer (null) statt 0: der Knopf wird erst aktiv, wenn beide Zahlen
   // bewusst eingetragen sind – sonst gab ein versehentliches Antippen 0:0 ab.
   const [homeScore, setHomeScore] = useState<number | null>(null);

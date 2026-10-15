@@ -7,11 +7,14 @@ import Emoji from "@/components/Emoji";
 interface CountryPickerProps {
   value: string;
   onChange: (code: string) => void;
+  // Gesetzt: zusätzliche Option ganz oben ohne Land (value ""), z. B.
+  // "Automatisch / International" bei Wettbewerben (Rene, 15.10.2026).
+  emptyLabel?: string;
 }
 
 // Länderauswahl mit Suchfeld: Bei über 250 Ländern ist ein normales
 // Dropdown zu lang, darum tippt man einfach die ersten Buchstaben.
-export default function CountryPicker({ value, onChange }: CountryPickerProps) {
+export default function CountryPicker({ value, onChange, emptyLabel }: CountryPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
@@ -61,8 +64,8 @@ export default function CountryPicker({ value, onChange }: CountryPickerProps) {
         aria-expanded={open}
         className="flex w-full items-center gap-2 rounded-lg border border-edge bg-pitch px-4 py-3 text-left text-base text-ink outline-none focus:border-gold"
       >
-        <span className="shrink-0"><Emoji e={flagEmoji(value)} /></span>
-        <span className="min-w-0 flex-1 truncate">{countryName(value)}</span>
+        <span className="shrink-0"><Emoji e={value ? flagEmoji(value) : "🌐"} /></span>
+        <span className="min-w-0 flex-1 truncate">{value ? countryName(value) : emptyLabel ?? ""}</span>
         <span className="shrink-0 text-xs text-muted">▼</span>
       </button>
 
@@ -84,6 +87,20 @@ export default function CountryPicker({ value, onChange }: CountryPickerProps) {
             className="w-full rounded-t-lg border-b border-edge bg-pitch px-4 py-3 text-base text-ink outline-none"
           />
           <ul role="listbox" className="max-h-64 overflow-y-auto py-1">
+            {emptyLabel !== undefined && !query.trim() && (
+              <li role="option" aria-selected={value === ""}>
+                <button
+                  type="button"
+                  onClick={() => choose("")}
+                  className={`flex w-full items-center gap-2 px-4 py-2 text-left text-base hover:bg-surface-hover ${
+                    value === "" ? "text-gold" : "text-ink"
+                  }`}
+                >
+                  <span className="shrink-0"><Emoji e="🌐" /></span>
+                  <span className="min-w-0 flex-1">{emptyLabel}</span>
+                </button>
+              </li>
+            )}
             {matches.length === 0 && (
               <li className="px-4 py-2 text-sm text-muted">Kein Land gefunden.</li>
             )}

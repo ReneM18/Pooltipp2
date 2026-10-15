@@ -431,8 +431,10 @@ interface AppDataContextValue {
   // add/rename geben null bzw. false zurück, wenn der Name in dieser
   // Sportart schon existiert (Schreibweise egal) oder leer ist.
   competitions: Competition[];
-  addCompetition: (name: string, sport: Sport) => Competition | null;
-  renameCompetition: (id: string, name: string) => boolean;
+  // countryCode: Land für die Flagge ("" = Automatik), Rene 15.10.2026.
+  // Beim Umbenennen bleibt das Land unverändert, wenn es fehlt (undefined).
+  addCompetition: (name: string, sport: Sport, countryCode?: string) => Competition | null;
+  renameCompetition: (id: string, name: string, countryCode?: string) => boolean;
   removeCompetition: (id: string) => void;
   addMatch: (match: Omit<Match, "id">) => void;
   removeMatch: (id: string) => void;
@@ -1086,21 +1088,33 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  function addCompetition(name: string, sport: Sport) {
+  function addCompetition(name: string, sport: Sport, countryCode?: string) {
     const clean = name.trim();
     if (!clean || findDuplicateCompetition(competitions, clean, sport)) return null;
     const created: Competition = { id: newCompetitionId(), name: clean, sport };
+    if (countryCode) created.countryCode = countryCode;
     saveCompetitions([...competitions, created]);
     return created;
   }
 
   // Umbenennen ändert den Namen auch bei allen Spielen dieser Sportart, die
   // noch den alten Namen tragen (z. B. Tippfehler ausbessern).
-  function renameCompetition(id: string, name: string) {
+  function renameCompetition(id: string, name: string, countryCode?: string) {
     const clean = name.trim();
     const current = competitions.find((c) => c.id === id);
     if (!current || !clean || findDuplicateCompetition(competitions, clean, current.sport, id)) return false;
-    saveCompetitions(competitions.map((c) => (c.id === id ? { ...c, name: clean } : c)));
+    saveCompetitions(
+      competitions.map((c) => {
+        if (c.id !== id) return c;
+        const next: Competition = { ...c, name: clean };
+        // "" = zurück auf Automatik (Rene, 15.10.2026).
+        if (countryCode !== undefined) {
+          if (countryCode) next.countryCode = countryCode;
+          else delete next.countryCode;
+        }
+        return next;
+      })
+    );
     if (clean !== current.name) {
       setMatches((ms) =>
         ms.map((m) =>
