@@ -966,11 +966,9 @@ export default function MatchCard({
                   Nur der Booster (was der Tipp an Coins kostet, Gewinn oder
                   Verlust) bleibt als goldene Box auf der Karte, der Hinweis
                   steht immer direkt über dem Knopf. */}
-              {/* Welche Tipp-Art? (Rene, 13.10.2026: viele verwechseln Ergebnis-
-                  und Sieger-Tipp.) Schild in derselben Zeile wie die
-                  Punkteverteilung, damit die Karte nicht höher wird. */}
+              {/* Schild zur Tipp-Art entfällt, der Hinweis steht seit #269
+                  über den Vereinen (Rene, 15.10.2026). */}
               <div className="mb-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
-                <TipModeTag isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} />
                 <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} />
               </div>
   
@@ -1439,25 +1437,6 @@ function PointsGrid({ items, coins = false }: { items: { label: string; net: num
 
 // Booster: Rangpunkte gibt es zusätzlich zu den Coins, genau wie bei jedem
 // Tipp – als eigene grüne Zeile mit Pokal, damit klar ist: beides zählt.
-// Schild zur Tipp-Art (Rene, 13.10.2026): "Ergebnis tippen", bei 1X2 mit
-// Unentschieden (Fußball, Football, Handball) "1 · X · 2 tippen", ohne
-// (Eishockey, Basketball) "Nur Sieger tippen". Nur solange man tippt – ist
-// der Tipp abgegeben, verschwindet es; bei "Ändern" kommt es wieder.
-function TipModeTag({ isOneXTwo, allowsDraw }: { isOneXTwo: boolean; allowsDraw: boolean }) {
-  const text = !isOneXTwo ? "Ergebnis tippen" : allowsDraw ? "1 · X · 2 tippen" : "Nur Sieger tippen";
-  return (
-    <span
-      className={`whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wide ${
-        isOneXTwo
-          ? "border-[#6FA8DC]/60 bg-[#6FA8DC]/15 text-[#8EC0EE]"
-          : "border-[#4FC181]/60 bg-[#4FC181]/15 text-[#4FC181]"
-      }`}
-    >
-      <Emoji e={isOneXTwo ? "👆" : "✏️"} /> {text}
-    </span>
-  );
-}
-
 function BoosterRankRow({ isOneXTwo, compactOnPhone = false }: { isOneXTwo: boolean; compactOnPhone?: boolean }) {
   if (compactOnPhone) {
     // Topspiel am Handy: Rangpunkte in einer Zeile statt vier Kästchen.
