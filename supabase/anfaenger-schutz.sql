@@ -5,10 +5,14 @@
 -- bis zu -10 Bonus. Wer neu ist und noch wenige Treffer hat, fällt nach
 -- jedem Gewinn sofort wieder auf 0.
 --
--- Regel: Die ersten 10 gewerteten Tipps eines Spielers JE SPORTART kosten
--- nie Punkte. Ist ein solcher Tipp unterm Strich (feste Punkte + Bonus,
--- nach Jokern) im Minus, zählt er 0. Gewinne zählen ganz normal. Ab dem
--- 11. gewerteten Tipp der Sportart gelten die normalen Regeln.
+-- Regel (Rene, 15.10.2026): Die ersten 10 gewerteten Tipps eines Spielers
+-- INSGESAMT (alle Sportarten zusammen) kosten nie Punkte. Alle bisher
+-- gewerteten Tipps zählen mit, auch die von vor dem Anfänger-Schutz: Wer
+-- schon 10 oder mehr gewertete Tipps hat (z. B. Rene, Doris), hat keinen
+-- Schutz mehr. Ist ein geschützter Tipp unterm Strich (feste Punkte +
+-- Bonus, nach Jokern) im Minus, zählt er 0. Gewinne zählen ganz normal.
+-- Ab dem 11. gewerteten Tipp gelten die normalen Regeln.
+-- (Die erste Fassung zählte je Sportart; Teil 2 korrigiert das.)
 --
 -- Ob ein Tipp zu den ersten 10 gehört, wird beim ersten Auswerten am Tipp
 -- gespeichert (tips.beginner_slot). Eine Endstand-Korrektur rechnet mit
@@ -17,14 +21,22 @@
 --
 -- Teil 1: Spalten und Auswertung (sonst unverändert aus
 --         supabase/prestige.sql).
--- Teil 2: Nicole bekommt den Schutz nachträglich: ihre schon gewerteten
---         Tipps werden je Sportart neu durchgerechnet. Coins werden nicht
---         angefasst. Teil 2 läuft in einem eigenen Block: Findet er Nicole
---         nicht eindeutig, bricht nur Teil 2 ab, Teil 1 bleibt gespeichert.
+-- Teil 2: Korrektur der ersten Fassung (je Sportart): Tipps mit
+--         beginner_slot, die nicht zu den ersten 10 gewerteten Tipps des
+--         Spielers insgesamt gehören, verlieren den Schutz. Hat der Schutz
+--         dort ein Minus verhindert, wird es nachgebucht (nie unter 0).
+--         Coins werden nicht angefasst. Wurde die erste Fassung nie
+--         ausgeführt, ändert Teil 2 nichts.
+-- Teil 3: Nicole bekommt den Schutz nachträglich: ihre schon gewerteten
+--         Tipps werden neu durchgerechnet (erste 10 insgesamt geschützt).
+--         Coins werden nicht angefasst. Teil 3 läuft in einem eigenen
+--         Block: Findet er Nicole nicht eindeutig, bricht nur Teil 3 ab,
+--         Teil 1 und 2 bleiben gespeichert.
 --
--- Bestehende Daten anderer Spieler: Keine Rangpunkte, Tipps oder Coins
--- werden geändert. Tipps, die schon vor diesem Skript gewertet waren,
--- zählen nicht als Anfänger-Tipps (außer bei Nicole, Teil 2).
+-- Bestehende Daten anderer Spieler: Außer der Korrektur in Teil 2 werden
+-- keine Rangpunkte, Tipps oder Coins geändert. Tipps, die schon vor diesem
+-- Skript gewertet waren, sind nicht geschützt (außer bei Nicole, Teil 3),
+-- zählen aber bei den ersten 10 mit.
 --
 -- Voraussetzung: supabase/prestige.sql wurde schon ausgeführt.
 -- Ausführen: Supabase-Dashboard -> SQL Editor -> New query -> dieses
@@ -46,7 +58,7 @@ end $$;
 -- ----------------------------------------------------------------------------
 -- 1) Spalten am Tipp (nur der Server setzt sie)
 -- ----------------------------------------------------------------------------
--- beginner_slot: Tipp gehört zu den ersten 10 gewerteten Tipps der Sportart.
+-- beginner_slot: Tipp gehört zu den ersten 10 gewerteten Tipps insgesamt.
 -- beginner_shielded: der Anfänger-Schutz hat ein Minus auf 0 gesetzt.
 alter table public.tips add column if not exists beginner_slot boolean;
 alter table public.tips add column if not exists beginner_shielded boolean not null default false;
@@ -283,11 +295,12 @@ begin
       v_total := 0;
     end if;
 
-    -- Anfänger-Schutz: Die ersten 10 gewerteten Tipps eines Spielers je
-    -- Sportart kosten nie Punkte (Gewinne zählen normal). Ob ein Tipp dazu
-    -- gehört, wird beim ersten Auswerten am Tipp gespeichert, damit eine
-    -- Endstand-Korrektur dasselbe ergibt. Tipps, die schon vor dem
-    -- Anfänger-Schutz gewertet waren, gehören nicht dazu.
+    -- Anfänger-Schutz: Die ersten 10 gewerteten Tipps eines Spielers
+    -- insgesamt (alle Sportarten zusammen) kosten nie Punkte (Gewinne
+    -- zählen normal; Rene, 15.10.2026). Ob ein Tipp dazu gehört, wird beim
+    -- ersten Auswerten am Tipp gespeichert, damit eine Endstand-Korrektur
+    -- dasselbe ergibt. Tipps, die schon vor dem Anfänger-Schutz gewertet
+    -- waren, sind nicht geschützt, zählen aber mit.
     if v_tip.beginner_slot is not null then
       v_slot := v_tip.beginner_slot;
     elsif v_was_evaluated then
@@ -295,11 +308,9 @@ begin
     else
       select count(*) < 10 into v_slot
       from public.tips t
-      join public.matches m on m.id = t.match_id
       where t.user_id = v_tip.user_id
         and t.id <> v_tip.id
-        and t.evaluated and t.result_tier is not null and t.refunded_at is null
-        and coalesce(nullif(m.data ->> 'sport', ''), 'Fußball') = v_sport;
+        and t.evaluated and t.result_tier is not null and t.refunded_at is null;
     end if;
     v_beginner := coalesce(v_slot, false) and not coalesce(v_shielded, false) and v_total < 0;
     if v_beginner then
@@ -367,7 +378,7 @@ begin
       v_detail := v_detail || case when v_tolerated then ', Toleranz-Joker' else ', Schutz-Joker' end || ': kein Minus';
     end if;
     if v_beginner then
-      v_detail := v_detail || ', Anfänger-Schutz (deine ersten 10 Tipps je Sportart): kein Minus';
+      v_detail := v_detail || ', Anfänger-Schutz (deine ersten 10 Tipps): kein Minus';
     end if;
     v_detail := v_detail || ': ' || case when v_total > 0 then '+' else '' end || v_total || ' Rangpunkte.';
     if v_booked <> v_total then
@@ -417,14 +428,88 @@ revoke all on function public.evaluate_match_tips(text) from public, anon, authe
 commit;
 
 -- ============================================================================
--- Teil 2: Nicole nachträglich
+-- Teil 2: Korrektur der ersten Fassung (Schutz je Sportart)
 -- ============================================================================
--- Ihre gewerteten Tipps werden je Sportart in Auswertungsreihenfolge
--- (Anpfiff, dann Spiel-ID) neu durchgerechnet: Bei den ersten 10 zählt ein
--- Minus als 0, danach normal. Rangpunkte fallen wie bisher nie unter 0.
--- Gesetzt werden rang_delta, rang_booked, beginner_slot und
--- beginner_shielded der Tipps und profiles.rang_punkte je Sportart.
--- Coins bleiben, wie sie sind. Ein zweiter Lauf ergibt dasselbe.
+-- Reihenfolge wie bei der Auswertung: Anpfiff, dann Spiel-ID. Zu den
+-- ersten 10 zählen alle gewerteten, nicht erstatteten Tipps des Spielers
+-- (auch alte). Tipps mit beginner_slot außerhalb davon:
+--   beginner_slot = false; hat der Schutz ein Minus verhindert
+--   (beginner_shielded), wird es jetzt nachgebucht: rang_delta = feste
+--   Punkte + Bonus, rang_booked = was wirklich abgezogen wurde (Rangpunkte
+--   der Sportart nie unter 0), beginner_shielded = false.
+-- Coins bleiben. Ein zweiter Lauf ändert nichts mehr.
+begin;
+
+do $$
+declare
+  t record;
+  v_raw int;
+  v_cur int;
+  v_booked int;
+  v_note text;
+begin
+  for t in
+    with ranked as (
+      select x.id, x.user_id, x.beginner_slot,
+             coalesce(nullif(m.data ->> 'sport', ''), 'Fußball') as sport,
+             row_number() over (
+               partition by x.user_id
+               order by public.try_timestamptz(m.data ->> 'kickoff') nulls last, x.match_id, x.id) as nr
+      from public.tips x
+      join public.matches m on m.id = x.match_id
+      where x.evaluated and x.result_tier is not null and x.refunded_at is null
+    )
+    select r.sport, x.*
+    from ranked r
+    join public.tips x on x.id = r.id
+    where r.beginner_slot and r.nr > 10
+    order by r.user_id, r.nr
+  loop
+    if not t.beginner_shielded then
+      update public.tips set beginner_slot = false, updated_at = now() where id = t.id;
+      continue;
+    end if;
+
+    -- Verhindertes Minus nachbuchen (der Schutz griff nur, wenn kein Joker
+    -- schon geschützt hat, darum sind feste Punkte + Bonus der echte Wert).
+    v_raw := coalesce(t.base_points, 0) + coalesce(t.bonus_points, 0);
+    select coalesce(public.try_int(p.rang_punkte -> t.sport), 0) into v_cur
+    from public.profiles p where p.id = t.user_id for update;
+    v_cur := coalesce(v_cur, 0);
+    -- Bisher gebucht: 0 (geschützt). Jetzt v_raw, aber nie unter 0.
+    v_booked := greatest(v_raw, -v_cur);
+
+    update public.profiles
+    set rang_punkte = jsonb_set(coalesce(rang_punkte, '{}'::jsonb), array[t.sport], to_jsonb(v_cur + v_booked)),
+        updated_at = now()
+    where id = t.user_id;
+
+    v_note := 'Korrektur: Der Anfänger-Schutz gilt nur für deine ersten 10 Tipps insgesamt, dieser Tipp zählt jetzt '
+      || v_raw || ' Rangpunkte'
+      || case when v_booked <> v_raw then ' (Rangpunkte fallen nie unter 0, abgezogen: ' || -v_booked || ')' else '' end
+      || '.';
+    update public.tips
+    set beginner_slot = false,
+        beginner_shielded = false,
+        rang_delta = v_raw,
+        rang_booked = v_booked,
+        narration = coalesce(narration || ' ', '') || v_note,
+        updated_at = now()
+    where id = t.id;
+  end loop;
+end $$;
+
+commit;
+
+-- ============================================================================
+-- Teil 3: Nicole nachträglich
+-- ============================================================================
+-- Ihre gewerteten Tipps werden in Auswertungsreihenfolge (Anpfiff, dann
+-- Spiel-ID) über alle Sportarten neu durchgerechnet: Bei den ersten 10
+-- insgesamt zählt ein Minus als 0, danach normal. Rangpunkte fallen wie
+-- bisher je Sportart nie unter 0. Gesetzt werden rang_delta, rang_booked,
+-- beginner_slot und beginner_shielded der Tipps und profiles.rang_punkte je
+-- Sportart. Coins bleiben, wie sie sind. Ein zweiter Lauf ergibt dasselbe.
 begin;
 
 do $$
@@ -435,6 +520,7 @@ declare
   v_sport text;
   v_cur int;
   v_sum int;
+  v_bal jsonb := '{}'::jsonb;
   v_balance int;
   v_raw int;
   v_total int;
@@ -447,23 +533,23 @@ begin
   from public.profiles p
   where p.display_name ilike 'nicole%';
   if v_hits = 0 then
-    raise exception 'Kein Profil gefunden, dessen Name mit "Nicole" beginnt. Teil 2 wurde nicht ausgeführt (Teil 1 ist gespeichert).';
+    raise exception 'Kein Profil gefunden, dessen Name mit "Nicole" beginnt. Teil 3 wurde nicht ausgeführt (Teil 1 und 2 sind gespeichert).';
   elsif v_hits > 1 then
-    raise exception 'Mehrere Profile beginnen mit "Nicole": %. Teil 2 wurde nicht ausgeführt (Teil 1 ist gespeichert). Bitte Claude Bescheid geben, welches gemeint ist.', v_names;
+    raise exception 'Mehrere Profile beginnen mit "Nicole": %. Teil 3 wurde nicht ausgeführt (Teil 1 und 2 sind gespeichert). Bitte Claude Bescheid geben, welches gemeint ist.', v_names;
   end if;
   select p.id into v_user from public.profiles p where p.display_name ilike 'nicole%';
 
   -- Profil sperren, damit keine Auswertung dazwischen bucht.
   perform 1 from public.profiles p where p.id = v_user for update;
 
+  -- Ausgangsstand je Sportart ohne ihre Tipps (z. B. Strafe fürs
+  -- Nicht-Tippen): aktueller Stand minus alles, was ihre Tipps gebucht haben.
   for v_sport in
     select distinct coalesce(nullif(m.data ->> 'sport', ''), 'Fußball')
     from public.tips x
     join public.matches m on m.id = x.match_id
     where x.user_id = v_user and x.evaluated and x.result_tier is not null and x.refunded_at is null
   loop
-    -- Ausgangsstand ohne ihre Tipps (z. B. Strafe fürs Nicht-Tippen):
-    -- aktueller Stand minus alles, was ihre Tipps gebucht haben.
     select coalesce(public.try_int(p.rang_punkte -> v_sport), 0) into v_cur
     from public.profiles p where p.id = v_user;
     select coalesce(sum(coalesce(x.rang_booked, x.rang_delta, 0)), 0) into v_sum
@@ -472,48 +558,50 @@ begin
     where x.user_id = v_user and x.evaluated and x.result_tier is not null and x.refunded_at is null
       and x.ranking_scored and not x.ranking_legacy
       and coalesce(nullif(m.data ->> 'sport', ''), 'Fußball') = v_sport;
-    v_balance := greatest(0, coalesce(v_cur, 0) - v_sum);
-
-    for t in
-      select x.*, row_number() over (
-               order by public.try_timestamptz(m.data ->> 'kickoff') nulls last, x.match_id, x.id) as nr
-      from public.tips x
-      join public.matches m on m.id = x.match_id
-      where x.user_id = v_user and x.evaluated and x.result_tier is not null and x.refunded_at is null
-        and coalesce(nullif(m.data ->> 'sport', ''), 'Fußball') = v_sport
-      order by nr
-    loop
-      -- Nach den alten Regeln gewertet: zählt mit, Punkte bleiben.
-      if not t.ranking_scored or t.ranking_legacy then
-        continue;
-      end if;
-      -- Gerechnete Punkte ohne Anfänger-Schutz (bei einem zweiten Lauf aus
-      -- festen Punkten + Bonus, denn rang_delta ist dann schon 0).
-      v_raw := case when t.beginner_shielded then coalesce(t.base_points, 0) + coalesce(t.bonus_points, 0)
-                    else coalesce(t.rang_delta, 0) end;
-      v_beginner := t.nr <= 10 and v_raw < 0;
-      v_total := case when v_beginner then 0 else v_raw end;
-      v_booked := greatest(v_total, -v_balance);
-      v_balance := v_balance + v_booked;
-
-      update public.tips
-      set rang_delta = v_total,
-          rang_booked = v_booked,
-          beginner_slot = t.nr <= 10,
-          beginner_shielded = v_beginner,
-          narration = case
-            when v_beginner and coalesce(narration, '') not like '%Anfänger-Schutz%'
-              then coalesce(narration || ' ', '') || 'Nachträglich mit Anfänger-Schutz (deine ersten 10 Tipps je Sportart): 0 Rangpunkte.'
-            else narration end,
-          updated_at = now()
-      where id = t.id;
-    end loop;
-
-    update public.profiles
-    set rang_punkte = jsonb_set(coalesce(rang_punkte, '{}'::jsonb), array[v_sport], to_jsonb(v_balance)),
-        updated_at = now()
-    where id = v_user;
+    v_bal := jsonb_set(v_bal, array[v_sport], to_jsonb(greatest(0, coalesce(v_cur, 0) - v_sum)));
   end loop;
+
+  -- Alle ihre Tipps zusammen, die ersten 10 insgesamt sind geschützt.
+  for t in
+    select x.*, coalesce(nullif(m.data ->> 'sport', ''), 'Fußball') as sport,
+           row_number() over (
+             order by public.try_timestamptz(m.data ->> 'kickoff') nulls last, x.match_id, x.id) as nr
+    from public.tips x
+    join public.matches m on m.id = x.match_id
+    where x.user_id = v_user and x.evaluated and x.result_tier is not null and x.refunded_at is null
+    order by nr
+  loop
+    -- Nach den alten Regeln gewertet: zählt mit, Punkte bleiben.
+    if not t.ranking_scored or t.ranking_legacy then
+      continue;
+    end if;
+    -- Gerechnete Punkte ohne Anfänger-Schutz (bei einem zweiten Lauf aus
+    -- festen Punkten + Bonus, denn rang_delta ist dann schon 0).
+    v_raw := case when t.beginner_shielded then coalesce(t.base_points, 0) + coalesce(t.bonus_points, 0)
+                  else coalesce(t.rang_delta, 0) end;
+    v_beginner := t.nr <= 10 and v_raw < 0;
+    v_total := case when v_beginner then 0 else v_raw end;
+    v_balance := coalesce(public.try_int(v_bal -> t.sport), 0);
+    v_booked := greatest(v_total, -v_balance);
+    v_bal := jsonb_set(v_bal, array[t.sport], to_jsonb(v_balance + v_booked));
+
+    update public.tips
+    set rang_delta = v_total,
+        rang_booked = v_booked,
+        beginner_slot = t.nr <= 10,
+        beginner_shielded = v_beginner,
+        narration = case
+          when v_beginner and coalesce(narration, '') not like '%Anfänger-Schutz%'
+            then coalesce(narration || ' ', '') || 'Nachträglich mit Anfänger-Schutz (deine ersten 10 Tipps): 0 Rangpunkte.'
+          else narration end,
+        updated_at = now()
+    where id = t.id;
+  end loop;
+
+  update public.profiles
+  set rang_punkte = coalesce(rang_punkte, '{}'::jsonb) || v_bal,
+      updated_at = now()
+  where id = v_user;
 end $$;
 
 commit;
@@ -523,7 +611,20 @@ select case when pg_get_functiondef('public.evaluate_match_tips(text)'::regproce
              and pg_get_functiondef('public.evaluate_match_tips(text)'::regprocedure) like '%prestige_strength%'
             then 'ok' else 'FEHLER: bitte Claude Bescheid geben' end as anfaenger_schutz;
 
--- Kontrolle Teil 2: Nicoles neue Rangpunkte je Sportart
+-- Kontrolle Teil 2: Spieler, die noch Anfänger-Schutz übrig haben
+-- (weniger als 10 gewertete Tipps insgesamt). Rene, Doris & Co. stehen hier
+-- nicht.
+select p.display_name,
+       count(x.id) as gewertete_tipps,
+       10 - count(x.id) as noch_geschuetzt
+from public.profiles p
+left join public.tips x on x.user_id = p.id
+  and x.evaluated and x.result_tier is not null and x.refunded_at is null
+group by p.id, p.display_name
+having count(x.id) < 10
+order by p.display_name;
+
+-- Kontrolle Teil 3: Nicoles neue Rangpunkte je Sportart
 select p.display_name,
        s.key as sportart,
        coalesce(public.try_int(s.value), 0) as rangpunkte,

@@ -251,7 +251,7 @@ export default function DashboardPage() {
           <StreakHint streak={streak} />
         </div>
       )}
-      {/* Anfänger-Schutz: noch X von 10 Tipps ohne Punktabzug (Rene, 15.10.2026) */}
+      {/* Anfänger-Schutz: noch X von 10 Tipps insgesamt ohne Punktabzug (Rene, 15.10.2026) */}
       <BeginnerShieldHint className="-mt-3 mb-5" />
 
       <WeeklyReviewCard />

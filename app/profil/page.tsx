@@ -506,7 +506,7 @@ function ProfilInhalt() {
           <StatCard label="Diese Woche" value={signedPoints(weekPoints)} accent={weekPoints >= 0 ? "action" : "ink"} />
           <StatCard label="Diese Saison" value={signedPoints(seasonPoints)} accent={seasonPoints >= 0 ? "action" : "ink"} />
         </div>
-        {/* Anfänger-Schutz je Sportart, solange noch übrig (Rene, 15.10.2026) */}
+        {/* Anfänger-Schutz (erste 10 Tipps insgesamt), solange noch übrig (Rene, 15.10.2026) */}
         <BeginnerShieldHint className="mt-3 rounded-card border border-edge bg-surface px-4 py-3" />
         <p className="mt-3 text-xs text-muted">
           Schlägst du Spieler über dir, gibt es mehr Punkte. Gegen Spieler unter dir gibt es weniger. Die genauen
