@@ -584,26 +584,109 @@ export default function MatchCard({
     );
   }
 
-  // Sieger-Knopf der kompakten Karte: ohne Unentschieden steht der Name
-  // drauf ("Knicks gewinnen"), sonst 1 / X / 2 wie gewohnt.
-  function compactPickButton(option: OneXTwo) {
-    const team = option === "1" ? homeTeam : option === "2" ? awayTeam : null;
-    return (
-      <button
-        key={option}
-        onClick={() => setNflPick((current) => (current === option ? null : option))}
-        aria-label={pickLabel(option)}
-        aria-pressed={nflPick === option}
-        className={`flex min-h-[2.75rem] min-w-0 items-center justify-center rounded-lg border px-2 py-1.5 text-center leading-tight transition-colors ${
-          nflPick === option ? "border-gold bg-gold/15 text-gold" : "border-edge bg-pitch text-ink hover:border-muted"
-        }`}
-      >
-        {allowsDraw || !team ? (
-          <span className="font-display text-lg font-bold">{pickButtonNumber(option)}</span>
-        ) : (
-          <span className="font-display text-[13px] font-semibold">{teamNickname(team.name)} gewinnen</span>
+  // Kompakte Karte, Variante B (Rene, 15.10.2026, Variante B): Die Vereine
+  // stehen untereinander, jeder als eigene Zeile in voller Breite. Beim
+  // Sieger-Tipp IST die Vereins-Zeile der Knopf (gespeichert wird weiter
+  // 1/X/2 bzw. Heim/Gast wie bisher), beim Ergebnis-Tipp steht rechts das
+  // Zahlenfeld für die Tore dieses Vereins.
+  const compactPicking = !showResultView && isOneXTwo;
+  // Gold markiert: vor dem Abgeben die Auswahl, danach der abgegebene Tipp.
+  const compactSelected: OneXTwo | null = compactPicking
+    ? nflPick
+    : isOneXTwo && myTip
+      ? scoreToOneXTwo(myTip.predictedHomeScore, myTip.predictedAwayScore)
+      : null;
+  // "Unentschieden" nur, wo es erlaubt ist (oder alter X-Tipp bei NHL/NBA).
+  const compactShowsDraw = isOneXTwo && (compactPicking ? oneXTwoOptions.includes("X") : allowsDraw || compactSelected === "X");
+
+  function compactRowClass(selected: boolean, clickable: boolean) {
+    return `flex w-full min-w-0 items-center rounded-lg border text-left transition-colors ${
+      selected
+        ? "border-gold bg-gold/15 text-gold"
+        : `border-edge bg-pitch text-ink ${clickable ? "hover:border-muted" : ""}`
+    }`;
+  }
+
+  // Eine Vereins-Zeile (ca. 44 px): Trikot, Name einzeilig, rechts klein
+  // "Heim"/"Gast", dahinter Zahlenfeld (Ergebnis-Tipp) bzw. Tore (Endstand).
+  function compactTeamRow(team: Team, side: "home" | "away") {
+    const pick: OneXTwo = side === "home" ? "1" : "2";
+    const selected = compactSelected === pick;
+    const isFan = !!fanTeamId && team.id === fanTeamId;
+    const goals = finalScore ? (side === "home" ? finalScore.home : finalScore.away) : null;
+    const scoreInput = !showResultView && !isOneXTwo ? (side === "home" ? homeScoreInputCompact : awayScoreInputCompact) : null;
+    const content = (
+      <>
+        <span className="shrink-0">
+          <TeamBadge
+            sport={match.sport}
+            {...matchJerseyProps(match, team)}
+            isNationalTeam={team.isNationalTeam}
+            countryCode={team.countryCode}
+            size={22}
+          />
+        </span>
+        <TeamLabel name={team.name} inline="left" single selected={selected} />
+        <span className={`shrink-0 text-[11px] font-medium ${selected ? "text-gold/80" : "text-muted/80"}`}>
+          {side === "home" ? "Heim" : "Gast"}
+        </span>
+        {scoreInput}
+        {goals !== null && (
+          <span className="w-8 shrink-0 text-right font-display text-xl font-bold leading-none text-ink">{goals}</span>
         )}
+      </>
+    );
+    return (
+      // Dein-Verein-Streifen am äußeren Kartenrand auf Höhe der Zeile des
+      // Herzensvereins, liegt im Innenrand der Karte und ragt nie in die
+      // Tipp-Felder (Rene, 15.10.2026, Variante B).
+      <div key={side} className="relative">
+        {isFan && (
+          <span className="pointer-events-none absolute -left-3.5 -top-3 -bottom-3 z-[1] flex w-[14px] items-center justify-center border-r border-[#6FA8DC] bg-[#6FA8DC]/30 [-webkit-mask-image:linear-gradient(to_bottom,transparent,#000_14%,#000_86%,transparent)] [mask-image:linear-gradient(to_bottom,transparent,#000_14%,#000_86%,transparent)] sm:-left-4">
+            <span className="rotate-180 whitespace-nowrap text-[8px] font-extrabold uppercase leading-none tracking-[0.06em] text-[#CFE6FF] [writing-mode:vertical-rl]">
+              Dein Verein
+            </span>
+          </span>
+        )}
+        {compactPicking ? (
+          <button
+            type="button"
+            // Nochmal antippen wählt wieder ab (vor dem Abgeben, löscht keinen Tipp).
+            onClick={() => setNflPick((current) => (current === pick ? null : pick))}
+            aria-label={pickLabel(pick)}
+            aria-pressed={selected}
+            className={`${compactRowClass(selected, true)} h-11 gap-2 px-2.5`}
+          >
+            {content}
+          </button>
+        ) : (
+          <div className={`${compactRowClass(selected, false)} h-11 gap-2 ${scoreInput ? "pl-2.5 pr-1" : "px-2.5"}`}>
+            {content}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Schmalere Zeile "Unentschieden" zwischen den Vereinen (ca. 30 px).
+  function compactDrawRow() {
+    const selected = compactSelected === "X";
+    const className = `${compactRowClass(selected, compactPicking)} h-[30px] justify-center px-2.5 text-center font-display text-[13px] font-semibold`;
+    return compactPicking ? (
+      <button
+        key="X"
+        type="button"
+        onClick={() => setNflPick((current) => (current === "X" ? null : "X"))}
+        aria-label={pickLabel("X")}
+        aria-pressed={selected}
+        className={className}
+      >
+        Unentschieden
       </button>
+    ) : (
+      <div key="X" className={className}>
+        Unentschieden
+      </div>
     );
   }
 
@@ -728,7 +811,8 @@ export default function MatchCard({
             damit "Dein Verein" auf Höhe des Vereins ganz lesbar ist und nicht
             mehr abgeschnitten wird (Rene, 14.10.2026). */}
         <div className="relative">
-          {fanSide && (
+          {/* Kompakte Karte: Streifen sitzt jetzt an der Vereins-Zeile (Rene, 15.10.2026, Variante B). */}
+          {stage && fanSide && (
             <span
               className={`pointer-events-none absolute z-[1] flex w-[14px] items-center justify-center border-[#6FA8DC] bg-[#6FA8DC]/30 [-webkit-mask-image:linear-gradient(to_bottom,transparent,#000_10%,#000_90%,transparent)] [mask-image:linear-gradient(to_bottom,transparent,#000_10%,#000_90%,transparent)] ${stage ? "-top-4 bottom-0 sm:-top-5" : "-bottom-3 -top-3"} ${fanSide === "left" ? `${stage ? "-left-4 sm:-left-5" : "-left-3.5 sm:-left-4"} border-r` : `${stage ? "-right-4 sm:-right-5" : "-right-3.5 sm:-right-4"} border-l`}`}
             >
@@ -771,39 +855,23 @@ export default function MatchCard({
             als enges Paar mittig. Ohne X-Kasten ist die Mitte nur so breit wie
             "vs" bzw. der Endstand, dann haben die Namen mehr Platz. */}
         {!stage ? (
-          // Kompakte Karte (Rene, 14.10.2026, Variante 2): beide Teams in einer
-          // Zeile, Ergebnis-Felder dazwischen. Sieger-Tipp: Knöpfe darunter.
+          // Kompakte Karte (Rene, 15.10.2026, Variante B): Vereine untereinander
+          // in voller Breite, Reihenfolge wie bisher (US-Ligen Gast oben,
+          // sonst Heim oben). Sieger-Tipp: Verein antippen, "Unentschieden"
+          // dazwischen nur wo erlaubt. Ergebnis-Tipp: Zahl rechts neben dem Verein.
           <div className="mb-3">
-            {/* Teams samt Trikot 2 mm weiter innen, am Rand sah es zu weit außen aus (Rene, 15.10.2026). */}
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-1 px-2 sm:gap-x-2">
-              <TeamInline match={match} team={leftTeam} />
-              {finalScore ? (
-                <div className="flex flex-col items-center">
-                  <span className="whitespace-nowrap font-display text-xl font-bold leading-tight text-ink">
-                    {formatScore(finalScore.home, finalScore.away)}
-                  </span>
-                  <span className="text-[10px] uppercase tracking-wide text-muted">Endstand</span>
-                </div>
-              ) : !showResultView && !isOneXTwo ? (
-                <div className="flex items-center gap-0.5">
-                  {isUsSport ? awayScoreInputCompact : homeScoreInputCompact}
-                  <span className="font-display text-lg text-muted">:</span>
-                  {isUsSport ? homeScoreInputCompact : awayScoreInputCompact}
-                </div>
-              ) : (
-                <span className="px-1 font-display text-xs text-muted">vs</span>
-              )}
-              <TeamInline match={match} team={rightTeam} flip />
+            {finalScore && (
+              <p className="mb-1 pr-2.5 text-right text-[10px] uppercase tracking-wide text-muted">Endstand</p>
+            )}
+            <div className="flex flex-col gap-1.5">
+              {compactTeamRow(leftTeam, isUsSport ? "away" : "home")}
+              {compactShowsDraw && compactDrawRow()}
+              {compactTeamRow(rightTeam, isUsSport ? "home" : "away")}
             </div>
             {!showResultView && closingSoon && (
               <p className="mt-2.5 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">
                 <span aria-hidden>⏰</span> Gleich geschlossen – jetzt noch schnell tippen!
               </p>
-            )}
-            {!showResultView && isOneXTwo && (
-              <div className={`mt-3 grid gap-2 ${oneXTwoOptions.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
-                {oneXTwoOptions.map((option) => compactPickButton(option))}
-              </div>
             )}
           </div>
         ) : (
@@ -1913,34 +1981,6 @@ function TeamColumn({
   );
 }
 
-// Kompakte Karte: Trikot klein neben dem Namen, rechts gespiegelt.
-function TeamInline({ match, team, flip = false }: { match: Match; team: Team; flip?: boolean }) {
-  return (
-    // Trikot 20 statt 22 px und gap-1.5 statt gap-2: zusammen mit den
-    // schmaleren Ergebnis-Feldern passt "Fenerbahçe" am Handy (375 px) bei
-    // 14 px in eine Zeile (Rene, 15.10.2026).
-    <div className={`flex min-w-0 items-center gap-1.5 ${flip ? "flex-row-reverse" : ""}`} lang="de">
-      <span className="shrink-0">
-        <TeamBadge
-          sport={match.sport}
-          {...matchJerseyProps(match, team)}
-          isNationalTeam={team.isNationalTeam}
-          countryCode={team.countryCode}
-          flip={flip}
-          size={20}
-        />
-      </span>
-      <TeamLabel name={team.name} inline={flip ? "right" : "left"} />
-    </div>
-  );
-}
-
-// "New York Knicks" -> "Knicks" (US-Teams heißen nach dem letzten Wort).
-function teamNickname(name: string) {
-  const words = name.trim().split(/\s+/);
-  return words[words.length - 1] ?? name;
-}
-
 function SideTag({ children }: { children: string }) {
   return (
     <span className="rounded-full border border-edge px-2 py-px text-[10px] font-semibold uppercase tracking-wide text-muted">
@@ -1949,7 +1989,20 @@ function SideTag({ children }: { children: string }) {
   );
 }
 
-function TeamLabel({ name, inline }: { name: string; inline?: "left" | "right" }) {
+// single: Name immer einzeilig, nur verkleinert, nie umgebrochen (kompakte
+// Karte, Vereins-Zeile in voller Breite). selected: goldene Schrift
+// (Rene, 15.10.2026, Variante B).
+function TeamLabel({
+  name,
+  inline,
+  single = false,
+  selected = false,
+}: {
+  name: string;
+  inline?: "left" | "right";
+  single?: boolean;
+  selected?: boolean;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -1966,7 +2019,7 @@ function TeamLabel({ name, inline }: { name: string; inline?: "left" | "right" }
       }
       // Kompakt: ein Wort, das auch klein nicht passt ("Mönchengladbach"),
       // wird getrennt (mit Bindestrich, wo der Browser es kann), nie abgeschnitten.
-      if (inline && el.scrollWidth > el.clientWidth) el.style.overflowWrap = "break-word";
+      if (inline && !single && el.scrollWidth > el.clientWidth) el.style.overflowWrap = "break-word";
     };
     fit();
     // Nach dem Laden der Schrift neu messen (sie ist breiter als die Ersatzschrift).
@@ -1974,14 +2027,16 @@ function TeamLabel({ name, inline }: { name: string; inline?: "left" | "right" }
     const observer = new ResizeObserver(fit);
     observer.observe(el.parentElement ?? el);
     return () => observer.disconnect();
-  }, [name, inline]);
+  }, [name, inline, single]);
 
   return (
     <span
       ref={ref}
       className={
         inline
-          ? `min-w-0 flex-1 font-display text-sm font-semibold leading-tight text-ink [hyphens:auto] [overflow-wrap:normal] sm:text-[15px] ${
+          ? `min-w-0 flex-1 font-display text-sm font-semibold leading-tight [overflow-wrap:normal] sm:text-[15px] ${
+              selected ? "text-gold" : "text-ink"
+            } ${single ? "overflow-hidden text-ellipsis whitespace-nowrap" : "[hyphens:auto]"} ${
               inline === "right" ? "text-right" : "text-left"
             }`
           : "flex min-h-[2.5em] w-full items-start justify-center text-center font-display text-base font-semibold leading-tight text-ink [hyphens:manual] [overflow-wrap:normal] sm:text-lg"
@@ -1992,9 +2047,10 @@ function TeamLabel({ name, inline }: { name: string; inline?: "left" | "right" }
   );
 }
 
-// 30 px breit reicht für zwei Ziffern und lässt den Vereinsnamen mehr Platz (Rene, 15.10.2026).
+// Sitzt rechts in der Vereins-Zeile (44 px hoch), daher etwas flacher; in
+// voller Breite ist Platz für drei Ziffern (NBA) (Rene, 15.10.2026, Variante B).
 const scoreInputCompactClass =
-  "h-11 w-[30px] rounded-lg border border-edge bg-pitch text-center font-display text-lg font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
+  "h-9 w-[42px] shrink-0 rounded-lg border border-edge bg-pitch text-center font-display text-lg font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
 
 const scoreInputClass =
   "h-12 w-[4.5rem] max-w-full rounded-lg border border-edge bg-pitch text-center font-display text-xl font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
