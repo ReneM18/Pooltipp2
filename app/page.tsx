@@ -23,12 +23,16 @@ import { displayOrder } from "@/lib/teamOrder";
 import { useStreak } from "@/lib/streak";
 import { readPendingInvite } from "@/lib/leagueInvite";
 import { useMyClubs } from "@/lib/clubs";
+import { peekLiveScore, useLiveStoreVersion } from "@/lib/useLiveScores";
+import { isLiveFinished } from "@/lib/liveScores";
 
 export default function DashboardPage() {
   const { placeTip, refreshStars, isRegistered, startDone, authUserId } = useUser();
   const { reloadJokers } = useJokers();
   const { orderFor, matches, getTeam, tipCounts, withdrawTip, myTips, myTipsLoaded, contentLoaded, matchesLoadFailed } = useAppData();
   const streak = useStreak();
+  // Bei neuen Live-Daten neu rendern (für "Gerade beendet" unten).
+  useLiveStoreVersion();
   // Herzensvereine EINMAL für die ganze Seite laden (nicht pro Karte: jeder
   // Aufruf holt die Daten und öffnet einen eigenen Realtime-Kanal).
   const { clubs: myClubs, playForClubs } = useMyClubs(authUserId);
@@ -165,9 +169,33 @@ export default function DashboardPage() {
   const listMatches = stageIds.size ? visibleMatches.filter((m) => !stageIds.has(m.id)) : visibleMatches;
   const toTip = tippable.filter((m) => !findTipForMatch(m.id)).length;
 
-  // Laufende Spiele als Streifen ganz oben (Spielstand kommt live mit).
+  // Laut Live-Daten abgepfiffen, in der App aber noch ohne Endstand
+  // (Rene, 15.10.2026): steht nicht mehr unter "Läuft gerade", sondern unter
+  // "Gerade beendet · Wertung folgt". Mit Endstand ist es ohnehin unter
+  // "Beendete Spiele" wie bisher.
+  function liveFinished(m: Match): boolean {
+    if (m.status === "finished" && m.liveHomeScore !== null && m.liveAwayScore !== null) return false;
+    const home = getTeam(m.homeTeamId);
+    const away = getTeam(m.awayTeamId);
+    if (!home || !away) return false;
+    const live = peekLiveScore(m, home.name, away.name);
+    return !!live && isLiveFinished(live.status);
+  }
+  const dayGroups = groupMatchesByDay(listMatches, now, tab).flatMap((group) => {
+    if (group.key !== "jetzt") return [group];
+    const done = group.matches.filter(liveFinished);
+    if (done.length === 0) return [group];
+    const running = group.matches.filter((m) => !done.includes(m));
+    return [
+      ...(running.length ? [{ ...group, matches: running }] : []),
+      { key: "gerade-beendet", label: "Gerade beendet", sub: "Wertung folgt", matches: done },
+    ];
+  });
+
+  // Laufende Spiele als Streifen ganz oben (Spielstand kommt live mit),
+  // laut Live-Daten schon abgepfiffene nicht mehr (Rene, 15.10.2026).
   const liveItems = shownMatches
-    .filter((m) => m.status === "live")
+    .filter((m) => m.status === "live" && !liveFinished(m))
     .map((m) => {
       const tip = findTipForMatch(m.id);
       const [l, r] = tip ? displayOrder(orderFor(m), tip.predictedHomeScore, tip.predictedAwayScore) : [0, 0];
@@ -308,7 +336,7 @@ export default function DashboardPage() {
       {/* Abschnitte nach Tag ("Läuft gerade", "Heute", "Morgen" …), die
           Reihenfolge bleibt wie in lib/matchTabs.ts. Am PC je Tag drei Spalten. */}
       <div className="flex flex-col gap-7">
-        {groupMatchesByDay(listMatches, now, tab).map((group) => (
+        {dayGroups.map((group) => (
           <section key={group.key} aria-label={group.label || undefined}>
             {group.label && (
               <h2 className="mb-3 flex items-baseline gap-2 px-0.5">
@@ -316,7 +344,12 @@ export default function DashboardPage() {
                   <span className="relative top-[-1px] h-2 w-2 shrink-0 animate-pulse self-center rounded-full bg-red-500" aria-hidden />
                 )}
                 <span className="font-display text-base font-bold text-ink">{group.label}</span>
-                {group.sub && <span className="text-xs text-muted">{group.sub}</span>}
+                {group.sub && (
+                  <span className="text-xs text-muted">
+                    {group.key === "gerade-beendet" && "· "}
+                    {group.sub}
+                  </span>
+                )}
                 <span className="text-xs text-muted">
                   · {group.matches.length} {group.matches.length === 1 ? "Spiel" : "Spiele"}
                 </span>

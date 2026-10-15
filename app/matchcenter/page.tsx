@@ -493,7 +493,7 @@ function LcLive({
   dataAt,
   loading,
   onRetry,
-  ...list
+  ...listProps
 }: ListProps & { games: LiveGame[] | null; error: string | null; dataAt: number; loading: boolean; onRetry: () => void }) {
   if (!games) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
   if (error) return <LcError error={error} onRetry={onRetry} />;
@@ -507,11 +507,17 @@ function LcLive({
       />
     );
   }
-  // Laufende zuerst, dann beendete – je Liga; nicht begonnene nach Anstoßzeit ("ab 21:00").
-  const started = games
-    .filter((g) => g.status !== "NS")
-    .sort((a, b) => Number(isLiveRunning(b.status)) - Number(isLiveRunning(a.status)) || byKickoff(a, b));
+  // Reihenfolge (Rene, 15.10.2026): laufende oben (je Liga), darunter nicht
+  // begonnene nach Anstoßzeit ("ab 21:00"), ganz unten beendete unter
+  // "Beendet" (je Liga). Wechselt ein Spiel auf Beendet, wandert es nach
+  // unten; die Auswahl hängt an der Spiel-ID und bleibt daher erhalten.
+  // Sonstige Zustände (verschoben, abgesagt …) stehen ganz am Ende.
+  const running = games.filter((g) => isLiveRunning(g.status)).sort(byKickoff);
   const upcoming = games.filter((g) => g.status === "NS").sort(byKickoff);
+  const finished = [
+    ...games.filter((g) => isLiveFinished(g.status)).sort(byKickoff),
+    ...games.filter((g) => g.status !== "NS" && !isLiveRunning(g.status) && !isLiveFinished(g.status)).sort(byKickoff),
+  ];
   const upcomingGroups: { time: string; games: LiveGame[] }[] = [];
   for (const g of upcoming) {
     const time = viennaTime(g.kickoff);
@@ -519,32 +525,41 @@ function LcLive({
     if (last && last.time === time) last.games.push(g);
     else upcomingGroups.push({ time, games: [g] });
   }
-  const liveCount = games.filter((g) => isLiveRunning(g.status)).length;
   const sport = LIVE_SPORT ?? "Fußball";
+  const rows = (list: LiveGame[]) => (
+    <div className="flex flex-col gap-2">
+      {list.map((g) => (
+        <GameRow key={g.id} game={g} dataAt={dataAt} {...listProps} />
+      ))}
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-4">
-      {liveCount > 0 && <LcLiveHeader count={liveCount} dataAt={dataAt} />}
-      {groupByLeague(started).map((group) => (
-        <div key={group.league}>
+      {running.length > 0 && <LcLiveHeader count={running.length} dataAt={dataAt} />}
+      {groupByLeague(running).map((group) => (
+        <div key={`live-${group.league}`}>
           <LeagueHeading sport={sport} name={group.league} />
-          <div className="flex flex-col gap-2">
-            {group.games.map((g) => (
-              <GameRow key={g.id} game={g} dataAt={dataAt} {...list} />
-            ))}
-          </div>
+          {rows(group.games)}
         </div>
       ))}
       {upcomingGroups.map((group) => (
-        <div key={group.time}>
+        <div key={`ns-${group.time}`}>
           <p className="mb-2 text-xs font-semibold text-muted">ab {group.time}</p>
-          <div className="flex flex-col gap-2">
-            {group.games.map((g) => (
-              <GameRow key={g.id} game={g} dataAt={dataAt} {...list} />
-            ))}
-          </div>
+          {rows(group.games)}
         </div>
       ))}
+      {finished.length > 0 && (
+        <div className="flex flex-col gap-3 border-t border-edge pt-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">Beendet</p>
+          {groupByLeague(finished).map((group) => (
+            <div key={`ft-${group.league}`}>
+              <LeagueHeading sport={sport} name={group.league} />
+              {rows(group.games)}
+            </div>
+          ))}
+        </div>
+      )}
       {loading && <p className="text-center text-[11px] text-muted">Aktualisiert…</p>}
     </div>
   );
@@ -644,10 +659,27 @@ function useGoalFlash(id: string, score: string | null): boolean {
   return flash;
 }
 
+// Wandert ein Spiel in einen anderen Abschnitt (z. B. von laufend nach
+// "Beendet"), blendet die Zeile dort sanft ein statt zu springen
+// (Rene, 15.10.2026). Letzter Abschnitt pro Spiel-ID außerhalb der Komponente,
+// weil die Zeile beim Umzug neu entsteht.
+const lastSection = new Map<string, string>();
+
+function useSectionMove(id: string, section: string): boolean {
+  const [moved] = useState(() => {
+    const prev = lastSection.get(id);
+    return prev !== undefined && prev !== section;
+  });
+  useEffect(() => {
+    lastSection.set(id, section);
+  }, [id, section]);
+  return moved;
+}
+
 // Eine Zeile (Rene, 15.10.2026: Spieltag-Umbau): links Status ("● 44'" mit
 // pulsierendem Punkt, "Halbzeit", "21:00", "Beendet"), Mitte Heim und Gast
 // untereinander, rechts die Tore untereinander, unten ein dünner Balken
-// (Minute/90). Oben rechts "GETIPPT" in Gold, gewählte Zeile mit Gold-Rand.
+// (Minute/90). "Getippt" klein in Gold unter dem Status, gewählte Zeile mit Gold-Rand.
 // Rahmen eine Spur heller als border-edge, neutral für alle Zustände.
 function GameRow({ game, dataAt = 0, links, isTipped, selectedId, onSelect }: ListProps & { game: LiveGame; dataAt?: number }) {
   const sport = LIVE_SPORT ?? "Fußball";
@@ -686,6 +718,7 @@ function GameRow({ game, dataAt = 0, links, isTipped, selectedId, onSelect }: Li
     status = OTHER_STATUS[game.statusShort.toUpperCase()] ?? "—";
   }
   const progress = running ? (clock?.progress ?? (game.status === "HT" ? 0.5 : null)) : null;
+  const moved = useSectionMove(game.id, running ? "live" : game.status === "NS" ? "ns" : "done");
 
   return (
     <button
@@ -693,17 +726,21 @@ function GameRow({ game, dataAt = 0, links, isTipped, selectedId, onSelect }: Li
       onClick={() => onSelect(game.id)}
       aria-pressed={selected}
       className={`relative w-full overflow-hidden rounded-card border bg-surface pl-3 pr-3 pb-2.5 pt-3 text-left transition-colors sm:pl-4 ${
+        moved ? "motion-safe:animate-lc-row-in" : ""
+      } ${
         selected ? "border-gold" : "border-muted/25 hover:border-muted/50"
       }`}
     >
-      {tipped && (
-        <span className="absolute right-3 top-1 text-[9px] font-bold uppercase tracking-wider text-gold">Getippt</span>
-      )}
       <div className="grid grid-cols-[4.25rem_minmax(0,1fr)_auto] items-center gap-2 text-sm">
-        <span className="text-xs tabular-nums text-muted">{status}</span>
+        {/* "Getippt" steht klein unter dem Status statt absolut über der
+            Tor-Spalte – dort überlappte es die obere Tor-Zahl (Rene, 15.10.2026). */}
+        <span className="flex min-w-0 flex-col gap-0.5 text-xs tabular-nums text-muted">
+          <span>{status}</span>
+          {tipped && <span className="text-[10px] font-semibold leading-none text-gold">Getippt</span>}
+        </span>
         <span className="flex min-w-0 flex-col gap-0.5">
-          <FitText text={homeName} className="leading-tight text-ink" />
-          <FitText text={awayName} className="leading-tight text-ink" />
+          <FitText text={homeName} maxLines={2} minPx={12} className="leading-tight text-ink" />
+          <FitText text={awayName} maxLines={2} minPx={12} className="leading-tight text-ink" />
         </span>
         <span
           className={`flex min-w-[1.75rem] flex-col items-end gap-0.5 rounded-md px-1 font-display font-bold leading-tight tabular-nums transition-colors duration-700 ${
