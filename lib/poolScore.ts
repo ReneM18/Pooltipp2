@@ -97,6 +97,13 @@ export function rankingPointsTable(isOneXTwo: boolean): { label: string; net: nu
   ];
 }
 
+/**
+ * Anfänger-Schutz: Die ersten 10 gewerteten Tipps je Sportart kosten nie
+ * Punkte. Ist so ein Tipp unterm Strich (Treffer + Bonus) im Minus, zählt
+ * er 0, Gewinne zählen normal (supabase/anfaenger-schutz.sql).
+ */
+export const BEGINNER_SHIELD_TIPS = 10;
+
 /** Höchster Bonus pro Tipp (plus oder minus), nie mehr als Mittipper. */
 export const RANKING_BONUS_CAP = 10;
 

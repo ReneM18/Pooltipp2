@@ -72,6 +72,9 @@ export interface SubmittedTip {
   opponents?: number;
   beaten?: number;
   joker?: "doppel" | "schutz" | "toleranz";
+  // Anfänger-Schutz (supabase/anfaenger-schutz.sql): ein Minus wurde auf 0
+  // gesetzt, weil der Tipp zu den ersten 10 der Sportart gehört.
+  beginnerShielded?: boolean;
   rankingScored?: boolean;
   rankingLegacy?: boolean;
   // Endstand, mit dem dieser Tipp ausgewertet wurde – so merkt jeder
@@ -113,6 +116,7 @@ export function tipFromRow(row: Record<string, unknown>): SubmittedTip {
     opponents: (row.opponents as number | null) ?? undefined,
     beaten: (row.beaten as number | null) ?? undefined,
     joker: (row.joker as SubmittedTip["joker"] | null) ?? undefined,
+    beginnerShielded: (row.beginner_shielded as boolean | null) ?? undefined,
     rankingScored: (row.ranking_scored as boolean | null) ?? undefined,
     rankingLegacy: (row.ranking_legacy as boolean | null) ?? undefined,
     evaluatedHomeScore: (row.evaluated_home_score as number | null) ?? undefined,
