@@ -60,7 +60,7 @@ interface MyTip {
   opponents?: number;
   beaten?: number;
   joker?: "doppel" | "schutz" | "toleranz";
-  // Anfänger-Schutz: Minus auf 0 gesetzt (erste 10 Tipps der Sportart).
+  // Anfänger-Schutz: Minus auf 0 gesetzt (erste 10 Tipps insgesamt, Rene, 15.10.2026).
   beginnerShielded?: boolean;
   rankingScored?: boolean;
   // Vor dem Neustart der Rangpunkte gewertet: Punkte zählen nicht mehr.
@@ -1615,7 +1615,7 @@ function PointsInfoButton({
                   {RANKING_BONUS_CAP}{"\u00a0"}Punkte pro Tipp.
                 </p>
                 <p className="mt-2 text-xs leading-relaxed text-muted">
-                  🐣 Deine ersten {BEGINNER_SHIELD_TIPS} Tipps je Sportart kosten keine Punkte.
+                  🐣 Deine ersten {BEGINNER_SHIELD_TIPS} Tipps kosten keine Punkte.
                 </p>
 
                 {isBooster && (
@@ -1726,7 +1726,7 @@ function PoolScoreResultBox({
             </span>
           )}
           {myTip.beginnerShielded && (
-            <span>🐣 Anfänger-Schutz: kein Minus, deine ersten {BEGINNER_SHIELD_TIPS} Tipps je Sportart kosten keine Punkte.</span>
+            <span>🐣 Anfänger-Schutz: kein Minus, deine ersten {BEGINNER_SHIELD_TIPS} Tipps kosten keine Punkte.</span>
           )}
           {calculated !== rangDelta && (
             <span>
