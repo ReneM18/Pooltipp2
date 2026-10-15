@@ -31,7 +31,7 @@ import { useFinishedEvents, useLiveScore } from "@/lib/useLiveScores";
 import { isGoalEvent, shortPlayerName, eventMinuteText } from "@/lib/liveScores";
 import { useLiveForecast } from "@/lib/liveForecast";
 import { useBeginnerShieldLeft } from "./BeginnerShieldHint";
-import { EventTimeline, LivePill, LiveTipLine, Scoreboard, forecastPlain, signedPoints, timelineCount, useBoardClock } from "./LiveMatch";
+import { EventTimeline, LivePill, LiveTipLine, Scoreboard, forecastPlain, signedPoints, timelineCount, useBoardClock, useNewGoal, type NewGoal } from "./LiveMatch";
 import { showGoalToast } from "./GoalToast";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
@@ -380,6 +380,31 @@ export default function MatchCard({
   const [eventsOpen, setEventsOpen] = useState(false);
   // Ohne bekannte Ereignisse nach Abpfiff kein leerer "Spielverlauf".
   const showEventsButton = showBoard && !!events && (!!live || events.some((e) => e.type !== "subst"));
+  // Neues Tor (Rene, 15.10.2026): Knopf "Spielverlauf" pulsiert golden, bis
+  // der Spielverlauf aufgeklappt wird, höchstens 60 s. Ist er schon offen,
+  // wird das neue Tor dort direkt ~3 s golden hinterlegt.
+  const newGoal = useNewGoal(events);
+  const [eventsPulse, setEventsPulse] = useState(false);
+  const [timelineGlow, setTimelineGlow] = useState<NewGoal | null>(null);
+  const eventsOpenRef = useRef(eventsOpen);
+  eventsOpenRef.current = eventsOpen;
+  useEffect(() => {
+    if (!newGoal) return;
+    if (eventsOpenRef.current) {
+      setTimelineGlow(newGoal);
+      return;
+    }
+    setEventsPulse(true);
+    const t = window.setTimeout(() => setEventsPulse(false), 60_000);
+    return () => window.clearTimeout(t);
+  }, [newGoal]);
+  function toggleEvents() {
+    if (!eventsOpen) {
+      setTimelineGlow(eventsPulse ? newGoal : null);
+      setEventsPulse(false);
+    }
+    setEventsOpen((current) => !current);
+  }
 
   // Tor-Moment (Rene, 15.10.2026: Spieltag-Umbau): Ändert sich der Stand
   // eines getippten Spiels gegenüber dem letzten Abruf, leuchtet der
@@ -957,14 +982,13 @@ export default function MatchCard({
           )}
           {showBoard && boardScore ? (
             // Anzeigetafel statt Vereins-Zeilen (live, Pause, beendet, gewertet),
-            // darunter nur das letzte Tor (Rene, 15.10.2026).
+            // ohne Torschützen; alle Ereignisse im Spielverlauf (Rene, 15.10.2026).
             <Scoreboard
               left={boardSide(leftTeam)}
               right={boardSide(rightTeam)}
               leftScore={leftSide === "home" ? boardScore.home : boardScore.away}
               rightScore={rightSide === "home" ? boardScore.home : boardScore.away}
               clock={boardClock}
-              events={events}
               flash={goalFlash}
               stage={stage}
             />
@@ -1289,52 +1313,62 @@ export default function MatchCard({
           </div>
         )}
 
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 pt-3 text-xs text-muted">
+        {/* Footer (Rene, 15.10.2026): immer EINE Zeile (auch 3er-Reihe am PC
+            und 375 px): "👥 2 ▼ · Verlauf (6) ▼ · 💬 Kommentieren", kleine
+            Abstände, Icons statt Wörter, nie umbrechen. */}
+        <div className="mt-auto flex flex-nowrap items-center justify-between gap-2 whitespace-nowrap pt-3 text-xs text-muted">
           {tipCount > 0 ? (
             <button
               onClick={() => setTippersOpen((current) => !current)}
               aria-expanded={tippersOpen}
-              className="flex items-center gap-1 font-semibold text-muted transition-colors hover:text-ink"
+              className="flex shrink-0 items-center gap-1 font-semibold text-muted transition-colors hover:text-ink"
             >
               <PeopleIcon className="h-3.5 w-3.5" />
-              {tipCount.toLocaleString("de-DE")} getippt
+              {tipCount.toLocaleString("de-DE")}
+              <span className="sr-only">getippt</span>
               <span aria-hidden className="text-[10px]">{tippersOpen ? "▲" : "▼"}</span>
             </button>
           ) : (
-            <span className="flex items-center gap-1">
-              <PeopleIcon className="h-3.5 w-3.5" />0 getippt
+            <span className="flex shrink-0 items-center gap-1">
+              <PeopleIcon className="h-3.5 w-3.5" />0<span className="sr-only">getippt</span>
             </span>
           )}
-          {/* Footer (Rene, 15.10.2026: Spieltag-Umbau): getippt · Spielverlauf
-              (live, beendet, gewertet) · Kommentieren. "✓ Getippt" entfällt,
-              der Tipp steht ja schon als "Dein Tipp" auf der Karte. */}
-          <div className="flex items-center gap-3">
+          {/* getippt · Spielverlauf (live, beendet, gewertet) · Kommentieren.
+              Neues Tor: Spielverlauf golden mit pulsierendem Punkt. */}
+          <div className="flex min-w-0 items-center gap-2.5">
             {showEventsButton && (
               <button
-                onClick={() => setEventsOpen((current) => !current)}
+                onClick={toggleEvents}
                 aria-expanded={eventsOpen}
-                className="flex items-center gap-1 whitespace-nowrap font-semibold text-muted transition-colors hover:text-ink"
+                aria-label={`Spielverlauf${timelineCount(events) > 0 ? ` (${timelineCount(events)})` : ""}${eventsPulse ? " – neues Tor" : ""}`}
+                className={`flex shrink-0 items-center gap-1 font-semibold transition-colors ${
+                  eventsPulse ? "text-gold" : "text-muted hover:text-ink"
+                }`}
               >
-                {/* Anzahl der Ereignisse (Rene, 15.10.2026). */}
-                Spielverlauf{timelineCount(events) > 0 ? ` (${timelineCount(events)})` : ""}
+                {eventsPulse && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-gold animate-live-dot" />}
+                <span className={eventsPulse ? "animate-goal-pulse" : ""}>
+                  Verlauf
+                  {timelineCount(events) > 0 ? ` (${timelineCount(events)})` : ""}
+                </span>
                 <span aria-hidden className="text-[10px]">{eventsOpen ? "▲" : "▼"}</span>
               </button>
             )}
             <button
               onClick={() => setCommentsOpen((current) => !current)}
-              className="flex items-center gap-1.5 whitespace-nowrap font-semibold text-muted transition-colors hover:text-ink"
+              aria-label={matchComments.length === 0 ? "Kommentieren" : undefined}
+              className="flex min-w-0 items-center gap-1 font-semibold text-muted transition-colors hover:text-ink"
             >
-              <ChatIcon className="h-3.5 w-3.5" />
-              {matchComments.length === 0
-                ? "Kommentieren"
-                : `${matchComments.length} ${matchComments.length === 1 ? "Kommentar" : "Kommentare"}`}
+              <ChatIcon className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">
+                {matchComments.length === 0 ? "Kommentieren" : matchComments.length.toLocaleString("de-DE")}
+              </span>
             </button>
           </div>
         </div>
 
         {eventsOpen && showEventsButton && events && (
           <div className="mt-3 border-t border-edge pt-3">
-            <EventTimeline events={events} leftSide={leftSide} />
+            <EventTimeline events={events} leftSide={leftSide} glow={timelineGlow} />
           </div>
         )}
 
