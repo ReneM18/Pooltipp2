@@ -20,6 +20,9 @@ export interface LiveGame {
   away: string;
   homeScore: number | null;
   awayScore: number | null;
+  // Elfmeterschießen (nur Fußball, nur wenn es eines gab).
+  penaltyHome?: number;
+  penaltyAway?: number;
   status: LiveStatus;
   statusShort: string; // Original-Kürzel der API, z. B. "2H", "P2", "Q3"
   statusText: string; // deutsch für die Karte, z. B. "67'", "Halbzeit", "2. Drittel"

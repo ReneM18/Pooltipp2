@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { ALL_SPORTS, type Sport } from "@/lib/types";
-import { isLiveLeagueEnabled, isLiveSportEnabled } from "@/lib/liveConfig";
-import { liveIntervalSeconds, type LiveGame, type LiveResponse, type LiveStatus } from "@/lib/liveScores";
+import { isLiveLeagueEnabled, isLiveSportEnabled, sameLeague } from "@/lib/liveConfig";
+import { liveIntervalSeconds, viennaDate, type LiveGame, type LiveResponse, type LiveStatus } from "@/lib/liveScores";
 
 // Live-Spielstände von API-Sports (Rene, 15.10.2026).
-// GET /api/live?sport=<App-Sportart>&date=YYYY-MM-DD
+// GET /api/live?sport=<App-Sportart>&date=YYYY-MM-DD[&league=<Wettbewerb>]
+// (Rene, 15.10.2026: Europa League zum Testen) "league" grenzt zusätzlich auf
+// einen Wettbewerb ein (fürs Matchcenter). Vergangene Tage ändern sich nicht
+// mehr und werden 1 h zwischengespeichert. Die Upstream-Abfrage bleibt pro
+// Sportart und Tag dieselbe, kostet also keine zusätzlichen Abfragen.
 // Der Schlüssel steht nur auf dem Server (Umgebungsvariable API_SPORTS_KEY,
 // bei Vercel unter Settings → Environment Variables) und kommt nie in den
 // Browser. Die Antwort der API wird für alle Nutzer gemeinsam zwischen-
@@ -111,6 +115,9 @@ function normalize(sport: Sport, g: Raw): LiveGame | null {
   const { status, text } = mapStatus(sport, short, elapsed);
   const homeScore = readScore(isFootball ? g?.goals?.home : g?.scores?.home);
   const awayScore = readScore(isFootball ? g?.goals?.away : g?.scores?.away);
+  // Elfmeterschießen getrennt (nur Fußball), z. B. "n. E. 4:3" im Matchcenter.
+  const penaltyHome = isFootball ? toNumber(g?.score?.penalty?.home) : null;
+  const penaltyAway = isFootball ? toNumber(g?.score?.penalty?.away) : null;
   return {
     id: String(id ?? `${home}-${away}-${kickoff}`),
     kickoff,
@@ -118,6 +125,7 @@ function normalize(sport: Sport, g: Raw): LiveGame | null {
     away,
     homeScore,
     awayScore,
+    ...(penaltyHome !== null && penaltyAway !== null ? { penaltyHome, penaltyAway } : {}),
     status,
     statusShort: short,
     statusText: text,
@@ -145,6 +153,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const sportParam = searchParams.get("sport") ?? "";
   const date = searchParams.get("date") ?? "";
+  const league = searchParams.get("league");
   const sport = ALL_SPORTS.find((s) => s === sportParam);
   if (!sport || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return NextResponse.json({ sport: sportParam, date, games: [], error: "Ungültige Anfrage" }, { status: 400 });
@@ -152,7 +161,8 @@ export async function GET(request: Request) {
   // Abgeschaltete Sportarten: leere Liste, keine API-Abfrage (lib/liveConfig.ts).
   // (Rene, 15.10.2026: zum Testen nur Europa League)
   if (!isLiveSportEnabled(sport)) return json({ sport, date, games: [], error: "Live-Stände für diese Sportart abgeschaltet" }, 3600);
-  const revalidate = liveIntervalSeconds(sport);
+  // Vergangene Tage (z. B. Ergebnisse von gestern) 1 h, sonst Live-Takt.
+  const revalidate = date < viennaDate(Date.now()) ? 3600 : liveIntervalSeconds(sport);
   const key = process.env.API_SPORTS_KEY;
   if (!key) return json({ sport, date, games: [], error: "Kein API_SPORTS_KEY gesetzt" }, revalidate);
 
@@ -171,7 +181,10 @@ export async function GET(request: Request) {
     // Fußball nach Datum abfragen (league=3&season=2026 ist im Gratis-Plan
     // gesperrt) und hier nach league.name auf die eingeschalteten Ligen filtern.
     const games = list
-      .filter((g) => isLiveLeagueEnabled(sport, typeof g?.league?.name === "string" ? g.league.name : null))
+      .filter((g) => {
+        const name = typeof g?.league?.name === "string" ? g.league.name : null;
+        return isLiveLeagueEnabled(sport, name) && (!league || (!!name && sameLeague(league, name)));
+      })
       .map((g) => normalize(sport, g))
       .filter((g): g is LiveGame => g !== null);
     return json({ sport, date, games }, revalidate);

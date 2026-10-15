@@ -22,6 +22,11 @@ function normalizeLeague(name: string): string {
     .trim();
 }
 
+// Gleicher Wettbewerb? ("Europa League" = "UEFA Europa League")
+export function sameLeague(a: string, b: string): boolean {
+  return normalizeLeague(a) === normalizeLeague(b);
+}
+
 export function isLiveSportEnabled(sport: string): sport is Sport {
   return (LIVE_SPORTS as readonly string[]).includes(sport);
 }
