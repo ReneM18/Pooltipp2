@@ -368,6 +368,45 @@ function activityRowToItem(row: ActivityRow, me: string | null): ActivityItem | 
   return { id: row.id, icon: row.icon, text, createdAt: row.created_at };
 }
 
+// Ergebnis eines Speichervorgangs im Admin: ok oder Fehlertext – damit der
+// Admin sieht, ob es wirklich in der Datenbank steht (Rene, 15.10.2026).
+export type SaveResult = { ok: true } | { ok: false; error: string };
+
+// Zuletzt fehlgeschlagenes Speichern (Spiele, News, Wettbewerbe), das der
+// Admin-Bereich als Meldung zeigt. id ändert sich bei jedem neuen Fehler.
+export interface SaveProblem {
+  id: number;
+  what: string;
+  error: string;
+}
+
+const NOT_SAVED_BY_DB =
+  "Die Datenbank hat die Änderung nicht übernommen (keine Berechtigung – Anmeldung abgelaufen?).";
+
+// Schreiben mit Bestätigung: .select() liefert die gespeicherten Zeilen
+// zurück. Verwirft die Datenbank (RLS) still, kommen weniger Zeilen zurück –
+// das gilt dann auch als Fehler (Rene, 15.10.2026).
+async function upsertConfirmed(
+  table: string,
+  rows: { id: string; data: unknown; updated_at: string }[]
+): Promise<SaveResult> {
+  const { data, error } = await supabase.from(table).upsert(rows, { onConflict: "id" }).select("id");
+  if (error) return { ok: false, error: error.message };
+  if (!data || data.length < rows.length) return { ok: false, error: NOT_SAVED_BY_DB };
+  return { ok: true };
+}
+
+// Löschen mit Bestätigung: 0 gelöschte Zeilen heißt entweder "war schon
+// weg" (ok) oder "still abgelehnt" (Fehler) – darum kurz nachsehen.
+async function deleteConfirmed(table: string, id: string): Promise<SaveResult> {
+  const { data, error } = await supabase.from(table).delete().eq("id", id).select("id");
+  if (error) return { ok: false, error: error.message };
+  if (data && data.length > 0) return { ok: true };
+  const check = await supabase.from(table).select("id").eq("id", id).maybeSingle();
+  if (check.error) return { ok: false, error: check.error.message };
+  return check.data ? { ok: false, error: NOT_SAVED_BY_DB } : { ok: true };
+}
+
 interface AppDataContextValue {
   teams: Team[];
   // Spiele, die Spieler sehen (ohne Entwürfe). Der Admin-Bereich nutzt
@@ -376,9 +415,14 @@ interface AppDataContextValue {
   allMatches: Match[];
   // Entwürfe online stellen: eine Liste von IDs oder alle Entwürfe.
   publishMatches: (ids?: string[]) => void;
-  addTeam: (team: Omit<Team, "id">) => void;
-  updateTeam: (id: string, changes: Omit<Team, "id">) => void;
-  removeTeam: (id: string) => void;
+  // Speichern direkt in der Datenbank; bei Fehler kommt der letzte
+  // Datenbank-Stand zurück (Rene, 15.10.2026).
+  addTeam: (team: Omit<Team, "id">) => Promise<SaveResult>;
+  updateTeam: (id: string, changes: Omit<Team, "id">) => Promise<SaveResult>;
+  removeTeam: (id: string) => Promise<SaveResult>;
+  // Fehlgeschlagenes Speichern von Spielen/News/Wettbewerben (Admin-Meldung).
+  saveProblem: SaveProblem | null;
+  clearSaveProblem: () => void;
   // Wettbewerbe pro Sportart (Auswahl beim Spiel-Anlegen im Admin).
   // add/rename geben null bzw. false zurück, wenn der Name in dieser
   // Sportart schon existiert (Schreibweise egal) oder leer ist.
@@ -603,6 +647,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [loadedFromDb, setLoadedFromDb] = useState({ teams: false, matches: false, news: false });
   // Stand der Teams, wie er zuletzt aus der Datenbank kam bzw. gespeichert wurde.
   const syncedTeamsRef = useRef<Map<string, Team>>(new Map());
+  // Dasselbe für Spiele und News: geschrieben wird nur, was hier wirklich
+  // geändert wurde – ein Gerät mit altem Stand überschreibt sonst beim
+  // nächsten Speichern alle Spiele (Rene, 15.10.2026).
+  const syncedMatchesRef = useRef<Map<string, Match>>(new Map());
+  const syncedNewsRef = useRef<Map<string, NewsItem>>(new Map());
+  const [saveProblem, setSaveProblem] = useState<SaveProblem | null>(null);
+  function reportSaveProblem(what: string, error: string) {
+    console.warn(`${what} konnte nicht gespeichert werden:`, error);
+    setSaveProblem({ id: Date.now() + Math.random(), what, error });
+  }
   // true erst, wenn die Spiele wirklich aus Supabase kommen (die Auswertung
   // in UserContext darf nie mit Demo-Spielen rechnen).
   const contentLoaded = loadedFromDb.matches;
@@ -641,13 +695,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         console.warn("Teams konnten nicht geladen werden:", teamsRes.error?.message);
       }
       if (!matchesRes.error && matchesRes.data) {
-        setMatches(matchesRes.data.map((row) => row.data as Match));
+        const loadedMatches = matchesRes.data.map((row) => row.data as Match);
+        syncedMatchesRef.current = new Map(loadedMatches.map((m) => [m.id, m]));
+        setMatches(loadedMatches);
       } else {
         console.warn("Spiele konnten nicht geladen werden:", matchesRes.error?.message);
         setMatchesLoadFailed(true);
       }
       if (!newsRes.error && newsRes.data) {
-        setNewsItems(newsRes.data.map((row) => row.data as NewsItem));
+        const loadedNews = newsRes.data.map((row) => row.data as NewsItem);
+        syncedNewsRef.current = new Map(loadedNews.map((n) => [n.id, n]));
+        setNewsItems(loadedNews);
       } else {
         console.warn("News konnten nicht geladen werden:", newsRes.error?.message);
       }
@@ -709,6 +767,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setMatches((current) => {
         if (sameJson(current, nextMatches)) return current;
         remoteContentRef.current.matches = nextMatches;
+        syncedMatchesRef.current = new Map(nextMatches.map((m) => [m.id, m]));
         return nextMatches;
       });
     }
@@ -717,6 +776,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setNewsItems((current) => {
         if (sameJson(current, nextNews)) return current;
         remoteContentRef.current.news = nextNews;
+        syncedNewsRef.current = new Map(nextNews.map((n) => [n.id, n]));
         return nextNews;
       });
     }
@@ -736,52 +796,74 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     // Nur die Teams schreiben, die hier wirklich neu angelegt oder bearbeitet
     // wurden – sonst würde ein Gerät mit älterem Stand beim Speichern eines
     // Teams alle anderen Teams mit seinen alten Daten überschreiben.
+    // addTeam/updateTeam schreiben selbst (mit Meldung) und tragen ihr Team
+    // vorher hier ein – dann ist hier nichts mehr zu tun (Rene, 15.10.2026).
     const known = syncedTeamsRef.current;
     syncedTeamsRef.current = new Map(teams.map((t) => [t.id, t]));
     const changed = teams.filter((t) => known.get(t.id) !== t);
     if (changed.length === 0) return;
     adminWriteAtRef.current = Date.now();
-    supabase
-      .from("teams")
-      .upsert(
-        changed.map((t) => ({ id: t.id, data: t, updated_at: new Date().toISOString() })),
-        { onConflict: "id" }
-      )
-      .then(({ error }) => {
-        if (error) console.warn("Teams konnten nicht gespeichert werden:", error.message);
-      });
+    void upsertConfirmed(
+      "teams",
+      changed.map((t) => ({ id: t.id, data: t, updated_at: new Date().toISOString() }))
+    ).then((result) => {
+      if (!result.ok) reportSaveProblem("Teams", result.error);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teams, loadedFromDb.teams]);
+
+  // Schlägt das Schreiben fehl, kommen die Einträge wieder als "ungespeichert"
+  // in den Ref – beim nächsten Speichern werden sie nochmal mitgeschickt
+  // (Rene, 15.10.2026).
+  function forgetSynced<T extends { id: string }>(ref: { current: Map<string, T> }, sent: T[], before: Map<string, T>) {
+    for (const item of sent) {
+      if (ref.current.get(item.id) !== item) continue;
+      const old = before.get(item.id);
+      if (old) ref.current.set(item.id, old);
+      else ref.current.delete(item.id);
+    }
+  }
 
   useEffect(() => {
     if (!loadedFromDb.matches || matches.length === 0) return;
     // Nur neu aus der Datenbank geholt (Aktualisieren unten) – nichts zurückschreiben.
     if (matches === remoteContentRef.current.matches) return;
+    // Nur geänderte Spiele schreiben, wie bei den Teams (Rene, 15.10.2026).
+    const known = syncedMatchesRef.current;
+    syncedMatchesRef.current = new Map(matches.map((m) => [m.id, m]));
+    const changed = matches.filter((m) => known.get(m.id) !== m);
+    if (changed.length === 0) return;
     adminWriteAtRef.current = Date.now();
-    supabase
-      .from("matches")
-      .upsert(
-        matches.map((m) => ({ id: m.id, data: m, updated_at: new Date().toISOString() })),
-        { onConflict: "id" }
-      )
-      .then(({ error }) => {
-        if (error) console.warn("Spiele konnten nicht gespeichert werden:", error.message);
-      });
+    void upsertConfirmed(
+      "matches",
+      changed.map((m) => ({ id: m.id, data: m, updated_at: new Date().toISOString() }))
+    ).then((result) => {
+      if (result.ok) return;
+      forgetSynced(syncedMatchesRef, changed, known);
+      reportSaveProblem(changed.length === 1 ? "Spiel" : "Spiele", result.error);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches, loadedFromDb.matches]);
 
   useEffect(() => {
     if (!loadedFromDb.news || newsItems.length === 0) return;
     // Nur neu aus der Datenbank geholt (Aktualisieren unten) – nichts zurückschreiben.
     if (newsItems === remoteContentRef.current.news) return;
+    // Nur geänderte News schreiben, wie bei den Teams (Rene, 15.10.2026).
+    const known = syncedNewsRef.current;
+    syncedNewsRef.current = new Map(newsItems.map((n) => [n.id, n]));
+    const changed = newsItems.filter((n) => known.get(n.id) !== n);
+    if (changed.length === 0) return;
     adminWriteAtRef.current = Date.now();
-    supabase
-      .from("news")
-      .upsert(
-        newsItems.map((n) => ({ id: n.id, data: n, updated_at: new Date().toISOString() })),
-        { onConflict: "id" }
-      )
-      .then(({ error }) => {
-        if (error) console.warn("News konnten nicht gespeichert werden:", error.message);
-      });
+    void upsertConfirmed(
+      "news",
+      changed.map((n) => ({ id: n.id, data: n, updated_at: new Date().toISOString() }))
+    ).then((result) => {
+      if (result.ok) return;
+      forgetSynced(syncedNewsRef, changed, known);
+      reportSaveProblem("News", result.error);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newsItems, loadedFromDb.news]);
 
   // Kommentare & Feed laufen NICHT nach dem "ganzes Array synchronisieren"-
@@ -905,31 +987,66 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUserId]);
 
+  // Team speichern und auf die Bestätigung der Datenbank warten. Vorher im
+  // Ref vormerken, damit der Sync-Effekt es nicht ein zweites Mal schreibt.
+  // Klappt es nicht, kommt der letzte Datenbank-Stand zurück – der Admin soll
+  // nie einen Namen sehen, der nach dem Neuladen wieder weg ist
+  // (Rene, 15.10.2026).
+  async function writeTeam(next: Team, previous: Team | undefined): Promise<SaveResult> {
+    if (!loadedFromDb.teams) {
+      return { ok: false, error: "Teams sind noch nicht aus der Datenbank geladen – bitte Seite neu laden." };
+    }
+    syncedTeamsRef.current.set(next.id, next);
+    adminWriteAtRef.current = Date.now();
+    setTeams((current) =>
+      current.some((t) => t.id === next.id) ? current.map((t) => (t.id === next.id ? next : t)) : [...current, next]
+    );
+    const result = await upsertConfirmed("teams", [{ id: next.id, data: next, updated_at: new Date().toISOString() }]);
+    if (!result.ok) {
+      console.warn("Team konnte nicht gespeichert werden:", result.error);
+      if (previous) syncedTeamsRef.current.set(next.id, previous);
+      else syncedTeamsRef.current.delete(next.id);
+      setTeams((current) =>
+        previous ? current.map((t) => (t.id === next.id ? previous : t)) : current.filter((t) => t.id !== next.id)
+      );
+    }
+    return result;
+  }
+
   function addTeam(team: Omit<Team, "id">) {
-    const id = `team-${Date.now()}`;
-    setTeams((current) => [...current, { ...team, id }]);
+    return writeTeam({ ...team, id: `team-${Date.now()}` }, undefined);
   }
 
   // Spiele speichern nur die Team-ID, darum erscheinen Änderungen (Name,
-  // Flagge, Farben) automatisch auch bei allen bestehenden Spielen. Das
-  // Speichern in Supabase übernimmt der Sync-Effekt oben (upsert).
+  // Flagge, Farben) automatisch auch bei allen bestehenden Spielen.
   function updateTeam(id: string, changes: Omit<Team, "id">) {
-    setTeams((current) => current.map((t) => (t.id === id ? { ...changes, id } : t)));
+    return writeTeam({ ...changes, id }, syncedTeamsRef.current.get(id) ?? teams.find((t) => t.id === id));
   }
 
-  function removeTeam(id: string) {
+  async function removeTeam(id: string): Promise<SaveResult> {
+    const index = teams.findIndex((t) => t.id === id);
+    const previous = teams[index];
     setTeams((current) => current.filter((t) => t.id !== id));
-    // Der Sync-Effekt oben schreibt nur die verbleibende Liste zurück
-    // (upsert) – löscht aber keine Zeilen, die lokal entfernt wurden. Ohne
-    // dieses explizite delete würde das Team in Supabase (und damit bei
-    // allen anderen Usern) einfach liegen bleiben.
-    supabase
-      .from("teams")
-      .delete()
-      .eq("id", id)
-      .then(({ error }) => {
-        if (error) console.warn("Team konnte nicht gelöscht werden:", error.message);
-      });
+    adminWriteAtRef.current = Date.now();
+    // Der Sync-Effekt oben schreibt nur geänderte Teams (upsert) – löscht
+    // aber keine Zeilen, die lokal entfernt wurden. Ohne dieses explizite
+    // delete würde das Team in Supabase (und damit bei allen anderen Usern)
+    // einfach liegen bleiben.
+    const result = await deleteConfirmed("teams", id);
+    if (!result.ok) {
+      console.warn("Team konnte nicht gelöscht werden:", result.error);
+      // Nicht gelöscht: Team wieder an seinen Platz (Rene, 15.10.2026).
+      if (previous) {
+        syncedTeamsRef.current.set(id, previous);
+        setTeams((current) => {
+          if (current.some((t) => t.id === id)) return current;
+          const next = [...current];
+          next.splice(Math.min(index, next.length), 0, previous);
+          return next;
+        });
+      }
+    }
+    return result;
   }
 
   // Tempo des News-Bands (Admin, alle Spieler). previewTickerSpeed ändert nur
@@ -956,12 +1073,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setCompetitions(list);
     if (!loadedFromDb.teams) return;
     const row: CompetitionsRow = { kind: "competitions", list };
-    supabase
-      .from("teams")
-      .upsert({ id: COMPETITIONS_ROW_ID, data: row, updated_at: new Date().toISOString() }, { onConflict: "id" })
-      .then(({ error }) => {
-        if (error) console.warn("Wettbewerbe konnten nicht gespeichert werden:", error.message);
-      });
+    adminWriteAtRef.current = Date.now();
+    // Fehler sichtbar machen statt nur loggen (Rene, 15.10.2026).
+    void upsertConfirmed("teams", [{ id: COMPETITIONS_ROW_ID, data: row, updated_at: new Date().toISOString() }]).then(
+      (result) => {
+        if (!result.ok) reportSaveProblem("Wettbewerbe", result.error);
+      }
+    );
   }
 
   function addCompetition(name: string, sport: Sport) {
@@ -1001,13 +1119,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   function removeMatch(id: string) {
     setMatches((current) => current.filter((m) => m.id !== id));
-    supabase
-      .from("matches")
-      .delete()
-      .eq("id", id)
-      .then(({ error }) => {
-        if (error) console.warn("Spiel konnte nicht gelöscht werden:", error.message);
-      });
+    adminWriteAtRef.current = Date.now();
+    void deleteConfirmed("matches", id).then((result) => {
+      if (!result.ok) reportSaveProblem("Spiel (Entfernen)", result.error);
+    });
   }
 
   async function cancelMatch(
@@ -1468,13 +1583,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   function removeNews(id: string) {
     setNewsItems((current) => current.filter((n) => n.id !== id));
-    supabase
-      .from("news")
-      .delete()
-      .eq("id", id)
-      .then(({ error }) => {
-        if (error) console.warn("News konnte nicht gelöscht werden:", error.message);
-      });
+    adminWriteAtRef.current = Date.now();
+    void deleteConfirmed("news", id).then((result) => {
+      if (!result.ok) reportSaveProblem("News (Entfernen)", result.error);
+    });
   }
 
   function getCommentsForMatch(matchId: string) {
@@ -1581,6 +1693,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         addTeam,
         updateTeam,
         removeTeam,
+        saveProblem,
+        clearSaveProblem: () => setSaveProblem(null),
         competitions,
         addCompetition,
         renameCompetition,
