@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ALL_SPORTS, type Sport } from "@/lib/types";
 import { isLiveLeagueEnabled, isLiveSportEnabled, sameLeague } from "@/lib/liveConfig";
-import { liveIntervalSeconds, viennaDate, type LiveGame, type LiveResponse, type LiveStatus } from "@/lib/liveScores";
+import { isLiveFinished, liveIntervalSeconds, viennaDate, type LiveGame, type LiveResponse, type LiveStatus } from "@/lib/liveScores";
 
 // Live-Spielstände von API-Sports (Rene, 15.10.2026).
 // GET /api/live?sport=<App-Sportart>&date=YYYY-MM-DD[&league=<Wettbewerb>]
@@ -17,6 +17,25 @@ import { liveIntervalSeconds, viennaDate, type LiveGame, type LiveResponse, type
 // Fehler kommt eine leere Liste mit Fehlertext – die App läuft normal weiter.
 // Abgefragt wird NUR nach Datum: league+season ist im Gratis-Plan für die
 // laufende Saison gesperrt.
+//
+// Fußball (Rene, 15.10.2026: Live-Liste statt Tagesliste): Die Tagesliste
+// (fixtures?date=…) hinkt bei API-Sports 3–4 Min. hinter fixtures?live=all
+// her. Deshalb zwei Quellen:
+//  (a) Tagesliste, Cache 900 s (vergangene Tage 3600 s) – Anstoßzeiten,
+//      nicht begonnene und beendete Spiele.
+//  (b) live=all, Cache 180 s – nur abgerufen, wenn laut Tagesliste ein Spiel
+//      im Fenster Anpfiff −5 Min. bis Anpfiff +150 Min. liegt und noch nicht
+//      beendet ist. Spiele aus (b) überschreiben die aus (a) (über die
+//      fixture.id); ist ein Spiel laut Tagesliste schon beendet, gilt (a).
+// Abfragen-Budget (Gratis-Plan 100/Tag), Cache gilt für alle Nutzer, die
+// API wird nur bei Aufrufen gefragt:
+//  - live=all: Europa-League-Abend (18:45 + 21:00) Fenster ca. 18:40–23:10
+//    (endet, sobald die Tagesliste alles als beendet zeigt) = 270 Min. / 3
+//    = ~90 Abfragen; an Tagen ohne Spiel 0.
+//  - Tagesliste: höchstens 4 pro Stunde, realistisch (Aufrufe vor allem am
+//    Abend) ~10–20 am Spieltag, ~5 an anderen Tagen.
+//  → am vollen Spielabend knapp an 100. Bei Bedarf LIVE_REVALIDATE erhöhen
+//    (240 s = ~68 Abfragen). Ist das Limit erreicht, bleibt die Tagesliste.
 
 const ENDPOINTS: Record<Sport, string> = {
   "Fußball": "https://v3.football.api-sports.io/fixtures",
@@ -29,13 +48,96 @@ const ENDPOINTS: Record<Sport, string> = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Raw = any;
 
-function json(body: LiveResponse, maxAge: number) {
+function json(body: LiveResponse, maxAge: number, swr = 60) {
   return NextResponse.json(body, {
     headers: {
       // Zusätzlich im Vercel-CDN zwischenspeichern (pro Sportart und Tag).
-      "Cache-Control": `public, max-age=0, s-maxage=${maxAge}, stale-while-revalidate=60`,
+      "Cache-Control": `public, max-age=0, s-maxage=${maxAge}, stale-while-revalidate=${swr}`,
     },
   });
+}
+
+// Fußball (Rene, 15.10.2026): Cache der Tagesliste und der Live-Liste in
+// Sekunden, Fenster für die Live-Abfrage (siehe Kopfkommentar).
+const DAY_REVALIDATE = 900;
+const PAST_REVALIDATE = 3600;
+const LIVE_REVALIDATE = 180;
+const LIVE_BEFORE_MS = 5 * 60 * 1000;
+const LIVE_AFTER_MS = 150 * 60 * 1000;
+
+type ApiResult = { ok: true; list: Raw[]; at: number } | { ok: false; error: string };
+
+// Eine API-Abfrage über den gemeinsamen Server-Cache (Next.js Data Cache).
+// "at" = Zeitpunkt des echten Abrufs bei API-Sports (Date-Header, der mit im
+// Cache liegt) – nicht der Zeitpunkt dieses Aufrufs.
+async function apiGet(url: string, key: string, revalidate: number): Promise<ApiResult> {
+  try {
+    const res = await fetch(url, { headers: { "x-apisports-key": key }, next: { revalidate } });
+    if (!res.ok) return { ok: false, error: `Live-Daten nicht erreichbar (${res.status})` };
+    const data: Raw = await res.json();
+    const apiError = readApiError(data);
+    if (apiError) return { ok: false, error: apiError };
+    const date = Date.parse(res.headers.get("date") ?? "");
+    return {
+      ok: true,
+      list: Array.isArray(data?.response) ? data.response : [],
+      at: Number.isFinite(date) ? Math.min(date, Date.now()) : Date.now(),
+    };
+  } catch {
+    return { ok: false, error: "Live-Daten nicht erreichbar" };
+  }
+}
+
+function leagueFilter(sport: Sport, league: string | null) {
+  return (g: Raw) => {
+    const name = typeof g?.league?.name === "string" ? g.league.name : null;
+    return isLiveLeagueEnabled(sport, name) && (!league || (!!name && sameLeague(league, name)));
+  };
+}
+
+function normalizeAll(sport: Sport, list: Raw[], league: string | null): LiveGame[] {
+  return list
+    .filter(leagueFilter(sport, league))
+    .map((g) => normalize(sport, g))
+    .filter((g): g is LiveGame => g !== null);
+}
+
+// Fußball: Tagesliste + Live-Liste kombiniert (Rene, 15.10.2026).
+async function football(date: string, league: string | null, key: string) {
+  const sport = "Fußball" as const;
+  const isPast = date < viennaDate(Date.now());
+  const day = await apiGet(
+    `${ENDPOINTS[sport]}?date=${date}&timezone=Europe/Vienna`,
+    key,
+    isPast ? PAST_REVALIDATE : DAY_REVALIDATE,
+  );
+  if (!day.ok) return json({ sport, date, games: [], error: day.error }, 60);
+  const games = normalizeAll(sport, day.list, league);
+  let fetchedAt = day.at;
+
+  const now = Date.now();
+  const needLive =
+    date === viennaDate(now) &&
+    games.some((g) => {
+      if (isLiveFinished(g.status)) return false;
+      const kickoff = new Date(g.kickoff).getTime();
+      return now >= kickoff - LIVE_BEFORE_MS && now <= kickoff + LIVE_AFTER_MS;
+    });
+  if (needLive) {
+    const live = await apiGet(`${ENDPOINTS[sport]}?live=all&timezone=Europe/Vienna`, key, LIVE_REVALIDATE);
+    // Fehler bei live=all (z. B. Tageslimit): einfach die Tagesliste zeigen.
+    if (live.ok) {
+      const byId = new Map(normalizeAll(sport, live.list, league).map((g) => [g.id, g]));
+      for (let i = 0; i < games.length; i++) {
+        const fresh = byId.get(games[i].id);
+        if (fresh && !isLiveFinished(games[i].status)) games[i] = fresh;
+      }
+      fetchedAt = live.at;
+    }
+  }
+  // Heute kaum im CDN zwischenspeichern: die Abfragen schützt der Data Cache
+  // oben, so kommt ein neuer Live-Stand ohne zusätzliche Verzögerung an.
+  return isPast ? json({ sport, date, games, fetchedAt }, PAST_REVALIDATE) : json({ sport, date, games, fetchedAt }, 10, 0);
 }
 
 function toNumber(value: unknown): number | null {
@@ -165,6 +267,7 @@ export async function GET(request: Request) {
   const revalidate = date < viennaDate(Date.now()) ? 3600 : liveIntervalSeconds(sport);
   const key = process.env.API_SPORTS_KEY;
   if (!key) return json({ sport, date, games: [], error: "Kein API_SPORTS_KEY gesetzt" }, revalidate);
+  if (sport === "Fußball") return football(date, league, key);
 
   try {
     const url = `${ENDPOINTS[sport]}?date=${date}&timezone=Europe/Vienna`;

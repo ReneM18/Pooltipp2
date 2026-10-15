@@ -1,7 +1,7 @@
 "use client";
 
 import EmptyState from "@/components/EmptyState";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   fetchRecentResults,
   fetchStandings,
@@ -14,11 +14,13 @@ import FitText from "@/components/FitText";
 import {
   isLiveFinished,
   isLiveRunning,
-  liveIntervalSeconds,
+  updatedAgoText,
   viennaDate,
   type LiveGame,
-  type LiveResponse,
 } from "@/lib/liveScores";
+import { reloadLiveDay, useLiveDay, useLivePolling, type LiveDay } from "@/lib/useLiveScores";
+import { sameLeague } from "@/lib/liveConfig";
+import { useLiveClock, useMinuteTick } from "@/lib/useLiveMinute";
 
 const LEAGUES = Object.keys(LEAGUE_IDS);
 
@@ -210,7 +212,6 @@ function SubTab({ label, active, onClick }: { label: string; active: boolean; on
 
 const EL_LEAGUE = "UEFA Europa League";
 const EL_SPORT = "Fußball" as const;
-const EL_POLL_MS = liveIntervalSeconds(EL_SPORT) * 1000; // gleicher Takt wie die Route (180 s)
 const EL_MAX_LIVE_MS = 4 * 60 * 60 * 1000;
 
 type ElView = "live" | "ergebnisse" | "tabelle";
@@ -220,9 +221,10 @@ interface ElDay {
   error: string | null;
   loading: boolean;
   fetchedAt: number;
+  // Server-Zeitpunkt der Spieldaten (für "aktualisiert vor …" und die
+  // mitlaufende Minute; Rene, 15.10.2026: Live-Gefühl).
+  gamesAt: number;
 }
-
-const EMPTY_DAY: ElDay = { games: null, error: null, loading: false, fetchedAt: 0 };
 
 // "2026-10-15" -> "2026-10-14"
 function previousDate(date: string): string {
@@ -235,16 +237,13 @@ function viennaTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("de-AT", { timeZone: "Europe/Vienna", hour: "2-digit", minute: "2-digit" });
 }
 
-async function fetchElDay(date: string): Promise<{ games: LiveGame[]; error: string | null }> {
-  try {
-    const params = new URLSearchParams({ sport: EL_SPORT, date, league: EL_LEAGUE });
-    const res = await fetch(`/api/live?${params.toString()}`);
-    const data = (await res.json()) as LiveResponse;
-    const games = Array.isArray(data.games) ? data.games : [];
-    return { games, error: games.length === 0 && data.error ? data.error : null };
-  } catch {
-    return { games: [], error: "Live-Daten nicht erreichbar" };
-  }
+// (Rene, 15.10.2026: Tippkarte und Matchcenter synchron) Die Daten kommen
+// aus demselben Speicher wie die Tippkarten (lib/useLiveScores.ts, gleiche
+// Abfrage ohne league); hier nur auf die Europa League gefiltert.
+// league der Route ist "Name · Land".
+function toElDay(day: LiveDay): ElDay {
+  const games = day.games?.filter((g) => sameLeague(EL_LEAGUE, g.league.split(" · ")[0] ?? "")) ?? null;
+  return { games, error: day.error, loading: day.loading, fetchedAt: day.loadedAt, gamesAt: day.dataAt };
 }
 
 // Läuft das Spiel (oder müsste es laut Anstoß gleich/gerade laufen)?
@@ -258,26 +257,7 @@ function needsPolling(g: LiveGame, now: number): boolean {
 function EuropaLeagueSection() {
   const [view, setView] = useState<ElView>("live");
   const [today, setToday] = useState<string | null>(null);
-  const [days, setDays] = useState<Record<string, ElDay>>({});
   const [now, setNow] = useState<number | null>(null);
-  const loadingRef = useRef(new Set<string>());
-
-  const load = useCallback(async (date: string) => {
-    if (loadingRef.current.has(date)) return;
-    loadingRef.current.add(date);
-    setDays((d) => ({ ...d, [date]: { ...(d[date] ?? EMPTY_DAY), loading: true } }));
-    const { games, error } = await fetchElDay(date);
-    loadingRef.current.delete(date);
-    setDays((d) => {
-      const prev = d[date] ?? EMPTY_DAY;
-      // Bei einem Fehler (z. B. Tageslimit) bleiben die letzten Daten stehen.
-      const keep = error && prev.games && prev.games.length > 0;
-      return {
-        ...d,
-        [date]: { games: keep ? prev.games : games, error: keep ? null : error, loading: false, fetchedAt: Date.now() },
-      };
-    });
-  }, []);
 
   // Datum und Uhr erst im Browser (sonst Hydration-Fehler), Uhr alle 30 s.
   useEffect(() => {
@@ -291,30 +271,20 @@ function EuropaLeagueSection() {
   }, []);
 
   const yesterday = today ? previousDate(today) : null;
-  const todayDay = (today && days[today]) || EMPTY_DAY;
-  const yesterdayDay = (yesterday && days[yesterday]) || EMPTY_DAY;
+  // Heute immer (Livestand und Ergebnisse brauchen das), gestern erst, wenn
+  // "Ergebnisse" geöffnet wird (1 h Cache auf dem Server).
+  const todayDay = toElDay(useLiveDay(EL_SPORT, today));
+  const yesterdayDay = toElDay(useLiveDay(EL_SPORT, view === "ergebnisse" ? yesterday : null));
 
-  // Heute einmal laden (Livestand und Ergebnisse brauchen das).
-  useEffect(() => {
-    if (today && !days[today]) void load(today);
-  }, [today, days, load]);
-
-  // Gestern erst, wenn "Ergebnisse" geöffnet wird (1 h Cache auf dem Server).
-  useEffect(() => {
-    if (view === "ergebnisse" && yesterday && !days[yesterday]) void load(yesterday);
-  }, [view, yesterday, days, load]);
-
-  // Automatisch aktualisieren – nur solange ein Spiel läuft, im 180-s-Takt.
+  // Automatisch aktualisieren – nur solange ein Spiel läuft, im 180-s-Takt
+  // (gemeinsam mit den Tippkarten, pausiert im Hintergrund).
   const polling =
     now !== null && !!todayDay.games && todayDay.games.some((g) => needsPolling(g, now));
-  useEffect(() => {
-    if (!polling || !today || now === null) return;
-    if (!todayDay.loading && now - todayDay.fetchedAt >= EL_POLL_MS) void load(today);
-  }, [polling, today, now, todayDay.loading, todayDay.fetchedAt, load]);
+  useLivePolling(EL_SPORT, today, polling);
 
   const retry = () => {
-    if (today) void load(today);
-    if (view === "ergebnisse" && yesterday) void load(yesterday);
+    if (today) reloadLiveDay(EL_SPORT, today);
+    if (view === "ergebnisse" && yesterday) reloadLiveDay(EL_SPORT, yesterday);
   };
 
   return (
@@ -409,8 +379,11 @@ function ElLive({
     else groups.push({ time, games: [g] });
   }
 
+  const liveCount = day.games.filter((g) => isLiveRunning(g.status)).length;
+
   return (
     <div className="flex flex-col gap-4">
+      {liveCount > 0 && <ElLiveHeader count={liveCount} dataAt={day.gamesAt} />}
       {groups.map((group) => {
         const running = now !== null && group.games.some((g) => isLiveRunning(g.status));
         return (
@@ -422,7 +395,7 @@ function ElLive({
             </p>
             <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
               {group.games.map((g) => (
-                <ElGameCard key={g.id} game={g} />
+                <ElGameCard key={g.id} game={g} dataAt={day.gamesAt} />
               ))}
             </div>
           </div>
@@ -430,6 +403,21 @@ function ElLive({
       })}
       {polling && day.loading && <p className="text-center text-[11px] text-muted">Aktualisiert…</p>}
     </div>
+  );
+}
+
+// Kopf des Livestands: "● 8 Spiele live · aktualisiert vor 1 Min.", Zeit
+// zählt mit (Rene, 15.10.2026: Live-Gefühl).
+function ElLiveHeader({ count, dataAt }: { count: number; dataAt: number }) {
+  const now = useMinuteTick(dataAt || null);
+  return (
+    <p className="flex items-center justify-center gap-1.5 text-xs text-muted" aria-live="polite">
+      <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500 animate-live-dot" />
+      <span className="font-semibold text-ink">
+        {count} {count === 1 ? "Spiel" : "Spiele"} live
+      </span>
+      {now !== null && dataAt > 0 && <span>· {updatedAgoText(dataAt, now)}</span>}
+    </p>
   );
 }
 
@@ -521,12 +509,21 @@ function useGoalFlash(id: string, score: string | null): boolean {
 // Ein Spiel: Heim – Stand – Gast, darunter Minute/Status.
 // (Rene, 15.10.2026: ruhiger Stil wie Sofascore – neutrale Kachel, Stand
 // weiß/fett, Rot nur noch als kleiner Punkt vor der Minute.)
-function ElGameCard({ game, dateLabel }: { game: LiveGame; dateLabel?: string }) {
-  const { live, text } = elStatus(game);
+// (Rene, 15.10.2026: Live-Gefühl) Laufend: "● LIVE 18'" mit pulsierendem
+// Punkt, Minute zählt im Browser mit, unten ein dünner roter Balken
+// (Minute/90, Halbzeit 50 %). Kein roter Rahmen.
+function ElGameCard({ game, dateLabel, dataAt = 0 }: { game: LiveGame; dateLabel?: string; dataAt?: number }) {
+  const { live, text: apiText } = elStatus(game);
+  const clock = useLiveClock(EL_SPORT, game.statusShort, game.elapsed, dataAt);
+  const running = live && game.status === "LIVE";
+  const text = live && clock ? clock.text : apiText;
+  const progress = live ? (clock?.progress ?? (game.status === "HT" ? 0.5 : running ? 1 : null)) : null;
   const hasScore = game.homeScore !== null && game.awayScore !== null && game.status !== "NS";
   const flash = useGoalFlash(game.id, hasScore ? `${game.homeScore}:${game.awayScore}` : null);
   return (
-    <div className="rounded-card border border-edge bg-surface px-3 py-2.5 sm:px-4">
+    // (Rene, 15.10.2026: Rahmen eine Spur heller als border-edge, damit man die
+    // Kacheln besser sieht – neutral, gleich für alle Spielzustände.)
+    <div className="relative overflow-hidden rounded-card border border-muted/25 bg-surface px-3 py-2.5 sm:px-4">
       {dateLabel && <p className="mb-1 text-xs text-muted">{dateLabel}</p>}
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm">
         <FitText text={game.home} className="text-right leading-tight text-ink" />
@@ -542,14 +539,29 @@ function ElGameCard({ game, dateLabel }: { game: LiveGame; dateLabel?: string })
       <p className={`mt-1 text-center text-xs tabular-nums ${live ? "font-semibold text-ink" : "text-muted"}`}>
         {live ? (
           <span className="inline-flex items-center gap-1.5">
-            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
-            <span className="sr-only">Live: </span>
-            {text}
+            <span
+              aria-hidden
+              className={`h-1.5 w-1.5 shrink-0 rounded-full bg-red-500 ${running ? "animate-live-dot" : ""}`}
+            />
+            {running ? (
+              <span className="text-[10px] font-bold tracking-wide text-red-400">LIVE</span>
+            ) : (
+              <span className="sr-only">Live: </span>
+            )}
+            <span className="text-ink">{text}</span>
           </span>
         ) : (
           text
         )}
       </p>
+      {progress !== null && (
+        <span aria-hidden className="absolute inset-x-0 bottom-0 h-[3px] bg-edge/40">
+          <span
+            className="block h-full rounded-full bg-red-500 transition-[width] duration-700"
+            style={{ width: `${Math.round(Math.min(1, Math.max(0, progress)) * 100)}%` }}
+          />
+        </span>
+      )}
     </div>
   );
 }
