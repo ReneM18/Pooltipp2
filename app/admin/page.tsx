@@ -77,6 +77,8 @@ export default function AdminPage() {
         sind sofort für alle sichtbar.
       </p>
 
+      <SaveProblemBanner />
+
       <ShopSwitch />
 
       <DuelReport />
@@ -142,6 +144,41 @@ export default function AdminPage() {
         {tab === "wachstum" && <GrowthReport />}
       </div>
     </main>
+  );
+}
+
+// Schlägt das Speichern von Spielen, News oder Wettbewerben fehl, bleibt
+// diese Meldung oben stehen, bis der Admin sie wegklickt – vorher stand das
+// nur in der Konsole und der Admin dachte, es sei gespeichert
+// (Rene, 15.10.2026).
+function SaveProblemBanner() {
+  const { saveProblem, clearSaveProblem } = useAppData();
+  const { showToast } = useFeedback();
+  const problemId = saveProblem?.id;
+  useEffect(() => {
+    if (saveProblem) showToast(`✗ ${saveProblem.what} nicht gespeichert`, "info");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [problemId]);
+  if (!saveProblem) return null;
+  return (
+    <div
+      role="alert"
+      className="sticky top-3 z-40 mb-7 flex flex-col gap-3 rounded-card border-2 border-red-500 bg-surface px-4 py-3 shadow-lg sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="min-w-0">
+        <p className="font-display text-base font-semibold text-red-400">
+          ⚠ {saveProblem.what}: Nicht gespeichert – bitte neu anmelden und nochmal speichern.
+        </p>
+        <p className="text-sm text-muted">Fehler: {saveProblem.error}</p>
+      </div>
+      <button
+        type="button"
+        onClick={clearSaveProblem}
+        className="shrink-0 rounded-full border border-muted/50 px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-ink"
+      >
+        OK
+      </button>
+    </div>
   );
 }
 
@@ -1158,6 +1195,11 @@ function TeamManager() {
   // wie beim Anlegen, nur mit den Werten des Teams vorausgefüllt.
   const [editingId, setEditingId] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  // Ergebnis des letzten Speicherns, gut sichtbar am Knopf – erst wenn die
+  // Datenbank bestätigt, heißt es "Gespeichert" (Rene, 15.10.2026).
+  const [teamSave, setTeamSave] = useState<
+    { state: "idle" } | { state: "saving" } | { state: "saved"; text: string } | { state: "failed"; error: string }
+  >({ state: "idle" });
 
   function resetForm() {
     setEditingId(null);
@@ -1179,6 +1221,7 @@ function TeamManager() {
   }
 
   function startEdit(team: Team) {
+    setTeamSave({ state: "idle" });
     setEditingId(team.id);
     setName(team.name);
     setSport(team.sport);
@@ -1243,9 +1286,10 @@ function TeamManager() {
       : listGroups
     : [{ key: "", label: "", icon: "", teams: listTeams }];
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    if (teamSave.state === "saving") return;
     if (duplicate) {
       showToast(`„${duplicate.name}“ gibt es bei ${sportLabel(duplicate.sport)} schon.`, "info");
       return;
@@ -1276,16 +1320,34 @@ function TeamManager() {
     };
     if (editingId) {
       if (!confirm(`Änderungen an "${name.trim()}" speichern?`)) return;
-      updateTeam(editingId, data);
+      setTeamSave({ state: "saving" });
+      const result = await updateTeam(editingId, data);
+      if (!result.ok) {
+        // Formular bleibt ausgefüllt – nach dem Anmelden einfach nochmal speichern.
+        reportTeamFailure(result.error);
+        return;
+      }
       setTeamListTab(sport);
       resetForm();
+      setTeamSave({ state: "saved", text: `✓ Gespeichert – „${data.name}“ steht in der Datenbank.` });
       showToast(`✓ Team "${data.name}" gespeichert.`, "success");
       return;
     }
     if (!confirm(`Team "${name.trim()}" anlegen?`)) return;
-    addTeam(data);
+    setTeamSave({ state: "saving" });
+    const result = await addTeam(data);
+    if (!result.ok) {
+      reportTeamFailure(result.error);
+      return;
+    }
     setName("");
-    showToast(`✓ Team "${name.trim()}" angelegt.`, "success");
+    setTeamSave({ state: "saved", text: `✓ Gespeichert – „${data.name}“ angelegt.` });
+    showToast(`✓ Team "${data.name}" angelegt.`, "success");
+  }
+
+  function reportTeamFailure(error: string) {
+    setTeamSave({ state: "failed", error });
+    showToast("✗ Team nicht gespeichert", "info");
   }
 
   return (
@@ -1646,10 +1708,10 @@ function TeamManager() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="submit"
-            disabled={!!duplicate}
+            disabled={!!duplicate || teamSave.state === "saving"}
             className="rounded-full bg-action px-6 py-3 font-display text-base font-semibold text-pitch transition-colors hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-action"
           >
-            {editingId ? "Änderungen speichern" : "Team anlegen"}
+            {teamSave.state === "saving" ? "Wird gespeichert…" : editingId ? "Änderungen speichern" : "Team anlegen"}
           </button>
           {editingId && (
             <button
@@ -1661,6 +1723,19 @@ function TeamManager() {
             </button>
           )}
         </div>
+        {teamSave.state === "saved" && (
+          <p role="status" className="mt-3 text-base font-semibold text-action-hover">
+            {teamSave.text}
+          </p>
+        )}
+        {teamSave.state === "failed" && (
+          <div role="alert" className="mt-3 rounded-lg border-2 border-red-500 px-3 py-2">
+            <p className="text-base font-semibold text-red-400">
+              Nicht gespeichert – bitte neu anmelden und nochmal speichern.
+            </p>
+            <p className="text-sm text-muted">Fehler: {teamSave.error}</p>
+          </div>
+        )}
       </form>
 
       <div className="mb-4 flex flex-wrap gap-2.5">
@@ -1751,9 +1826,15 @@ function TeamManager() {
                     <button
                       onClick={() => {
                         if (confirm(`Team "${team.name}" wirklich entfernen?`)) {
-                          removeTeam(team.id);
                           if (editingId === team.id) resetForm();
-                          showToast(`✓ Team "${team.name}" entfernt.`, "info");
+                          void removeTeam(team.id).then((result) => {
+                            if (result.ok) {
+                              setTeamSave({ state: "saved", text: `✓ Team „${team.name}“ entfernt.` });
+                              showToast(`✓ Team "${team.name}" entfernt.`, "info");
+                            } else {
+                              reportTeamFailure(result.error);
+                            }
+                          });
                         }
                       }}
                       className="rounded-lg px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-red-400"
