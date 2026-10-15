@@ -10,7 +10,7 @@ import { useTournaments } from "@/lib/TournamentContext";
 import { Tournament } from "@/lib/tournamentTypes";
 import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
 import { Sport, SPORTS, sportOptions, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchJersey, MatchStatus, TipMode, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
-import { COUNTRIES, DEFAULT_COUNTRY_CODE, flagEmoji } from "@/lib/flags";
+import { COUNTRIES, DEFAULT_COUNTRY_CODE, countryName, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
 import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
 import TeamPicker from "@/components/TeamPicker";
@@ -1257,7 +1257,7 @@ function TeamManager() {
 
   // Gibt es das Team in dieser Sportart schon? Dann Hinweis zeigen und
   // Speichern sperren, damit kein Team doppelt angelegt wird.
-  const duplicate = findDuplicateTeam(teams, name, sport, editingId);
+  const duplicate = findDuplicateTeam(teams, name, sport, countryCode, editingId);
 
   // Untergruppen: automatische fürs Formular, vorhandene zur Auswahl, und
   // die Team-Liste unten nach Untergruppe sortiert.
@@ -1291,7 +1291,7 @@ function TeamManager() {
     if (!name.trim()) return;
     if (teamSave.state === "saving") return;
     if (duplicate) {
-      showToast(`„${duplicate.name}“ gibt es bei ${sportLabel(duplicate.sport)} schon.`, "info");
+      showToast(`„${duplicate.name}“ gibt es bei ${sportLabel(duplicate.sport)}${duplicate.countryCode ? ` in ${countryName(duplicate.countryCode)}` : ""} schon.`, "info");
       return;
     }
     const data = {
@@ -1408,8 +1408,8 @@ function TeamManager() {
             </span>
             <span className="min-w-0">
               <span className="block font-semibold text-red-300">Dieses Team gibt es schon!</span>
-              „{duplicate.name}“ ist bei <Emoji e={sportIcon[duplicate.sport]} /> {sportLabel(duplicate.sport)} bereits
-              angelegt. Bitte nicht doppelt anlegen, sondern das vorhandene Team verwenden oder
+              „{duplicate.name}“ ist bei <Emoji e={sportIcon[duplicate.sport]} /> {sportLabel(duplicate.sport)}
+              {duplicate.countryCode ? ` in ${countryName(duplicate.countryCode)}` : ""} bereits angelegt. Bitte nicht doppelt anlegen, sondern das vorhandene Team verwenden oder
               bearbeiten.
               {!editingId && (
                 <button
