@@ -16,7 +16,6 @@ import {
   findLiveGame,
   isLiveFinished,
   isLiveRunning,
-  scorerLine,
   updatedAgoText,
   viennaDate,
   type LiveGame,
@@ -755,7 +754,6 @@ function LcDetail({ sport, game, link, dataAt }: { sport: Sport; game: LiveGame;
             size={34}
           />
         ) : undefined,
-      scorers: scorerLine(events, s),
     };
   };
 
@@ -800,6 +798,7 @@ function LcDetail({ sport, game, link, dataAt }: { sport: Sport; game: LiveGame;
           leftScore={leftSide === "home" ? homeScore : awayScore}
           rightScore={rightSide === "home" ? homeScore : awayScore}
           clock={clock}
+          events={events}
         />
       ) : (
         <div className="rounded-lg border border-edge bg-pitch/60 px-3 py-4 text-center">

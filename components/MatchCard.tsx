@@ -28,10 +28,10 @@ import ShareTipButton from "./ShareTipCard";
 import type { ShareCardData } from "@/lib/shareCard";
 import Emoji from "@/components/Emoji";
 import { useFinishedEvents, useLiveScore } from "@/lib/useLiveScores";
-import { isGoalEvent, scorerLine, shortPlayerName, eventMinuteText } from "@/lib/liveScores";
+import { isGoalEvent, shortPlayerName, eventMinuteText } from "@/lib/liveScores";
 import { useLiveForecast } from "@/lib/liveForecast";
 import { useBeginnerShieldLeft } from "./BeginnerShieldHint";
-import { EventTimeline, LivePill, LiveTipLine, Scoreboard, forecastPlain, signedPoints, useBoardClock } from "./LiveMatch";
+import { EventTimeline, LivePill, LiveTipLine, Scoreboard, forecastPlain, signedPoints, timelineCount, useBoardClock } from "./LiveMatch";
 import { showGoalToast } from "./GoalToast";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
@@ -522,8 +522,9 @@ export default function MatchCard({
     return pick === "1" ? homeTeam.name : pick === "2" ? awayTeam.name : "Unentschieden";
   }
 
-  // Eine Seite der Anzeigetafel: Trikot, Name, Torschützen dieses Teams.
-  function boardSide(team: Team, side: "home" | "away") {
+  // Eine Seite der Anzeigetafel: Trikot, Name (Torschützen nur noch im
+  // Spielverlauf, Rene, 15.10.2026).
+  function boardSide(team: Team) {
     return {
       name: team.name,
       badge: (
@@ -535,7 +536,6 @@ export default function MatchCard({
           size={stage ? 40 : 34}
         />
       ),
-      scorers: scorerLine(events ?? undefined, side),
     };
   }
 
@@ -957,13 +957,14 @@ export default function MatchCard({
           )}
           {showBoard && boardScore ? (
             // Anzeigetafel statt Vereins-Zeilen (live, Pause, beendet, gewertet),
-            // unter jedem Namen die Torschützen (Rene, 15.10.2026: Spieltag-Umbau).
+            // darunter nur das letzte Tor (Rene, 15.10.2026).
             <Scoreboard
-              left={boardSide(leftTeam, leftSide)}
-              right={boardSide(rightTeam, rightSide)}
+              left={boardSide(leftTeam)}
+              right={boardSide(rightTeam)}
               leftScore={leftSide === "home" ? boardScore.home : boardScore.away}
               rightScore={rightSide === "home" ? boardScore.home : boardScore.away}
               clock={boardClock}
+              events={events}
               flash={goalFlash}
               stage={stage}
             />
@@ -1314,7 +1315,8 @@ export default function MatchCard({
                 aria-expanded={eventsOpen}
                 className="flex items-center gap-1 whitespace-nowrap font-semibold text-muted transition-colors hover:text-ink"
               >
-                Spielverlauf
+                {/* Anzahl der Ereignisse (Rene, 15.10.2026). */}
+                Spielverlauf{timelineCount(events) > 0 ? ` (${timelineCount(events)})` : ""}
                 <span aria-hidden className="text-[10px]">{eventsOpen ? "▲" : "▼"}</span>
               </button>
             )}
