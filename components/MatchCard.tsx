@@ -144,9 +144,6 @@ export default function MatchCard({
   const order = orderFor(match);
   const isUsSport = order.awayFirst;
   const [leftTeam, rightTeam] = displayOrder(order, homeTeam, awayTeam);
-  // Auf welcher Kartenseite steht der Herzensverein (null = keiner)?
-  const fanSide: "left" | "right" | null =
-    fanTeamId && leftTeam.id === fanTeamId ? "left" : fanTeamId && rightTeam.id === fanTeamId ? "right" : null;
   const allowsDraw = sportAllowsDraw(match.sport);
   const isCancelled = match.status === "cancelled";
   // Flagge der Liga (nicht der Heimmannschaft), siehe lib/competitionFlag.ts.
@@ -425,15 +422,9 @@ export default function MatchCard({
     return pickNumber(order, pick === "1" ? "home" : "away");
   }
 
-  const needsWideMiddle = !showResultView && isOneXTwo && oneXTwoOptions.includes("X");
-
-  // Zeile der Tipp-Kästen im Team-Raster (unter dem "Gleich geschlossen"-Hinweis).
-  // Auf der Bühne stehen die Countdown-Kacheln zwischen Teams und Eingabe
+  // Auf der Bühne stehen die Countdown-Kacheln über den Vereins-Zeilen
   // (nicht mehr in der letzten Minute, dann kommt der "Gleich geschlossen"-Hinweis).
   const showTiles = stage && !showResultView && !closingSoon;
-  // Kacheln gibt es nur ab Tablet-Breite (am Handy eine kleine Zeile beim
-  // Datum), dort rückt die Eingabe am Handy eine Reihe nach oben.
-  const tipRow = closingSoon ? "row-start-3" : showTiles ? "row-start-2 sm:row-start-3" : "row-start-2";
   // Leichter Schimmer in den Trikotfarben links und rechts, auf der Bühne als
   // kräftiges Licht von oben.
   const homeGlow = wornColor(match, homeTeam);
@@ -442,35 +433,6 @@ export default function MatchCard({
   const cardBackground = stage
     ? `radial-gradient(110% 70% at 0% 0%, ${hexAlpha(leftGlow, 0.33)} 0%, transparent 60%), radial-gradient(110% 70% at 100% 0%, ${hexAlpha(rightGlow, 0.33)} 0%, transparent 60%), radial-gradient(80% 50% at 50% 115%, rgb(var(--c-action) / 0.22) 0%, transparent 70%)`
     : `linear-gradient(105deg, ${hexAlpha(leftGlow, 0.13)} 0%, transparent 38%), linear-gradient(255deg, ${hexAlpha(rightGlow, 0.13)} 0%, transparent 38%)`;
-
-  // Gleich großer Kasten wie die Ergebnis-Felder, sitzt im Team-Raster.
-  function pickButton(option: OneXTwo) {
-    return (
-      <button
-        key={option}
-        // Nochmal antippen wählt wieder ab (vor dem Abgeben, löscht keinen Tipp).
-        onClick={() => setNflPick((current) => (current === option ? null : option))}
-        aria-label={pickLabel(option)}
-        aria-pressed={nflPick === option}
-        className={`flex h-12 w-[4.5rem] max-w-full items-center justify-center rounded-lg border text-center transition-colors ${
-          nflPick === option
-            ? "border-gold bg-gold/15 text-gold"
-            : `border-edge bg-pitch hover:border-muted ${allowsDraw ? "text-ink" : "text-muted/70 hover:text-muted"}`
-        }`}
-      >
-        {/* "Sieg" ruhiger als 1/X/2: kleiner, normale Stärke, gedämpft (gewählt: gold). */}
-        <span
-          className={
-            allowsDraw
-              ? "font-display text-xl font-bold leading-tight"
-              : "text-base font-medium leading-tight"
-          }
-        >
-          {pickButtonNumber(option)}
-        </span>
-      </button>
-    );
-  }
 
   // Ergebnis in Anzeige-Reihenfolge (bei US-Sport Gast : Heim).
   function formatScore(home: number, away: number) {
@@ -534,27 +496,6 @@ export default function MatchCard({
     });
   }
 
-  const homeScoreInput = (
-    <ScoreInput
-      value={homeScore}
-      onChange={setHomeScore}
-      onClear={() => setHomeScore(null)}
-      max={limit.max}
-      label={`${limit.unit} ${homeTeam.name}`}
-      className={scoreInputClass}
-    />
-  );
-  const awayScoreInput = (
-    <ScoreInput
-      value={awayScore}
-      onChange={setAwayScore}
-      onClear={() => setAwayScore(null)}
-      max={limit.max}
-      label={`${limit.unit} ${awayTeam.name}`}
-      className={scoreInputClass}
-    />
-  );
-
   // Knopf-Zustände klar unterscheidbar: tippbereit = kräftiges Grün mit
   // Leuchten, noch nicht tippbereit = grau (vorher nur halb durchsichtig,
   // sah aus wie "kaputt"). Ohne Login der Weg zum Einloggen.
@@ -599,7 +540,16 @@ export default function MatchCard({
   // "Unentschieden" nur, wo es erlaubt ist (oder alter X-Tipp bei NHL/NBA).
   const compactShowsDraw = isOneXTwo && (compactPicking ? oneXTwoOptions.includes("X") : allowsDraw || compactSelected === "X");
 
+  // Topspiel (stage) nutzt dieselben Zeilen, nur größer und im Gold-Look
+  // (Rene, 15.10.2026).
   function compactRowClass(selected: boolean, clickable: boolean) {
+    if (stage) {
+      return `flex w-full min-w-0 items-center rounded-xl border text-left transition-colors ${
+        selected
+          ? "border-gold bg-gold/20 text-gold shadow-[0_0_18px_rgb(var(--c-gold)/0.25)]"
+          : `border-gold/25 bg-pitch/70 text-ink ${clickable ? "hover:border-gold/60" : ""}`
+      }`;
+    }
     return `flex w-full min-w-0 items-center rounded-lg border text-left transition-colors ${
       selected
         ? "border-gold bg-gold/15 text-gold"
@@ -607,8 +557,17 @@ export default function MatchCard({
     }`;
   }
 
-  // Eine Vereins-Zeile (ca. 44 px): Trikot, Name einzeilig, rechts klein
-  // "Heim"/"Gast", dahinter Zahlenfeld (Ergebnis-Tipp) bzw. Tore (Endstand).
+  // Harmonischer und daumenfreundlich (Rene, 15.10.2026): Vereins-Zeile am
+  // Handy mind. 50 px hoch (Topspiel 56 px), mehr Innenabstand, damit der
+  // Name nicht am Rand klebt, 10–12 px zwischen Trikot und Name.
+  const rowHeight = stage ? "min-h-[56px] sm:min-h-[60px]" : "min-h-[50px]";
+  const rowGap = stage ? "gap-3" : "gap-2.5";
+  const rowPadding = stage ? "px-4" : "px-3 sm:px-4";
+  // Mit Zahlenfeld rechts etwas weniger Abstand zum Rand.
+  const rowPaddingScore = stage ? "pl-4 pr-2" : "pl-3 pr-1.5 sm:pl-4";
+
+  // Eine Vereins-Zeile: Trikot, Name einzeilig, rechts dezent "Heim"/"Gast",
+  // dahinter Zahlenfeld (Ergebnis-Tipp) bzw. Tore (Endstand).
   function compactTeamRow(team: Team, side: "home" | "away") {
     const pick: OneXTwo = side === "home" ? "1" : "2";
     const selected = compactSelected === pick;
@@ -617,32 +576,46 @@ export default function MatchCard({
     const scoreInput = !showResultView && !isOneXTwo ? (side === "home" ? homeScoreInputCompact : awayScoreInputCompact) : null;
     const content = (
       <>
-        <span className="shrink-0">
+        <span className={`shrink-0 ${stage ? "drop-shadow-[0_4px_8px_rgb(0_0_0/0.5)]" : ""}`}>
           <TeamBadge
             sport={match.sport}
             {...matchJerseyProps(match, team)}
             isNationalTeam={team.isNationalTeam}
             countryCode={team.countryCode}
-            size={22}
+            size={stage ? 36 : 28}
           />
         </span>
-        <TeamLabel name={team.name} inline="left" single selected={selected} />
-        <span className={`shrink-0 text-[11px] font-medium ${selected ? "text-gold/80" : "text-muted/80"}`}>
+        <TeamLabel name={team.name} inline="left" single big={stage} selected={selected} />
+        <span
+          className={`shrink-0 pl-2 text-[11px] font-medium uppercase tracking-wide ${
+            selected ? "text-gold/70" : "text-muted/60"
+          }`}
+        >
           {side === "home" ? "Heim" : "Gast"}
         </span>
         {scoreInput}
         {goals !== null && (
-          <span className="w-8 shrink-0 text-right font-display text-xl font-bold leading-none text-ink">{goals}</span>
+          <span
+            className={`shrink-0 text-right font-display font-bold leading-none text-ink ${
+              stage ? "w-10 text-2xl" : "w-8 text-xl"
+            }`}
+          >
+            {goals}
+          </span>
         )}
       </>
     );
     return (
       // Dein-Verein-Streifen am äußeren Kartenrand auf Höhe der Zeile des
       // Herzensvereins, liegt im Innenrand der Karte und ragt nie in die
-      // Tipp-Felder (Rene, 15.10.2026, Variante B).
+      // Tipp-Felder (Rene, 15.10.2026, Variante B; Topspiel ebenso).
       <div key={side} className="relative">
         {isFan && (
-          <span className="pointer-events-none absolute -left-3.5 -top-3 -bottom-3 z-[1] flex w-[14px] items-center justify-center border-r border-[#6FA8DC] bg-[#6FA8DC]/30 [-webkit-mask-image:linear-gradient(to_bottom,transparent,#000_14%,#000_86%,transparent)] [mask-image:linear-gradient(to_bottom,transparent,#000_14%,#000_86%,transparent)] sm:-left-4">
+          <span
+            className={`pointer-events-none absolute -top-3 -bottom-3 z-[1] flex w-[14px] items-center justify-center border-r border-[#6FA8DC] bg-[#6FA8DC]/30 [-webkit-mask-image:linear-gradient(to_bottom,transparent,#000_14%,#000_86%,transparent)] [mask-image:linear-gradient(to_bottom,transparent,#000_14%,#000_86%,transparent)] ${
+              stage ? "-left-4 sm:-left-5" : "-left-3.5 sm:-left-4"
+            }`}
+          >
             <span className="rotate-180 whitespace-nowrap text-[8px] font-extrabold uppercase leading-none tracking-[0.06em] text-[#CFE6FF] [writing-mode:vertical-rl]">
               Dein Verein
             </span>
@@ -655,12 +628,16 @@ export default function MatchCard({
             onClick={() => setNflPick((current) => (current === pick ? null : pick))}
             aria-label={pickLabel(pick)}
             aria-pressed={selected}
-            className={`${compactRowClass(selected, true)} h-11 gap-2 px-2.5`}
+            className={`${compactRowClass(selected, true)} ${rowHeight} ${rowGap} ${rowPadding} py-1.5`}
           >
             {content}
           </button>
         ) : (
-          <div className={`${compactRowClass(selected, false)} h-11 gap-2 ${scoreInput ? "pl-2.5 pr-1" : "px-2.5"}`}>
+          <div
+            className={`${compactRowClass(selected, false)} ${rowHeight} ${rowGap} py-1.5 ${
+              scoreInput ? rowPaddingScore : rowPadding
+            }`}
+          >
             {content}
           </div>
         )}
@@ -668,10 +645,13 @@ export default function MatchCard({
     );
   }
 
-  // Schmalere Zeile "Unentschieden" zwischen den Vereinen (ca. 30 px).
+  // Schmalere Zeile "Unentschieden" zwischen den Vereinen, am Handy mind.
+  // 40 px hoch (Topspiel 44 px) (Rene, 15.10.2026).
   function compactDrawRow() {
     const selected = compactSelected === "X";
-    const className = `${compactRowClass(selected, compactPicking)} h-[30px] justify-center px-2.5 text-center font-display text-[13px] font-semibold`;
+    const className = `${compactRowClass(selected, compactPicking)} ${
+      stage ? "min-h-[44px] text-[15px]" : "min-h-[40px] text-sm"
+    } justify-center px-3 text-center font-display font-semibold`;
     return compactPicking ? (
       <button
         key="X"
@@ -697,7 +677,7 @@ export default function MatchCard({
       onClear={() => setHomeScore(null)}
       max={limit.max}
       label={`${limit.unit} ${homeTeam.name}`}
-      className={scoreInputCompactClass}
+      className={stage ? scoreInputStageClass : scoreInputCompactClass}
     />
   );
   const awayScoreInputCompact = (
@@ -707,7 +687,7 @@ export default function MatchCard({
       onClear={() => setAwayScore(null)}
       max={limit.max}
       label={`${limit.unit} ${awayTeam.name}`}
-      className={scoreInputCompactClass}
+      className={stage ? scoreInputStageClass : scoreInputCompactClass}
     />
   );
 
@@ -811,16 +791,7 @@ export default function MatchCard({
             damit "Dein Verein" auf Höhe des Vereins ganz lesbar ist und nicht
             mehr abgeschnitten wird (Rene, 14.10.2026). */}
         <div className="relative">
-          {/* Kompakte Karte: Streifen sitzt jetzt an der Vereins-Zeile (Rene, 15.10.2026, Variante B). */}
-          {stage && fanSide && (
-            <span
-              className={`pointer-events-none absolute z-[1] flex w-[14px] items-center justify-center border-[#6FA8DC] bg-[#6FA8DC]/30 [-webkit-mask-image:linear-gradient(to_bottom,transparent,#000_10%,#000_90%,transparent)] [mask-image:linear-gradient(to_bottom,transparent,#000_10%,#000_90%,transparent)] ${stage ? "-top-4 bottom-0 sm:-top-5" : "-bottom-3 -top-3"} ${fanSide === "left" ? `${stage ? "-left-4 sm:-left-5" : "-left-3.5 sm:-left-4"} border-r` : `${stage ? "-right-4 sm:-right-5" : "-right-3.5 sm:-right-4"} border-l`}`}
-            >
-              <span className={`rotate-180 whitespace-nowrap font-extrabold uppercase leading-none text-[#CFE6FF] [writing-mode:vertical-rl] ${stage ? "text-[10px] tracking-[0.14em]" : "text-[9px] tracking-[0.1em]"}`}>
-                Dein Verein
-              </span>
-            </span>
-          )}
+          {/* Streifen "Dein Verein" sitzt an der Vereins-Zeile, auch beim Topspiel (Rene, 15.10.2026). */}
         {/* Am Handy steht der Wettbewerb beim Topspiel hier statt in der
             goldenen Leiste (Rene, 14.10.2026). */}
         {stage && (
@@ -832,7 +803,7 @@ export default function MatchCard({
         )}
         <div
           className={`flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-muted ${
-            stage ? "mb-3 min-h-[1.75rem] text-[15px]" : "mb-2.5 text-[13px]"
+            stage ? "mb-4 min-h-[1.75rem] text-[15px]" : "mb-3 text-[13px]"
           }`}
         >
           {match.matchday && !stage ? <span>Spieltag {match.matchday}</span> : null}
@@ -846,98 +817,36 @@ export default function MatchCard({
           )}
         </div>
 
-        {/* Teams: Wappen über dem Namen, Namen dürfen umbrechen statt
-            abgeschnitten zu werden. Zwei gleich breite Spalten + feste Mitte,
-            damit die Namen auf allen Karten gleich viel Platz haben.
-            Die 1/X/2-Kästen sitzen im selben Raster: links/rechts genau unter
-            dem Team, X in der Kartenmitte (darf über die schmale Mitte
-            hinausragen, braucht dafür eine feste Mitte). Ergebnis-Felder stehen
-            als enges Paar mittig. Ohne X-Kasten ist die Mitte nur so breit wie
-            "vs" bzw. der Endstand, dann haben die Namen mehr Platz. */}
-        {!stage ? (
-          // Kompakte Karte (Rene, 15.10.2026, Variante B): Vereine untereinander
-          // in voller Breite, Reihenfolge wie bisher (US-Ligen Gast oben,
-          // sonst Heim oben). Sieger-Tipp: Verein antippen, "Unentschieden"
-          // dazwischen nur wo erlaubt. Ergebnis-Tipp: Zahl rechts neben dem Verein.
-          <div className="mb-3">
-            {finalScore && (
-              <p className="mb-1 pr-2.5 text-right text-[10px] uppercase tracking-wide text-muted">Endstand</p>
-            )}
-            <div className="flex flex-col gap-1.5">
-              {compactTeamRow(leftTeam, isUsSport ? "away" : "home")}
-              {compactShowsDraw && compactDrawRow()}
-              {compactTeamRow(rightTeam, isUsSport ? "home" : "away")}
-            </div>
-            {!showResultView && closingSoon && (
-              <p className="mt-2.5 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">
-                <span aria-hidden>⏰</span> Gleich geschlossen – jetzt noch schnell tippen!
-              </p>
-            )}
-          </div>
-        ) : (
-        <div
-          className={`${stage ? "mb-4 gap-y-2.5 sm:mb-5 sm:gap-y-4" : "mb-5 gap-y-4"} grid items-start gap-x-2 sm:gap-x-3 ${
-            needsWideMiddle ? "grid-cols-[1fr_1rem_1fr] sm:grid-cols-[1fr_1.5rem_1fr]" : "grid-cols-[1fr_auto_1fr]"
-          }`}
-        >
-          <TeamColumn match={match} team={leftTeam} tag={isUsSport ? "Gast" : "Heim"} big={stage} />
-          {finalScore ? (
-            // Beendet: oben zwischen den Teams steht direkt der Endstand
-            // (unten in der Karte steht er nicht mehr extra).
-            <div className="flex flex-col items-center pt-1">
-              <span className="whitespace-nowrap font-display text-2xl font-bold leading-tight text-ink">
-                {formatScore(finalScore.home, finalScore.away)}
-              </span>
-              <span className="text-[10px] uppercase tracking-wide text-muted">Endstand</span>
-            </div>
-          ) : (
-            <span
-              className={`justify-self-center font-display text-muted ${
-                stage ? "pt-5 text-lg font-extrabold tracking-wider text-muted/70 sm:pt-10 sm:text-2xl" : "pt-3 text-xs sm:text-sm"
-              }`}
-            >
-              {stage ? "VS" : "vs"}
-            </span>
-          )}
-          <TeamColumn match={match} team={rightTeam} tag={isUsSport ? "Heim" : "Gast"} flip big={stage} />
-
+        {/* Vereine untereinander in voller Breite (Rene, 15.10.2026, Variante B),
+            Reihenfolge wie bisher (US-Ligen Gast oben, sonst Heim oben).
+            Sieger-Tipp: Verein antippen, "Unentschieden" dazwischen nur wo
+            erlaubt. Ergebnis-Tipp: Zahl rechts neben dem Verein. Das Topspiel
+            nutzt dieselben Zeilen, größer und im Gold-Look; die Countdown-
+            Kacheln stehen dort (ab Tablet-Breite) über den Vereinen. Gleiche
+            Abstände zwischen Datum, Vereins-Zeilen und Tipp-Knopf, 8 px
+            zwischen den Tipp-Flächen (Rene, 15.10.2026). */}
+        <div className={stage ? "mb-4 sm:mb-5" : "mb-3"}>
           {showTiles && (
-            <div className="col-span-3 col-start-1 row-start-2 hidden justify-center sm:flex">
+            <div className="mb-4 hidden justify-center sm:flex">
               <CountdownTiles target={match.tipDeadline} />
             </div>
           )}
-
+          {finalScore && (
+            <p className={`mb-1 text-right text-[10px] uppercase tracking-wide text-muted ${stage ? "pr-4" : "pr-3"}`}>
+              Endstand
+            </p>
+          )}
+          <div className="flex flex-col gap-2">
+            {compactTeamRow(leftTeam, isUsSport ? "away" : "home")}
+            {compactShowsDraw && compactDrawRow()}
+            {compactTeamRow(rightTeam, isUsSport ? "home" : "away")}
+          </div>
           {!showResultView && closingSoon && (
-            <p className="col-span-3 row-start-2 -mb-1 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">
               <span aria-hidden>⏰</span> Gleich geschlossen – jetzt noch schnell tippen!
             </p>
           )}
-
-          {!showResultView && (
-            <>
-              {isOneXTwo ? (
-                <>
-                  <div className={`col-start-1 flex justify-center ${tipRow}`}>{pickButton(leftPick)}</div>
-                  {/* Die X-Zeile spannt über alle drei Spalten und liegt über den
-                      Nachbarn. pointer-events-none, sonst fängt sie die Klicks
-                      auf den linken Kasten ab (nur der X-Kasten selbst ist klickbar). */}
-                  <div className={`pointer-events-none col-span-3 col-start-1 flex h-12 items-center justify-center ${tipRow}`}>
-                    {oneXTwoOptions.includes("X") && <div className="pointer-events-auto">{pickButton("X")}</div>}
-                  </div>
-                  <div className={`col-start-3 flex justify-center ${tipRow}`}>{pickButton(rightPick)}</div>
-                </>
-              ) : (
-                // Ergebnis-Tipp: beide Felder als enges Paar in der Kartenmitte.
-                <div className={`col-span-3 col-start-1 flex items-center justify-center gap-3 ${tipRow}`}>
-                  {isUsSport ? awayScoreInput : homeScoreInput}
-                  <span className="font-display text-xl text-muted">:</span>
-                  {isUsSport ? homeScoreInput : awayScoreInput}
-                </div>
-              )}
-            </>
-          )}
         </div>
-        )}
         </div>
 
         {!showResultView && (
@@ -1948,59 +1857,22 @@ function ResultBox({
 // Teamnamen brechen nur an Leerzeichen um, nie mitten im Wort (kein
 // "Le-/verkusen"). Passt ein langes Einzelwort wie "Mönchengladbach" nicht in
 // die Spalte, wird die Schrift schrittweise verkleinert, bis es passt.
-function TeamColumn({
-  match,
-  team,
-  tag,
-  flip = false,
-  big = false,
-}: {
-  match: Match;
-  team: Team;
-  tag: string | null;
-  flip?: boolean;
-  big?: boolean;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col items-center gap-1.5 self-stretch">
-      <span className={big ? "stage-jersey" : "contents"}>
-        <TeamBadge
-          sport={match.sport}
-          {...matchJerseyProps(match, team)}
-          isNationalTeam={team.isNationalTeam}
-          countryCode={team.countryCode}
-          flip={flip}
-          size={big ? 68 : 44}
-        />
-      </span>
-      {/* HEIM/GAST direkt unter dem Wappen: steht so bei beiden Teams auf
-          gleicher Höhe, auch wenn ein Name zweizeilig ist. */}
-      {tag && <SideTag>{tag}</SideTag>}
-      <TeamLabel name={team.name} />
-    </div>
-  );
-}
-
-function SideTag({ children }: { children: string }) {
-  return (
-    <span className="rounded-full border border-edge px-2 py-px text-[10px] font-semibold uppercase tracking-wide text-muted">
-      {children}
-    </span>
-  );
-}
-
 // single: Name immer einzeilig, nur verkleinert, nie umgebrochen (kompakte
 // Karte, Vereins-Zeile in voller Breite). selected: goldene Schrift
-// (Rene, 15.10.2026, Variante B).
+// (Rene, 15.10.2026, Variante B). big: Topspiel-Zeile.
+// Vereins-Zeile: Grundgröße 15 px (ab sm 16 px), Topspiel 16/17 px;
+// verkleinert wird nur als Notlösung und nie unter 13 px (Rene, 15.10.2026).
 function TeamLabel({
   name,
   inline,
   single = false,
+  big = false,
   selected = false,
 }: {
   name: string;
   inline?: "left" | "right";
   single?: boolean;
+  big?: boolean;
   selected?: boolean;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -2012,7 +1884,7 @@ function TeamLabel({
       el.style.fontSize = "";
       el.style.overflowWrap = "";
       let size = parseFloat(getComputedStyle(el).fontSize);
-      const min = 11;
+      const min = single ? 13 : 11;
       while (el.scrollWidth > el.clientWidth && size > min) {
         size -= 0.5;
         el.style.fontSize = `${size}px`;
@@ -2027,14 +1899,16 @@ function TeamLabel({
     const observer = new ResizeObserver(fit);
     observer.observe(el.parentElement ?? el);
     return () => observer.disconnect();
-  }, [name, inline, single]);
+  }, [name, inline, single, big]);
 
   return (
     <span
       ref={ref}
       className={
         inline
-          ? `min-w-0 flex-1 font-display text-sm font-semibold leading-tight [overflow-wrap:normal] sm:text-[15px] ${
+          ? `min-w-0 flex-1 font-display font-semibold leading-tight [overflow-wrap:normal] ${
+              single ? (big ? "text-base sm:text-[17px]" : "text-[15px] sm:text-base") : "text-sm sm:text-[15px]"
+            } ${
               selected ? "text-gold" : "text-ink"
             } ${single ? "overflow-hidden text-ellipsis whitespace-nowrap" : "[hyphens:auto]"} ${
               inline === "right" ? "text-right" : "text-left"
@@ -2047,13 +1921,16 @@ function TeamLabel({
   );
 }
 
-// Sitzt rechts in der Vereins-Zeile (44 px hoch), daher etwas flacher; in
-// voller Breite ist Platz für drei Ziffern (NBA) (Rene, 15.10.2026, Variante B).
+// Sitzt rechts in der Vereins-Zeile, etwas flacher als die Zeile; in
+// voller Breite ist Platz für drei Ziffern (NBA) (Rene, 15.10.2026, Variante B;
+// größer, seit die Zeilen höher sind).
 const scoreInputCompactClass =
-  "h-9 w-[42px] shrink-0 rounded-lg border border-edge bg-pitch text-center font-display text-lg font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
+  "h-10 w-11 shrink-0 rounded-lg border border-edge bg-surface text-center font-display text-lg font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
 
-const scoreInputClass =
-  "h-12 w-[4.5rem] max-w-full rounded-lg border border-edge bg-pitch text-center font-display text-xl font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
+// Topspiel: Zahlenfeld rechts in der größeren Vereins-Zeile (Rene, 15.10.2026).
+const scoreInputStageClass =
+  "h-11 w-12 shrink-0 rounded-lg border border-gold/40 bg-surface text-center font-display text-xl font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
+
 
 // Joker auf dem eigenen Tipp (supabase/joker-shop.sql): gesetzten Joker
 // zeigen und bis Tippschluss abnehmen, sonst die Joker aus dem Vorrat zum
