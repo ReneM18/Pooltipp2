@@ -99,7 +99,7 @@ function ProfilInhalt() {
     await logout();
     setLoggingOut(false);
   }
-  const { matches, getTeam, myTips, countingTips, tipsBySport, rankingResetAt } = useAppData();
+  const { orderFor, matches, getTeam, myTips, countingTips, tipsBySport, rankingResetAt } = useAppData();
   const resetDate = resetDateText(rankingResetAt);
   // Tipp-Historie: nur Tipps, die im aktuellen Punktesystem zählen (die
   // alten bleiben in der Datenbank), neueste Abgabe oben.
@@ -718,15 +718,15 @@ function ProfilInhalt() {
                     {match.matchday ? ` · Spieltag ${match.matchday}` : ""}
                   </p>
                   <p className="font-display text-sm font-semibold text-ink">
-                    {matchTitle(match.sport, homeTeam.name, awayTeam.name)}
+                    {matchTitle(orderFor(match), homeTeam.name, awayTeam.name)}
                   </p>
                   <p className="text-xs text-muted">
                     Getippt:{" "}
                     {match.tipMode === "1x2"
-                      ? oneXTwoText(match.sport, tip.predictedHomeScore, tip.predictedAwayScore, homeTeam.name, awayTeam.name)
-                      : scoreText(match.sport, tip.predictedHomeScore, tip.predictedAwayScore)}
+                      ? oneXTwoText(orderFor(match), tip.predictedHomeScore, tip.predictedAwayScore, homeTeam.name, awayTeam.name)
+                      : scoreText(orderFor(match), tip.predictedHomeScore, tip.predictedAwayScore)}
                     {match.status === "finished" &&
-                      ` · Endstand: ${scoreText(match.sport, match.liveHomeScore, match.liveAwayScore)}`}{" "}
+                      ` · Endstand: ${scoreText(orderFor(match), match.liveHomeScore, match.liveAwayScore)}`}{" "}
                     · {new Date(tip.submittedAt).toLocaleString("de-DE")}
                   </p>
                 </div>

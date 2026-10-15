@@ -24,7 +24,7 @@ import { useFeedback } from "@/lib/FeedbackContext";
 import { findDuplicateTeam } from "@/lib/teamName";
 import ScoreInput from "@/components/ScoreInput";
 import { competitionsForSport, findDuplicateCompetition } from "@/lib/competitions";
-import { displayOrder, isAwayFirst, matchTitle, scoreText } from "@/lib/teamOrder";
+import { displayOrder, matchTitle, scoreText, type TeamOrder } from "@/lib/teamOrder";
 import { BOOSTER_STAKE, BOOSTERS_PER_DAY } from "@/lib/poolScore";
 import { boostersOnDay } from "@/lib/booster";
 import { useJokers } from "@/lib/JokerContext";
@@ -1891,6 +1891,7 @@ function MatchManager() {
     setTopMatch,
     setBonusQuestion,
     setBonusQuestionAnswer,
+    orderFor,
   } = useAppData();
   const { showToast } = useFeedback();
 
@@ -1919,6 +1920,9 @@ function MatchManager() {
 
   const [sport, setSport] = useState<Sport>("Fußball");
   const [competition, setCompetition] = useState("");
+  // Reihenfolge fürs neue Spiel: Gast zuerst nur in US-Ligen, also je nach
+  // gewähltem Wettbewerb (Rene, 15.10.2026).
+  const formOrder = orderFor({ sport, competition });
   const [matchday, setMatchday] = useState("");
   const [kickoff, setKickoff] = useState("");
   const [tipDeadline, setTipDeadline] = useState("");
@@ -2038,7 +2042,7 @@ function MatchManager() {
     setBoosterInput(false);
     setTvChannelInput("");
     setTipModeInput("score");
-    showToast(`✓ "${matchTitle(sport, homeName, awayName)}" als Entwurf angelegt – noch nicht online.`, "success");
+    showToast(`✓ "${matchTitle(formOrder, homeName, awayName)}" als Entwurf angelegt – noch nicht online.`, "success");
   }
 
   const previewHome = teamsForSport.find((t) => t.id === homeTeamId);
@@ -2087,8 +2091,8 @@ function MatchManager() {
               <CompetitionSelect sport={sport} value={competition} onChange={setCompetition} />
             </div>
             {/* US-Sport ("Gast @ Heim"): Gastteam-Feld zuerst, wie auf dem Spielplan. */}
-            <div className={isAwayFirst(sport) ? "order-1" : ""}>
-              <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(sport, "home")}</label>
+            <div className={formOrder.awayFirst ? "order-1" : ""}>
+              <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(formOrder, "home")}</label>
               <TeamPicker
                 sport={sport}
                 showEmptyGroups
@@ -2106,7 +2110,7 @@ function MatchManager() {
               )}
             </div>
             <div>
-              <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(sport, "away")}</label>
+              <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(formOrder, "away")}</label>
               <TeamPicker
                 sport={sport}
                 showEmptyGroups
@@ -2131,7 +2135,7 @@ function MatchManager() {
           {(previewHome || previewAway) && (
             <div
               className={`mt-3 flex items-center justify-center gap-4 rounded-lg border border-edge bg-pitch px-4 py-4 ${
-                isAwayFirst(sport) ? "flex-row-reverse" : ""
+                formOrder.awayFirst ? "flex-row-reverse" : ""
               }`}
             >
               <div className="flex flex-col items-center gap-1.5">
@@ -2252,7 +2256,7 @@ function MatchManager() {
         {confirming ? (
           <div className="rounded-lg border border-gold/40 bg-gold/10 p-4">
             <p className="text-sm font-semibold text-ink">
-              Spiel „{matchTitle(sport, getTeam(homeTeamId)?.name ?? "?", getTeam(awayTeamId)?.name ?? "?")}“ (
+              Spiel „{matchTitle(formOrder, getTeam(homeTeamId)?.name ?? "?", getTeam(awayTeamId)?.name ?? "?")}“ (
               {competition.trim()}) am {new Date(kickoff).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}{" "}
               als Entwurf anlegen?
             </p>
@@ -2372,7 +2376,7 @@ function MatchManager() {
                 const home = getTeam(match.homeTeamId);
                 const away = getTeam(match.awayTeamId);
                 // US-Sport: Gast links, Heim rechts (nur Anzeige).
-                const [left, right] = displayOrder(match.sport, home, away);
+                const [left, right] = displayOrder(orderFor(match), home, away);
           return (
             <div key={match.id} className="rounded-card border border-edge bg-surface p-5 sm:p-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -2435,7 +2439,7 @@ function MatchManager() {
 
                 {match.status === "finished" || match.status === "live" ? (
                   <span className="shrink-0 font-display text-xl font-bold text-ink">
-                    {scoreText(match.sport, match.liveHomeScore, match.liveAwayScore)}
+                    {scoreText(orderFor(match), match.liveHomeScore, match.liveAwayScore)}
                   </span>
                 ) : (
                   <span className="shrink-0 font-display text-sm font-bold text-muted">vs</span>
@@ -2500,7 +2504,7 @@ function MatchManager() {
                     onClick={async () => {
                       if (
                         !confirm(
-                          `Spiel "${matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")}" absagen?\n\n` +
+                          `Spiel "${matchTitle(orderFor(match), home?.name ?? "?", away?.name ?? "?")}" absagen?\n\n` +
                             "Alle Spieler bekommen ihren Einsatz zurück, das Spiel wird nicht gewertet. " +
                             "Das lässt sich nicht rückgängig machen."
                         )
@@ -2529,7 +2533,7 @@ function MatchManager() {
                       match.status === "finished" || match.status === "cancelled"
                         ? ""
                         : "\n\nWer schon getippt hat, bekommt seinen Einsatz automatisch zurück.";
-                    if (confirm(`Spiel "${matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")}" wirklich entfernen?${refundNote}`)) {
+                    if (confirm(`Spiel "${matchTitle(orderFor(match), home?.name ?? "?", away?.name ?? "?")}" wirklich entfernen?${refundNote}`)) {
                       removeMatch(match.id);
                       showToast("✓ Spiel entfernt.", "info");
                     }
@@ -2682,9 +2686,11 @@ function MatchDetailsEditor({
   ) => void;
 }) {
   const { showToast } = useFeedback();
-  const { allMatches: matches } = useAppData();
+  const { allMatches: matches, orderFor } = useAppData();
   const [editing, setEditing] = useState(false);
   const [competition, setCompetition] = useState(match.competition);
+  // Reihenfolge nach dem (evtl. gerade geänderten) Wettbewerb (Rene, 15.10.2026).
+  const editOrder = orderFor({ sport: match.sport, competition });
   const [matchday, setMatchday] = useState(match.matchday ? String(match.matchday) : "");
   const [kickoff, setKickoff] = useState(() => toLocalInputValue(match.kickoff));
   const [tipDeadline, setTipDeadline] = useState(() => toLocalInputValue(match.tipDeadline));
@@ -2765,7 +2771,7 @@ function MatchDetailsEditor({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(match.sport, "home")}</label>
+              <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(editOrder, "home")}</label>
               <TeamPicker
                 sport={match.sport}
                 showEmptyGroups
@@ -2783,7 +2789,7 @@ function MatchDetailsEditor({
               )}
             </div>
             <div>
-              <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(match.sport, "away")}</label>
+              <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(editOrder, "away")}</label>
               <TeamPicker
                 sport={match.sport}
                 showEmptyGroups
@@ -3044,9 +3050,9 @@ function BonusQuestionEditor({
 // "Spiel beenden" ist die Standard-Aktion und macht sofort, was der Name
 // sagt – Endstand setzen UND auswerten. "Nur Zwischenstand speichern" ist
 // die Ausnahme für einen Live-Spielstand, der das Spiel noch nicht beendet.
-// Bei US-Sport steht im Feldnamen dazu, wo das Team später angezeigt wird.
-function teamFieldLabel(sport: string, side: "home" | "away") {
-  if (!isAwayFirst(sport)) return side === "home" ? "Heimteam" : "Auswärtsteam";
+// In US-Ligen steht im Feldnamen dazu, wo das Team später angezeigt wird.
+function teamFieldLabel(order: TeamOrder, side: "home" | "away") {
+  if (!order.awayFirst) return side === "home" ? "Heimteam" : "Auswärtsteam";
   return side === "home" ? "Heimteam (steht rechts)" : "Gastteam (steht links)";
 }
 
@@ -3062,6 +3068,9 @@ function LiveScoreEditor({
   onUpdate: (matchId: string, homeScore: number | null, awayScore: number | null, status: MatchStatus) => void;
 }) {
   const { showToast } = useFeedback();
+  // Gast zuerst nur in US-Ligen (Rene, 15.10.2026).
+  const { orderFor } = useAppData();
+  const awayFirst = orderFor(match).awayFirst;
   const [homeScore, setHomeScore] = useState(match.liveHomeScore ?? 0);
   const [awayScore, setAwayScore] = useState(match.liveAwayScore ?? 0);
   const alreadyFinished = match.status === "finished";
@@ -3070,7 +3079,7 @@ function LiveScoreEditor({
     const verb = alreadyFinished ? "korrigieren" : "festlegen";
     // Mit Teamnamen, weil US-Ergebnisse meist den Gast zuerst nennen – ein
     // vertauschter Endstand würde die ganze Wertung umdrehen.
-    const scoreLine = isAwayFirst(match.sport)
+    const scoreLine = awayFirst
       ? `${awayName} ${awayScore} : ${homeScore} ${homeName}`
       : `${homeName} ${homeScore} : ${awayScore} ${awayName}`;
     if (!confirm(`Endstand ${scoreLine} ${verb} und Tipps auswerten?`)) return;
@@ -3114,7 +3123,7 @@ function LiveScoreEditor({
           gehört, ist so auch bei US-Spielen (dort steht der Gast meist
           zuerst) eindeutig. */}
       <div className="flex items-end gap-2">
-        {isAwayFirst(match.sport) ? (
+        {awayFirst ? (
           <>
             {awayField}
             <span className="pb-2.5 text-base text-muted">:</span>
@@ -3306,6 +3315,7 @@ function TournamentRow({
   onRemove: (id: string) => void;
 }) {
   const { showToast } = useFeedback();
+  const { orderFor } = useAppData();
   const [editing, setEditing] = useState(false);
   const [pickingMatches, setPickingMatches] = useState(false);
   const [name, setName] = useState(tournament.name);
@@ -3446,7 +3456,7 @@ function TournamentRow({
                 <input type="checkbox" checked={checked} onChange={() => toggleMatch(match.id)} />
                 <span><Emoji e={sportIcon[match.sport]} /></span>
                 <span className="min-w-0 flex-1 truncate">
-                  {matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")}
+                  {matchTitle(orderFor(match), home?.name ?? "?", away?.name ?? "?")}
                 </span>
                 <span className="shrink-0 text-muted">{new Date(match.kickoff).toLocaleDateString("de-DE")}</span>
               </label>

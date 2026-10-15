@@ -414,7 +414,7 @@ function Frame({ children }: { children: React.ReactNode }) {
 }
 
 function SuggestionRow({ match, club, onTip }: { match: Match; club: boolean; onTip: () => void }) {
-  const { getTeam } = useAppData();
+  const { orderFor, getTeam } = useAppData();
   const home = getTeam(match.homeTeamId);
   const away = getTeam(match.awayTeamId);
   if (!home || !away) return null;
@@ -433,7 +433,7 @@ function SuggestionRow({ match, club, onTip }: { match: Match; club: boolean; on
           {club && <span className="font-semibold text-gold"> · dein Verein</span>}
         </p>
         <p className="mt-0.5 font-display text-sm font-semibold text-ink">
-          {matchTitle(match.sport, home.name, away.name)}
+          {matchTitle(orderFor(match), home.name, away.name)}
         </p>
       </div>
       <button

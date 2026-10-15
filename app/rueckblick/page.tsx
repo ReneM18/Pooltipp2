@@ -19,7 +19,7 @@ import Emoji from "@/components/Emoji";
 // Coins, keine Daten. Weggeklickt wird nur die Karte auf der Spieltag-Seite.
 export default function RueckblickPage() {
   const { isRegistered, authUserId, sessionChecked, displayName } = useUser();
-  const { myTips, myTipsLoaded, matches, getTeam } = useAppData();
+  const { orderFor, myTips, myTipsLoaded, matches, getTeam } = useAppData();
   const { showToast } = useFeedback();
   const streak = useStreak();
   const [which, setWhich] = useState<"letzte" | "diese">("letzte");
@@ -160,15 +160,15 @@ export default function RueckblickPage() {
             <div className="mt-4 rounded-lg border border-edge bg-pitch/60 p-3">
               <p className="text-xs font-semibold text-muted">⭐ Bester Tipp</p>
               <p className="mt-0.5 font-display text-sm font-semibold text-ink">
-                <Emoji e={SPORT_ICONS[best.match.sport]} /> {matchTitle(best.match.sport, bestHome.name, bestAway.name)}
+                <Emoji e={SPORT_ICONS[best.match.sport]} /> {matchTitle(orderFor(best.match), bestHome.name, bestAway.name)}
               </p>
               <p className="text-xs text-muted">
                 Getippt:{" "}
                 {best.match.tipMode === "1x2"
-                  ? oneXTwoText(best.match.sport, best.tip.predictedHomeScore, best.tip.predictedAwayScore, bestHome.name, bestAway.name)
-                  : scoreText(best.match.sport, best.tip.predictedHomeScore, best.tip.predictedAwayScore)}
+                  ? oneXTwoText(orderFor(best.match), best.tip.predictedHomeScore, best.tip.predictedAwayScore, bestHome.name, bestAway.name)
+                  : scoreText(orderFor(best.match), best.tip.predictedHomeScore, best.tip.predictedAwayScore)}
                 {best.match.status === "finished" &&
-                  ` · Endstand: ${scoreText(best.match.sport, best.match.liveHomeScore, best.match.liveAwayScore)}`}{" "}
+                  ` · Endstand: ${scoreText(orderFor(best.match), best.match.liveHomeScore, best.match.liveAwayScore)}`}{" "}
                 · <span className="font-semibold text-action">+{weeklyTipPoints(best.tip)} Punkte</span>
               </p>
             </div>

@@ -128,6 +128,7 @@ function TournamentCard({
   getTeam: ReturnType<typeof useAppData>["getTeam"];
   displayName: string;
 }) {
+  const { orderFor } = useAppData();
   const tournamentMatches = matches.filter((m) => tournament.matchIds.includes(m.id));
 
   // Echte Turnier-Rangliste aus den tatsächlichen, ausgewerteten Tipps ALLER
@@ -182,11 +183,11 @@ function TournamentCard({
                 const away = getTeam(match.awayTeamId);
                 return (
                   <p key={match.id} className="text-xs leading-snug text-ink">
-                    <Emoji e={sportIcon[match.sport]} /> {matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")}
+                    <Emoji e={sportIcon[match.sport]} /> {matchTitle(orderFor(match), home?.name ?? "?", away?.name ?? "?")}
                     {match.status === "finished" && (
                       <span className="text-muted">
                         {" "}
-                        ({scoreText(match.sport, match.liveHomeScore, match.liveAwayScore)})
+                        ({scoreText(orderFor(match), match.liveHomeScore, match.liveAwayScore)})
                       </span>
                     )}
                   </p>

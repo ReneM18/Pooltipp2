@@ -16,7 +16,7 @@ import {
   newCompetitionId,
 } from "./competitions";
 import { TipResultTier, BOOSTER_STAKE } from "./poolScore";
-import { matchTitle } from "./teamOrder";
+import { matchOrder, matchTitle, type TeamOrder } from "./teamOrder";
 import { countsSinceReset } from "./rankingReset";
 
 export interface TipTendency {
@@ -436,6 +436,9 @@ interface AppDataContextValue {
   addCompetition: (name: string, sport: Sport, countryCode?: string) => Competition | null;
   renameCompetition: (id: string, name: string, countryCode?: string) => boolean;
   removeCompetition: (id: string) => void;
+  // Anzeige-Reihenfolge eines Spiels (Gast zuerst nur in US-Ligen), siehe
+  // lib/teamOrder.ts (Rene, 15.10.2026).
+  orderFor: (match: { sport: string; competition?: string | null }) => TeamOrder;
   addMatch: (match: Omit<Match, "id">) => void;
   removeMatch: (id: string) => void;
   // Spiel absagen (nur Admin): Die Datenbank erstattet alle offenen
@@ -1088,6 +1091,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  function orderFor(match: { sport: string; competition?: string | null }): TeamOrder {
+    return matchOrder(match, competitions);
+  }
+
   function addCompetition(name: string, sport: Sport, countryCode?: string) {
     const clean = name.trim();
     if (!clean || findDuplicateCompetition(competitions, clean, sport)) return null;
@@ -1166,7 +1173,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (match) {
       const home = getTeam(match.homeTeamId);
       const away = getTeam(match.awayTeamId);
-      const text = `Abgesagt: ${matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")} – alle Einsätze gehen zurück.`;
+      const text = `Abgesagt: ${matchTitle(orderFor(match), home?.name ?? "?", away?.name ?? "?")} – alle Einsätze gehen zurück.`;
       addActivity("🚫", text, { author: "PoolTipp", text });
     }
     return { ok: true, refundedTips: typeof data === "number" ? data : 0 };
@@ -1714,6 +1721,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         saveProblem,
         clearSaveProblem: () => setSaveProblem(null),
         competitions,
+        orderFor,
         addCompetition,
         renameCompetition,
         removeCompetition,
