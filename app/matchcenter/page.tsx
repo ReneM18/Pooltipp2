@@ -1,7 +1,7 @@
 "use client";
 
 import EmptyState from "@/components/EmptyState";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   fetchRecentResults,
   fetchStandings,
@@ -11,6 +11,14 @@ import {
 } from "@/lib/sportsApi";
 import AdBanner from "@/components/AdBanner";
 import FitText from "@/components/FitText";
+import {
+  isLiveFinished,
+  isLiveRunning,
+  liveIntervalSeconds,
+  viennaDate,
+  type LiveGame,
+  type LiveResponse,
+} from "@/lib/liveScores";
 
 const LEAGUES = Object.keys(LEAGUE_IDS);
 
@@ -54,6 +62,9 @@ export default function MatchcenterPage() {
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Matchcenter</h1>
+
+      {/* (Rene, 15.10.2026: Europa League zum Testen) */}
+      <EuropaLeagueSection />
 
       <AdBanner />
 
@@ -187,5 +198,337 @@ function SubTab({ label, active, onClick }: { label: string; active: boolean; on
       {label}
       {active && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-gold" />}
     </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// UEFA Europa League (Rene, 15.10.2026: Europa League zum Testen)
+// Live-Daten von API-Sports über die Server-Route /api/live (der Schlüssel
+// bleibt auf dem Server). Im Gratis-Plan gibt es nur gestern/heute/morgen
+// und keine Tabellen – deshalb "Ergebnisse" nur von heute und gestern und
+// bei "Tabelle" nur ein Hinweis ohne Abfrage.
+
+const EL_LEAGUE = "UEFA Europa League";
+const EL_SPORT = "Fußball" as const;
+const EL_POLL_MS = liveIntervalSeconds(EL_SPORT) * 1000; // gleicher Takt wie die Route (180 s)
+const EL_MAX_LIVE_MS = 4 * 60 * 60 * 1000;
+
+type ElView = "live" | "ergebnisse" | "tabelle";
+
+interface ElDay {
+  games: LiveGame[] | null;
+  error: string | null;
+  loading: boolean;
+  fetchedAt: number;
+}
+
+const EMPTY_DAY: ElDay = { games: null, error: null, loading: false, fetchedAt: 0 };
+
+// "2026-10-15" -> "2026-10-14"
+function previousDate(date: string): string {
+  const d = new Date(`${date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function viennaTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("de-AT", { timeZone: "Europe/Vienna", hour: "2-digit", minute: "2-digit" });
+}
+
+async function fetchElDay(date: string): Promise<{ games: LiveGame[]; error: string | null }> {
+  try {
+    const params = new URLSearchParams({ sport: EL_SPORT, date, league: EL_LEAGUE });
+    const res = await fetch(`/api/live?${params.toString()}`);
+    const data = (await res.json()) as LiveResponse;
+    const games = Array.isArray(data.games) ? data.games : [];
+    return { games, error: games.length === 0 && data.error ? data.error : null };
+  } catch {
+    return { games: [], error: "Live-Daten nicht erreichbar" };
+  }
+}
+
+// Läuft das Spiel (oder müsste es laut Anstoß gleich/gerade laufen)?
+function needsPolling(g: LiveGame, now: number): boolean {
+  if (isLiveRunning(g.status)) return true;
+  if (g.status !== "NS") return false;
+  const kickoff = new Date(g.kickoff).getTime();
+  return now >= kickoff && now - kickoff < EL_MAX_LIVE_MS;
+}
+
+function EuropaLeagueSection() {
+  const [view, setView] = useState<ElView>("live");
+  const [today, setToday] = useState<string | null>(null);
+  const [days, setDays] = useState<Record<string, ElDay>>({});
+  const [now, setNow] = useState<number | null>(null);
+  const loadingRef = useRef(new Set<string>());
+
+  const load = useCallback(async (date: string) => {
+    if (loadingRef.current.has(date)) return;
+    loadingRef.current.add(date);
+    setDays((d) => ({ ...d, [date]: { ...(d[date] ?? EMPTY_DAY), loading: true } }));
+    const { games, error } = await fetchElDay(date);
+    loadingRef.current.delete(date);
+    setDays((d) => {
+      const prev = d[date] ?? EMPTY_DAY;
+      // Bei einem Fehler (z. B. Tageslimit) bleiben die letzten Daten stehen.
+      const keep = error && prev.games && prev.games.length > 0;
+      return {
+        ...d,
+        [date]: { games: keep ? prev.games : games, error: keep ? null : error, loading: false, fetchedAt: Date.now() },
+      };
+    });
+  }, []);
+
+  // Datum und Uhr erst im Browser (sonst Hydration-Fehler), Uhr alle 30 s.
+  useEffect(() => {
+    setToday(viennaDate(Date.now()));
+    setNow(Date.now());
+    const t = setInterval(() => {
+      setNow(Date.now());
+      setToday(viennaDate(Date.now()));
+    }, 30 * 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const yesterday = today ? previousDate(today) : null;
+  const todayDay = (today && days[today]) || EMPTY_DAY;
+  const yesterdayDay = (yesterday && days[yesterday]) || EMPTY_DAY;
+
+  // Heute einmal laden (Livestand und Ergebnisse brauchen das).
+  useEffect(() => {
+    if (today && !days[today]) void load(today);
+  }, [today, days, load]);
+
+  // Gestern erst, wenn "Ergebnisse" geöffnet wird (1 h Cache auf dem Server).
+  useEffect(() => {
+    if (view === "ergebnisse" && yesterday && !days[yesterday]) void load(yesterday);
+  }, [view, yesterday, days, load]);
+
+  // Automatisch aktualisieren – nur solange ein Spiel läuft, im 180-s-Takt.
+  const polling =
+    now !== null && !!todayDay.games && todayDay.games.some((g) => needsPolling(g, now));
+  useEffect(() => {
+    if (!polling || !today || now === null) return;
+    if (!todayDay.loading && now - todayDay.fetchedAt >= EL_POLL_MS) void load(today);
+  }, [polling, today, now, todayDay.loading, todayDay.fetchedAt, load]);
+
+  const retry = () => {
+    if (today) void load(today);
+    if (view === "ergebnisse" && yesterday) void load(yesterday);
+  };
+
+  return (
+    <section className="mb-6 rounded-card border border-edge bg-surface px-3 pt-3 pb-4 sm:px-4">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-display text-base font-bold text-ink sm:text-lg">UEFA Europa League</h2>
+        <span className="shrink-0 rounded-full border border-edge px-2 py-0.5 text-[11px] font-semibold text-muted">
+          Test
+        </span>
+      </div>
+
+      <div className="mb-4 flex gap-4 border-b border-edge">
+        <SubTab label="Livestand" active={view === "live"} onClick={() => setView("live")} />
+        <SubTab label="Ergebnisse" active={view === "ergebnisse"} onClick={() => setView("ergebnisse")} />
+        <SubTab label="Tabelle" active={view === "tabelle"} onClick={() => setView("tabelle")} />
+      </div>
+
+      {view === "live" && <ElLive day={todayDay} now={now} polling={polling} onRetry={retry} />}
+      {view === "ergebnisse" && (
+        <ElResults today={today} todayDay={todayDay} yesterdayDay={yesterdayDay} onRetry={retry} />
+      )}
+      {view === "tabelle" && (
+        <EmptyState
+          emoji="📊"
+          title="Die Tabelle kommt mit dem größeren Datenpaket."
+          text="Im aktuellen Datenpaket gibt es noch keine Tabelle. Livestand und Ergebnisse funktionieren schon."
+          className="border-none bg-transparent"
+        />
+      )}
+
+      <p className="mt-4 text-center text-[11px] text-muted">
+        Daten von{" "}
+        <a href="https://www.api-football.com/" className="underline" target="_blank" rel="noreferrer">
+          API-Sports
+        </a>
+        {polling && " · aktualisiert sich alle 3 Minuten"}
+      </p>
+    </section>
+  );
+}
+
+function ElError({ error, onRetry }: { error: string; onRetry: () => void }) {
+  const text = error.includes("Tageslimit")
+    ? "Das Tageslimit der Live-Daten ist erreicht. Morgen geht's weiter."
+    : "Die Live-Daten sind gerade nicht verfügbar. Schau später nochmal vorbei.";
+  return (
+    <div className="flex flex-col items-center gap-3 py-6 text-center">
+      <p className="text-sm text-muted">{text}</p>
+      <button
+        onClick={onRetry}
+        className="rounded-full border border-edge px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-gold hover:text-gold"
+      >
+        Erneut versuchen
+      </button>
+    </div>
+  );
+}
+
+function ElLive({
+  day,
+  now,
+  polling,
+  onRetry,
+}: {
+  day: ElDay;
+  now: number | null;
+  polling: boolean;
+  onRetry: () => void;
+}) {
+  if (!day.games) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
+  if (day.error) return <ElError error={day.error} onRetry={onRetry} />;
+  if (day.games.length === 0) {
+    return (
+      <EmptyState
+        emoji="⚽"
+        title="Heute keine Europa-League-Spiele"
+        text="Sobald wieder gespielt wird, siehst du hier alle Spiele live."
+        className="border-none bg-transparent"
+      />
+    );
+  }
+
+  // Nach Anstoßzeit gruppieren (18:45, 21:00 …).
+  const sorted = [...day.games].sort(
+    (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime() || a.home.localeCompare(b.home),
+  );
+  const groups: { time: string; games: LiveGame[] }[] = [];
+  for (const g of sorted) {
+    const time = viennaTime(g.kickoff);
+    const last = groups[groups.length - 1];
+    if (last && last.time === time) last.games.push(g);
+    else groups.push({ time, games: [g] });
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {groups.map((group) => {
+        const running = now !== null && group.games.some((g) => isLiveRunning(g.status));
+        return (
+          <div key={group.time}>
+            <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-muted">
+              Anstoß {group.time} Uhr
+              {running && <span className="text-red-400">· läuft</span>}
+            </p>
+            <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
+              {group.games.map((g) => (
+                <ElGameCard key={g.id} game={g} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      {polling && day.loading && <p className="text-center text-[11px] text-muted">Aktualisiert…</p>}
+    </div>
+  );
+}
+
+function ElResults({
+  today,
+  todayDay,
+  yesterdayDay,
+  onRetry,
+}: {
+  today: string | null;
+  todayDay: ElDay;
+  yesterdayDay: ElDay;
+  onRetry: () => void;
+}) {
+  if (!todayDay.games || !yesterdayDay.games) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
+  const finished = [...todayDay.games, ...yesterdayDay.games]
+    .filter((g) => isLiveFinished(g.status))
+    .sort((a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime() || a.home.localeCompare(b.home));
+  if (finished.length === 0) {
+    const error = todayDay.error ?? yesterdayDay.error;
+    if (error) return <ElError error={error} onRetry={onRetry} />;
+    return (
+      <EmptyState
+        emoji="⚽"
+        title="Noch keine Ergebnisse"
+        text="Von gestern und heute gibt es noch keine beendeten Europa-League-Spiele."
+        className="border-none bg-transparent"
+      />
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
+      {finished.map((g) => (
+        <ElGameCard
+          key={g.id}
+          game={g}
+          dateLabel={`${viennaDate(g.kickoff) === today ? "Heute" : "Gestern"}, ${viennaTime(g.kickoff)} Uhr`}
+        />
+      ))}
+    </div>
+  );
+}
+
+const OTHER_STATUS: Record<string, string> = {
+  PST: "Verschoben",
+  CANC: "Abgesagt",
+  ABD: "Abgebrochen",
+  SUSP: "Unterbrochen",
+  INT: "Unterbrochen",
+  AWD: "Gewertet",
+  WO: "Kampflos",
+};
+
+function elStatus(g: LiveGame): { live: boolean; text: string } {
+  if (g.status === "HT") return { live: true, text: "Halbzeit" };
+  if (isLiveRunning(g.status)) return { live: true, text: g.statusText || "Live" };
+  if (g.status === "NS") return { live: false, text: `Nicht begonnen · ${viennaTime(g.kickoff)} Uhr` };
+  if (g.status === "AET") return { live: false, text: "Beendet · n. V." };
+  if (g.status === "PEN") {
+    const pen = g.penaltyHome !== undefined && g.penaltyAway !== undefined ? ` ${g.penaltyHome}:${g.penaltyAway}` : "";
+    return { live: false, text: `Beendet · n. E.${pen}` };
+  }
+  if (g.status === "FT") return { live: false, text: "Beendet" };
+  return { live: false, text: OTHER_STATUS[g.statusShort.toUpperCase()] ?? "—" };
+}
+
+// Ein Spiel: Heim – Stand – Gast, darunter Minute/Status.
+function ElGameCard({ game, dateLabel }: { game: LiveGame; dateLabel?: string }) {
+  const { live, text } = elStatus(game);
+  const hasScore = game.homeScore !== null && game.awayScore !== null && game.status !== "NS";
+  const finished = isLiveFinished(game.status);
+  return (
+    <div
+      className={`rounded-card border px-3 py-2.5 sm:px-4 ${
+        live ? "border-red-400/50 bg-red-500/5" : "border-edge bg-surface"
+      }`}
+    >
+      {dateLabel && <p className="mb-1 text-xs text-muted">{dateLabel}</p>}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm">
+        <FitText text={game.home} className="text-right leading-tight text-ink" />
+        <span
+          className={`min-w-[3.25rem] text-center font-display text-base font-bold tabular-nums ${
+            live ? "text-red-400" : hasScore ? "text-ink" : "text-muted"
+          }`}
+        >
+          {hasScore ? `${game.homeScore} : ${game.awayScore}` : "– : –"}
+        </span>
+        <FitText text={game.away} className="leading-tight text-ink" />
+      </div>
+      <p className={`mt-1 text-center text-xs ${live ? "font-semibold text-red-400" : finished ? "text-ink/80" : "text-muted"}`}>
+        {live ? (
+          <span className="inline-flex items-center gap-1">
+            <span aria-hidden className="animate-pulse">🔴</span>
+            LIVE
+            <span className="font-medium text-red-300">· {text}</span>
+          </span>
+        ) : (
+          text
+        )}
+      </p>
+    </div>
   );
 }

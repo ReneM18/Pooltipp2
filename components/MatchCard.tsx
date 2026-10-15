@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, FormEvent } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Match, Sport, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
-import { TipResultTier, compareWithOthers, BEGINNER_SHIELD_TIPS, BOOSTER_STAKE, RANKING_BONUS_CAP, RANKING_POINTS, boosterPayouts, gutscheinPayouts, rankingPointsTable } from "@/lib/poolScore";
+import { TipResultTier, classifyRankingTip, compareWithOthers, BEGINNER_SHIELD_TIPS, BOOSTER_STAKE, RANKING_BONUS_CAP, RANKING_POINTS, boosterPayouts, gutscheinPayouts, rankingPointsTable } from "@/lib/poolScore";
 import { MatchTipper, useMatchTips } from "@/lib/matchTips";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
@@ -27,6 +27,8 @@ import { SeasonCardWatermark } from "./SeasonDeco";
 import ShareTipButton from "./ShareTipCard";
 import type { ShareCardData } from "@/lib/shareCard";
 import Emoji from "@/components/Emoji";
+import { useLiveScore, type LiveScore } from "@/lib/useLiveScores";
+import { useBeginnerShieldLeft } from "./BeginnerShieldHint";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -342,6 +344,12 @@ export default function MatchCard({
     match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null
       ? { home: match.liveHomeScore, away: match.liveAwayScore }
       : null;
+  // Live-Stand von API-Sports (lib/useLiveScores.ts), nur solange in der App
+  // noch kein Endstand steht und nicht mehr getippt wird. Reine Anzeige, die
+  // Wertung bleibt beim offiziellen Endstand (Rene, 15.10.2026).
+  const liveScore = useLiveScore(match, homeTeam.name, awayTeam.name);
+  const live = !finalScore && !isCancelled && showResultView ? liveScore : null;
+  const shieldLeft = useBeginnerShieldLeft();
   const comparison =
     myTip?.evaluated && myTip.resultTier && finalScore && tippers
       ? compareWithOthers(
@@ -574,7 +582,11 @@ export default function MatchCard({
     const pick: OneXTwo = side === "home" ? "1" : "2";
     const selected = compactSelected === pick;
     const isFan = !!fanTeamId && team.id === fanTeamId;
-    const goals = finalScore ? (side === "home" ? finalScore.home : finalScore.away) : null;
+    const goals = finalScore
+      ? side === "home" ? finalScore.home : finalScore.away
+      : live
+        ? side === "home" ? live.homeScore : live.awayScore
+        : null;
     const scoreInput = !showResultView && !isOneXTwo ? (side === "home" ? homeScoreInputCompact : awayScoreInputCompact) : null;
     const content = (
       <>
@@ -596,9 +608,15 @@ export default function MatchCard({
           {side === "home" ? "Heim" : "Gast"}
         </span>
         {scoreInput}
-        {/* Endstand im selben Kasten-Maß wie das Ergebnisfeld (Rene, 15.10.2026). */}
+        {/* Endstand im selben Kasten-Maß wie das Ergebnisfeld (Rene, 15.10.2026).
+            Live-Stand gleich groß; nach Abpfiff ohne offiziellen Endstand
+            dezent (grau), damit er nicht wie der Endstand aussieht. */}
         {goals !== null && (
-          <span className="flex h-11 w-12 shrink-0 items-center justify-center font-display text-[20px] font-bold leading-none text-ink sm:h-[46px] sm:w-[52px] sm:text-[22px]">
+          <span
+            className={`flex h-11 w-12 shrink-0 items-center justify-center font-display text-[20px] font-bold leading-none sm:h-[46px] sm:w-[52px] sm:text-[22px] ${
+              !finalScore && live?.finished ? "text-muted" : "text-ink"
+            }`}
+          >
             {goals}
           </span>
         )}
@@ -741,6 +759,8 @@ export default function MatchCard({
               <span className="rounded-full border border-red-400/60 bg-red-400/10 px-2 py-0.5 font-semibold text-red-300">
                 Abgesagt
               </span>
+            ) : live && !live.finished ? (
+              <LiveBadge live={live} />
             ) : (
               <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
             )}
@@ -767,6 +787,8 @@ export default function MatchCard({
             <span className="rounded-full border border-red-400/60 bg-red-400/10 px-2 py-0.5 font-semibold text-red-300">
               Abgesagt
             </span>
+          ) : live && !live.finished ? (
+            <LiveBadge live={live} />
           ) : (
             <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
           )}
@@ -843,6 +865,19 @@ export default function MatchCard({
               Endstand
             </p>
           )}
+          {/* Live-Daten (Rene, 15.10.2026): gleiche Zeile wie "Endstand",
+              einzeilig, damit die Karte nicht springt. */}
+          {live && (
+            <p
+              className={`mb-1 truncate text-right text-[10px] uppercase tracking-wide ${stage ? "pr-4" : "pr-3"} ${
+                live.finished ? "text-muted/80" : "font-semibold text-red-400"
+              }`}
+            >
+              {live.finished
+                ? `Endstand laut Live-Daten${live.status !== "FT" ? ` (${live.statusText})` : ""}`
+                : `Spielstand · ${live.statusText}`}
+            </p>
+          )}
           {!showResultView && (
             <p className={`mb-2 text-center text-muted/80 ${stage ? "text-[13px]" : "text-xs"}`}>{tipHint}</p>
           )}
@@ -851,6 +886,11 @@ export default function MatchCard({
             {compactShowsDraw && compactDrawRow()}
             {compactTeamRow(rightTeam, isUsSport ? "home" : "away")}
           </div>
+          {/* Stand jetzt: wie stünde der eigene Tipp mit dem Live-Stand?
+              Nur feste Punkte, ohne Bonus und Joker (Rene, 15.10.2026). */}
+          {live && myTip && !myTip.evaluated && !myTip.refunded && (
+            <LiveTipLine live={live} myTip={myTip} isOneXTwo={isOneXTwo} shieldActive={shieldLeft > 0} />
+          )}
           {!showResultView && closingSoon && (
             <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">
               <span aria-hidden>⏰</span> Gleich geschlossen – jetzt noch schnell tippen!
@@ -1173,6 +1213,7 @@ export default function MatchCard({
                 match={match}
                 order={order}
                 kickedOff={kickedOff}
+                liveFinished={!!live?.finished}
                 highlightLine={`${leftTeam.name} – ${rightTeam.name}${finalScore ? ` · ${scoreText(order, finalScore.home, finalScore.away)}` : ""}`}
               />
             )}
@@ -1771,15 +1812,95 @@ function CancelledBox({ stake, gutschein }: { stake: number | null; gutschein: b
   );
 }
 
+// Vorläufige Wertung des eigenen Tipps mit dem Live-Stand (Rene, 15.10.2026).
+// Rein Anzeige: gleiche Stufen und feste Punkte wie bei der Auswertung
+// (classifyRankingTip + RANKING_POINTS), ohne Bonus gegen die Mittipper und
+// ohne Joker. Mit Anfänger-Schutz zählt ein Minus als 0.
+const LIVE_TIER_TEXT: Record<TipResultTier, string> = {
+  exakt: "liegt exakt richtig",
+  differenz: "Tordifferenz richtig",
+  tendenz: "liegt richtig",
+  falsch: "liegt daneben",
+};
+const LIVE_TIER_LABEL: Record<TipResultTier, string> = {
+  exakt: "Exakt",
+  differenz: "Differenz",
+  tendenz: "Tendenz",
+  falsch: "Falsch",
+};
+
+function LiveTipLine({
+  live,
+  myTip,
+  isOneXTwo,
+  shieldActive,
+}: {
+  live: LiveScore;
+  myTip: MyTip;
+  isOneXTwo: boolean;
+  shieldActive: boolean;
+}) {
+  // live.homeScore/awayScore sind schon dem Heim-/Gastverein der App
+  // zugeordnet (findLiveGame dreht vertauschte Paarungen um).
+  const tier = classifyRankingTip(
+    myTip.predictedHomeScore,
+    myTip.predictedAwayScore,
+    live.homeScore,
+    live.awayScore,
+    isOneXTwo
+  );
+  const raw = RANKING_POINTS[tier];
+  const points = shieldActive ? Math.max(0, raw) : raw;
+  const pointsText = points > 0 ? `+${points}` : points < 0 ? `−${-points}` : "±0";
+  const tierLabel = isOneXTwo ? (tier === "falsch" ? "Falsch" : "Richtig") : LIVE_TIER_LABEL[tier];
+  return (
+    <div className="mt-2 flex h-8 items-center justify-between gap-2 rounded-lg bg-white/[0.06] px-3 text-xs">
+      <span className="min-w-0 truncate text-muted">
+        {live.finished ? (
+          "Endstand laut Live-Daten · Wertung folgt"
+        ) : (
+          <>
+            Stand jetzt: <span className="text-ink">dein Tipp {LIVE_TIER_TEXT[tier]}</span>
+          </>
+        )}
+      </span>
+      <span className="flex shrink-0 items-baseline gap-1 whitespace-nowrap">
+        {live.finished && <span className="text-muted">{tierLabel}</span>}
+        <span
+          className={`font-semibold ${points > 0 ? "text-[#4FC181]" : points < 0 ? "text-red-400" : "text-ink"}`}
+        >
+          {pointsText}
+        </span>
+        <span className="text-[10px] text-muted/80">vorläufig</span>
+      </span>
+    </div>
+  );
+}
+
+// Statt "Tipps geschlossen" oben rechts, solange das Spiel laut Live-Daten
+// läuft: "🔴 LIVE · 67'" bzw. "Halbzeit", "2. Drittel" (Rene, 15.10.2026).
+function LiveBadge({ live }: { live: LiveScore }) {
+  return (
+    <span className="inline-flex items-center gap-1 font-semibold text-red-400">
+      <span aria-hidden className="animate-pulse">🔴</span>
+      LIVE
+      {live.statusText && <span className="font-medium text-red-300">· {live.statusText}</span>}
+    </span>
+  );
+}
+
 function ResultBox({
   match,
   order,
   kickedOff,
+  liveFinished = false,
   highlightLine,
 }: {
   match: Match;
   order: TeamOrder;
   kickedOff: boolean;
+  // Laut Live-Daten abgepfiffen, offizieller Endstand fehlt noch.
+  liveFinished?: boolean;
   highlightLine: string;
 }) {
   if (match.status === "live") {
@@ -1837,7 +1958,11 @@ function ResultBox({
       }`}
     >
       <span className="text-sm text-muted">
-        {kickedOff ? "Spiel läuft – Ergebnis folgt" : "Spiel hat noch nicht begonnen"}
+        {liveFinished
+          ? "Abgepfiffen – offizielles Ergebnis folgt"
+          : kickedOff
+            ? "Spiel läuft – Ergebnis folgt"
+            : "Spiel hat noch nicht begonnen"}
       </span>
     </div>
   );

@@ -77,6 +77,23 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 Der „anon“-Key darf öffentlich sein, die Daten schützen die RLS-Regeln in Supabase.
 
+### Live-Spielstände (API-Sports)
+
+Für Live-Stände auf den Tippkarten (Rene, 15.10.2026) braucht die App einen
+Schlüssel von [API-Sports](https://api-sports.io) (Gratis-Plan: 100 Abfragen
+pro Tag je Sportart):
+
+```
+API_SPORTS_KEY=
+```
+
+- **Auf Vercel:** Vercel → Settings → Environment Variables. Ohne `NEXT_PUBLIC_`,
+  der Schlüssel bleibt auf dem Server (Route `app/api/live/route.ts`).
+- Ohne Schlüssel zeigen die Karten einfach keine Live-Stände.
+- Abgefragt wird nur, während ein angezeigtes Spiel läuft; die Antwort wird für
+  alle Nutzer gemeinsam zwischengespeichert (Fußball 3 Min., sonst 5 Min.).
+  Reine Anzeige, gewertet wird weiter der Endstand aus dem Admin-Bereich.
+
 ## Lokal starten
 
 Voraussetzung: [Node.js](https://nodejs.org) 18.17 oder neuer (empfohlen 20 oder 22).
