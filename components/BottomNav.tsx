@@ -61,7 +61,7 @@ const MORE_COLUMNS: { title: string; items: MoreItem[] }[] = [
     title: "Freunde & Shop",
     items: [
       { href: "/freunde", emoji: "👥", label: "Freunde", hint: "Nummer & Chat" },
-      { href: "/feed", emoji: "📰", label: "Was andere tippen", hint: "Tipps der Community" },
+      { href: "/feed", emoji: "📰", label: "Feed", hint: "Was andere tippen" },
       { href: "/shop", emoji: "🛒", label: "Shop", hint: "Joker & Taschen" },
     ],
   },
