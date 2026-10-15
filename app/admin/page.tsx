@@ -840,6 +840,8 @@ function CompetitionSelect({
 // Reiter "Wettbewerbe": einmal anlegen, dann beim Spiel nur noch auswählen.
 // Pro Sportart eine eigene Liste (wie bei den Teams). Löschen entfernt den
 // Wettbewerb nur aus der Auswahl – bestehende Spiele behalten ihn.
+const COMPETITION_AUTO_COUNTRY = "Automatisch / International (keine Flagge)";
+
 function CompetitionManager() {
   const { competitions, allMatches: matches, addCompetition, renameCompetition, removeCompetition } = useAppData();
   const { showToast } = useFeedback();
@@ -848,6 +850,9 @@ function CompetitionManager() {
   const [listTab, setListTab] = useState<Sport>("Fußball");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  // Land der Liga für die Flagge, "" = Automatik/International (Rene, 15.10.2026).
+  const [countryCode, setCountryCode] = useState("");
+  const [editCountry, setEditCountry] = useState("");
 
   const duplicate = findDuplicateCompetition(competitions, name, sport);
   const editing = competitions.find((c) => c.id === editingId);
@@ -858,9 +863,10 @@ function CompetitionManager() {
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim() || duplicate) return;
-    const created = addCompetition(name, sport);
+    const created = addCompetition(name, sport, countryCode);
     if (!created) return;
     setName("");
+    setCountryCode("");
     setListTab(sport);
     showToast(`✓ Wettbewerb "${created.name}" angelegt.`, "success");
   }
@@ -876,7 +882,7 @@ function CompetitionManager() {
       !confirm(`"${oldName}" in "${newName}" umbenennen? Das ändert auch ${used} ${used === 1 ? "Spiel" : "Spiele"}.`)
     )
       return;
-    if (renameCompetition(editing.id, newName)) {
+    if (renameCompetition(editing.id, newName, editCountry)) {
       setEditingId(null);
       showToast(`✓ Wettbewerb "${newName}" gespeichert.`, "success");
     }
@@ -924,6 +930,12 @@ function CompetitionManager() {
                 </option>
               ))}
             </select>
+          </div>
+          {/* Land der Liga -> Flagge auf der Spielkarte, z. B. Österreich für
+              die ICE Hockey League (Rene, 15.10.2026). */}
+          <div className="sm:col-span-2">
+            <label className="mb-1.5 block text-sm text-muted">Land (Flagge)</label>
+            <CountryPicker value={countryCode} onChange={setCountryCode} emptyLabel={COMPETITION_AUTO_COUNTRY} />
           </div>
         </div>
 
@@ -996,6 +1008,7 @@ function CompetitionManager() {
                     „{editDuplicate.name}“ gibt es schon.
                   </p>
                 )}
+                <CountryPicker value={editCountry} onChange={setEditCountry} emptyLabel={COMPETITION_AUTO_COUNTRY} />
                 <div className="flex gap-2">
                   <button
                     onClick={saveEdit}
@@ -1020,7 +1033,14 @@ function CompetitionManager() {
               className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4"
             >
               <span className="min-w-0">
-                <span className="block text-sm font-semibold leading-tight text-ink">{c.name}</span>
+                <span className="block text-sm font-semibold leading-tight text-ink">
+                  {c.countryCode && (
+                    <>
+                      <Emoji e={flagEmoji(c.countryCode)} />{" "}
+                    </>
+                  )}
+                  {c.name}
+                </span>
                 <span className="text-xs text-muted">
                   {used === 0 ? "noch kein Spiel" : `${used} ${used === 1 ? "Spiel" : "Spiele"}`}
                 </span>
@@ -1030,10 +1050,11 @@ function CompetitionManager() {
                   onClick={() => {
                     setEditingId(c.id);
                     setEditName(c.name);
+                    setEditCountry(c.countryCode ?? "");
                   }}
                   className="rounded-lg px-2 py-1 text-xs font-semibold text-gold transition-colors hover:text-ink"
                 >
-                  Umbenennen
+                  Bearbeiten
                 </button>
                 <button
                   onClick={() => {

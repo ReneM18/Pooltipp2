@@ -9,6 +9,12 @@ export interface Competition {
   id: string;
   name: string;
   sport: Sport;
+  // Land der Liga für die Flagge auf der Spielkarte, z. B. "AT" für die
+  // ICE Hockey League (Rene, 15.10.2026). Fehlt es, gilt wie bisher die
+  // Automatik (US-Sportarten -> USA, sonst nach Name, siehe
+  // lib/competitionFlag.ts). Liegt einfach mit in der Wettbewerbe-Zeile,
+  // darum kein SQL nötig.
+  countryCode?: string;
 }
 
 // Die ganze Liste liegt als EINE Zeile in der vorhandenen Tabelle "teams"
