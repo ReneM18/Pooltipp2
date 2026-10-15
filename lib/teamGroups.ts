@@ -1,5 +1,5 @@
 import type { Sport, Team } from "./types";
-import { COUNTRIES, countryName, flagEmoji } from "./flags";
+import { COUNTRIES, DEFAULT_COUNTRY_CODE, countryName, flagEmoji } from "./flags";
 import { normalizeTeamName } from "./teamName";
 
 // Untergruppen für die Team-Auswahl (Fußball, Basketball, Eishockey): damit
@@ -35,7 +35,8 @@ function groupFromLabel(label: string, icon: string): TeamGroup {
 
 // Spitznamen aller NBA- und NHL-Teams: so landet ein Team auch dann in
 // seiner Liga, wenn beim Anlegen das Land nicht auf USA/Kanada gestellt
-// wurde (Standard im Formular ist Deutschland).
+// wurde (Standard im Formular ist Deutschland). Ist ein anderes Land
+// eingestellt (z. B. Capitals aus Österreich), zählt der Spitzname nicht.
 const LEAGUE_NICKNAMES: Partial<Record<Sport, string[]>> = {
   NBA: [
     "Hawks", "Celtics", "Nets", "Hornets", "Bulls", "Cavaliers", "Mavericks", "Nuggets", "Pistons",
@@ -71,7 +72,8 @@ function countryOfName(name: string): string | null {
 export function autoTeamGroup(team: Pick<Team, "name" | "sport" | "countryCode" | "isNationalTeam">): TeamGroup {
   if (team.isNationalTeam || countryOfName(team.name ?? "")) return groupFromLabel(NATIONAL_GROUP, "🌍");
   const league = LEAGUE_OF_SPORT[team.sport];
-  if (league && (LEAGUE_COUNTRIES.includes(team.countryCode) || isLeagueTeamName(team.sport, team.name ?? "")))
+  if (league && (LEAGUE_COUNTRIES.includes(team.countryCode) ||
+      ((!team.countryCode || team.countryCode === DEFAULT_COUNTRY_CODE) && isLeagueTeamName(team.sport, team.name ?? ""))))
     return groupFromLabel(league, "🏆");
   if (!team.countryCode) return groupFromLabel("Sonstige", "•");
   return groupFromLabel(countryName(team.countryCode), flagEmoji(team.countryCode));
