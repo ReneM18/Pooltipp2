@@ -27,16 +27,16 @@
 --         dort ein Minus verhindert, wird es nachgebucht (nie unter 0).
 --         Coins werden nicht angefasst. Wurde die erste Fassung nie
 --         ausgeführt, ändert Teil 2 nichts.
--- Teil 3: Nicole bekommt den Schutz nachträglich: ihre schon gewerteten
---         Tipps werden neu durchgerechnet (erste 10 insgesamt geschützt).
---         Coins werden nicht angefasst. Teil 3 läuft in einem eigenen
---         Block: Findet er Nicole nicht eindeutig, bricht nur Teil 3 ab,
---         Teil 1 und 2 bleiben gespeichert.
+-- Teil 3: Alle Spieler mit weniger als 10 gewerteten Tipps insgesamt
+--         bekommen den Schutz nachträglich (Rene, 15.10.2026): ihre schon
+--         gewerteten Tipps werden neu durchgerechnet, jeder Minus-Tipp zählt
+--         0. Spieler mit 10 oder mehr gewerteten Tipps bleiben unverändert.
+--         Coins werden nicht angefasst.
 --
 -- Bestehende Daten anderer Spieler: Außer der Korrektur in Teil 2 werden
 -- keine Rangpunkte, Tipps oder Coins geändert. Tipps, die schon vor diesem
--- Skript gewertet waren, sind nicht geschützt (außer bei Nicole, Teil 3),
--- zählen aber bei den ersten 10 mit.
+-- Skript gewertet waren, sind nicht geschützt (außer bei Spielern unter 10
+-- gewerteten Tipps, Teil 3), zählen aber bei den ersten 10 mit.
 --
 -- Voraussetzung: supabase/prestige.sql wurde schon ausgeführt.
 -- Ausführen: Supabase-Dashboard -> SQL Editor -> New query -> dieses
@@ -502,106 +502,138 @@ end $$;
 commit;
 
 -- ============================================================================
--- Teil 3: Nicole nachträglich
+-- Teil 3: Alle Spieler unter 10 gewerteten Tipps nachträglich
 -- ============================================================================
--- Ihre gewerteten Tipps werden in Auswertungsreihenfolge (Anpfiff, dann
--- Spiel-ID) über alle Sportarten neu durchgerechnet: Bei den ersten 10
--- insgesamt zählt ein Minus als 0, danach normal. Rangpunkte fallen wie
--- bisher je Sportart nie unter 0. Gesetzt werden rang_delta, rang_booked,
--- beginner_slot und beginner_shielded der Tipps und profiles.rang_punkte je
--- Sportart. Coins bleiben, wie sie sind. Ein zweiter Lauf ergibt dasselbe.
+-- (Rene, 15.10.2026) Nachgerechnet werden NUR Spieler mit weniger als 10
+-- gewerteten Tipps insgesamt (alle Sportarten, nicht erstattet). Bei ihnen
+-- gehören alle gewerteten Tipps zu den ersten 10, also sind alle geschützt.
+-- Spieler mit 10 oder mehr gewerteten Tipps (z. B. Rene, Doris) bleiben bei
+-- den Punkten unverändert. Neue Spieler schützt die Auswertung (Teil 1)
+-- automatisch, sobald ihre Tipps gewertet werden.
+--
+-- Je Spieler werden seine gewerteten Tipps in Auswertungsreihenfolge
+-- (Anpfiff, dann Spiel-ID) neu durchgerechnet: Ein Minus zählt 0
+-- (beginner_shielded), Gewinne normal, Rangpunkte fallen je Sportart nie
+-- unter 0. Gesetzt werden rang_delta, rang_booked, beginner_slot und
+-- beginner_shielded der Tipps und profiles.rang_punkte je Sportart. Coins
+-- bleiben, wie sie sind. Geschrieben wird nur, was sich wirklich ändert:
+-- Ein zweiter Lauf ändert nichts mehr.
+--
+-- Die Liste der nachgerechneten Spieler (Rangpunkte vorher -> nachher)
+-- steht in der Kontrolle am Ende.
+create temp table if not exists anfaenger_nachrechnung (
+  user_id uuid primary key,
+  display_name text,
+  tipps_gewertet int,
+  rang_vorher jsonb,
+  rang_nachher jsonb
+);
+truncate anfaenger_nachrechnung;
+
 begin;
 
 do $$
 declare
-  v_user uuid;
-  v_hits int;
-  v_names text;
+  u record;
+  t record;
   v_sport text;
   v_cur int;
   v_sum int;
-  v_bal jsonb := '{}'::jsonb;
+  v_bal jsonb;
+  v_before jsonb;
   v_balance int;
   v_raw int;
   v_total int;
   v_booked int;
   v_beginner boolean;
-  t record;
 begin
-  select count(*), string_agg(p.display_name || ' (' || p.id || ')', ', ' order by p.display_name)
-  into v_hits, v_names
-  from public.profiles p
-  where p.display_name ilike 'nicole%';
-  if v_hits = 0 then
-    raise exception 'Kein Profil gefunden, dessen Name mit "Nicole" beginnt. Teil 3 wurde nicht ausgeführt (Teil 1 und 2 sind gespeichert).';
-  elsif v_hits > 1 then
-    raise exception 'Mehrere Profile beginnen mit "Nicole": %. Teil 3 wurde nicht ausgeführt (Teil 1 und 2 sind gespeichert). Bitte Claude Bescheid geben, welches gemeint ist.', v_names;
-  end if;
-  select p.id into v_user from public.profiles p where p.display_name ilike 'nicole%';
-
-  -- Profil sperren, damit keine Auswertung dazwischen bucht.
-  perform 1 from public.profiles p where p.id = v_user for update;
-
-  -- Ausgangsstand je Sportart ohne ihre Tipps (z. B. Strafe fürs
-  -- Nicht-Tippen): aktueller Stand minus alles, was ihre Tipps gebucht haben.
-  for v_sport in
-    select distinct coalesce(nullif(m.data ->> 'sport', ''), 'Fußball')
-    from public.tips x
-    join public.matches m on m.id = x.match_id
-    where x.user_id = v_user and x.evaluated and x.result_tier is not null and x.refunded_at is null
+  for u in
+    select p.id, p.display_name, count(x.id)::int as n
+    from public.profiles p
+    join public.tips x on x.user_id = p.id
+      and x.evaluated and x.result_tier is not null and x.refunded_at is null
+    group by p.id, p.display_name
+    having count(x.id) < 10
+    order by p.display_name
   loop
-    select coalesce(public.try_int(p.rang_punkte -> v_sport), 0) into v_cur
-    from public.profiles p where p.id = v_user;
-    select coalesce(sum(coalesce(x.rang_booked, x.rang_delta, 0)), 0) into v_sum
-    from public.tips x
-    join public.matches m on m.id = x.match_id
-    where x.user_id = v_user and x.evaluated and x.result_tier is not null and x.refunded_at is null
-      and x.ranking_scored and not x.ranking_legacy
-      and coalesce(nullif(m.data ->> 'sport', ''), 'Fußball') = v_sport;
-    v_bal := jsonb_set(v_bal, array[v_sport], to_jsonb(greatest(0, coalesce(v_cur, 0) - v_sum)));
-  end loop;
+    -- Profil sperren, damit keine Auswertung dazwischen bucht.
+    select coalesce(p.rang_punkte, '{}'::jsonb) into v_before
+    from public.profiles p where p.id = u.id for update;
 
-  -- Alle ihre Tipps zusammen, die ersten 10 insgesamt sind geschützt.
-  for t in
-    select x.*, coalesce(nullif(m.data ->> 'sport', ''), 'Fußball') as sport,
-           row_number() over (
-             order by public.try_timestamptz(m.data ->> 'kickoff') nulls last, x.match_id, x.id) as nr
-    from public.tips x
-    join public.matches m on m.id = x.match_id
-    where x.user_id = v_user and x.evaluated and x.result_tier is not null and x.refunded_at is null
-    order by nr
-  loop
-    -- Nach den alten Regeln gewertet: zählt mit, Punkte bleiben.
-    if not t.ranking_scored or t.ranking_legacy then
-      continue;
+    -- Ausgangsstand je Sportart ohne seine Tipps (z. B. Strafe fürs
+    -- Nicht-Tippen): aktueller Stand minus alles, was seine Tipps gebucht
+    -- haben.
+    v_bal := '{}'::jsonb;
+    for v_sport in
+      select distinct coalesce(nullif(m.data ->> 'sport', ''), 'Fußball')
+      from public.tips x
+      join public.matches m on m.id = x.match_id
+      where x.user_id = u.id and x.evaluated and x.result_tier is not null and x.refunded_at is null
+        and x.ranking_scored and not x.ranking_legacy
+    loop
+      v_cur := coalesce(public.try_int(v_before -> v_sport), 0);
+      select coalesce(sum(coalesce(x.rang_booked, x.rang_delta, 0)), 0) into v_sum
+      from public.tips x
+      join public.matches m on m.id = x.match_id
+      where x.user_id = u.id and x.evaluated and x.result_tier is not null and x.refunded_at is null
+        and x.ranking_scored and not x.ranking_legacy
+        and coalesce(nullif(m.data ->> 'sport', ''), 'Fußball') = v_sport;
+      v_bal := jsonb_set(v_bal, array[v_sport], to_jsonb(greatest(0, v_cur - v_sum)));
+    end loop;
+
+    -- Alle seine Tipps (weniger als 10, also alle geschützt).
+    for t in
+      select x.*, coalesce(nullif(m.data ->> 'sport', ''), 'Fußball') as sport
+      from public.tips x
+      join public.matches m on m.id = x.match_id
+      where x.user_id = u.id and x.evaluated and x.result_tier is not null and x.refunded_at is null
+      order by public.try_timestamptz(m.data ->> 'kickoff') nulls last, x.match_id, x.id
+    loop
+      -- Nach den alten Regeln gewertet: zählt mit, Punkte bleiben.
+      if not t.ranking_scored or t.ranking_legacy then
+        if t.beginner_slot is distinct from true then
+          update public.tips set beginner_slot = true, updated_at = now() where id = t.id;
+        end if;
+        continue;
+      end if;
+      -- Gerechnete Punkte ohne Anfänger-Schutz (war er schon geschützt, aus
+      -- festen Punkten + Bonus, denn rang_delta ist dann 0).
+      v_raw := case when t.beginner_shielded then coalesce(t.base_points, 0) + coalesce(t.bonus_points, 0)
+                    else coalesce(t.rang_delta, 0) end;
+      v_beginner := v_raw < 0;
+      v_total := case when v_beginner then 0 else v_raw end;
+      v_balance := coalesce(public.try_int(v_bal -> t.sport), 0);
+      v_booked := greatest(v_total, -v_balance);
+      v_bal := jsonb_set(v_bal, array[t.sport], to_jsonb(v_balance + v_booked));
+
+      if t.rang_delta is distinct from v_total
+        or t.rang_booked is distinct from v_booked
+        or t.beginner_slot is distinct from true
+        or t.beginner_shielded is distinct from v_beginner then
+        update public.tips
+        set rang_delta = v_total,
+            rang_booked = v_booked,
+            beginner_slot = true,
+            beginner_shielded = v_beginner,
+            narration = case
+              when v_beginner and coalesce(narration, '') not like '%Anfänger-Schutz%'
+                then coalesce(narration || ' ', '') || 'Nachträglich mit Anfänger-Schutz (deine ersten 10 Tipps): 0 Rangpunkte.'
+              else narration end,
+            updated_at = now()
+        where id = t.id;
+      end if;
+    end loop;
+
+    if (v_before || v_bal) is distinct from v_before then
+      update public.profiles
+      set rang_punkte = v_before || v_bal,
+          updated_at = now()
+      where id = u.id;
     end if;
-    -- Gerechnete Punkte ohne Anfänger-Schutz (bei einem zweiten Lauf aus
-    -- festen Punkten + Bonus, denn rang_delta ist dann schon 0).
-    v_raw := case when t.beginner_shielded then coalesce(t.base_points, 0) + coalesce(t.bonus_points, 0)
-                  else coalesce(t.rang_delta, 0) end;
-    v_beginner := t.nr <= 10 and v_raw < 0;
-    v_total := case when v_beginner then 0 else v_raw end;
-    v_balance := coalesce(public.try_int(v_bal -> t.sport), 0);
-    v_booked := greatest(v_total, -v_balance);
-    v_bal := jsonb_set(v_bal, array[t.sport], to_jsonb(v_balance + v_booked));
 
-    update public.tips
-    set rang_delta = v_total,
-        rang_booked = v_booked,
-        beginner_slot = t.nr <= 10,
-        beginner_shielded = v_beginner,
-        narration = case
-          when v_beginner and coalesce(narration, '') not like '%Anfänger-Schutz%'
-            then coalesce(narration || ' ', '') || 'Nachträglich mit Anfänger-Schutz (deine ersten 10 Tipps): 0 Rangpunkte.'
-          else narration end,
-        updated_at = now()
-    where id = t.id;
+    insert into anfaenger_nachrechnung (user_id, display_name, tipps_gewertet, rang_vorher, rang_nachher)
+    values (u.id, u.display_name, u.n, v_before, v_before || v_bal);
   end loop;
-
-  update public.profiles
-  set rang_punkte = coalesce(rang_punkte, '{}'::jsonb) || v_bal,
-      updated_at = now()
-  where id = v_user;
 end $$;
 
 commit;
@@ -624,17 +656,24 @@ group by p.id, p.display_name
 having count(x.id) < 10
 order by p.display_name;
 
--- Kontrolle Teil 3: Nicoles neue Rangpunkte je Sportart
-select p.display_name,
-       s.key as sportart,
-       coalesce(public.try_int(s.value), 0) as rangpunkte,
-       (select count(*) from public.tips x join public.matches m on m.id = x.match_id
-        where x.user_id = p.id and x.evaluated and x.result_tier is not null and x.refunded_at is null
-          and coalesce(nullif(m.data ->> 'sport', ''), 'Fußball') = s.key) as gewertete_tipps,
-       (select count(*) from public.tips x join public.matches m on m.id = x.match_id
-        where x.user_id = p.id and x.beginner_shielded
-          and coalesce(nullif(m.data ->> 'sport', ''), 'Fußball') = s.key) as tipps_mit_anfaenger_schutz
-from public.profiles p
-cross join lateral jsonb_each(coalesce(p.rang_punkte, '{}'::jsonb)) s
-where p.display_name ilike 'nicole%'
-order by p.display_name, s.key;
+
+-- Kontrolle Teil 3 (Rene, 15.10.2026): nachgerechnete Spieler mit
+-- Rangpunkten vorher -> nachher je Sportart. "pruefung" muss überall "ok"
+-- zeigen (kein Tipp mehr im Minus, alle Tipps als erste 10 markiert,
+-- Rangpunkte wie berechnet). Beim zweiten Lauf ist vorher = nachher.
+select n.display_name,
+       n.tipps_gewertet,
+       coalesce((select string_agg(s.key || ': ' || coalesce(public.try_int(n.rang_vorher -> s.key), 0)
+                                   || ' -> ' || coalesce(public.try_int(s.value), 0), ', ' order by s.key)
+                 from jsonb_each(n.rang_nachher) s), '-') as rangpunkte_vorher_nachher,
+       case when coalesce(p.rang_punkte, '{}'::jsonb) = n.rang_nachher
+             and not exists (
+               select 1 from public.tips x
+               where x.user_id = n.user_id
+                 and x.evaluated and x.result_tier is not null and x.refunded_at is null
+                 and (x.beginner_slot is distinct from true
+                      or (x.ranking_scored and not x.ranking_legacy and coalesce(x.rang_delta, 0) < 0)))
+            then 'ok' else 'FEHLER: bitte Claude Bescheid geben' end as pruefung
+from anfaenger_nachrechnung n
+join public.profiles p on p.id = n.user_id
+order by n.display_name;
