@@ -1890,7 +1890,10 @@ function TeamColumn({
 // Kompakte Karte: Trikot klein neben dem Namen, rechts gespiegelt.
 function TeamInline({ match, team, flip = false }: { match: Match; team: Team; flip?: boolean }) {
   return (
-    <div className={`flex min-w-0 items-center gap-2 ${flip ? "flex-row-reverse" : ""}`} lang="de">
+    // Trikot 20 statt 22 px und gap-1.5 statt gap-2: zusammen mit den
+    // schmaleren Ergebnis-Feldern passt "Fenerbahçe" am Handy (375 px) bei
+    // 14 px in eine Zeile (Rene, 15.10.2026).
+    <div className={`flex min-w-0 items-center gap-1.5 ${flip ? "flex-row-reverse" : ""}`} lang="de">
       <span className="shrink-0">
         <TeamBadge
           sport={match.sport}
@@ -1898,7 +1901,7 @@ function TeamInline({ match, team, flip = false }: { match: Match; team: Team; f
           isNationalTeam={team.isNationalTeam}
           countryCode={team.countryCode}
           flip={flip}
-          size={22}
+          size={20}
         />
       </span>
       <TeamLabel name={team.name} inline={flip ? "right" : "left"} />
@@ -1963,8 +1966,9 @@ function TeamLabel({ name, inline }: { name: string; inline?: "left" | "right" }
   );
 }
 
+// 30 px breit reicht für zwei Ziffern und lässt den Vereinsnamen mehr Platz (Rene, 15.10.2026).
 const scoreInputCompactClass =
-  "h-11 w-9 rounded-lg border border-edge bg-pitch text-center font-display text-lg font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
+  "h-11 w-[30px] rounded-lg border border-edge bg-pitch text-center font-display text-lg font-bold text-ink outline-none focus:border-gold disabled:opacity-60";
 
 const scoreInputClass =
   "h-12 w-[4.5rem] max-w-full rounded-lg border border-edge bg-pitch text-center font-display text-xl font-bold text-ink outline-none focus:border-gold disabled:opacity-60";

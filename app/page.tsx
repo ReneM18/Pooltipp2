@@ -230,7 +230,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-5 sm:py-8">
+    <main className="mx-auto max-w-3xl lg:max-w-6xl px-4 py-5 sm:px-5 sm:py-8">
+      {/* Am Handy px-4 statt px-5: 8 px mehr Kartenbreite für die Vereinsnamen (Rene, 15.10.2026). */}
       {/* Kompakter Titel statt großer Headline + Untertitel – die
           Sterne-Anzahl steht schon oben in der Navbar, das musste hier
           nicht wiederholt werden. Die Werbe-Platzhalterzeile steht jetzt in
@@ -317,7 +318,11 @@ export default function DashboardPage() {
                 </span>
               </h2>
             )}
-            <div className="flex flex-col gap-5 lg:grid lg:grid-cols-3 lg:gap-5">{group.matches.map((m) => renderCard(m))}</div>
+            {/* Am PC zwei statt drei Karten nebeneinander, sonst passt nicht mal
+                "Fenerbahçe" in eine Zeile. Kein 2xl:grid-cols-3, weil max-w-6xl
+                die Breite deckelt und die Karten dann wieder so schmal wären
+                (Rene, 15.10.2026). */}
+            <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:gap-5">{group.matches.map((m) => renderCard(m))}</div>
           </section>
         ))}
       </div>
