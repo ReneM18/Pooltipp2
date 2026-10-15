@@ -137,7 +137,7 @@ function RulesInfo() {
 }
 
 function GameLine({ match, children }: { match?: Match; children?: ReactNode }) {
-  const { getTeam } = useAppData();
+  const { orderFor, getTeam } = useAppData();
   if (!match) return <li className="text-xs text-muted">Spiel nicht mehr vorhanden</li>;
   const home = getTeam(match.homeTeamId);
   const away = getTeam(match.awayTeamId);
@@ -145,13 +145,13 @@ function GameLine({ match, children }: { match?: Match; children?: ReactNode }) 
     <li className="flex items-start gap-2 text-xs">
       <span aria-hidden className="mt-px"><Emoji e={SPORT_ICONS[match.sport as Sport] ?? "🏟️"} /></span>
       <span className="min-w-0 flex-1">
-        <span className="text-ink">{matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")}</span>
+        <span className="text-ink">{matchTitle(orderFor(match), home?.name ?? "?", away?.name ?? "?")}</span>
         <span className="text-muted">{" · "}</span>
         <span className="whitespace-nowrap text-muted">
           {match.status === "cancelled"
             ? "abgesagt"
             : match.status === "finished"
-            ? `Endstand ${scoreText(match.sport, match.liveHomeScore ?? 0, match.liveAwayScore ?? 0)}`
+            ? `Endstand ${scoreText(orderFor(match), match.liveHomeScore ?? 0, match.liveAwayScore ?? 0)}`
             : timeLabel(match.kickoff)}
         </span>
         {children}
@@ -480,7 +480,7 @@ function MatchOption({
   disabled: boolean;
   onToggle: () => void;
 }) {
-  const { getTeam } = useAppData();
+  const { orderFor, getTeam } = useAppData();
   const home = getTeam(match.homeTeamId);
   const away = getTeam(match.awayTeamId);
   return (
@@ -503,7 +503,7 @@ function MatchOption({
       </span>
       <span className="min-w-0 flex-1">
         <span className={`block text-sm ${checked ? "font-semibold text-ink" : "text-ink"}`}>
-          {matchTitle(match.sport, home?.name ?? "?", away?.name ?? "?")}
+          {matchTitle(orderFor(match), home?.name ?? "?", away?.name ?? "?")}
         </span>
         <span className="block text-xs text-muted">{timeLabel(match.kickoff)}</span>
       </span>
@@ -520,7 +520,7 @@ function playerStatusIcon(player: DuelPlayer) {
 
 function DuelCard({ duel, highlight = false, onWithdrawn }: { duel: Duel; highlight?: boolean; onWithdrawn?: (duel: Duel) => void }) {
   const { authUserId, hasPremiumPass, passXP } = useUser();
-  const { matches } = useAppData();
+  const { orderFor, matches } = useAppData();
   const { acceptUntil, acceptDuel, declineDuel, withdrawDuel } = useDuels();
   const { showToast, celebrate } = useFeedback();
   const [busy, setBusy] = useState(false);
@@ -674,7 +674,7 @@ function DuelCard({ duel, highlight = false, onWithdrawn }: { duel: Duel; highli
             <GameLine key={id} match={match}>
               {game && !game.cancelled && match && (
                 <span className="whitespace-nowrap text-muted">
-                  {" · "}Dein Tipp {game.tip ? scoreText(match.sport, ...(game.tip.split(":").map(Number) as [number, number])) : "–"}
+                  {" · "}Dein Tipp {game.tip ? scoreText(orderFor(match), ...(game.tip.split(":").map(Number) as [number, number])) : "–"}
                   {" "}
                   <span className={game.points !== undefined && game.points > 0 ? "font-semibold text-gold" : "text-red-400"}>
                     {game.points !== undefined && game.points > 0 ? "+" : ""}

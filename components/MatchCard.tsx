@@ -12,7 +12,7 @@ import { useFeedback } from "@/lib/FeedbackContext";
 import { ExpertResult, JOKER_ICON, TIP_JOKER_EFFECT, TIP_JOKER_LABEL, TipJoker, TrendResult, useJokers } from "@/lib/JokerContext";
 import { useTaschen } from "@/lib/TaschenContext";
 import type { SeasonEmote } from "@/lib/seasons";
-import { allowsDraw as sportAllowsDraw, displayOrder, isAwayFirst, oneXTwoText, pickNumber, scoreText } from "@/lib/teamOrder";
+import { allowsDraw as sportAllowsDraw, displayOrder, oneXTwoText, pickNumber, scoreText, type TeamOrder } from "@/lib/teamOrder";
 import TeamBadge, { jerseyFor, matchJerseyProps } from "./TeamBadge";
 import PlayerAvatar from "./PlayerAvatar";
 import CountdownTiles from "./CountdownTiles";
@@ -135,11 +135,15 @@ export default function MatchCard({
   stage = false,
 }: MatchCardProps) {
   const isOneXTwo = match.tipMode === "1x2";
-  // US-Sport: Gast links, Heim rechts ("Gast @ Heim"). NBA und NHL kennen
-  // kein Unentschieden (Verlängerung bzw. Penaltyschießen bis zur
-  // Entscheidung), NFL nur ganz selten.
-  const isUsSport = isAwayFirst(match.sport);
-  const [leftTeam, rightTeam] = displayOrder(match.sport, homeTeam, awayTeam);
+  // US-Liga: Gast links, Heim rechts ("Gast @ Heim"). Nur wenn die Sportart
+  // US-Sport ist UND der Wettbewerb eine US-Liga (z. B. nicht die
+  // österreichische Eishockey-Liga) – siehe lib/teamOrder.ts (Rene,
+  // 15.10.2026). NBA und NHL kennen kein Unentschieden (Verlängerung bzw.
+  // Penaltyschießen bis zur Entscheidung), NFL nur ganz selten.
+  const { orderFor } = useAppData();
+  const order = orderFor(match);
+  const isUsSport = order.awayFirst;
+  const [leftTeam, rightTeam] = displayOrder(order, homeTeam, awayTeam);
   // Auf welcher Kartenseite steht der Herzensverein (null = keiner)?
   const fanSide: "left" | "right" | null =
     fanTeamId && leftTeam.id === fanTeamId ? "left" : fanTeamId && rightTeam.id === fanTeamId ? "right" : null;
@@ -367,16 +371,16 @@ export default function MatchCard({
       .toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", timeZone: "Europe/Vienna" })
       .replace(".,", "");
     const tipText = isOneXTwo
-      ? `Mein Tipp: ${oneXTwoText(match.sport, myTip.predictedHomeScore, myTip.predictedAwayScore, homeTeam.name, awayTeam.name)}`
+      ? `Mein Tipp: ${oneXTwoText(order, myTip.predictedHomeScore, myTip.predictedAwayScore, homeTeam.name, awayTeam.name)}`
       : shareTier === "exakt"
       ? null
-      : `Mein Tipp: ${scoreText(match.sport, myTip.predictedHomeScore, myTip.predictedAwayScore, " : ")}`;
+      : `Mein Tipp: ${scoreText(order, myTip.predictedHomeScore, myTip.predictedAwayScore, " : ")}`;
     return {
       exact: shareTier === "exakt",
       playerName: displayName || "Ich",
       leftName: leftTeam.name,
       rightName: rightTeam.name,
-      scoreText: scoreText(match.sport, finalScore.home, finalScore.away),
+      scoreText: scoreText(order, finalScore.home, finalScore.away),
       tipText,
       // Ohne Flagge: Windows zeigt Flaggen-Emojis nur als Buchstaben ("AT").
       metaText: `${competitionName} · ${date}`,
@@ -402,7 +406,7 @@ export default function MatchCard({
   // 1X2 mit Teamnamen statt "Heimsieg (1)": eindeutig, egal auf welcher
   // Seite das Heimteam steht. Gespeichert wird weiter 1:0 / 0:0 / 0:1.
   // Gleiche Reihenfolge wie die Teams darüber (bei US-Sport Gast-Sieg links).
-  const [leftPick, rightPick] = displayOrder<OneXTwo>(match.sport, "1", "2");
+  const [leftPick, rightPick] = displayOrder<OneXTwo>(order, "1", "2");
   const oneXTwoOptions: OneXTwo[] =
     allowsDraw || nflPick === "X" ? [leftPick, "X", rightPick] : [leftPick, rightPick];
 
@@ -410,7 +414,7 @@ export default function MatchCard({
   // Nummer nach Position (links 1, rechts 2) mit dem Teamnamen darunter.
   function pickLabel(pick: OneXTwo) {
     const [h, a] = oneXTwoToScore(pick);
-    return oneXTwoText(match.sport, h, a, homeTeam.name, awayTeam.name);
+    return oneXTwoText(order, h, a, homeTeam.name, awayTeam.name);
   }
 
   // Ohne Unentschieden (NBA, NHL) steht "Sieg" statt 1/2 – der Knopf sitzt
@@ -418,7 +422,7 @@ export default function MatchCard({
   function pickButtonNumber(pick: OneXTwo) {
     if (pick === "X") return "X";
     if (!allowsDraw) return "Sieg";
-    return pickNumber(match.sport, pick === "1" ? "home" : "away");
+    return pickNumber(order, pick === "1" ? "home" : "away");
   }
 
   const needsWideMiddle = !showResultView && isOneXTwo && oneXTwoOptions.includes("X");
@@ -434,7 +438,7 @@ export default function MatchCard({
   // kräftiges Licht von oben.
   const homeGlow = wornColor(match, homeTeam);
   const awayGlow = wornColor(match, awayTeam);
-  const [leftGlow, rightGlow] = displayOrder(match.sport, homeGlow, awayGlow);
+  const [leftGlow, rightGlow] = displayOrder(order, homeGlow, awayGlow);
   const cardBackground = stage
     ? `radial-gradient(110% 70% at 0% 0%, ${hexAlpha(leftGlow, 0.33)} 0%, transparent 60%), radial-gradient(110% 70% at 100% 0%, ${hexAlpha(rightGlow, 0.33)} 0%, transparent 60%), radial-gradient(80% 50% at 50% 115%, rgb(var(--c-action) / 0.22) 0%, transparent 70%)`
     : `linear-gradient(105deg, ${hexAlpha(leftGlow, 0.13)} 0%, transparent 38%), linear-gradient(255deg, ${hexAlpha(rightGlow, 0.13)} 0%, transparent 38%)`;
@@ -470,7 +474,7 @@ export default function MatchCard({
 
   // Ergebnis in Anzeige-Reihenfolge (bei US-Sport Gast : Heim).
   function formatScore(home: number, away: number) {
-    const [left, right] = displayOrder(match.sport, home, away);
+    const [left, right] = displayOrder(order, home, away);
     return `${left} : ${right}`;
   }
 
@@ -1139,6 +1143,7 @@ export default function MatchCard({
               <CommunityTrend
                 tendency={tendency}
                 sport={match.sport}
+                order={order}
                 homeName={homeTeam.name}
                 awayName={awayTeam.name}
                 finalScore={finalScore}
@@ -1181,8 +1186,9 @@ export default function MatchCard({
             ) : (
               <ResultBox
                 match={match}
+                order={order}
                 kickedOff={kickedOff}
-                highlightLine={`${leftTeam.name} – ${rightTeam.name}${finalScore ? ` · ${scoreText(match.sport, finalScore.home, finalScore.away)}` : ""}`}
+                highlightLine={`${leftTeam.name} – ${rightTeam.name}${finalScore ? ` · ${scoreText(order, finalScore.home, finalScore.away)}` : ""}`}
               />
             )}
           </div>
@@ -1799,7 +1805,17 @@ function CancelledBox({ stake, gutschein }: { stake: number | null; gutschein: b
   );
 }
 
-function ResultBox({ match, kickedOff, highlightLine }: { match: Match; kickedOff: boolean; highlightLine: string }) {
+function ResultBox({
+  match,
+  order,
+  kickedOff,
+  highlightLine,
+}: {
+  match: Match;
+  order: TeamOrder;
+  kickedOff: boolean;
+  highlightLine: string;
+}) {
   if (match.status === "live") {
     // Nur der echte Spielstand – es gibt keinen Ereignis-Feed. Früher
     // wurden hier Tore und Karten per Zufall erfunden.
@@ -1808,7 +1824,7 @@ function ResultBox({ match, kickedOff, highlightLine }: { match: Match; kickedOf
         <span className="flex h-2 w-2 animate-pulse rounded-full bg-action" />
         <span className="font-display text-sm font-semibold text-action">LIVE</span>
         <span className="font-display text-xl font-bold text-ink">
-          {displayOrder(match.sport, match.liveHomeScore ?? 0, match.liveAwayScore ?? 0).join(" : ")}
+          {displayOrder(order, match.liveHomeScore ?? 0, match.liveAwayScore ?? 0).join(" : ")}
         </span>
       </div>
     );
@@ -2246,6 +2262,7 @@ const TREND_GREY = "#55625B";
 function CommunityTrend({
   tendency,
   sport,
+  order,
   homeName,
   awayName,
   finalScore,
@@ -2253,6 +2270,7 @@ function CommunityTrend({
 }: {
   tendency: { home: number; draw: number; away: number };
   sport: string;
+  order: TeamOrder;
   homeName: string;
   awayName: string;
   finalScore: { home: number; away: number } | null;
@@ -2269,8 +2287,8 @@ function CommunityTrend({
   const winner = finalScore ? sideOf(finalScore.home, finalScore.away) : null;
   const myCorrect = !!winner && !!myTip && sideOf(myTip.home, myTip.away) === winner;
 
-  const [leftSide, rightSide] = displayOrder<Side>(sport, "home", "away");
-  const [leftName, rightName] = displayOrder(sport, homeName, awayName);
+  const [leftSide, rightSide] = displayOrder<Side>(order, "home", "away");
+  const [leftName, rightName] = displayOrder(order, homeName, awayName);
   const parts: { side: Side; label: string; base: string }[] = [
     { side: leftSide, label: leftName, base: TREND_GREEN },
     ...(withDraw ? [{ side: "draw" as Side, label: "Remis", base: TREND_GREY }] : []),

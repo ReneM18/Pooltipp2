@@ -27,7 +27,7 @@ import { useMyClubs } from "@/lib/clubs";
 export default function DashboardPage() {
   const { placeTip, refreshStars, isRegistered, startDone, authUserId } = useUser();
   const { reloadJokers } = useJokers();
-  const { matches, getTeam, tipCounts, withdrawTip, myTips, myTipsLoaded, contentLoaded, matchesLoadFailed } = useAppData();
+  const { orderFor, matches, getTeam, tipCounts, withdrawTip, myTips, myTipsLoaded, contentLoaded, matchesLoadFailed } = useAppData();
   const streak = useStreak();
   // Herzensvereine EINMAL für die ganze Seite laden (nicht pro Karte: jeder
   // Aufruf holt die Daten und öffnet einen eigenen Realtime-Kanal).
@@ -170,7 +170,7 @@ export default function DashboardPage() {
     .filter((m) => m.status === "live")
     .map((m) => {
       const tip = findTipForMatch(m.id);
-      const [l, r] = tip ? displayOrder(m.sport, tip.predictedHomeScore, tip.predictedAwayScore) : [0, 0];
+      const [l, r] = tip ? displayOrder(orderFor(m), tip.predictedHomeScore, tip.predictedAwayScore) : [0, 0];
       return {
         match: m,
         home: getTeam(m.homeTeamId)!,

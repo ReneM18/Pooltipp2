@@ -2,6 +2,7 @@
 
 import { Match, Team } from "@/lib/types";
 import { displayOrder } from "@/lib/teamOrder";
+import { useAppData } from "@/lib/AppDataContext";
 import TeamBadge, { matchJerseyProps } from "./TeamBadge";
 import FitText from "./FitText";
 
@@ -18,12 +19,13 @@ interface LiveItem {
 }
 
 export default function LiveStrip({ items }: { items: LiveItem[] }) {
+  const { orderFor } = useAppData();
   if (items.length === 0) return null;
   return (
     <div className="mb-4 flex flex-col gap-2">
       {items.map(({ match, home, away, myTip }) => {
-        const [left, right] = displayOrder(match.sport, home, away);
-        const [ls, rs] = displayOrder(match.sport, match.liveHomeScore, match.liveAwayScore);
+        const [left, right] = displayOrder(orderFor(match), home, away);
+        const [ls, rs] = displayOrder(orderFor(match), match.liveHomeScore, match.liveAwayScore);
         const score = ls !== null && rs !== null ? `${ls} : ${rs}` : "– : –";
         return (
           <button
