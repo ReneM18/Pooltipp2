@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useAppData } from "@/lib/AppDataContext";
+import { useUser } from "@/lib/UserContext";
 import { BEGINNER_SHIELD_TIPS } from "@/lib/poolScore";
 
 // Anfänger-Schutz sichtbar machen: wie viele der ersten 10 gewerteten Tipps
@@ -19,9 +20,14 @@ export function useBeginnerShieldLeft(): number {
 
 // Kleiner Hinweis, verschwindet nach dem 10. gewerteten Tipp insgesamt
 // (Rene, 15.10.2026).
+// Nur für eingeloggte Spieler und erst, wenn ihre Tipps fertig geladen sind –
+// sonst sahen Gäste "noch 10 von 10" und bei erfahrenen Spielern blitzte der
+// Hinweis kurz auf, solange myTips noch leer war (Rene, 15.10.2026).
 export default function BeginnerShieldHint({ className = "" }: { className?: string }) {
+  const { authUserId } = useUser();
+  const { myTipsLoaded } = useAppData();
   const left = useBeginnerShieldLeft();
-  if (left === 0) return null;
+  if (!authUserId || !myTipsLoaded || left === 0) return null;
   return (
     <div className={`text-xs text-muted ${className}`}>
       <p>
