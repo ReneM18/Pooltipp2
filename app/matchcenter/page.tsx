@@ -799,6 +799,7 @@ function LcDetail({ sport, game, link, dataAt }: { sport: Sport; game: LiveGame;
           rightScore={rightSide === "home" ? homeScore : awayScore}
           clock={clock}
           events={events}
+          leftSide={leftSide}
         />
       ) : (
         <div className="rounded-lg border border-edge bg-pitch/60 px-3 py-4 text-center">

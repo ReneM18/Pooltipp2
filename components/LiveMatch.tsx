@@ -107,10 +107,11 @@ function lastGoal(events: LiveEvent[] | null | undefined): LiveEvent | null {
 // zweite Verein (Reihenfolge wie orderFor, US-Ligen Gast links). Namen
 // brechen auf 2 Zeilen um, nie abgeschnitten; die Höhe für 2 Zeilen ist
 // immer reserviert. flash: Spielstand leuchtet nach einem Tor kurz golden.
-// (Rene, 15.10.2026) Keine Torschützen mehr unter den Namen: darunter genau
-// EINE ruhige, mittige Zeile "⚽ Tolisso 45+2'" mit dem letzten Tor, Höhe
-// auch ohne Tor reserviert (nichts springt). Neues Tor: Zeile kurz golden.
-// Alle Tore/Vorlagen/Karten stehen nur im Spielverlauf.
+// (Rene, 15.10.2026) Nur EIN Tor (das letzte), z. B. "⚽ Tolisso 45+2'",
+// direkt unter dem Namen des Teams, das getroffen hat (nicht mittig); die
+// andere Spalte bleibt dort leer, Höhe in beiden reserviert (nichts springt).
+// Neues Tor: Zeile kurz golden. Alle Tore/Vorlagen/Karten stehen nur im
+// Spielverlauf.
 export function Scoreboard({
   left,
   right,
@@ -120,6 +121,7 @@ export function Scoreboard({
   events,
   flash = false,
   stage = false,
+  leftSide = "home",
 }: {
   left: BoardSide;
   right: BoardSide;
@@ -129,6 +131,7 @@ export function Scoreboard({
   events?: LiveEvent[] | null;
   flash?: boolean;
   stage?: boolean;
+  leftSide?: "home" | "away";
 }) {
   const goal = lastGoal(events);
   const goalKey = goal ? `${goal.side}-${goal.minute}-${goal.extra ?? 0}-${goal.player ?? ""}` : null;
@@ -144,7 +147,30 @@ export function Scoreboard({
     return () => window.clearTimeout(t);
   }, [goalKey]);
   const glow = !!goal && (goalGlow || flash);
-  const side = (s: BoardSide) => (
+  // Spalte des Teams, für das das letzte Tor zählt (side, bei Eigentor das
+  // begünstigte Team), gespiegelt nach leftSide (Rene, 15.10.2026).
+  const goalColumn: "left" | "right" | null = goal ? (goal.side === leftSide ? "left" : "right") : null;
+  const goalLine = (show: boolean) => (
+    <span className="flex h-6 w-full min-w-0 items-center justify-center">
+      {show && goal && (
+        <span
+          className={`flex min-w-0 max-w-full items-center gap-1 rounded-md px-1.5 text-[13px] leading-6 transition-colors duration-700 ${
+            glow ? "bg-gold/15 text-gold" : "bg-transparent text-ink"
+          }`}
+        >
+          <span aria-label="Letztes Tor" className="shrink-0">
+            ⚽
+          </span>
+          <span className="min-w-0 truncate">
+            {shortPlayerName(goal.player) || "Tor"}
+            {goal.type === "owngoal" ? " (ET)" : goal.type === "penalty" ? " (E)" : ""}
+          </span>
+          <span className={`shrink-0 tabular-nums ${glow ? "text-gold/80" : "text-muted"}`}>{eventMinuteText(goal)}</span>
+        </span>
+      )}
+    </span>
+  );
+  const side = (s: BoardSide, column: "left" | "right") => (
     <div className="flex min-w-0 flex-col items-center gap-1.5 text-center">
       {s.badge && <span className={stage ? "drop-shadow-[0_4px_8px_rgb(0_0_0/0.5)]" : ""}>{s.badge}</span>}
       <span
@@ -155,12 +181,14 @@ export function Scoreboard({
       >
         {s.name}
       </span>
+      {/* Höhe in beiden Spalten reserviert, die Tafel springt nicht. */}
+      {goalLine(goalColumn === column)}
     </div>
   );
   return (
     <div className="overflow-hidden rounded-lg border border-edge bg-pitch/60">
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 px-2 py-3">
-        {side(left)}
+        {side(left, "left")}
         <div className={`flex flex-col items-center ${stage ? "pt-1.5" : "pt-1"}`}>
           <span
             className={`whitespace-nowrap rounded-md px-1.5 font-display font-bold leading-none tabular-nums transition-colors duration-700 ${
@@ -174,25 +202,7 @@ export function Scoreboard({
             {clock.text}
           </span>
         </div>
-        {side(right)}
-      </div>
-      <div className="flex h-7 items-center justify-center px-3 pb-2 -mt-1">
-        {goal && (
-          <span
-            className={`flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-[13px] leading-5 transition-colors duration-700 ${
-              glow ? "bg-gold/15 text-gold" : "bg-transparent text-ink"
-            }`}
-          >
-            <span aria-label="Letztes Tor" className="shrink-0">
-              ⚽
-            </span>
-            <span className="min-w-0 truncate">
-              {shortPlayerName(goal.player) || "Tor"}
-              {goal.type === "owngoal" ? " (ET)" : goal.type === "penalty" ? " (E)" : ""}
-            </span>
-            <span className={`shrink-0 tabular-nums ${glow ? "text-gold/80" : "text-muted"}`}>{eventMinuteText(goal)}</span>
-          </span>
-        )}
+        {side(right, "right")}
       </div>
       {clock.state !== "finished" && clock.progress !== null && <ProgressBar progress={clock.progress} />}
     </div>

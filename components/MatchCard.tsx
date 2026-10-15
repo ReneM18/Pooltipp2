@@ -967,6 +967,7 @@ export default function MatchCard({
               events={events}
               flash={goalFlash}
               stage={stage}
+              leftSide={leftSide}
             />
           ) : (
             <div className={`flex flex-col gap-2 ${justSaved ? "animate-tip-saved rounded-lg" : ""}`}>
@@ -1289,45 +1290,57 @@ export default function MatchCard({
           </div>
         )}
 
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 pt-3 text-xs text-muted">
-          {tipCount > 0 ? (
-            <button
-              onClick={() => setTippersOpen((current) => !current)}
-              aria-expanded={tippersOpen}
-              className="flex items-center gap-1 font-semibold text-muted transition-colors hover:text-ink"
-            >
-              <PeopleIcon className="h-3.5 w-3.5" />
-              {tipCount.toLocaleString("de-DE")} getippt
-              <span aria-hidden className="text-[10px]">{tippersOpen ? "▲" : "▼"}</span>
-            </button>
-          ) : (
-            <span className="flex items-center gap-1">
-              <PeopleIcon className="h-3.5 w-3.5" />0 getippt
-            </span>
-          )}
-          {/* Footer (Rene, 15.10.2026: Spieltag-Umbau): getippt · Spielverlauf
-              (live, beendet, gewertet) · Kommentieren. "✓ Getippt" entfällt,
-              der Tipp steht ja schon als "Dein Tipp" auf der Karte. */}
-          <div className="flex items-center gap-3">
+        {/* Footer (Rene, 15.10.2026: Spieltag-Umbau): getippt · Spielverlauf
+            (live, beendet, gewertet) · Kommentieren. "✓ Getippt" entfällt,
+            der Tipp steht ja schon als "Dein Tipp" auf der Karte.
+            (Rene, 15.10.2026) Immer EINE Zeile, nie umbrechen (auch in der
+            3er-Reihe am PC und am Handy 375 px): links getippt, mittig
+            "Verlauf (6)", rechts Kommentieren; zur Not kürzt das rechte Label. */}
+        <div className="mt-auto flex flex-nowrap items-center gap-2 pt-3 text-xs text-muted">
+          <div className="flex shrink-0 justify-start">
+            {tipCount > 0 ? (
+              <button
+                onClick={() => setTippersOpen((current) => !current)}
+                aria-expanded={tippersOpen}
+                className="flex items-center gap-1 whitespace-nowrap font-semibold text-muted transition-colors hover:text-ink"
+              >
+                <PeopleIcon className="h-3.5 w-3.5" />
+                {tipCount.toLocaleString("de-DE")} getippt
+                <span aria-hidden className="text-[10px]">{tippersOpen ? "▲" : "▼"}</span>
+              </button>
+            ) : (
+              <span className="flex items-center gap-1 whitespace-nowrap">
+                <PeopleIcon className="h-3.5 w-3.5" />0 getippt
+              </span>
+            )}
+          </div>
+          <div className="flex min-w-0 flex-1 justify-center">
             {showEventsButton && (
               <button
                 onClick={() => setEventsOpen((current) => !current)}
                 aria-expanded={eventsOpen}
+                aria-label="Spielverlauf"
+                title="Spielverlauf"
                 className="flex items-center gap-1 whitespace-nowrap font-semibold text-muted transition-colors hover:text-ink"
               >
                 {/* Anzahl der Ereignisse (Rene, 15.10.2026). */}
-                Spielverlauf{timelineCount(events) > 0 ? ` (${timelineCount(events)})` : ""}
+                Verlauf{timelineCount(events) > 0 ? ` (${timelineCount(events)})` : ""}
                 <span aria-hidden className="text-[10px]">{eventsOpen ? "▲" : "▼"}</span>
               </button>
             )}
+          </div>
+          <div className="flex min-w-0 shrink justify-end">
             <button
               onClick={() => setCommentsOpen((current) => !current)}
-              className="flex items-center gap-1.5 whitespace-nowrap font-semibold text-muted transition-colors hover:text-ink"
+              title="Kommentieren"
+              className="flex min-w-0 items-center gap-1 font-semibold text-muted transition-colors hover:text-ink"
             >
-              <ChatIcon className="h-3.5 w-3.5" />
-              {matchComments.length === 0
-                ? "Kommentieren"
-                : `${matchComments.length} ${matchComments.length === 1 ? "Kommentar" : "Kommentare"}`}
+              <ChatIcon className="h-3.5 w-3.5 shrink-0" />
+              <span className="min-w-0 truncate">
+                {matchComments.length === 0
+                  ? "Kommentieren"
+                  : `${matchComments.length} ${matchComments.length === 1 ? "Kommentar" : "Kommentare"}`}
+              </span>
             </button>
           </div>
         </div>
