@@ -8,6 +8,7 @@ import MatchCard from "@/components/MatchCard";
 import AdBanner from "@/components/AdBanner";
 import WeeklyReviewCard from "@/components/WeeklyReviewCard";
 import { StreakHint } from "@/components/StreakChip";
+import BeginnerShieldHint from "@/components/BeginnerShieldHint";
 import HomeGreeting from "@/components/HomeGreeting";
 import LiveStrip from "@/components/LiveStrip";
 import { useUser } from "@/lib/UserContext";
@@ -249,6 +250,8 @@ export default function DashboardPage() {
           <StreakHint streak={streak} />
         </div>
       )}
+      {/* Anfänger-Schutz: noch X von 10 Tipps ohne Punktabzug (Rene, 15.10.2026) */}
+      <BeginnerShieldHint className="-mt-3 mb-5" />
 
       <WeeklyReviewCard />
 
