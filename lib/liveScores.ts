@@ -35,6 +35,10 @@ export interface LiveResponse {
   date: string;
   games: LiveGame[];
   error?: string;
+  // Server-Zeitpunkt (ms) der Daten: beim Fußball der Abruf der Live-Liste
+  // (live=all), sonst der Tagesliste. Daraus und aus "elapsed" rechnet der
+  // Browser die mitlaufende Minute (Rene, 15.10.2026).
+  fetchedAt?: number;
 }
 
 // Server-Cache und Abfrage-Takt in Sekunden: Fußball 180 s, sonst 300 s

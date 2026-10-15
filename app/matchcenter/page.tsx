@@ -1,7 +1,7 @@
 "use client";
 
 import EmptyState from "@/components/EmptyState";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   fetchRecentResults,
   fetchStandings,
@@ -14,12 +14,12 @@ import FitText from "@/components/FitText";
 import {
   isLiveFinished,
   isLiveRunning,
-  liveIntervalSeconds,
   updatedAgoText,
   viennaDate,
   type LiveGame,
-  type LiveResponse,
 } from "@/lib/liveScores";
+import { reloadLiveDay, useLiveDay, useLivePolling, type LiveDay } from "@/lib/useLiveScores";
+import { sameLeague } from "@/lib/liveConfig";
 import { useLiveClock, useMinuteTick } from "@/lib/useLiveMinute";
 
 const LEAGUES = Object.keys(LEAGUE_IDS);
@@ -212,7 +212,6 @@ function SubTab({ label, active, onClick }: { label: string; active: boolean; on
 
 const EL_LEAGUE = "UEFA Europa League";
 const EL_SPORT = "Fußball" as const;
-const EL_POLL_MS = liveIntervalSeconds(EL_SPORT) * 1000; // gleicher Takt wie die Route (180 s)
 const EL_MAX_LIVE_MS = 4 * 60 * 60 * 1000;
 
 type ElView = "live" | "ergebnisse" | "tabelle";
@@ -222,12 +221,10 @@ interface ElDay {
   error: string | null;
   loading: boolean;
   fetchedAt: number;
-  // Letzter erfolgreicher Abruf (für "aktualisiert vor …" und die
+  // Server-Zeitpunkt der Spieldaten (für "aktualisiert vor …" und die
   // mitlaufende Minute; Rene, 15.10.2026: Live-Gefühl).
   gamesAt: number;
 }
-
-const EMPTY_DAY: ElDay = { games: null, error: null, loading: false, fetchedAt: 0, gamesAt: 0 };
 
 // "2026-10-15" -> "2026-10-14"
 function previousDate(date: string): string {
@@ -240,16 +237,13 @@ function viennaTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("de-AT", { timeZone: "Europe/Vienna", hour: "2-digit", minute: "2-digit" });
 }
 
-async function fetchElDay(date: string): Promise<{ games: LiveGame[]; error: string | null }> {
-  try {
-    const params = new URLSearchParams({ sport: EL_SPORT, date, league: EL_LEAGUE });
-    const res = await fetch(`/api/live?${params.toString()}`);
-    const data = (await res.json()) as LiveResponse;
-    const games = Array.isArray(data.games) ? data.games : [];
-    return { games, error: games.length === 0 && data.error ? data.error : null };
-  } catch {
-    return { games: [], error: "Live-Daten nicht erreichbar" };
-  }
+// (Rene, 15.10.2026: Tippkarte und Matchcenter synchron) Die Daten kommen
+// aus demselben Speicher wie die Tippkarten (lib/useLiveScores.ts, gleiche
+// Abfrage ohne league); hier nur auf die Europa League gefiltert.
+// league der Route ist "Name · Land".
+function toElDay(day: LiveDay): ElDay {
+  const games = day.games?.filter((g) => sameLeague(EL_LEAGUE, g.league.split(" · ")[0] ?? "")) ?? null;
+  return { games, error: day.error, loading: day.loading, fetchedAt: day.loadedAt, gamesAt: day.dataAt };
 }
 
 // Läuft das Spiel (oder müsste es laut Anstoß gleich/gerade laufen)?
@@ -263,32 +257,7 @@ function needsPolling(g: LiveGame, now: number): boolean {
 function EuropaLeagueSection() {
   const [view, setView] = useState<ElView>("live");
   const [today, setToday] = useState<string | null>(null);
-  const [days, setDays] = useState<Record<string, ElDay>>({});
   const [now, setNow] = useState<number | null>(null);
-  const loadingRef = useRef(new Set<string>());
-
-  const load = useCallback(async (date: string) => {
-    if (loadingRef.current.has(date)) return;
-    loadingRef.current.add(date);
-    setDays((d) => ({ ...d, [date]: { ...(d[date] ?? EMPTY_DAY), loading: true } }));
-    const { games, error } = await fetchElDay(date);
-    loadingRef.current.delete(date);
-    setDays((d) => {
-      const prev = d[date] ?? EMPTY_DAY;
-      // Bei einem Fehler (z. B. Tageslimit) bleiben die letzten Daten stehen.
-      const keep = error && prev.games && prev.games.length > 0;
-      return {
-        ...d,
-        [date]: {
-          games: keep ? prev.games : games,
-          error: keep ? null : error,
-          loading: false,
-          fetchedAt: Date.now(),
-          gamesAt: keep ? prev.gamesAt : Date.now(),
-        },
-      };
-    });
-  }, []);
 
   // Datum und Uhr erst im Browser (sonst Hydration-Fehler), Uhr alle 30 s.
   useEffect(() => {
@@ -302,30 +271,20 @@ function EuropaLeagueSection() {
   }, []);
 
   const yesterday = today ? previousDate(today) : null;
-  const todayDay = (today && days[today]) || EMPTY_DAY;
-  const yesterdayDay = (yesterday && days[yesterday]) || EMPTY_DAY;
+  // Heute immer (Livestand und Ergebnisse brauchen das), gestern erst, wenn
+  // "Ergebnisse" geöffnet wird (1 h Cache auf dem Server).
+  const todayDay = toElDay(useLiveDay(EL_SPORT, today));
+  const yesterdayDay = toElDay(useLiveDay(EL_SPORT, view === "ergebnisse" ? yesterday : null));
 
-  // Heute einmal laden (Livestand und Ergebnisse brauchen das).
-  useEffect(() => {
-    if (today && !days[today]) void load(today);
-  }, [today, days, load]);
-
-  // Gestern erst, wenn "Ergebnisse" geöffnet wird (1 h Cache auf dem Server).
-  useEffect(() => {
-    if (view === "ergebnisse" && yesterday && !days[yesterday]) void load(yesterday);
-  }, [view, yesterday, days, load]);
-
-  // Automatisch aktualisieren – nur solange ein Spiel läuft, im 180-s-Takt.
+  // Automatisch aktualisieren – nur solange ein Spiel läuft, im 180-s-Takt
+  // (gemeinsam mit den Tippkarten, pausiert im Hintergrund).
   const polling =
     now !== null && !!todayDay.games && todayDay.games.some((g) => needsPolling(g, now));
-  useEffect(() => {
-    if (!polling || !today || now === null) return;
-    if (!todayDay.loading && now - todayDay.fetchedAt >= EL_POLL_MS) void load(today);
-  }, [polling, today, now, todayDay.loading, todayDay.fetchedAt, load]);
+  useLivePolling(EL_SPORT, today, polling);
 
   const retry = () => {
-    if (today) void load(today);
-    if (view === "ergebnisse" && yesterday) void load(yesterday);
+    if (today) reloadLiveDay(EL_SPORT, today);
+    if (view === "ergebnisse" && yesterday) reloadLiveDay(EL_SPORT, yesterday);
   };
 
   return (
