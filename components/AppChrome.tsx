@@ -13,6 +13,7 @@ import PullToRefresh from "./PullToRefresh";
 import SwipeNav from "./SwipeNav";
 import StartPageRedirect from "./StartPageRedirect";
 import EventDayClaim from "./EventDayClaim";
+import { GoalToastHost } from "./GoalToast";
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -57,6 +58,8 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
         <Footer />
       </div>
       <ChatWidget />
+      {/* Tor-Hinweis bei getippten Live-Spielen (Rene, 15.10.2026: Spieltag-Umbau). */}
+      <GoalToastHost />
       {/* Handy/Tablet: feste Leiste unten (ersetzt dort die Menüleiste oben). */}
       <BottomNav />
       {/* Neue Spieler haben auf /start ihr eigenes Start-Erlebnis. */}

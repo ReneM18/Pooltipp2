@@ -12,7 +12,7 @@ import { useFeedback } from "@/lib/FeedbackContext";
 import { ExpertResult, JOKER_ICON, TIP_JOKER_EFFECT, TIP_JOKER_LABEL, TipJoker, TrendResult, useJokers } from "@/lib/JokerContext";
 import { useTaschen } from "@/lib/TaschenContext";
 import type { SeasonEmote } from "@/lib/seasons";
-import { allowsDraw as sportAllowsDraw, displayOrder, oneXTwoText, pickNumber, scoreText, type TeamOrder } from "@/lib/teamOrder";
+import { allowsDraw as sportAllowsDraw, displayOrder, oneXTwoText, scoreText, type TeamOrder } from "@/lib/teamOrder";
 import TeamBadge, { jerseyFor, matchJerseyProps } from "./TeamBadge";
 import PlayerAvatar from "./PlayerAvatar";
 import CountdownTiles from "./CountdownTiles";
@@ -27,9 +27,12 @@ import { SeasonCardWatermark } from "./SeasonDeco";
 import ShareTipButton from "./ShareTipCard";
 import type { ShareCardData } from "@/lib/shareCard";
 import Emoji from "@/components/Emoji";
-import { useLiveScore, type LiveScore } from "@/lib/useLiveScores";
-import { useLiveClock } from "@/lib/useLiveMinute";
+import { useFinishedEvents, useLiveScore } from "@/lib/useLiveScores";
+import { isGoalEvent, scorerLine, shortPlayerName, eventMinuteText } from "@/lib/liveScores";
+import { useLiveForecast } from "@/lib/liveForecast";
 import { useBeginnerShieldLeft } from "./BeginnerShieldHint";
+import { EventTimeline, LivePill, LiveTipLine, Scoreboard, forecastPlain, signedPoints, useBoardClock } from "./LiveMatch";
+import { showGoalToast } from "./GoalToast";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -350,11 +353,73 @@ export default function MatchCard({
   // Wertung bleibt beim offiziellen Endstand (Rene, 15.10.2026).
   const liveScore = useLiveScore(match, homeTeam.name, awayTeam.name);
   const live = !finalScore && !isCancelled && showResultView ? liveScore : null;
-  // Anzeigetafel (Rene, 15.10.2026: Anzeigetafel): sobald Live-Daten da sind
-  // (LIVE/HT, nach Abpfiff "Beendet"), ersetzt eine große Tafel die
-  // Vereins-Tippzeilen. Kartenrahmen bleibt normal, Live zeigt nur das Pill
-  // (Rene, 15.10.2026: ohne roten Rahmen, passend zum Matchcenter).
+  // Anzeigetafel (Rene, 15.10.2026: Spieltag-Umbau): sobald Live-Daten da
+  // sind (Live, Pause, nach Abpfiff "Beendet") und ebenso mit offiziellem
+  // Endstand ersetzt eine große Tafel die Vereins-Tippzeilen. Kartenrahmen
+  // bleibt normal, Live zeigt nur das Pill (ohne roten Rahmen).
+  const showBoard = !isCancelled && (!!live || !!finalScore);
+  const boardClock = useBoardClock(match.sport, live);
+  // Tore/Karten: live mit dem Stand, nach der Wertung aus dem letzten
+  // Live-Stand des Servers (falls er ihn noch kennt).
+  const finishedEvents = useFinishedEvents(match, homeTeam.name, awayTeam.name, !!finalScore && !isCancelled);
+  const events = live ? live.events : finalScore ? finishedEvents : null;
+  const leftSide: "home" | "away" = isUsSport ? "away" : "home";
+  const rightSide: "home" | "away" = isUsSport ? "home" : "away";
   const shieldLeft = useBeginnerShieldLeft();
+  // Vorläufige Wertung des eigenen Tipps mit dem Live-Stand bzw. dem
+  // Endstand, solange die Wertung noch fehlt (nur feste Punkte, ohne Bonus
+  // und Joker; mit Anfänger-Schutz zählt ein Minus als 0).
+  const boardScore = live ? { home: live.homeScore, away: live.awayScore } : finalScore;
+  const pendingTip = !!myTip && !myTip.evaluated && !myTip.refunded && !isCancelled && !!boardScore ? myTip : null;
+  const pendingTier = pendingTip && boardScore
+    ? classifyRankingTip(pendingTip.predictedHomeScore, pendingTip.predictedAwayScore, boardScore.home, boardScore.away, isOneXTwo)
+    : null;
+  const pendingPoints = pendingTier ? (shieldLeft > 0 ? Math.max(0, RANKING_POINTS[pendingTier]) : RANKING_POINTS[pendingTier]) : 0;
+  // "Wenn es so bleibt": vorläufiger Platz in der Rangliste (lib/liveForecast.ts).
+  const forecast = useLiveForecast(match.sport, !!live && !!pendingTip);
+  const [eventsOpen, setEventsOpen] = useState(false);
+  // Ohne bekannte Ereignisse nach Abpfiff kein leerer "Spielverlauf".
+  const showEventsButton = showBoard && !!events && (!!live || events.some((e) => e.type !== "subst"));
+
+  // Tor-Moment (Rene, 15.10.2026: Spieltag-Umbau): Ändert sich der Stand
+  // eines getippten Spiels gegenüber dem letzten Abruf, leuchtet der
+  // Spielstand ~2,5 s golden und unten kommt ein Hinweis (GoalToast). Nicht
+  // beim ersten Laden, jedes Tor nur einmal.
+  const [goalFlash, setGoalFlash] = useState(false);
+  const lastScoreRef = useRef<{ home: number; away: number } | null>(null);
+  const liveKey = live ? `${live.homeScore}:${live.awayScore}` : null;
+  useEffect(() => {
+    if (!live) return;
+    const prev = lastScoreRef.current;
+    lastScoreRef.current = { home: live.homeScore, away: live.awayScore };
+    if (!prev || !myTip || myTip.refunded) return;
+    const homeUp = live.homeScore > prev.home;
+    const awayUp = live.awayScore > prev.away;
+    if (!homeUp && !awayUp) return;
+    setGoalFlash(true);
+    const t = window.setTimeout(() => setGoalFlash(false), 2500);
+    const side: "home" | "away" = homeUp && !awayUp ? "home" : !homeUp && awayUp ? "away" : live.homeScore - prev.home >= live.awayScore - prev.away ? "home" : "away";
+    const team = side === "home" ? homeTeam : awayTeam;
+    // Torschütze nur, wenn die Ereignisse schon bis zu diesem Tor reichen.
+    const goals = live.events.filter((e) => isGoalEvent(e) && e.side === side);
+    const scorer = goals.length === (side === "home" ? live.homeScore : live.awayScore)
+      ? goals.slice().sort((a, b) => a.minute - b.minute || (a.extra ?? 0) - (b.extra ?? 0))[goals.length - 1]
+      : null;
+    const tier = classifyRankingTip(myTip.predictedHomeScore, myTip.predictedAwayScore, live.homeScore, live.awayScore, isOneXTwo);
+    const detail = [
+      scorer ? `${shortPlayerName(scorer.player) || "Tor"} ${eventMinuteText(scorer)}` : null,
+      `Dein Tipp liegt ${tier === "falsch" ? "daneben" : "richtig"}`,
+      forecast ? `wenn es so bleibt ${forecastPlain(forecast)}` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    showGoalToast(`${match.id}:${live.homeScore}:${live.awayScore}`, {
+      title: `⚽ TOR für ${team.name} · ${scoreText(order, live.homeScore, live.awayScore)}`,
+      detail,
+    });
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveKey]);
   const comparison =
     myTip?.evaluated && myTip.resultTier && finalScore && tippers
       ? compareWithOthers(
@@ -427,14 +492,6 @@ export default function MatchCard({
     return oneXTwoText(order, h, a, homeTeam.name, awayTeam.name);
   }
 
-  // Ohne Unentschieden (NBA, NHL) steht "Sieg" statt 1/2 – der Knopf sitzt
-  // direkt unter dem Team, das gemeint ist.
-  function pickButtonNumber(pick: OneXTwo) {
-    if (pick === "X") return "X";
-    if (!allowsDraw) return "Sieg";
-    return pickNumber(order, pick === "1" ? "home" : "away");
-  }
-
   // Auf der Bühne stehen die Countdown-Kacheln über den Vereins-Zeilen
   // (nicht mehr in der letzten Minute, dann kommt der "Gleich geschlossen"-Hinweis).
   const showTiles = stage && !showResultView && !closingSoon;
@@ -455,6 +512,31 @@ export default function MatchCard({
 
   function formatTip(home: number, away: number) {
     return isOneXTwo ? pickLabel(scoreToOneXTwo(home, away)) : formatScore(home, away);
+  }
+
+  // Tipp kurz: Sieger-Tipp als Vereinsname bzw. "Unentschieden", sonst "2:1"
+  // in Anzeige-Reihenfolge (Rene, 15.10.2026: Spieltag-Umbau).
+  function tipName(home: number, away: number) {
+    if (!isOneXTwo) return scoreText(order, home, away);
+    const pick = scoreToOneXTwo(home, away);
+    return pick === "1" ? homeTeam.name : pick === "2" ? awayTeam.name : "Unentschieden";
+  }
+
+  // Eine Seite der Anzeigetafel: Trikot, Name, Torschützen dieses Teams.
+  function boardSide(team: Team, side: "home" | "away") {
+    return {
+      name: team.name,
+      badge: (
+        <TeamBadge
+          sport={match.sport}
+          {...matchJerseyProps(match, team)}
+          isNationalTeam={team.isNationalTeam}
+          countryCode={team.countryCode}
+          size={stage ? 40 : 34}
+        />
+      ),
+      scorers: scorerLine(events ?? undefined, side),
+    };
   }
 
   // "Ändern": Tipp zurücknehmen, danach ist die Karte wie vor dem ersten
@@ -587,10 +669,11 @@ export default function MatchCard({
     const pick: OneXTwo = side === "home" ? "1" : "2";
     const selected = compactSelected === pick;
     const isFan = !!fanTeamId && team.id === fanTeamId;
-    const goals = finalScore
-      ? side === "home" ? finalScore.home : finalScore.away
-      : live
-        ? side === "home" ? live.homeScore : live.awayScore
+    // Ergebnis-Tipp nach dem Abgeben: die getippten Tore stehen rechts in
+    // Gold (Endstand und Live-Stand zeigt die Anzeigetafel).
+    const tipGoals =
+      showResultView && !isOneXTwo && myTip && !myTip.refunded
+        ? side === "home" ? myTip.predictedHomeScore : myTip.predictedAwayScore
         : null;
     const scoreInput = !showResultView && !isOneXTwo ? (side === "home" ? homeScoreInputCompact : awayScoreInputCompact) : null;
     const content = (
@@ -605,24 +688,20 @@ export default function MatchCard({
           />
         </span>
         <TeamLabel name={team.name} inline="left" single big={stage} selected={selected} />
+        {/* Getippt: "Dein Tipp" statt Heim/Gast am gewählten Verein
+            (Rene, 15.10.2026: Spieltag-Umbau). */}
         <span
           className={`shrink-0 pl-2 text-[11px] font-medium uppercase tracking-wide ${
-            selected ? "text-gold/70" : "text-muted/60"
+            selected ? "text-gold/80" : "text-muted/60"
           }`}
         >
-          {side === "home" ? "Heim" : "Gast"}
+          {selected && !compactPicking ? "Dein Tipp" : side === "home" ? "Heim" : "Gast"}
         </span>
         {scoreInput}
-        {/* Endstand im selben Kasten-Maß wie das Ergebnisfeld (Rene, 15.10.2026).
-            Live-Stand gleich groß; nach Abpfiff ohne offiziellen Endstand
-            dezent (grau), damit er nicht wie der Endstand aussieht. */}
-        {goals !== null && (
-          <span
-            className={`flex h-11 w-12 shrink-0 items-center justify-center font-display text-[20px] font-bold leading-none sm:h-[46px] sm:w-[52px] sm:text-[22px] ${
-              !finalScore && live?.finished ? "text-muted" : "text-ink"
-            }`}
-          >
-            {goals}
+        {/* Getippte Tore im selben Kasten-Maß wie das Ergebnisfeld. */}
+        {tipGoals !== null && (
+          <span className="flex h-11 w-12 shrink-0 items-center justify-center rounded-lg border border-gold/40 bg-gold/10 font-display text-[20px] font-bold leading-none text-gold sm:h-[46px] sm:w-[52px] sm:text-[22px]">
+            {tipGoals}
           </span>
         )}
       </>
@@ -657,7 +736,7 @@ export default function MatchCard({
         ) : (
           <div
             className={`${compactRowClass(selected, false)} ${rowHeight} ${rowGap} py-1.5 ${
-              scoreInput ? rowPaddingScore : rowPadding
+              scoreInput || tipGoals !== null ? rowPaddingScore : rowPadding
             }`}
           >
             {content}
@@ -686,8 +765,9 @@ export default function MatchCard({
         Unentschieden
       </button>
     ) : (
-      <div key="X" className={className}>
+      <div key="X" className={`${className} gap-2`}>
         Unentschieden
+        {selected && <span className="text-[11px] font-medium uppercase tracking-wide text-gold/80">· Dein Tipp</span>}
       </div>
     );
   }
@@ -764,8 +844,8 @@ export default function MatchCard({
               <span className="rounded-full border border-red-400/60 bg-red-400/10 px-2 py-0.5 font-semibold text-red-300">
                 Abgesagt
               </span>
-            ) : live ? (
-              <LiveBadge live={live} />
+            ) : showBoard ? (
+              <LivePill state={boardClock.state} pauseText={live?.status === "HT" ? "Halbzeit" : live?.statusText || "Pause"} />
             ) : (
               <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
             )}
@@ -792,8 +872,8 @@ export default function MatchCard({
             <span className="rounded-full border border-red-400/60 bg-red-400/10 px-2 py-0.5 font-semibold text-red-300">
               Abgesagt
             </span>
-          ) : live ? (
-            <LiveBadge live={live} />
+          ) : showBoard ? (
+            <LivePill state={boardClock.state} pauseText={live?.status === "HT" ? "Halbzeit" : live?.statusText || "Pause"} />
           ) : (
             <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
           )}
@@ -865,49 +945,46 @@ export default function MatchCard({
               <CountdownTiles target={match.tipDeadline} />
             </div>
           )}
-          {finalScore && (
-            <p className={`mb-1 text-right text-[10px] uppercase tracking-wide text-muted ${stage ? "pr-4" : "pr-3"}`}>
-              Endstand
+          {/* Getippter Ergebnis-Tipp: die Zahlen in den Vereins-Zeilen sind
+              der eigene Tipp (Rene, 15.10.2026: Spieltag-Umbau). */}
+          {!showBoard && !isOneXTwo && myTip && !myTip.refunded && (
+            <p className={`mb-1 text-right text-[10px] font-semibold uppercase tracking-wide text-gold/80 ${stage ? "pr-4" : "pr-3"}`}>
+              Dein Tipp
             </p>
           )}
           {!showResultView && (
             <p className={`mb-2 text-center text-muted/80 ${stage ? "text-[13px]" : "text-xs"}`}>{tipHint}</p>
           )}
-          {live ? (
-            // Anzeigetafel statt Vereins-Zeilen und Unentschieden-Knopf
-            // (Rene, 15.10.2026: Anzeigetafel).
-            <LiveScoreboard
-              live={live}
-              match={match}
-              order={order}
-              leftTeam={leftTeam}
-              rightTeam={rightTeam}
+          {showBoard && boardScore ? (
+            // Anzeigetafel statt Vereins-Zeilen (live, Pause, beendet, gewertet),
+            // unter jedem Namen die Torschützen (Rene, 15.10.2026: Spieltag-Umbau).
+            <Scoreboard
+              left={boardSide(leftTeam, leftSide)}
+              right={boardSide(rightTeam, rightSide)}
+              leftScore={leftSide === "home" ? boardScore.home : boardScore.away}
+              rightScore={rightSide === "home" ? boardScore.home : boardScore.away}
+              clock={boardClock}
+              flash={goalFlash}
               stage={stage}
             />
           ) : (
-            <div className="flex flex-col gap-2">
-              {compactTeamRow(leftTeam, isUsSport ? "away" : "home")}
+            <div className={`flex flex-col gap-2 ${justSaved ? "animate-tip-saved rounded-lg" : ""}`}>
+              {compactTeamRow(leftTeam, leftSide)}
               {compactShowsDraw && compactDrawRow()}
-              {compactTeamRow(rightTeam, isUsSport ? "home" : "away")}
+              {compactTeamRow(rightTeam, rightSide)}
             </div>
           )}
-          {/* Eine Zeile "Dein Tipp" + "Stand jetzt" (ersetzt die frühere
-              eigene Stand-jetzt-Zeile; nur feste Punkte, ohne Bonus und Joker)
-              (Rene, 15.10.2026: Anzeigetafel). */}
-          {live && myTip && !myTip.evaluated && !myTip.refunded && (
+          {/* EINE Zeile "Dein Tipp: … · richtig  +5 vorläufig" mit "wenn es so
+              bleibt" darunter; nach Abpfiff ohne Wertung "Wertung folgt"
+              (Rene, 15.10.2026: Spieltag-Umbau, ersetzt "Stand jetzt"). */}
+          {pendingTip && pendingTier && (
             <LiveTipLine
-              live={live}
-              myTip={myTip}
+              tipText={tipName(pendingTip.predictedHomeScore, pendingTip.predictedAwayScore)}
+              tier={pendingTier}
+              points={pendingPoints}
               isOneXTwo={isOneXTwo}
-              shieldActive={shieldLeft > 0}
-              tipText={
-                isOneXTwo
-                  ? (() => {
-                      const pick = scoreToOneXTwo(myTip.predictedHomeScore, myTip.predictedAwayScore);
-                      return pick === "1" ? homeTeam.name : pick === "2" ? awayTeam.name : "Unentschieden";
-                    })()
-                  : scoreText(order, myTip.predictedHomeScore, myTip.predictedAwayScore)
-              }
+              finished={!live || live.finished}
+              forecast={forecast}
             />
           )}
           {!showResultView && closingSoon && (
@@ -1095,83 +1172,42 @@ export default function MatchCard({
 
         {showResultView && (
           <div className="flex flex-col gap-3">
-            {hasTipped && !live && (
-              <div
-                className={`flex items-center justify-between gap-3 rounded-lg border border-edge bg-pitch px-4 py-2.5 ${
-                  justSaved ? "animate-tip-saved" : ""
-                }`}
-              >
-                {/* Mit Booster getippt: Schild UNTER "Dein Tipp" (am Handy
-                    daneben zu breit, der Tipp rutschte über "Ändern"). */}
-                <span className="flex shrink-0 flex-col items-start gap-1 whitespace-nowrap text-sm text-muted">
-                  <span className="flex items-center gap-1.5">
-                    <span aria-hidden className={`font-bold text-action-hover ${justSaved ? "animate-check-pop" : ""}`}>✓</span>
-                    Dein Tipp
-                  </span>
-                  {(myTip?.stake ?? 0) > 0 && (
+            {/* Getippt (Rene, 15.10.2026: Spieltag-Umbau): der Tipp steht in den
+                Vereins-Zeilen, hier nur noch Booster-Hinweis und "Tipp ändern"
+                (dezent, Umriss). Ersetzt den früheren Kasten "Dein Tipp". */}
+            {hasTipped && !showBoard && !myTip?.evaluated && !isCancelled && ((myTip?.stake ?? 0) > 0 || canChangeTip) && (
+              <div className="flex flex-col gap-2">
+                {(myTip?.stake ?? 0) > 0 && (
+                  <p className="text-center">
                     <span
                       title="Mit Booster getippt"
                       className="rounded-full border border-gold/50 bg-gold/15 px-2 py-px text-[10px] font-bold uppercase tracking-wide text-gold"
                     >
-                      ⚡ Booster
+                      ⚡ Mit Booster getippt
                     </span>
-                  )}
-                </span>
-                <span className="flex min-w-0 items-center gap-3">
-                  {isOneXTwo ? (
-                    // Nummer groß, Teamname klein daneben – so bricht nur der
-                    // Name um, nicht "1 (Boston" / "Bruins)". "Sieg" ist breiter
-                    // als 1/2: dort steht der Name darunter, damit er Platz hat.
-                    <span
-                      className={`flex min-w-0 text-right ${
-                        allowsDraw ? "items-center gap-2" : "flex-col items-end gap-0.5"
-                      }`}
-                    >
-                      <span
-                        className={
-                          allowsDraw
-                            ? "font-display text-lg font-bold leading-tight text-ink"
-                            : "text-xs leading-tight text-muted/70"
-                        }
-                      >
-                        {pickButtonNumber(scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore))}
-                      </span>
-                      {/* Nur zwischen Wörtern umbrechen ("Buffalo / Bills"), nie
-                          mitten im Wort ("Unentschiede / n"). */}
-                      <span className={allowsDraw ? "text-xs leading-tight text-muted" : "text-sm leading-tight text-ink/85"}>
-                        {(() => {
-                          const pick = scoreToOneXTwo(myTip!.predictedHomeScore, myTip!.predictedAwayScore);
-                          return pick === "1" ? homeTeam.name : pick === "2" ? awayTeam.name : "Unentschieden";
-                        })()}
-                      </span>
-                    </span>
-                  ) : (
-                    <span className="text-right font-display font-semibold leading-tight text-ink">
-                      {formatTip(myTip!.predictedHomeScore, myTip!.predictedAwayScore)}
-                    </span>
-                  )}
-                  {canChangeTip && (
-                    <button
-                      onClick={withdrawMyTip}
-                      disabled={withdrawing}
-                      className="shrink-0 rounded-full border border-edge px-3 py-1 text-xs font-semibold text-gold transition-colors hover:border-gold disabled:cursor-wait disabled:opacity-60"
-                    >
-                      {withdrawing ? "…" : "Ändern"}
-                    </button>
-                  )}
-                </span>
+                  </p>
+                )}
+                {canChangeTip && (
+                  <button
+                    onClick={withdrawMyTip}
+                    disabled={withdrawing}
+                    className="w-full rounded-full border border-edge py-2 text-sm font-semibold text-muted transition-colors hover:border-gold hover:text-ink disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {withdrawing ? "Wird zurückgenommen…" : "Tipp ändern"}
+                  </button>
+                )}
               </div>
             )}
 
             {/* Noch nicht ausgewertet: kurz zeigen, was der Tipp bringen kann.
                 Jedes Paar bleibt zusammen ("Tendenz +5" nie getrennt). */}
-            {stage && hasTipped && !myTip?.evaluated && !isCancelled && !live && (
+            {stage && hasTipped && !myTip?.evaluated && !isCancelled && !showBoard && (
               <div className="flex justify-center">
                 <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} />
               </div>
             )}
 
-            {hasTipped && !myTip?.evaluated && !isCancelled && !live && (
+            {hasTipped && !myTip?.evaluated && !isCancelled && !showBoard && (
               <JokerRow
                 matchId={match.id}
                 joker={myTip?.joker ?? null}
@@ -1181,6 +1217,16 @@ export default function MatchCard({
             )}
             {hasTipped && !tippingClosed && !isCancelled && !myTip?.evaluated && (
               <TrendRow matchId={match.id} homeName={homeTeam.name} awayName={awayTeam.name} awayFirst={isUsSport} />
+            )}
+
+            {hasTipped && myTip?.evaluated && !myTip.refunded && !isCancelled && (
+              <EvaluatedBox
+                myTip={myTip!}
+                tipText={tipName(myTip!.predictedHomeScore, myTip!.predictedAwayScore)}
+                comparison={comparison}
+                isOneXTwo={isOneXTwo}
+                shareData={shareData}
+              />
             )}
 
             {tippingClosed && !isCancelled && tendency && (
@@ -1193,10 +1239,6 @@ export default function MatchCard({
                 finalScore={finalScore}
                 myTip={myTip && !myTip.refunded ? { home: myTip.predictedHomeScore, away: myTip.predictedAwayScore } : null}
               />
-            )}
-
-            {hasTipped && myTip?.evaluated && !myTip.refunded && !isCancelled && (
-              <PoolScoreResultBox myTip={myTip!} comparison={comparison} isOneXTwo={isOneXTwo} shareData={shareData} />
             )}
 
             {match.bonusQuestion && myBonusAnswer && (
@@ -1246,7 +1288,7 @@ export default function MatchCard({
           </div>
         )}
 
-        <div className="mt-auto flex items-center justify-between pt-3 text-xs text-muted">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 pt-3 text-xs text-muted">
           {tipCount > 0 ? (
             <button
               onClick={() => setTippersOpen((current) => !current)}
@@ -1262,19 +1304,37 @@ export default function MatchCard({
               <PeopleIcon className="h-3.5 w-3.5" />0 getippt
             </span>
           )}
+          {/* Footer (Rene, 15.10.2026: Spieltag-Umbau): getippt · Spielverlauf
+              (live, beendet, gewertet) · Kommentieren. "✓ Getippt" entfällt,
+              der Tipp steht ja schon als "Dein Tipp" auf der Karte. */}
           <div className="flex items-center gap-3">
+            {showEventsButton && (
+              <button
+                onClick={() => setEventsOpen((current) => !current)}
+                aria-expanded={eventsOpen}
+                className="flex items-center gap-1 whitespace-nowrap font-semibold text-muted transition-colors hover:text-ink"
+              >
+                Spielverlauf
+                <span aria-hidden className="text-[10px]">{eventsOpen ? "▲" : "▼"}</span>
+              </button>
+            )}
             <button
               onClick={() => setCommentsOpen((current) => !current)}
-              className="flex items-center gap-1.5 font-semibold text-muted transition-colors hover:text-ink"
+              className="flex items-center gap-1.5 whitespace-nowrap font-semibold text-muted transition-colors hover:text-ink"
             >
               <ChatIcon className="h-3.5 w-3.5" />
               {matchComments.length === 0
                 ? "Kommentieren"
                 : `${matchComments.length} ${matchComments.length === 1 ? "Kommentar" : "Kommentare"}`}
             </button>
-            {hasTipped && <span className="whitespace-nowrap text-sm font-black text-action-hover">✓ Getippt</span>}
           </div>
         </div>
+
+        {eventsOpen && showEventsButton && events && (
+          <div className="mt-3 border-t border-edge pt-3">
+            <EventTimeline events={events} leftSide={leftSide} />
+          </div>
+        )}
 
         {tippersOpen && tipCount > 0 && (
           <TippersList
@@ -1390,20 +1450,6 @@ export default function MatchCard({
     </div>
   );
 }
-
-const TIER_LABEL: Record<TipResultTier, string> = {
-  exakt: "🎯 Exakt getroffen!",
-  differenz: "👍 Tordifferenz richtig",
-  tendenz: "👍 Tendenz richtig",
-  falsch: "😬 Daneben getippt",
-};
-
-const TIER_BOX_CLASS: Record<TipResultTier, string> = {
-  exakt: "border-gold bg-gold/10",
-  differenz: "border-action bg-action/10",
-  tendenz: "border-action bg-action/10",
-  falsch: "border-edge bg-pitch",
-};
 
 const JOKER_LABEL = { doppel: "Doppel-Joker", schutz: "Schutz-Joker", toleranz: "Toleranz-Joker" } as const;
 
@@ -1684,13 +1730,27 @@ function PointsInfoButton({
   );
 }
 
-function PoolScoreResultBox({
+// Gewertet (Rene, 15.10.2026: Spieltag-Umbau): grüne bzw. rötliche Box
+// "Dein Tipp: <Tipp>", darunter "<Stufe> +5 · Bonus +4 · besser als 64 %",
+// rechts groß die Summe. Ersetzt die frühere Ergebnis-Box und den Kasten
+// "Dein Tipp". Booster-Coins, Joker, Anfänger-Schutz und die Untergrenze 0
+// stehen klein darunter, nur wenn sie zutreffen.
+const TIER_NAME: Record<TipResultTier, string> = {
+  exakt: "Exakt",
+  differenz: "Tordifferenz",
+  tendenz: "Tendenz",
+  falsch: "Daneben",
+};
+
+function EvaluatedBox({
   myTip,
+  tipText,
   comparison,
   isOneXTwo,
   shareData,
 }: {
   myTip: MyTip;
+  tipText: string;
   comparison: { beaten: number; tied: number; ahead: number; total: number } | null;
   isOneXTwo: boolean;
   shareData: ShareCardData | null;
@@ -1701,112 +1761,97 @@ function PoolScoreResultBox({
   // Mit Gutschein war nichts bezahlt: daneben kostet der Tipp nichts
   // (supabase/trainingstaschen.sql gleicht das auf dem Konto aus).
   const starsDelta = myTip.gutschein ? Math.max(0, myTip.starsDelta ?? 0) : myTip.starsDelta ?? 0;
-  // Gratis-Tipp (kein Einsatz): keine Sterne-Zeile, nur Rangpunkte.
   const hasStake = (myTip.stake ?? 0) > 0;
-  const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0");
-  // Aufschlüsselung "Treffer + Bonus": im Rankingsystem immer, bei Tipps aus
-  // dem früheren Punkte-Modell (Duelle) mit dessen Zahlen. Ganz alte Tipps
-  // zeigen weiter den einfachen Vergleich mit den Mitspielern.
+  // Aufschlüsselung: im Rankingsystem immer, bei Tipps aus dem früheren
+  // Punkte-Modell (Duelle) mit dessen Zahlen, ganz alte Tipps nur Vergleich.
   const oldDuelOpponents = (myTip.duelsWon ?? 0) + (myTip.duelsDrawn ?? 0) + (myTip.duelsLost ?? 0);
   const breakdown = myTip.rankingScored
-    ? {
-        fixed: myTip.basePoints ?? rangDelta,
-        bonus: myTip.bonusPoints ?? 0,
-        beaten: myTip.beaten ?? 0,
-        opponents: myTip.opponents ?? 0,
-      }
+    ? { bonus: myTip.bonusPoints ?? 0, beaten: myTip.beaten ?? 0, opponents: myTip.opponents ?? 0 }
     : myTip.duelPoints !== undefined && !myTip.scoredWithoutDuels && oldDuelOpponents > 0
-    ? { fixed: myTip.basePoints ?? rangDelta, bonus: myTip.duelPoints, beaten: myTip.duelsWon ?? 0, opponents: oldDuelOpponents }
+    ? { bonus: myTip.duelPoints, beaten: myTip.duelsWon ?? 0, opponents: oldDuelOpponents }
     : null;
+  const fixed = myTip.basePoints ?? (breakdown ? rangDelta - breakdown.bonus : rangDelta);
+  const percent =
+    breakdown && breakdown.opponents > 0
+      ? Math.round((breakdown.beaten / breakdown.opponents) * 100)
+      : !breakdown && comparison && comparison.total > 0
+      ? Math.round((comparison.beaten / comparison.total) * 100)
+      : null;
+  const good = tier !== "falsch";
+  const tierName = isOneXTwo ? (good ? "Richtig" : "Daneben") : TIER_NAME[tier];
+  const summary = [
+    `${tierName} ${signedPoints(fixed)}`,
+    breakdown && breakdown.opponents > 0 ? `Bonus ${signedPoints(breakdown.bonus)}` : null,
+    percent !== null ? `besser als ${percent} %` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const notes: string[] = [];
+  if (myTip.rankingLegacy) notes.push("Vor dem Neustart der Rangpunkte gewertet, zählt nicht mehr.");
+  if ((breakdown && breakdown.opponents === 0) || (!breakdown && comparison?.total === 0)) {
+    notes.push("Außer dir hat niemand getippt, darum kein Bonus.");
+  }
+  if (myTip.joker) {
+    notes.push(
+      `${JOKER_ICON[myTip.joker]} ${JOKER_LABEL[myTip.joker]} eingesetzt${
+        fixed + (breakdown?.bonus ?? 0) < calculated && !myTip.beginnerShielded ? ": kein Minus" : ""
+      }`
+    );
+  }
+  if (myTip.beginnerShielded) notes.push(`🐣 Anfänger-Schutz: kein Minus (deine ersten ${BEGINNER_SHIELD_TIPS} Tipps).`);
+  if (calculated !== rangDelta) {
+    notes.push(
+      `Gerechnet ${signedPoints(calculated)}. Rangpunkte fallen nie unter 0, darum ${
+        rangDelta === 0 ? "wurde nichts abgezogen" : `nur ${-rangDelta} abgezogen`
+      }.`
+    );
+  }
 
   return (
-    <div className={`flex flex-col gap-2 rounded-lg border px-4 py-3 ${TIER_BOX_CLASS[tier]}`}>
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-        <span className="whitespace-nowrap font-display text-sm font-semibold text-ink">
-          {isOneXTwo && tier === "tendenz" ? "👍 Richtig getippt" : TIER_LABEL[tier]}
-        </span>
-        {/* Minus bewusst sachlich in Grau statt Rot: ein einzelner Tipp
-            ist nur ein Baustein, zählt wird die Woche und die Saison. */}
+    <div
+      className={`flex flex-col gap-2 rounded-lg border px-4 py-3 ${
+        good ? "border-action/50 bg-action/10" : "border-edge bg-red-400/[0.07]"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm text-muted">
+            Dein Tipp: <span className={`font-semibold ${good ? "text-gold" : "text-ink"}`}>{tipText}</span>
+          </p>
+          <p className="mt-0.5 text-xs text-muted">{summary}</p>
+        </div>
+        {/* Minus sachlich in Grau statt Rot: ein einzelner Tipp ist nur ein Baustein. */}
         <span
-          className={`shrink-0 whitespace-nowrap font-display text-base font-bold ${
-            myTip.rankingLegacy ? "text-muted line-through" : rangDelta >= 0 ? "text-action" : "text-muted"
+          className={`shrink-0 whitespace-nowrap text-right font-display font-bold leading-none ${
+            myTip.rankingLegacy ? "text-muted line-through" : rangDelta > 0 ? "text-action" : "text-muted"
           }`}
         >
-          {signed(rangDelta)} <span className="text-xs font-semibold">Rangpunkte</span>
+          <span className="text-[26px]">{signedPoints(rangDelta)}</span>
+          <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide">Rangpunkte</span>
         </span>
       </div>
-      {myTip.rankingLegacy && (
-        <span className="text-xs text-muted">Vor dem Neustart der Rangpunkte gewertet, zählt nicht mehr.</span>
-      )}
-      {breakdown && (
-        <div className="flex flex-col gap-0.5 text-xs text-muted">
-          <span>
-            Treffer {signed(breakdown.fixed)}
-            {breakdown.opponents > 0 && <> · Bonus {signed(breakdown.bonus)}</>}
+      {hasStake && (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
+          <span className={`flex items-center gap-1 font-semibold ${starsDelta >= 0 ? "text-gold" : "text-muted"}`}>
+            <CoinIcon className="h-4 w-4" />
+            {starsDelta >= 0 ? "+" : ""}
+            {starsDelta} Coins
           </span>
-          {breakdown.opponents > 0 ? (
-            <span>
-              Gegen {breakdown.beaten} von {breakdown.opponents}{" "}
-              {breakdown.opponents === 1 ? "Mittipper" : "Mittippern"} durchgesetzt
-            </span>
-          ) : (
-            <span>Außer dir hat niemand getippt, darum kein Bonus.</span>
-          )}
-          {myTip.joker && (
-            <span>
-              {JOKER_ICON[myTip.joker]} {JOKER_LABEL[myTip.joker]} eingesetzt
-              {breakdown.fixed + breakdown.bonus < calculated && !myTip.beginnerShielded ? ": kein Minus" : ""}
-            </span>
-          )}
-          {myTip.beginnerShielded && (
-            <span>🐣 Anfänger-Schutz: kein Minus, deine ersten {BEGINNER_SHIELD_TIPS} Tipps kosten keine Punkte.</span>
-          )}
-          {calculated !== rangDelta && (
-            <span>
-              Gerechnet {signed(calculated)}. Rangpunkte fallen nie unter 0, darum{" "}
-              {rangDelta === 0 ? "wurde nichts abgezogen" : `nur ${-rangDelta} abgezogen`}.
-            </span>
-          )}
-        </div>
-      )}
-      {(hasStake || (!breakdown && comparison)) && (
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-          {hasStake && (
-            <span className="flex flex-col gap-0.5">
-              <span className={`flex items-center gap-1 font-semibold ${starsDelta >= 0 ? "text-gold" : "text-red-400"}`}>
-                <CoinIcon className="h-4 w-4" />
-                {starsDelta >= 0 ? "+" : ""}
-                {starsDelta} Coins
-                {myTip.gutschein && <span className="font-normal text-muted"> · mit Gutschein</span>}
-              </span>
-              {/* Abrechnung ausgeschrieben: Der Einsatz ist schon beim Tippen
-                  weg, nach dem Spiel kommt etwas zurück. Sonst wirkt "+10 aufs
-                  Konto" nach einem falschen Tipp wie ein Gewinn (Rene, 11.10.2026). */}
-              <span className="font-normal text-muted">
-                {myTip.gutschein
-                  ? "Mit Gutschein getippt, nichts bezahlt."
-                  : `Einsatz ${myTip.stake} · zurück ${(myTip.stake ?? 0) + starsDelta} → ${starsDelta > 0 ? "+" : starsDelta < 0 ? "−" : "±"}${Math.abs(starsDelta)} Coins`}
-              </span>
-            </span>
-          )}
-          {!breakdown &&
-            comparison &&
-            (comparison.total === 0 ? (
-              <span>Außer dir hat niemand getippt.</span>
-            ) : (
-              <span>
-                Besser als {comparison.beaten} von {comparison.total}{" "}
-                {comparison.total === 1 ? "Mitspieler" : "Mitspielern"} (
-                {Math.round((comparison.beaten / comparison.total) * 100)} %)
-                {comparison.tied > 0 ? `, gleich gut wie ${comparison.tied}` : ""}.
-              </span>
-            ))}
-        </div>
-      )}
-      {breakdown && breakdown.opponents > 0 && (
-        <p className="border-t border-edge/60 pt-2 text-[11px] leading-snug text-muted">
-          Bonus: Bessere zu schlagen bringt doppelt, gegen Schwächere zu verlieren kostet doppelt.
+          {/* Abrechnung ausgeschrieben: Der Einsatz ist schon beim Tippen weg,
+              nach dem Spiel kommt etwas zurück (Rene, 11.10.2026). */}
+          <span>
+            {myTip.gutschein
+              ? "Mit Gutschein getippt, nichts bezahlt."
+              : `Einsatz ${myTip.stake} · zurück ${(myTip.stake ?? 0) + starsDelta}`}
+          </span>
         </p>
+      )}
+      {notes.length > 0 && (
+        <div className="flex flex-col gap-0.5 text-[11px] leading-snug text-muted">
+          {notes.map((n) => (
+            <span key={n}>{n}</span>
+          ))}
+        </div>
       )}
       {shareData && <ShareTipButton data={shareData} />}
     </div>
@@ -1827,186 +1872,6 @@ function CancelledBox({ stake, gutschein }: { stake: number | null; gutschein: b
           : "Dein Tipp wird nicht gewertet."}
       </span>
     </div>
-  );
-}
-
-// Vorläufige Wertung des eigenen Tipps mit dem Live-Stand (Rene, 15.10.2026).
-// Rein Anzeige: gleiche Stufen und feste Punkte wie bei der Auswertung
-// (classifyRankingTip + RANKING_POINTS), ohne Bonus gegen die Mittipper und
-// ohne Joker. Mit Anfänger-Schutz zählt ein Minus als 0.
-const LIVE_TIER_TEXT: Record<TipResultTier, string> = {
-  exakt: "liegt exakt richtig",
-  differenz: "Tordifferenz richtig",
-  tendenz: "liegt richtig",
-  falsch: "liegt daneben",
-};
-const LIVE_TIER_LABEL: Record<TipResultTier, string> = {
-  exakt: "Exakt",
-  differenz: "Differenz",
-  tendenz: "Tendenz",
-  falsch: "Falsch",
-};
-
-function LiveTipLine({
-  live,
-  myTip,
-  isOneXTwo,
-  shieldActive,
-  tipText,
-}: {
-  live: LiveScore;
-  myTip: MyTip;
-  isOneXTwo: boolean;
-  shieldActive: boolean;
-  tipText: string;
-}) {
-  // live.homeScore/awayScore sind schon dem Heim-/Gastverein der App
-  // zugeordnet (findLiveGame dreht vertauschte Paarungen um).
-  const tier = classifyRankingTip(
-    myTip.predictedHomeScore,
-    myTip.predictedAwayScore,
-    live.homeScore,
-    live.awayScore,
-    isOneXTwo
-  );
-  const raw = RANKING_POINTS[tier];
-  const points = shieldActive ? Math.max(0, raw) : raw;
-  const pointsText = points > 0 ? `+${points}` : points < 0 ? `−${-points}` : "±0";
-  // Gold nur, wenn der Tipp gerade richtig liegt (Rene, 15.10.2026: Anzeigetafel).
-  const good = points > 0;
-  return (
-    <div
-      title={`Stand jetzt: dein Tipp ${LIVE_TIER_TEXT[tier]}`}
-      className={`mt-2.5 flex min-h-[40px] items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-[13px] ${
-        good ? "border-gold/70 bg-gold/10" : "border-edge bg-pitch"
-      }`}
-    >
-      <span className="min-w-0 truncate text-muted">
-        Dein Tipp: <span className={`font-semibold ${good ? "text-gold" : "text-ink"}`}>{tipText}</span>
-      </span>
-      <span className="flex shrink-0 items-baseline gap-1 whitespace-nowrap">
-        <span className="text-muted">{live.finished ? (isOneXTwo ? (tier === "falsch" ? "Falsch" : "Richtig") : LIVE_TIER_LABEL[tier]) : "Stand jetzt"}</span>
-        <span
-          className={`font-display text-sm font-bold ${good ? "text-gold" : points < 0 ? "text-red-400" : "text-ink"}`}
-        >
-          {pointsText}
-        </span>
-        <span className="text-[10px] text-muted/80">vorläufig</span>
-      </span>
-    </div>
-  );
-}
-
-// Text unter dem Spielstand der Anzeigetafel: "67'" wird "67. Minute",
-// nach Abpfiff "Beendet" / "n. V." / "i. E." (Rene, 15.10.2026: Anzeigetafel).
-function liveBoardText(live: LiveScore, sport: Match["sport"]): string {
-  if (live.status === "FT") return "Beendet";
-  if (live.status === "AET") return live.statusText || "n. V.";
-  if (live.status === "PEN") return sport === "Fußball" ? "i. E." : live.statusText;
-  if (live.status === "HT") return "Halbzeit";
-  const minute = live.statusText.match(/^(\d+(?:\+\d+)?)'(.*)$/);
-  return minute ? `${minute[1]}. Minute${minute[2]}` : live.statusText;
-}
-
-// Anzeigetafel: links Trikot über Name, Mitte großer Spielstand, rechts der
-// zweite Verein; Reihenfolge wie orderFor (US-Ligen Gast links).
-// Namen brechen auf 2 Zeilen um, nie abgeschnitten (Rene, 15.10.2026: Anzeigetafel).
-function LiveScoreboard({
-  live,
-  match,
-  order,
-  leftTeam,
-  rightTeam,
-  stage,
-}: {
-  live: LiveScore;
-  match: Match;
-  order: TeamOrder;
-  leftTeam: Team;
-  rightTeam: Team;
-  stage: boolean;
-}) {
-  const [leftScore, rightScore] = displayOrder(order, live.homeScore, live.awayScore);
-  // Minute zählt im Browser mit (Rene, 15.10.2026: Live-Gefühl).
-  const clock = useLiveClock(match.sport, live.statusShort, live.elapsed, live.dataAt);
-  const boardText =
-    !live.finished && clock && clock.text !== "Halbzeit"
-      ? clock.text.endsWith("'")
-        ? `${clock.text.slice(0, -1)}. Minute`
-        : clock.text
-      : liveBoardText(live, match.sport);
-  const team = (t: Team) => (
-    <div className="flex min-w-0 flex-col items-center gap-1.5 text-center">
-      <span className={stage ? "drop-shadow-[0_4px_8px_rgb(0_0_0/0.5)]" : ""}>
-        <TeamBadge
-          sport={match.sport}
-          {...matchJerseyProps(match, t)}
-          isNationalTeam={t.isNationalTeam}
-          countryCode={t.countryCode}
-          size={stage ? 40 : 34}
-        />
-      </span>
-      <span
-        className={`w-full break-words font-display font-semibold leading-tight text-ink [hyphens:auto] ${
-          stage ? "text-[15px] sm:text-base" : "text-sm"
-        }`}
-        lang="de"
-      >
-        {t.name}
-      </span>
-    </div>
-  );
-  return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 rounded-lg border border-edge bg-pitch/60 px-2 py-3">
-      {team(leftTeam)}
-      <div className={`flex flex-col items-center ${stage ? "pt-1.5" : "pt-1"}`}>
-        <span
-          className={`whitespace-nowrap font-display font-bold leading-none tabular-nums text-white ${
-            stage ? "text-[36px]" : "text-[32px]"
-          }`}
-        >
-          {leftScore}:{rightScore}
-        </span>
-        {/* Minute gedämpft mit kleinem rotem Punkt statt knallrot
-            (Rene, 15.10.2026: ohne roten Rahmen, passend zum Matchcenter). */}
-        <span className="mt-1.5 inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-medium text-muted">
-          {!live.finished && (
-            <span
-              aria-hidden
-              className={`h-1.5 w-1.5 rounded-full bg-red-500 ${live.status === "LIVE" ? "animate-live-dot" : ""}`}
-            />
-          )}
-          {boardText}
-        </span>
-      </div>
-      {team(rightTeam)}
-    </div>
-  );
-}
-
-// Pill oben rechts statt Countdown: "● LIVE", in der Pause "Halbzeit",
-// nach Abpfiff grau "Beendet" (Rene, 15.10.2026: Anzeigetafel).
-// Dezent: dunkler Hintergrund, kleiner roter Punkt, heller Text
-// (Rene, 15.10.2026: ohne roten Rahmen, passend zum Matchcenter).
-function LiveBadge({ live }: { live: LiveScore }) {
-  if (live.finished) {
-    return (
-      <span className="rounded-full border border-edge bg-pitch px-2 py-0.5 font-semibold text-muted">Beendet</span>
-    );
-  }
-  const pause = live.status === "HT" || live.status === "BREAK";
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-pitch px-2 py-0.5 font-semibold text-ink">
-      {pause ? (
-        live.status === "HT" ? "Halbzeit" : live.statusText || "Pause"
-      ) : (
-        <>
-          {/* Punkt pulsiert sanft (Rene, 15.10.2026: Live-Gefühl). */}
-          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-red-500 animate-live-dot" />
-          <span className="font-bold text-red-400">LIVE</span>
-        </>
-      )}
-    </span>
   );
 }
 
@@ -2070,20 +1935,16 @@ function ResultBox({
     );
   }
 
-  // "Noch nicht begonnen" sagt am Handy nichts Neues (Datum steht oben) und
-  // macht die Karte nur länger – dort weglassen, am PC bleibt es.
+  // "Noch nicht begonnen" sagt nichts Neues (Countdown und Datum stehen
+  // oben) – weggelassen (Rene, 15.10.2026: Spieltag-Umbau, keine doppelten
+  // Hinweise). Nach Anpfiff ohne Live-Daten bleibt "Spiel läuft".
+  if (!kickedOff && !liveFinished) return null;
   return (
-    <div
-      className={`items-center justify-center rounded-lg border border-edge bg-pitch px-4 py-3 ${
-        kickedOff ? "flex" : "hidden lg:flex"
-      }`}
-    >
+    <div className="flex items-center justify-center rounded-lg border border-edge bg-pitch px-4 py-3">
       <span className="text-sm text-muted">
         {liveFinished
           ? "Abgepfiffen – offizielles Ergebnis folgt"
-          : kickedOff
-            ? "Spiel läuft – Ergebnis folgt"
-            : "Spiel hat noch nicht begonnen"}
+          : "Spiel läuft – Ergebnis folgt"}
       </span>
     </div>
   );
@@ -2428,7 +2289,7 @@ const TREND_GREEN = "#3FA66B";
 const TREND_GOLD = "#E8B34C";
 const TREND_GREY = "#55625B";
 
-function CommunityTrend({
+export function CommunityTrend({
   tendency,
   sport,
   order,
