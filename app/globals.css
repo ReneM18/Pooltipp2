@@ -488,3 +488,11 @@ html[data-season-design] .match-card-rand {
   from { opacity: 0.7; }
   to { opacity: 1; }
 }
+
+/* Laufendes Spiel laut Live-Daten: roter Kartenrand statt Gold
+   (Rene, 15.10.2026: Anzeigetafel). */
+html .match-card-rand.match-card-live,
+html[data-season-design] .match-card-rand.match-card-live {
+  border-color: rgb(239 68 68 / 0.75);
+  box-shadow: 0 0 0 1px rgb(239 68 68 / 0.18), 0 6px 18px -10px rgb(0 0 0 / 0.6);
+}

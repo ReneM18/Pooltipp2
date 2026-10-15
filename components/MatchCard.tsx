@@ -349,6 +349,10 @@ export default function MatchCard({
   // Wertung bleibt beim offiziellen Endstand (Rene, 15.10.2026).
   const liveScore = useLiveScore(match, homeTeam.name, awayTeam.name);
   const live = !finalScore && !isCancelled && showResultView ? liveScore : null;
+  // Anzeigetafel (Rene, 15.10.2026: Anzeigetafel): sobald Live-Daten da sind
+  // (LIVE/HT, nach Abpfiff "Beendet"), ersetzt eine große Tafel die
+  // Vereins-Tippzeilen. Roter Kartenrand nur, solange das Spiel läuft.
+  const liveRunning = !!live && !live.finished;
   const shieldLeft = useBeginnerShieldLeft();
   const comparison =
     myTip?.evaluated && myTip.resultTier && finalScore && tippers
@@ -722,7 +726,7 @@ export default function MatchCard({
       id={`spiel-${match.id}`}
       className={`relative isolate flex h-full flex-col overflow-hidden match-card-rand rounded-card border bg-surface ${
         highlight ? "outline outline-2 outline-offset-2 outline-gold" : ""
-      } ${stage ? "match-card-stage" : ""}`}
+      } ${stage ? "match-card-stage" : ""} ${liveRunning ? "match-card-live" : ""}`}
       style={{ backgroundImage: cardBackground }}
     >
       {stage && (
@@ -759,7 +763,7 @@ export default function MatchCard({
               <span className="rounded-full border border-red-400/60 bg-red-400/10 px-2 py-0.5 font-semibold text-red-300">
                 Abgesagt
               </span>
-            ) : live && !live.finished ? (
+            ) : live ? (
               <LiveBadge live={live} />
             ) : (
               <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
@@ -787,7 +791,7 @@ export default function MatchCard({
             <span className="rounded-full border border-red-400/60 bg-red-400/10 px-2 py-0.5 font-semibold text-red-300">
               Abgesagt
             </span>
-          ) : live && !live.finished ? (
+          ) : live ? (
             <LiveBadge live={live} />
           ) : (
             <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
@@ -865,31 +869,45 @@ export default function MatchCard({
               Endstand
             </p>
           )}
-          {/* Live-Daten (Rene, 15.10.2026): gleiche Zeile wie "Endstand",
-              einzeilig, damit die Karte nicht springt. */}
-          {live && (
-            <p
-              className={`mb-1 truncate text-right text-[10px] uppercase tracking-wide ${stage ? "pr-4" : "pr-3"} ${
-                live.finished ? "text-muted/80" : "font-semibold text-red-400"
-              }`}
-            >
-              {live.finished
-                ? `Endstand laut Live-Daten${live.status !== "FT" ? ` (${live.statusText})` : ""}`
-                : `Spielstand · ${live.statusText}`}
-            </p>
-          )}
           {!showResultView && (
             <p className={`mb-2 text-center text-muted/80 ${stage ? "text-[13px]" : "text-xs"}`}>{tipHint}</p>
           )}
-          <div className="flex flex-col gap-2">
-            {compactTeamRow(leftTeam, isUsSport ? "away" : "home")}
-            {compactShowsDraw && compactDrawRow()}
-            {compactTeamRow(rightTeam, isUsSport ? "home" : "away")}
-          </div>
-          {/* Stand jetzt: wie stünde der eigene Tipp mit dem Live-Stand?
-              Nur feste Punkte, ohne Bonus und Joker (Rene, 15.10.2026). */}
+          {live ? (
+            // Anzeigetafel statt Vereins-Zeilen und Unentschieden-Knopf
+            // (Rene, 15.10.2026: Anzeigetafel).
+            <LiveScoreboard
+              live={live}
+              match={match}
+              order={order}
+              leftTeam={leftTeam}
+              rightTeam={rightTeam}
+              stage={stage}
+            />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {compactTeamRow(leftTeam, isUsSport ? "away" : "home")}
+              {compactShowsDraw && compactDrawRow()}
+              {compactTeamRow(rightTeam, isUsSport ? "home" : "away")}
+            </div>
+          )}
+          {/* Eine Zeile "Dein Tipp" + "Stand jetzt" (ersetzt die frühere
+              eigene Stand-jetzt-Zeile; nur feste Punkte, ohne Bonus und Joker)
+              (Rene, 15.10.2026: Anzeigetafel). */}
           {live && myTip && !myTip.evaluated && !myTip.refunded && (
-            <LiveTipLine live={live} myTip={myTip} isOneXTwo={isOneXTwo} shieldActive={shieldLeft > 0} />
+            <LiveTipLine
+              live={live}
+              myTip={myTip}
+              isOneXTwo={isOneXTwo}
+              shieldActive={shieldLeft > 0}
+              tipText={
+                isOneXTwo
+                  ? (() => {
+                      const pick = scoreToOneXTwo(myTip.predictedHomeScore, myTip.predictedAwayScore);
+                      return pick === "1" ? homeTeam.name : pick === "2" ? awayTeam.name : "Unentschieden";
+                    })()
+                  : scoreText(order, myTip.predictedHomeScore, myTip.predictedAwayScore)
+              }
+            />
           )}
           {!showResultView && closingSoon && (
             <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">
@@ -1076,7 +1094,7 @@ export default function MatchCard({
 
         {showResultView && (
           <div className="flex flex-col gap-3">
-            {hasTipped && (
+            {hasTipped && !live && (
               <div
                 className={`flex items-center justify-between gap-3 rounded-lg border border-edge bg-pitch px-4 py-2.5 ${
                   justSaved ? "animate-tip-saved" : ""
@@ -1146,13 +1164,13 @@ export default function MatchCard({
 
             {/* Noch nicht ausgewertet: kurz zeigen, was der Tipp bringen kann.
                 Jedes Paar bleibt zusammen ("Tendenz +5" nie getrennt). */}
-            {stage && hasTipped && !myTip?.evaluated && !isCancelled && (
+            {stage && hasTipped && !myTip?.evaluated && !isCancelled && !live && (
               <div className="flex justify-center">
                 <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} />
               </div>
             )}
 
-            {hasTipped && !myTip?.evaluated && !isCancelled && (
+            {hasTipped && !myTip?.evaluated && !isCancelled && !live && (
               <JokerRow
                 matchId={match.id}
                 joker={myTip?.joker ?? null}
@@ -1208,12 +1226,11 @@ export default function MatchCard({
 
             {isCancelled ? (
               <CancelledBox stake={hasTipped ? myTip!.stake ?? 0 : null} gutschein={!!myTip?.gutschein} />
-            ) : (
+            ) : live ? null : (
               <ResultBox
                 match={match}
                 order={order}
                 kickedOff={kickedOff}
-                liveFinished={!!live?.finished}
                 highlightLine={`${leftTeam.name} – ${rightTeam.name}${finalScore ? ` · ${scoreText(order, finalScore.home, finalScore.away)}` : ""}`}
               />
             )}
@@ -1834,11 +1851,13 @@ function LiveTipLine({
   myTip,
   isOneXTwo,
   shieldActive,
+  tipText,
 }: {
   live: LiveScore;
   myTip: MyTip;
   isOneXTwo: boolean;
   shieldActive: boolean;
+  tipText: string;
 }) {
   // live.homeScore/awayScore sind schon dem Heim-/Gastverein der App
   // zugeordnet (findLiveGame dreht vertauschte Paarungen um).
@@ -1852,22 +1871,22 @@ function LiveTipLine({
   const raw = RANKING_POINTS[tier];
   const points = shieldActive ? Math.max(0, raw) : raw;
   const pointsText = points > 0 ? `+${points}` : points < 0 ? `−${-points}` : "±0";
-  const tierLabel = isOneXTwo ? (tier === "falsch" ? "Falsch" : "Richtig") : LIVE_TIER_LABEL[tier];
+  // Gold nur, wenn der Tipp gerade richtig liegt (Rene, 15.10.2026: Anzeigetafel).
+  const good = points > 0;
   return (
-    <div className="mt-2 flex h-8 items-center justify-between gap-2 rounded-lg bg-white/[0.06] px-3 text-xs">
+    <div
+      title={`Stand jetzt: dein Tipp ${LIVE_TIER_TEXT[tier]}`}
+      className={`mt-2.5 flex min-h-[40px] items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-[13px] ${
+        good ? "border-gold/70 bg-gold/10" : "border-edge bg-pitch"
+      }`}
+    >
       <span className="min-w-0 truncate text-muted">
-        {live.finished ? (
-          "Endstand laut Live-Daten · Wertung folgt"
-        ) : (
-          <>
-            Stand jetzt: <span className="text-ink">dein Tipp {LIVE_TIER_TEXT[tier]}</span>
-          </>
-        )}
+        Dein Tipp: <span className={`font-semibold ${good ? "text-gold" : "text-ink"}`}>{tipText}</span>
       </span>
       <span className="flex shrink-0 items-baseline gap-1 whitespace-nowrap">
-        {live.finished && <span className="text-muted">{tierLabel}</span>}
+        <span className="text-muted">{live.finished ? (isOneXTwo ? (tier === "falsch" ? "Falsch" : "Richtig") : LIVE_TIER_LABEL[tier]) : "Stand jetzt"}</span>
         <span
-          className={`font-semibold ${points > 0 ? "text-[#4FC181]" : points < 0 ? "text-red-400" : "text-ink"}`}
+          className={`font-display text-sm font-bold ${good ? "text-gold" : points < 0 ? "text-red-400" : "text-ink"}`}
         >
           {pointsText}
         </span>
@@ -1877,14 +1896,97 @@ function LiveTipLine({
   );
 }
 
-// Statt "Tipps geschlossen" oben rechts, solange das Spiel laut Live-Daten
-// läuft: "🔴 LIVE · 67'" bzw. "Halbzeit", "2. Drittel" (Rene, 15.10.2026).
-function LiveBadge({ live }: { live: LiveScore }) {
+// Text unter dem Spielstand der Anzeigetafel: "67'" wird "67. Minute",
+// nach Abpfiff "Beendet" / "n. V." / "i. E." (Rene, 15.10.2026: Anzeigetafel).
+function liveBoardText(live: LiveScore, sport: Match["sport"]): string {
+  if (live.status === "FT") return "Beendet";
+  if (live.status === "AET") return live.statusText || "n. V.";
+  if (live.status === "PEN") return sport === "Fußball" ? "i. E." : live.statusText;
+  if (live.status === "HT") return "Halbzeit";
+  const minute = live.statusText.match(/^(\d+(?:\+\d+)?)'(.*)$/);
+  return minute ? `${minute[1]}. Minute${minute[2]}` : live.statusText;
+}
+
+// Anzeigetafel: links Trikot über Name, Mitte großer Spielstand, rechts der
+// zweite Verein; Reihenfolge wie orderFor (US-Ligen Gast links).
+// Namen brechen auf 2 Zeilen um, nie abgeschnitten (Rene, 15.10.2026: Anzeigetafel).
+function LiveScoreboard({
+  live,
+  match,
+  order,
+  leftTeam,
+  rightTeam,
+  stage,
+}: {
+  live: LiveScore;
+  match: Match;
+  order: TeamOrder;
+  leftTeam: Team;
+  rightTeam: Team;
+  stage: boolean;
+}) {
+  const [leftScore, rightScore] = displayOrder(order, live.homeScore, live.awayScore);
+  const team = (t: Team) => (
+    <div className="flex min-w-0 flex-col items-center gap-1.5 text-center">
+      <span className={stage ? "drop-shadow-[0_4px_8px_rgb(0_0_0/0.5)]" : ""}>
+        <TeamBadge
+          sport={match.sport}
+          {...matchJerseyProps(match, t)}
+          isNationalTeam={t.isNationalTeam}
+          countryCode={t.countryCode}
+          size={stage ? 40 : 34}
+        />
+      </span>
+      <span
+        className={`w-full break-words font-display font-semibold leading-tight text-ink [hyphens:auto] ${
+          stage ? "text-[15px] sm:text-base" : "text-sm"
+        }`}
+        lang="de"
+      >
+        {t.name}
+      </span>
+    </div>
+  );
   return (
-    <span className="inline-flex items-center gap-1 font-semibold text-red-400">
-      <span aria-hidden className="animate-pulse">🔴</span>
-      LIVE
-      {live.statusText && <span className="font-medium text-red-300">· {live.statusText}</span>}
+    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 rounded-lg border border-edge bg-pitch/60 px-2 py-3">
+      {team(leftTeam)}
+      <div className={`flex flex-col items-center ${stage ? "pt-1.5" : "pt-1"}`}>
+        <span
+          className={`whitespace-nowrap font-display font-bold leading-none tabular-nums text-white ${
+            stage ? "text-[36px]" : "text-[32px]"
+          }`}
+        >
+          {leftScore}:{rightScore}
+        </span>
+        <span
+          className={`mt-1.5 whitespace-nowrap text-[11px] font-semibold ${live.finished ? "text-muted" : "text-red-400"}`}
+        >
+          {liveBoardText(live, match.sport)}
+        </span>
+      </div>
+      {team(rightTeam)}
+    </div>
+  );
+}
+
+// Pill oben rechts statt Countdown: "🔴 LIVE", in der Pause "Halbzeit",
+// nach Abpfiff grau "Beendet" (Rene, 15.10.2026: Anzeigetafel).
+function LiveBadge({ live }: { live: LiveScore }) {
+  if (live.finished) {
+    return (
+      <span className="rounded-full border border-edge bg-pitch px-2 py-0.5 font-semibold text-muted">Beendet</span>
+    );
+  }
+  const pause = live.status === "HT" || live.status === "BREAK";
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-red-500/60 bg-red-500/15 px-2 py-0.5 font-semibold text-red-300">
+      {pause ? (
+        live.status === "HT" ? "Halbzeit" : live.statusText || "Pause"
+      ) : (
+        <>
+          <span aria-hidden className="animate-pulse">🔴</span> LIVE
+        </>
+      )}
     </span>
   );
 }
