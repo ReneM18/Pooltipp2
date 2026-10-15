@@ -417,7 +417,8 @@ function ElLive({
           <div key={group.time}>
             <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-muted">
               Anstoß {group.time} Uhr
-              {running && <span className="text-red-400">· läuft</span>}
+              {/* (Rene, 15.10.2026: kein Rot mehr in der Überschrift – ruhiger) */}
+              {running && <span className="text-ink/70">· läuft</span>}
             </p>
             <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
               {group.games.map((g) => (
@@ -485,7 +486,8 @@ const OTHER_STATUS: Record<string, string> = {
 function elStatus(g: LiveGame): { live: boolean; text: string } {
   if (g.status === "HT") return { live: true, text: "Halbzeit" };
   if (isLiveRunning(g.status)) return { live: true, text: g.statusText || "Live" };
-  if (g.status === "NS") return { live: false, text: `Nicht begonnen · ${viennaTime(g.kickoff)} Uhr` };
+  // (Rene, 15.10.2026: nicht begonnen nur noch die Anstoßzeit, grau)
+  if (g.status === "NS") return { live: false, text: viennaTime(g.kickoff) };
   if (g.status === "AET") return { live: false, text: "Beendet · n. V." };
   if (g.status === "PEN") {
     const pen = g.penaltyHome !== undefined && g.penaltyAway !== undefined ? ` ${g.penaltyHome}:${g.penaltyAway}` : "";
@@ -495,35 +497,54 @@ function elStatus(g: LiveGame): { live: boolean; text: string } {
   return { live: false, text: OTHER_STATUS[g.statusShort.toUpperCase()] ?? "—" };
 }
 
+// Tor-Hervorhebung (Rene, 15.10.2026): letzter bekannter Stand pro Spiel-ID.
+// Liegt außerhalb der Komponente, damit er auch einen Reiterwechsel
+// (Livestand ↔ Ergebnisse) übersteht. Ändert sich der Stand gegenüber dem
+// letzten Abruf, leuchtet das Ergebnis ~8 s golden auf.
+const EL_GOAL_FLASH_MS = 8000;
+const elLastScore = new Map<string, string>();
+
+function useGoalFlash(id: string, score: string | null): boolean {
+  const [flash, setFlash] = useState(false);
+  useEffect(() => {
+    if (score === null) return;
+    const prev = elLastScore.get(id);
+    elLastScore.set(id, score);
+    if (prev === undefined || prev === score) return;
+    setFlash(true);
+    const t = setTimeout(() => setFlash(false), EL_GOAL_FLASH_MS);
+    return () => clearTimeout(t);
+  }, [id, score]);
+  return flash;
+}
+
 // Ein Spiel: Heim – Stand – Gast, darunter Minute/Status.
+// (Rene, 15.10.2026: ruhiger Stil wie Sofascore – neutrale Kachel, Stand
+// weiß/fett, Rot nur noch als kleiner Punkt vor der Minute.)
 function ElGameCard({ game, dateLabel }: { game: LiveGame; dateLabel?: string }) {
   const { live, text } = elStatus(game);
   const hasScore = game.homeScore !== null && game.awayScore !== null && game.status !== "NS";
-  const finished = isLiveFinished(game.status);
+  const flash = useGoalFlash(game.id, hasScore ? `${game.homeScore}:${game.awayScore}` : null);
   return (
-    <div
-      className={`rounded-card border px-3 py-2.5 sm:px-4 ${
-        live ? "border-red-400/50 bg-red-500/5" : "border-edge bg-surface"
-      }`}
-    >
+    <div className="rounded-card border border-edge bg-surface px-3 py-2.5 sm:px-4">
       {dateLabel && <p className="mb-1 text-xs text-muted">{dateLabel}</p>}
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm">
         <FitText text={game.home} className="text-right leading-tight text-ink" />
         <span
-          className={`min-w-[3.25rem] text-center font-display text-base font-bold tabular-nums ${
-            live ? "text-red-400" : hasScore ? "text-ink" : "text-muted"
+          className={`min-w-[3.25rem] rounded-md px-1.5 py-0.5 text-center font-display text-base font-bold tabular-nums transition-colors duration-700 ${
+            flash ? "bg-gold/15 text-gold" : hasScore ? "bg-transparent text-ink" : "bg-transparent text-muted"
           }`}
         >
           {hasScore ? `${game.homeScore} : ${game.awayScore}` : "– : –"}
         </span>
         <FitText text={game.away} className="leading-tight text-ink" />
       </div>
-      <p className={`mt-1 text-center text-xs ${live ? "font-semibold text-red-400" : finished ? "text-ink/80" : "text-muted"}`}>
+      <p className={`mt-1 text-center text-xs tabular-nums ${live ? "font-semibold text-ink" : "text-muted"}`}>
         {live ? (
-          <span className="inline-flex items-center gap-1">
-            <span aria-hidden className="animate-pulse">🔴</span>
-            LIVE
-            <span className="font-medium text-red-300">· {text}</span>
+          <span className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+            <span className="sr-only">Live: </span>
+            {text}
           </span>
         ) : (
           text
