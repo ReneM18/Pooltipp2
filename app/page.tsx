@@ -322,11 +322,10 @@ export default function DashboardPage() {
                 </span>
               </h2>
             )}
-            {/* Am PC zwei statt drei Karten nebeneinander, sonst passt nicht mal
-                "Fenerbahçe" in eine Zeile. Kein 2xl:grid-cols-3, weil max-w-6xl
-                die Breite deckelt und die Karten dann wieder so schmal wären
-                (Rene, 15.10.2026). */}
-            <div className="flex flex-col gap-5 lg:grid lg:grid-cols-2 lg:gap-5">{group.matches.map((m) => renderCard(m))}</div>
+            {/* Am PC wieder drei Karten nebeneinander: Seit die Vereine
+                untereinander stehen (Variante B), passen die Namen auch in
+                schmalere Karten (Rene, 15.10.2026). */}
+            <div className="flex flex-col gap-5 lg:grid lg:grid-cols-3 lg:gap-5">{group.matches.map((m) => renderCard(m))}</div>
           </section>
         ))}
       </div>
