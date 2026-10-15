@@ -1,7 +1,7 @@
 "use client";
 
 import EmptyState from "@/components/EmptyState";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchRecentResults,
   fetchStandings,
@@ -12,15 +12,41 @@ import {
 import AdBanner from "@/components/AdBanner";
 import FitText from "@/components/FitText";
 import {
+  appSideEvents,
+  findLiveGame,
   isLiveFinished,
   isLiveRunning,
+  scorerLine,
   updatedAgoText,
   viennaDate,
   type LiveGame,
+  type LiveMatchResult,
 } from "@/lib/liveScores";
-import { reloadLiveDay, useLiveDay, useLivePolling, type LiveDay } from "@/lib/useLiveScores";
-import { sameLeague } from "@/lib/liveConfig";
+import { reloadLiveDay, useLiveDay, useLivePolling } from "@/lib/useLiveScores";
+import { LIVE_SPORTS } from "@/lib/liveConfig";
 import { useLiveClock, useMinuteTick } from "@/lib/useLiveMinute";
+import { useLiveForecast } from "@/lib/liveForecast";
+import { useAppData } from "@/lib/AppDataContext";
+import { classifyRankingTip, RANKING_POINTS } from "@/lib/poolScore";
+import { competitionFlag } from "@/lib/competitionFlag";
+import { displayOrder, scoreText, type TeamOrder } from "@/lib/teamOrder";
+import type { Match, Sport, Team } from "@/lib/types";
+import TeamBadge, { matchJerseyProps } from "@/components/TeamBadge";
+import CommentThread from "@/components/CommentThread";
+import Emoji from "@/components/Emoji";
+import { CommunityTrend } from "@/components/MatchCard";
+import { useBeginnerShieldLeft } from "@/components/BeginnerShieldHint";
+import {
+  EventTimeline,
+  LivePill,
+  LiveTipLine,
+  ProgressBar,
+  Scoreboard,
+  StateDot,
+  signedPoints,
+  useBoardClock,
+  type BoardSide,
+} from "@/components/LiveMatch";
 
 const LEAGUES = Object.keys(LEAGUE_IDS);
 
@@ -65,8 +91,9 @@ export default function MatchcenterPage() {
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Matchcenter</h1>
 
-      {/* (Rene, 15.10.2026: Europa League zum Testen) */}
-      <EuropaLeagueSection />
+      {/* Live-Bereich mit Detail (Rene, 15.10.2026: Spieltag-Umbau), nur die
+          in lib/liveConfig.ts eingeschalteten Ligen (zum Testen Europa League). */}
+      {LIVE_SPORT && <LiveCenterSection sport={LIVE_SPORT} />}
 
       <AdBanner />
 
@@ -204,26 +231,30 @@ function SubTab({ label, active, onClick }: { label: string; active: boolean; on
 }
 
 // ---------------------------------------------------------------------------
-// UEFA Europa League (Rene, 15.10.2026: Europa League zum Testen)
-// Live-Daten von API-Sports über die Server-Route /api/live (der Schlüssel
-// bleibt auf dem Server). Im Gratis-Plan gibt es nur gestern/heute/morgen
-// und keine Tabellen – deshalb "Ergebnisse" nur von heute und gestern und
-// bei "Tabelle" nur ein Hinweis ohne Abfrage.
+// Live-Bereich (Rene, 15.10.2026: Spieltag-Umbau, vorher nur "UEFA Europa
+// League"). Live-Daten von API-Sports über /api/live, aus demselben Speicher
+// wie die Tippkarten (lib/useLiveScores.ts). Nur eingeschaltete Ligen laut
+// lib/liveConfig.ts (die Route filtert schon). Im Gratis-Plan gibt es nur
+// gestern/heute/morgen und keine Tabellen – "Ergebnisse" deshalb von heute
+// und gestern, bei "Tabelle" nur ein Hinweis ohne Abfrage.
+//
+// Am PC zweispaltig: links die Liste, rechts (~360 px) das Detail des
+// gewählten Spiels. Am Handy steht das Detail unter der Liste, beim
+// Antippen wird dorthin gescrollt. Standardmäßig ist das erste getippte
+// laufende Spiel gewählt.
 
-const EL_LEAGUE = "UEFA Europa League";
-const EL_SPORT = "Fußball" as const;
-const EL_MAX_LIVE_MS = 4 * 60 * 60 * 1000;
+// Erste eingeschaltete Sportart (derzeit nur Fußball).
+const LIVE_SPORT: Sport | null = LIVE_SPORTS[0] ?? null;
+const MAX_LIVE_MS = 4 * 60 * 60 * 1000;
 
-type ElView = "live" | "ergebnisse" | "tabelle";
+type LcView = "live" | "ergebnisse" | "tabelle";
 
-interface ElDay {
-  games: LiveGame[] | null;
-  error: string | null;
-  loading: boolean;
-  fetchedAt: number;
-  // Server-Zeitpunkt der Spieldaten (für "aktualisiert vor …" und die
-  // mitlaufende Minute; Rene, 15.10.2026: Live-Gefühl).
-  gamesAt: number;
+// API-Spiel ↔ App-Spiel (für "GETIPPT", "Dein Tipp", Community, Kommentare).
+interface AppLink {
+  match: Match;
+  home: Team;
+  away: Team;
+  result: LiveMatchResult;
 }
 
 // "2026-10-15" -> "2026-10-14"
@@ -237,13 +268,9 @@ function viennaTime(iso: string): string {
   return new Date(iso).toLocaleTimeString("de-AT", { timeZone: "Europe/Vienna", hour: "2-digit", minute: "2-digit" });
 }
 
-// (Rene, 15.10.2026: Tippkarte und Matchcenter synchron) Die Daten kommen
-// aus demselben Speicher wie die Tippkarten (lib/useLiveScores.ts, gleiche
-// Abfrage ohne league); hier nur auf die Europa League gefiltert.
 // league der Route ist "Name · Land".
-function toElDay(day: LiveDay): ElDay {
-  const games = day.games?.filter((g) => sameLeague(EL_LEAGUE, g.league.split(" · ")[0] ?? "")) ?? null;
-  return { games, error: day.error, loading: day.loading, fetchedAt: day.loadedAt, gamesAt: day.dataAt };
+function leagueName(g: LiveGame): string {
+  return g.league.split(" · ")[0] || "Weitere Spiele";
 }
 
 // Läuft das Spiel (oder müsste es laut Anstoß gleich/gerade laufen)?
@@ -251,13 +278,21 @@ function needsPolling(g: LiveGame, now: number): boolean {
   if (isLiveRunning(g.status)) return true;
   if (g.status !== "NS") return false;
   const kickoff = new Date(g.kickoff).getTime();
-  return now >= kickoff && now - kickoff < EL_MAX_LIVE_MS;
+  return now >= kickoff && now - kickoff < MAX_LIVE_MS;
 }
 
-function EuropaLeagueSection() {
-  const [view, setView] = useState<ElView>("live");
+const byKickoff = (a: LiveGame, b: LiveGame) =>
+  new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime() || a.home.localeCompare(b.home);
+
+function LiveCenterSection({ sport }: { sport: Sport }) {
+  const [view, setView] = useState<LcView>("live");
   const [today, setToday] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Hat der Spieler selbst gewählt? Dann nichts mehr automatisch wählen.
+  const pickedRef = useRef(false);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const { matches, getTeam, myTips } = useAppData();
 
   // Datum und Uhr erst im Browser (sonst Hydration-Fehler), Uhr alle 30 s.
   useEffect(() => {
@@ -271,48 +306,126 @@ function EuropaLeagueSection() {
   }, []);
 
   const yesterday = today ? previousDate(today) : null;
-  // Heute immer (Livestand und Ergebnisse brauchen das), gestern erst, wenn
-  // "Ergebnisse" geöffnet wird (1 h Cache auf dem Server).
-  const todayDay = toElDay(useLiveDay(EL_SPORT, today));
-  const yesterdayDay = toElDay(useLiveDay(EL_SPORT, view === "ergebnisse" ? yesterday : null));
+  // Heute immer, gestern erst mit "Ergebnisse" (1 h Cache auf dem Server).
+  const todayDay = useLiveDay(sport, today);
+  const yesterdayDay = useLiveDay(sport, view === "ergebnisse" ? yesterday : null);
 
   // Automatisch aktualisieren – nur solange ein Spiel läuft, im 180-s-Takt
   // (gemeinsam mit den Tippkarten, pausiert im Hintergrund).
-  const polling =
-    now !== null && !!todayDay.games && todayDay.games.some((g) => needsPolling(g, now));
-  useLivePolling(EL_SPORT, today, polling);
+  const polling = now !== null && !!todayDay.games && todayDay.games.some((g) => needsPolling(g, now));
+  useLivePolling(sport, today, polling);
 
   const retry = () => {
-    if (today) reloadLiveDay(EL_SPORT, today);
-    if (view === "ergebnisse" && yesterday) reloadLiveDay(EL_SPORT, yesterday);
+    if (today) reloadLiveDay(sport, today);
+    if (view === "ergebnisse" && yesterday) reloadLiveDay(sport, yesterday);
   };
+
+  // App-Spiele den API-Spielen zuordnen (gleiche Zuordnung wie die Tippkarten).
+  const allGames = useMemo(
+    () => [...(todayDay.games ?? []), ...(yesterdayDay.games ?? [])],
+    [todayDay.games, yesterdayDay.games],
+  );
+  const links = useMemo(() => {
+    const map = new Map<string, AppLink>();
+    if (allGames.length === 0) return map;
+    for (const m of matches) {
+      if (m.sport !== sport || m.draft || m.status === "cancelled") continue;
+      const day = viennaDate(m.kickoff);
+      if (day !== today && day !== yesterday) continue;
+      const home = getTeam(m.homeTeamId);
+      const away = getTeam(m.awayTeamId);
+      if (!home || !away) continue;
+      const result = findLiveGame(allGames, m.kickoff, home.name, away.name);
+      if (result && !map.has(result.game.id)) map.set(result.game.id, { match: m, home, away, result });
+    }
+    return map;
+  }, [allGames, matches, getTeam, sport, today, yesterday]);
+  const tippedMatchIds = useMemo(
+    () => new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId)),
+    [myTips],
+  );
+  const isTipped = (g: LiveGame) => {
+    const link = links.get(g.id);
+    return !!link && tippedMatchIds.has(link.match.id);
+  };
+
+  // Standard: erstes getipptes laufendes Spiel.
+  useEffect(() => {
+    if (pickedRef.current || selectedId || !todayDay.games) return;
+    const first = todayDay.games
+      .filter((g) => isLiveRunning(g.status))
+      .sort(byKickoff)
+      .find((g) => isTipped(g));
+    if (first) setSelectedId(first.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [todayDay.games, links, tippedMatchIds, selectedId]);
+
+  function select(id: string) {
+    pickedRef.current = true;
+    setSelectedId(id);
+    // Am Handy steht das Detail unter der Liste: dorthin scrollen.
+    if (typeof window !== "undefined" && !window.matchMedia("(min-width: 1024px)").matches) {
+      requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    }
+  }
+
+  const selected = selectedId ? allGames.find((g) => g.id === selectedId) ?? null : null;
+  const listProps = { links, isTipped, selectedId, onSelect: select };
 
   return (
     <section className="mb-6 rounded-card border border-edge bg-surface px-3 pt-3 pb-4 sm:px-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-display text-base font-bold text-ink sm:text-lg">UEFA Europa League</h2>
+        <h2 className="font-display text-base font-bold text-ink sm:text-lg">Live-Spiele</h2>
         <span className="shrink-0 rounded-full border border-edge px-2 py-0.5 text-[11px] font-semibold text-muted">
           Test
         </span>
       </div>
 
       <div className="mb-4 flex gap-4 border-b border-edge">
-        <SubTab label="Livestand" active={view === "live"} onClick={() => setView("live")} />
+        <SubTab label="Live" active={view === "live"} onClick={() => setView("live")} />
         <SubTab label="Ergebnisse" active={view === "ergebnisse"} onClick={() => setView("ergebnisse")} />
         <SubTab label="Tabelle" active={view === "tabelle"} onClick={() => setView("tabelle")} />
       </div>
 
-      {view === "live" && <ElLive day={todayDay} now={now} polling={polling} onRetry={retry} />}
-      {view === "ergebnisse" && (
-        <ElResults today={today} todayDay={todayDay} yesterdayDay={yesterdayDay} onRetry={retry} />
-      )}
-      {view === "tabelle" && (
+      {view === "tabelle" ? (
         <EmptyState
           emoji="📊"
           title="Die Tabelle kommt mit dem größeren Datenpaket."
-          text="Im aktuellen Datenpaket gibt es noch keine Tabelle. Livestand und Ergebnisse funktionieren schon."
+          text="Im aktuellen Datenpaket gibt es noch keine Tabelle. Live und Ergebnisse funktionieren schon."
           className="border-none bg-transparent"
         />
+      ) : (
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+          <div className="min-w-0">
+            {view === "live" ? (
+              <LcLive games={todayDay.games} error={todayDay.error} dataAt={todayDay.dataAt} loading={polling && todayDay.loading} onRetry={retry} {...listProps} />
+            ) : (
+              <LcResults
+                today={today}
+                todayGames={todayDay.games}
+                yesterdayGames={yesterdayDay.games}
+                error={todayDay.error ?? yesterdayDay.error}
+                onRetry={retry}
+                {...listProps}
+              />
+            )}
+          </div>
+          <div ref={detailRef} className="scroll-mt-32">
+            {selected ? (
+              <LcDetail
+                key={selected.id}
+                sport={sport}
+                game={selected}
+                link={links.get(selected.id) ?? null}
+                dataAt={todayDay.games?.some((g) => g.id === selected.id) ? todayDay.dataAt : 0}
+              />
+            ) : (
+              <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
+                Spiel antippen, um Spielverlauf, Tipps und Kommentare zu sehen.
+              </p>
+            )}
+          </div>
+        </div>
       )}
 
       <p className="mt-4 text-center text-[11px] text-muted">
@@ -326,7 +439,14 @@ function EuropaLeagueSection() {
   );
 }
 
-function ElError({ error, onRetry }: { error: string; onRetry: () => void }) {
+interface ListProps {
+  links: Map<string, AppLink>;
+  isTipped: (g: LiveGame) => boolean;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}
+
+function LcError({ error, onRetry }: { error: string; onRetry: () => void }) {
   const text = error.includes("Tageslimit")
     ? "Das Tageslimit der Live-Daten ist erreicht. Morgen geht's weiter."
     : "Die Live-Daten sind gerade nicht verfügbar. Schau später nochmal vorbei.";
@@ -343,76 +463,100 @@ function ElError({ error, onRetry }: { error: string; onRetry: () => void }) {
   );
 }
 
-function ElLive({
-  day,
-  now,
-  polling,
+// Überschrift einer Liga mit Flagge (falls es eine passende gibt).
+function LeagueHeading({ sport, name }: { sport: Sport; name: string }) {
+  const { competitions } = useAppData();
+  const flag = competitionFlag(sport, name, competitions);
+  return (
+    <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted">
+      {flag && (
+        <span aria-hidden>
+          <Emoji e={flag} />
+        </span>
+      )}
+      {name}
+    </p>
+  );
+}
+
+function groupByLeague(games: LiveGame[]): { league: string; games: LiveGame[] }[] {
+  const groups = new Map<string, LiveGame[]>();
+  for (const g of games) {
+    const name = leagueName(g);
+    groups.set(name, [...(groups.get(name) ?? []), g]);
+  }
+  return Array.from(groups, ([league, list]) => ({ league, games: list }));
+}
+
+function LcLive({
+  games,
+  error,
+  dataAt,
+  loading,
   onRetry,
-}: {
-  day: ElDay;
-  now: number | null;
-  polling: boolean;
-  onRetry: () => void;
-}) {
-  if (!day.games) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
-  if (day.error) return <ElError error={day.error} onRetry={onRetry} />;
-  if (day.games.length === 0) {
+  ...list
+}: ListProps & { games: LiveGame[] | null; error: string | null; dataAt: number; loading: boolean; onRetry: () => void }) {
+  if (!games) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
+  if (error) return <LcError error={error} onRetry={onRetry} />;
+  if (games.length === 0) {
     return (
       <EmptyState
         emoji="⚽"
-        title="Heute keine Europa-League-Spiele"
+        title="Heute keine Spiele"
         text="Sobald wieder gespielt wird, siehst du hier alle Spiele live."
         className="border-none bg-transparent"
       />
     );
   }
-
-  // Nach Anstoßzeit gruppieren (18:45, 21:00 …).
-  const sorted = [...day.games].sort(
-    (a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime() || a.home.localeCompare(b.home),
-  );
-  const groups: { time: string; games: LiveGame[] }[] = [];
-  for (const g of sorted) {
+  // Laufende zuerst, dann beendete – je Liga; nicht begonnene nach Anstoßzeit ("ab 21:00").
+  const started = games
+    .filter((g) => g.status !== "NS")
+    .sort((a, b) => Number(isLiveRunning(b.status)) - Number(isLiveRunning(a.status)) || byKickoff(a, b));
+  const upcoming = games.filter((g) => g.status === "NS").sort(byKickoff);
+  const upcomingGroups: { time: string; games: LiveGame[] }[] = [];
+  for (const g of upcoming) {
     const time = viennaTime(g.kickoff);
-    const last = groups[groups.length - 1];
+    const last = upcomingGroups[upcomingGroups.length - 1];
     if (last && last.time === time) last.games.push(g);
-    else groups.push({ time, games: [g] });
+    else upcomingGroups.push({ time, games: [g] });
   }
-
-  const liveCount = day.games.filter((g) => isLiveRunning(g.status)).length;
+  const liveCount = games.filter((g) => isLiveRunning(g.status)).length;
+  const sport = LIVE_SPORT ?? "Fußball";
 
   return (
     <div className="flex flex-col gap-4">
-      {liveCount > 0 && <ElLiveHeader count={liveCount} dataAt={day.gamesAt} />}
-      {groups.map((group) => {
-        const running = now !== null && group.games.some((g) => isLiveRunning(g.status));
-        return (
-          <div key={group.time}>
-            <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-muted">
-              Anstoß {group.time} Uhr
-              {/* (Rene, 15.10.2026: kein Rot mehr in der Überschrift – ruhiger) */}
-              {running && <span className="text-ink/70">· läuft</span>}
-            </p>
-            <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
-              {group.games.map((g) => (
-                <ElGameCard key={g.id} game={g} dataAt={day.gamesAt} />
-              ))}
-            </div>
+      {liveCount > 0 && <LcLiveHeader count={liveCount} dataAt={dataAt} />}
+      {groupByLeague(started).map((group) => (
+        <div key={group.league}>
+          <LeagueHeading sport={sport} name={group.league} />
+          <div className="flex flex-col gap-2">
+            {group.games.map((g) => (
+              <GameRow key={g.id} game={g} dataAt={dataAt} {...list} />
+            ))}
           </div>
-        );
-      })}
-      {polling && day.loading && <p className="text-center text-[11px] text-muted">Aktualisiert…</p>}
+        </div>
+      ))}
+      {upcomingGroups.map((group) => (
+        <div key={group.time}>
+          <p className="mb-2 text-xs font-semibold text-muted">ab {group.time}</p>
+          <div className="flex flex-col gap-2">
+            {group.games.map((g) => (
+              <GameRow key={g.id} game={g} dataAt={dataAt} {...list} />
+            ))}
+          </div>
+        </div>
+      ))}
+      {loading && <p className="text-center text-[11px] text-muted">Aktualisiert…</p>}
     </div>
   );
 }
 
-// Kopf des Livestands: "● 8 Spiele live · aktualisiert vor 1 Min.", Zeit
-// zählt mit (Rene, 15.10.2026: Live-Gefühl).
-function ElLiveHeader({ count, dataAt }: { count: number; dataAt: number }) {
+// Kopf: "● 8 Spiele live · aktualisiert vor 1 Min.", Zeit zählt mit.
+function LcLiveHeader({ count, dataAt }: { count: number; dataAt: number }) {
   const now = useMinuteTick(dataAt || null);
   return (
-    <p className="flex items-center justify-center gap-1.5 text-xs text-muted" aria-live="polite">
-      <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500 animate-live-dot" />
+    <p className="flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
+      <StateDot state="live" />
       <span className="font-semibold text-ink">
         {count} {count === 1 ? "Spiel" : "Spiele"} live
       </span>
@@ -421,41 +565,50 @@ function ElLiveHeader({ count, dataAt }: { count: number; dataAt: number }) {
   );
 }
 
-function ElResults({
+function LcResults({
   today,
-  todayDay,
-  yesterdayDay,
+  todayGames,
+  yesterdayGames,
+  error,
   onRetry,
-}: {
+  ...list
+}: ListProps & {
   today: string | null;
-  todayDay: ElDay;
-  yesterdayDay: ElDay;
+  todayGames: LiveGame[] | null;
+  yesterdayGames: LiveGame[] | null;
+  error: string | null;
   onRetry: () => void;
 }) {
-  if (!todayDay.games || !yesterdayDay.games) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
-  const finished = [...todayDay.games, ...yesterdayDay.games]
+  if (!todayGames || !yesterdayGames) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
+  const finished = [...todayGames, ...yesterdayGames]
     .filter((g) => isLiveFinished(g.status))
-    .sort((a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime() || a.home.localeCompare(b.home));
+    .sort((a, b) => byKickoff(b, a));
   if (finished.length === 0) {
-    const error = todayDay.error ?? yesterdayDay.error;
-    if (error) return <ElError error={error} onRetry={onRetry} />;
+    if (error) return <LcError error={error} onRetry={onRetry} />;
     return (
       <EmptyState
         emoji="⚽"
         title="Noch keine Ergebnisse"
-        text="Von gestern und heute gibt es noch keine beendeten Europa-League-Spiele."
+        text="Von gestern und heute gibt es noch keine beendeten Spiele."
         className="border-none bg-transparent"
       />
     );
   }
+  const days = [
+    { label: "Heute", games: finished.filter((g) => viennaDate(g.kickoff) === today) },
+    { label: "Gestern", games: finished.filter((g) => viennaDate(g.kickoff) !== today) },
+  ].filter((d) => d.games.length > 0);
   return (
-    <div className="flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3">
-      {finished.map((g) => (
-        <ElGameCard
-          key={g.id}
-          game={g}
-          dateLabel={`${viennaDate(g.kickoff) === today ? "Heute" : "Gestern"}, ${viennaTime(g.kickoff)} Uhr`}
-        />
+    <div className="flex flex-col gap-4">
+      {days.map((day) => (
+        <div key={day.label}>
+          <p className="mb-2 text-xs font-semibold text-muted">{day.label}</p>
+          <div className="flex flex-col gap-2">
+            {day.games.map((g) => (
+              <GameRow key={g.id} game={g} {...list} />
+            ))}
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -471,96 +624,241 @@ const OTHER_STATUS: Record<string, string> = {
   WO: "Kampflos",
 };
 
-function elStatus(g: LiveGame): { live: boolean; text: string } {
-  if (g.status === "HT") return { live: true, text: "Halbzeit" };
-  if (isLiveRunning(g.status)) return { live: true, text: g.statusText || "Live" };
-  // (Rene, 15.10.2026: nicht begonnen nur noch die Anstoßzeit, grau)
-  if (g.status === "NS") return { live: false, text: viennaTime(g.kickoff) };
-  if (g.status === "AET") return { live: false, text: "Beendet · n. V." };
-  if (g.status === "PEN") {
-    const pen = g.penaltyHome !== undefined && g.penaltyAway !== undefined ? ` ${g.penaltyHome}:${g.penaltyAway}` : "";
-    return { live: false, text: `Beendet · n. E.${pen}` };
-  }
-  if (g.status === "FT") return { live: false, text: "Beendet" };
-  return { live: false, text: OTHER_STATUS[g.statusShort.toUpperCase()] ?? "—" };
-}
-
 // Tor-Hervorhebung (Rene, 15.10.2026): letzter bekannter Stand pro Spiel-ID.
 // Liegt außerhalb der Komponente, damit er auch einen Reiterwechsel
-// (Livestand ↔ Ergebnisse) übersteht. Ändert sich der Stand gegenüber dem
-// letzten Abruf, leuchtet das Ergebnis ~8 s golden auf.
-const EL_GOAL_FLASH_MS = 8000;
-const elLastScore = new Map<string, string>();
+// übersteht. Ändert sich der Stand gegenüber dem letzten Abruf, leuchten die
+// Tore ~8 s golden auf.
+const GOAL_FLASH_MS = 8000;
+const lastScore = new Map<string, string>();
 
 function useGoalFlash(id: string, score: string | null): boolean {
   const [flash, setFlash] = useState(false);
   useEffect(() => {
     if (score === null) return;
-    const prev = elLastScore.get(id);
-    elLastScore.set(id, score);
+    const prev = lastScore.get(id);
+    lastScore.set(id, score);
     if (prev === undefined || prev === score) return;
     setFlash(true);
-    const t = setTimeout(() => setFlash(false), EL_GOAL_FLASH_MS);
+    const t = setTimeout(() => setFlash(false), GOAL_FLASH_MS);
     return () => clearTimeout(t);
   }, [id, score]);
   return flash;
 }
 
-// Ein Spiel: Heim – Stand – Gast, darunter Minute/Status.
-// (Rene, 15.10.2026: ruhiger Stil wie Sofascore – neutrale Kachel, Stand
-// weiß/fett, Rot nur noch als kleiner Punkt vor der Minute.)
-// (Rene, 15.10.2026: Live-Gefühl) Laufend: "● LIVE 18'" mit pulsierendem
-// Punkt, Minute zählt im Browser mit, unten ein dünner roter Balken
-// (Minute/90, Halbzeit 50 %). Kein roter Rahmen.
-function ElGameCard({ game, dateLabel, dataAt = 0 }: { game: LiveGame; dateLabel?: string; dataAt?: number }) {
-  const { live, text: apiText } = elStatus(game);
-  const clock = useLiveClock(EL_SPORT, game.statusShort, game.elapsed, dataAt);
-  const running = live && game.status === "LIVE";
-  const text = live && clock ? clock.text : apiText;
-  const progress = live ? (clock?.progress ?? (game.status === "HT" ? 0.5 : running ? 1 : null)) : null;
+// Eine Zeile (Rene, 15.10.2026: Spieltag-Umbau): links Status ("● 44'" mit
+// pulsierendem Punkt, "Halbzeit", "21:00", "Beendet"), Mitte Heim und Gast
+// untereinander, rechts die Tore untereinander, unten ein dünner Balken
+// (Minute/90). Oben rechts "GETIPPT" in Gold, gewählte Zeile mit Gold-Rand.
+// Rahmen eine Spur heller als border-edge, neutral für alle Zustände.
+function GameRow({ game, dataAt = 0, links, isTipped, selectedId, onSelect }: ListProps & { game: LiveGame; dataAt?: number }) {
+  const sport = LIVE_SPORT ?? "Fußball";
+  const clock = useLiveClock(sport, game.statusShort, game.elapsed, dataAt);
+  const running = isLiveRunning(game.status);
+  const pause = game.status === "HT" || game.status === "BREAK";
   const hasScore = game.homeScore !== null && game.awayScore !== null && game.status !== "NS";
   const flash = useGoalFlash(game.id, hasScore ? `${game.homeScore}:${game.awayScore}` : null);
+  const tipped = isTipped(game);
+  const selected = selectedId === game.id;
+  const link = links.get(game.id);
+  // Mit App-Spiel: Namen wie in der App (gleiche Schreibweise wie auf der Tippkarte).
+  const homeName = link ? (link.result.swapped ? link.away.name : link.home.name) : game.home;
+  const awayName = link ? (link.result.swapped ? link.home.name : link.away.name) : game.away;
+
+  let status: React.ReactNode;
+  if (running && !pause) {
+    status = (
+      <span className="inline-flex items-center gap-1.5 font-semibold text-ink">
+        <StateDot state="live" />
+        {clock?.text ?? (game.statusText || "Live")}
+      </span>
+    );
+  } else if (pause) {
+    status = (
+      <span className="inline-flex items-center gap-1.5 text-ink">
+        <StateDot state="pause" />
+        {game.status === "HT" ? "Halbzeit" : game.statusText || "Pause"}
+      </span>
+    );
+  } else if (game.status === "NS") {
+    status = viennaTime(game.kickoff);
+  } else if (isLiveFinished(game.status)) {
+    status = game.status === "AET" ? "n. V." : game.status === "PEN" ? "n. E." : "Beendet";
+  } else {
+    status = OTHER_STATUS[game.statusShort.toUpperCase()] ?? "—";
+  }
+  const progress = running ? (clock?.progress ?? (game.status === "HT" ? 0.5 : null)) : null;
+
   return (
-    // (Rene, 15.10.2026: Rahmen eine Spur heller als border-edge, damit man die
-    // Kacheln besser sieht – neutral, gleich für alle Spielzustände.)
-    <div className="relative overflow-hidden rounded-card border border-muted/25 bg-surface px-3 py-2.5 sm:px-4">
-      {dateLabel && <p className="mb-1 text-xs text-muted">{dateLabel}</p>}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-sm">
-        <FitText text={game.home} className="text-right leading-tight text-ink" />
+    <button
+      type="button"
+      onClick={() => onSelect(game.id)}
+      aria-pressed={selected}
+      className={`relative w-full overflow-hidden rounded-card border bg-surface pl-3 pr-3 pb-2.5 pt-3 text-left transition-colors sm:pl-4 ${
+        selected ? "border-gold" : "border-muted/25 hover:border-muted/50"
+      }`}
+    >
+      {tipped && (
+        <span className="absolute right-3 top-1 text-[9px] font-bold uppercase tracking-wider text-gold">Getippt</span>
+      )}
+      <div className="grid grid-cols-[4.25rem_minmax(0,1fr)_auto] items-center gap-2 text-sm">
+        <span className="text-xs tabular-nums text-muted">{status}</span>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <FitText text={homeName} className="leading-tight text-ink" />
+          <FitText text={awayName} className="leading-tight text-ink" />
+        </span>
         <span
-          className={`min-w-[3.25rem] rounded-md px-1.5 py-0.5 text-center font-display text-base font-bold tabular-nums transition-colors duration-700 ${
-            flash ? "bg-gold/15 text-gold" : hasScore ? "bg-transparent text-ink" : "bg-transparent text-muted"
+          className={`flex min-w-[1.75rem] flex-col items-end gap-0.5 rounded-md px-1 font-display font-bold leading-tight tabular-nums transition-colors duration-700 ${
+            flash ? "bg-gold/15 text-gold" : hasScore ? "text-ink" : "text-muted"
           }`}
         >
-          {hasScore ? `${game.homeScore} : ${game.awayScore}` : "– : –"}
+          <span>{hasScore ? game.homeScore : "–"}</span>
+          <span>{hasScore ? game.awayScore : "–"}</span>
         </span>
-        <FitText text={game.away} className="leading-tight text-ink" />
       </div>
-      <p className={`mt-1 text-center text-xs tabular-nums ${live ? "font-semibold text-ink" : "text-muted"}`}>
-        {live ? (
-          <span className="inline-flex items-center gap-1.5">
-            <span
-              aria-hidden
-              className={`h-1.5 w-1.5 shrink-0 rounded-full bg-red-500 ${running ? "animate-live-dot" : ""}`}
-            />
-            {running ? (
-              <span className="text-[10px] font-bold tracking-wide text-red-400">LIVE</span>
-            ) : (
-              <span className="sr-only">Live: </span>
-            )}
-            <span className="text-ink">{text}</span>
-          </span>
-        ) : (
-          text
-        )}
-      </p>
-      {progress !== null && (
-        <span aria-hidden className="absolute inset-x-0 bottom-0 h-[3px] bg-edge/40">
-          <span
-            className="block h-full rounded-full bg-red-500 transition-[width] duration-700"
-            style={{ width: `${Math.round(Math.min(1, Math.max(0, progress)) * 100)}%` }}
+      {progress !== null && <ProgressBar progress={progress} className="absolute inset-x-0 bottom-0" />}
+    </button>
+  );
+}
+
+// Detail rechts: Liga + Pill, Anzeigetafel (dieselbe wie auf der Tippkarte),
+// "Dein Tipp", Spielverlauf, Community, Kommentare.
+function LcDetail({ sport, game, link, dataAt }: { sport: Sport; game: LiveGame; link: AppLink | null; dataAt: number }) {
+  const { myTips, orderFor, tipTendencies, competitions } = useAppData();
+  const shieldLeft = useBeginnerShieldLeft();
+  const started = game.status !== "NS" && game.homeScore !== null && game.awayScore !== null;
+  const liveLike = started && (isLiveRunning(game.status) || isLiveFinished(game.status));
+  const clock = useBoardClock(sport, liveLike ? { ...game, dataAt } : null);
+  const match = link?.match ?? null;
+  const tip = match ? myTips.find((t) => t.matchId === match.id && !t.refunded) ?? null : null;
+  const order: TeamOrder = match ? orderFor(match) : { sport, awayFirst: false };
+  const awayFirst = !!order.awayFirst;
+
+  // Alles in App-Heim/-Gast (Seiten der API ggf. gedreht).
+  const appHome = link ? link.home.name : game.home;
+  const appAway = link ? link.away.name : game.away;
+  const homeScore = link ? link.result.homeScore : game.homeScore;
+  const awayScore = link ? link.result.awayScore : game.awayScore;
+  const events = link ? appSideEvents(link.result) : game.events ?? [];
+  const leftSide: "home" | "away" = awayFirst ? "away" : "home";
+  const rightSide: "home" | "away" = awayFirst ? "home" : "away";
+  const side = (s: "home" | "away"): BoardSide => {
+    const team = link ? (s === "home" ? link.home : link.away) : null;
+    return {
+      name: s === "home" ? appHome : appAway,
+      badge:
+        team && match ? (
+          <TeamBadge
+            sport={match.sport}
+            {...matchJerseyProps(match, team)}
+            isNationalTeam={team.isNationalTeam}
+            countryCode={team.countryCode}
+            size={34}
           />
+        ) : undefined,
+      scorers: scorerLine(events, s),
+    };
+  };
+
+  const appFinal = !!match && match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null;
+  const pending = !!tip && !tip.evaluated && started && homeScore !== null && awayScore !== null;
+  const isOneXTwo = match?.tipMode === "1x2";
+  const tier = pending ? classifyRankingTip(tip!.predictedHomeScore, tip!.predictedAwayScore, homeScore!, awayScore!, isOneXTwo) : null;
+  const points = tier ? (shieldLeft > 0 ? Math.max(0, RANKING_POINTS[tier]) : RANKING_POINTS[tier]) : 0;
+  const forecast = useLiveForecast(sport, pending && isLiveRunning(game.status));
+  const tipText = (() => {
+    if (!tip || !match || !link) return "";
+    if (!isOneXTwo) return scoreText(order, tip.predictedHomeScore, tip.predictedAwayScore);
+    const d = Math.sign(tip.predictedHomeScore - tip.predictedAwayScore);
+    return d > 0 ? link.home.name : d < 0 ? link.away.name : "Unentschieden";
+  })();
+  const tendency = match ? tipTendencies[match.id] : undefined;
+  const flag = competitionFlag(sport, leagueName(game), competitions);
+  const [leftKick, rightKick] = displayOrder(order, appHome, appAway);
+
+  return (
+    <div className="flex flex-col gap-4 rounded-card border border-muted/25 bg-pitch/40 p-3 sm:p-4">
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="flex min-w-0 items-center gap-1.5 font-semibold text-ink">
+          {flag && (
+            <span aria-hidden>
+              <Emoji e={flag} />
+            </span>
+          )}
+          <span className="min-w-0 truncate">{leagueName(game)}</span>
         </span>
+        {liveLike && (
+          <span className="shrink-0">
+            <LivePill state={clock.state} pauseText={game.status === "HT" ? "Halbzeit" : game.statusText || "Pause"} />
+          </span>
+        )}
+      </div>
+
+      {liveLike && homeScore !== null && awayScore !== null ? (
+        <Scoreboard
+          left={side(leftSide)}
+          right={side(rightSide)}
+          leftScore={leftSide === "home" ? homeScore : awayScore}
+          rightScore={rightSide === "home" ? homeScore : awayScore}
+          clock={clock}
+        />
+      ) : (
+        <div className="rounded-lg border border-edge bg-pitch/60 px-3 py-4 text-center">
+          <p className="font-display text-sm font-semibold text-ink">
+            {leftKick} – {rightKick}
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            {game.status === "NS" ? `Anstoß ${viennaTime(game.kickoff)} Uhr` : OTHER_STATUS[game.statusShort.toUpperCase()] ?? "—"}
+          </p>
+        </div>
+      )}
+
+      {pending && tier && (
+        <LiveTipLine
+          tipText={tipText}
+          tier={tier}
+          points={points}
+          isOneXTwo={isOneXTwo}
+          finished={!isLiveRunning(game.status)}
+          forecast={forecast}
+        />
+      )}
+      {tip && tip.evaluated && appFinal && (
+        <p className="rounded-lg border border-edge bg-pitch px-3 py-2 text-[13px] text-muted">
+          Dein Tipp: <span className="font-semibold text-ink">{tipText}</span>
+          {tip.rangDelta !== undefined && (
+            <span className={tip.rangDelta > 0 ? "text-gold" : ""}> · {signedPoints(tip.rangDelta)} Rangpunkte</span>
+          )}
+        </p>
+      )}
+      {tip && !tip.evaluated && !started && (
+        <p className="rounded-lg border border-gold/40 bg-gold/5 px-3 py-2 text-[13px] text-muted">
+          Dein Tipp: <span className="font-semibold text-gold">{tipText}</span>
+        </p>
+      )}
+
+      {liveLike && (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Spielverlauf</p>
+          <EventTimeline events={events} leftSide={leftSide} />
+        </div>
+      )}
+
+      {match && tendency && started && (
+        <CommunityTrend
+          tendency={tendency}
+          sport={match.sport}
+          order={order}
+          homeName={link!.home.name}
+          awayName={link!.away.name}
+          finalScore={appFinal ? { home: match.liveHomeScore!, away: match.liveAwayScore! } : null}
+          myTip={tip ? { home: tip.predictedHomeScore, away: tip.predictedAwayScore } : null}
+        />
+      )}
+
+      {match && (
+        <div className="border-t border-edge pt-3">
+          <CommentThread threadId={match.id} />
+        </div>
       )}
     </div>
   );

@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 import { ALL_SPORTS, type Sport } from "@/lib/types";
 import { isLiveLeagueEnabled, isLiveSportEnabled, sameLeague } from "@/lib/liveConfig";
-import { isLiveFinished, liveIntervalSeconds, viennaDate, type LiveGame, type LiveResponse, type LiveStatus } from "@/lib/liveScores";
+import {
+  isLiveFinished,
+  liveIntervalSeconds,
+  viennaDate,
+  type LiveEvent,
+  type LiveGame,
+  type LiveResponse,
+  type LiveStatus,
+} from "@/lib/liveScores";
 
 // Live-Spielstände von API-Sports (Rene, 15.10.2026).
 // GET /api/live?sport=<App-Sportart>&date=YYYY-MM-DD[&league=<Wettbewerb>]
@@ -36,6 +44,13 @@ import { isLiveFinished, liveIntervalSeconds, viennaDate, type LiveGame, type Li
 //    Abend) ~10–20 am Spieltag, ~5 an anderen Tagen.
 //  → am vollen Spielabend knapp an 100. Bei Bedarf LIVE_REVALIDATE erhöhen
 //    (240 s = ~68 Abfragen). Ist das Limit erreicht, bleibt die Tagesliste.
+//
+// Ereignisse (Rene, 15.10.2026: Spieltag-Umbau): live=all liefert je Spiel
+// "events" (Tore, Karten, Wechsel) gleich mit – normalisiert in "events".
+// Die Tagesliste hat keine Ereignisse. Für beendete Spiele werden deshalb
+// die Ereignisse aus dem letzten Live-Stand weitergereicht, den sich diese
+// Server-Instanz gemerkt hat (LAST_EVENTS); sonst bleibt die Liste leer.
+// KEINE zusätzlichen Abfragen pro Spiel (Gratis-Plan 100/Tag).
 
 const ENDPOINTS: Record<Sport, string> = {
   "Fußball": "https://v3.football.api-sports.io/fixtures",
@@ -64,6 +79,27 @@ const PAST_REVALIDATE = 3600;
 const LIVE_REVALIDATE = 180;
 const LIVE_BEFORE_MS = 5 * 60 * 1000;
 const LIVE_AFTER_MS = 150 * 60 * 1000;
+
+// Letzte Ereignisse je Spiel aus live=all (Rene, 15.10.2026: Spieltag-Umbau).
+// Nur im Speicher dieser Server-Instanz (geht bei einem Neustart verloren,
+// dann fehlen die Torschützen bei beendeten Spielen eben). Höchstens
+// MAX_CACHED_EVENTS Spiele, Einträge älter als 2 Tage fliegen raus.
+const MAX_CACHED_EVENTS = 300;
+const EVENTS_KEEP_MS = 2 * 24 * 60 * 60 * 1000;
+const LAST_EVENTS = new Map<string, { events: LiveEvent[]; at: number }>();
+
+function rememberEvents(games: LiveGame[], at: number) {
+  for (const g of games) {
+    if (!g.events || g.events.length === 0) continue;
+    LAST_EVENTS.delete(g.id);
+    LAST_EVENTS.set(g.id, { events: g.events, at });
+  }
+  const now = Date.now();
+  for (const [id, entry] of LAST_EVENTS) {
+    if (LAST_EVENTS.size <= MAX_CACHED_EVENTS && now - entry.at < EVENTS_KEEP_MS) break;
+    LAST_EVENTS.delete(id);
+  }
+}
 
 type ApiResult = { ok: true; list: Raw[]; at: number } | { ok: false; error: string };
 
@@ -127,13 +163,21 @@ async function football(date: string, league: string | null, key: string) {
     const live = await apiGet(`${ENDPOINTS[sport]}?live=all&timezone=Europe/Vienna`, key, LIVE_REVALIDATE);
     // Fehler bei live=all (z. B. Tageslimit): einfach die Tagesliste zeigen.
     if (live.ok) {
-      const byId = new Map(normalizeAll(sport, live.list, league).map((g) => [g.id, g]));
+      const liveGames = normalizeAll(sport, live.list, league);
+      rememberEvents(liveGames, live.at);
+      const byId = new Map(liveGames.map((g) => [g.id, g]));
       for (let i = 0; i < games.length; i++) {
         const fresh = byId.get(games[i].id);
         if (fresh && !isLiveFinished(games[i].status)) games[i] = fresh;
       }
       fetchedAt = live.at;
     }
+  }
+  // Tagesliste ohne Ereignisse: letzte bekannte aus dem Live-Stand ergänzen.
+  for (let i = 0; i < games.length; i++) {
+    if (games[i].events && games[i].events!.length > 0) continue;
+    const cached = LAST_EVENTS.get(games[i].id);
+    games[i] = { ...games[i], events: cached ? cached.events : [] };
   }
   // Heute kaum im CDN zwischenspeichern: die Abfragen schützt der Data Cache
   // oben, so kommt ein neuer Live-Stand ohne zusätzliche Verzögerung an.
@@ -233,7 +277,67 @@ function normalize(sport: Sport, g: Raw): LiveGame | null {
     statusText: text,
     elapsed,
     league: [g?.league?.name, g?.league?.country ?? g?.country?.name].filter((x) => typeof x === "string" && x).join(" · "),
+    ...(isFootball && Array.isArray(g?.events) ? { events: normalizeEvents(g, homeScore, awayScore) } : {}),
   };
+}
+
+// Ereignisse von API-Football vereinheitlichen (Rene, 15.10.2026:
+// Spieltag-Umbau). type "Goal" (detail "Normal Goal"/"Own Goal"/"Penalty"/
+// "Missed Penalty"), "Card" ("Yellow Card"/"Red Card"/"Second Yellow card"),
+// "subst"; alles andere (z. B. "Var") fällt weg.
+function normalizeEvents(g: Raw, homeScore: number | null, awayScore: number | null): LiveEvent[] {
+  const homeId = g?.teams?.home?.id;
+  const awayId = g?.teams?.away?.id;
+  const homeName = g?.teams?.home?.name;
+  const list: (LiveEvent & { ownTeam: "home" | "away" })[] = [];
+  for (const e of g.events as Raw[]) {
+    const minute = toNumber(e?.time?.elapsed);
+    if (minute === null) continue;
+    const teamId = e?.team?.id;
+    const ownTeam: "home" | "away" | null =
+      teamId != null && teamId === homeId ? "home"
+      : teamId != null && teamId === awayId ? "away"
+      : typeof e?.team?.name === "string" && e.team.name === homeName ? "home"
+      : typeof e?.team?.name === "string" ? "away"
+      : null;
+    if (!ownTeam) continue;
+    const kind = String(e?.type ?? "").toLowerCase();
+    const detail = String(e?.detail ?? "").toLowerCase();
+    let type: LiveEvent["type"] | null = null;
+    if (kind === "goal") {
+      type = detail.includes("own") ? "owngoal" : detail.includes("missed") ? "missed_penalty" : detail.includes("penalty") ? "penalty" : "goal";
+    } else if (kind === "card") {
+      type = detail.includes("red") || detail.includes("second") ? "red" : detail.includes("yellow") ? "yellow" : null;
+    } else if (kind === "subst") {
+      type = "subst";
+    }
+    if (!type) continue;
+    const extra = toNumber(e?.time?.extra);
+    list.push({
+      minute,
+      extra: extra && extra > 0 ? extra : null,
+      type,
+      side: ownTeam,
+      ownTeam,
+      player: typeof e?.player?.name === "string" && e.player.name ? e.player.name : null,
+      assist: typeof e?.assist?.name === "string" && e.assist.name ? e.assist.name : null,
+    });
+  }
+  // Eigentor: zählt dem anderen Team als dem des Spielers. Ob "team" bei
+  // API-Football das Team des Spielers oder das begünstigte Team ist, prüfen
+  // wir am Spielstand: Annahme "Team des Spielers", außer nur die andere
+  // Lesart ergibt genau den Spielstand.
+  const count = (ownGoalForOther: boolean, side: "home" | "away") =>
+    list.filter(
+      (e) =>
+        (e.type === "goal" || e.type === "penalty" ? e.ownTeam === side : false) ||
+        (e.type === "owngoal" && (ownGoalForOther ? e.ownTeam !== side : e.ownTeam === side)),
+    ).length;
+  const fits = (other: boolean) => count(other, "home") === homeScore && count(other, "away") === awayScore;
+  const ownGoalForOther = fits(true) || !fits(false);
+  return list.map(({ ownTeam, ...e }) =>
+    e.type === "owngoal" ? { ...e, side: ownGoalForOther ? (ownTeam === "home" ? "away" : "home") : ownTeam } : e,
+  );
 }
 
 // "errors" ist bei API-Sports ein leeres Array oder ein Objekt wie

@@ -13,6 +13,54 @@ import { normalizeTeamName } from "./teamName";
 // abgesagt, abgebrochen usw. (wird auf den Karten nicht gezeigt).
 export type LiveStatus = "NS" | "LIVE" | "HT" | "BREAK" | "FT" | "AET" | "PEN" | "OTHER";
 
+// Ereignis im Spiel (Rene, 15.10.2026: Spieltag-Umbau), aus "events" von
+// fixtures?live=all (nur Fußball). side = Team, dem es zählt: bei Toren
+// (auch Eigentoren) das Team, dessen Stand steigt; bei Karten, Wechseln und
+// verschossenen Elfmetern das Team des Spielers.
+export type LiveEventType = "goal" | "owngoal" | "penalty" | "missed_penalty" | "yellow" | "red" | "subst";
+
+export interface LiveEvent {
+  minute: number;
+  extra: number | null; // Nachspielzeit, z. B. 45+2 → minute 45, extra 2
+  type: LiveEventType;
+  side: "home" | "away";
+  player: string | null;
+  assist: string | null;
+}
+
+// Tor im Sinne des Spielstands (verschossener Elfmeter zählt nicht).
+export function isGoalEvent(e: LiveEvent): boolean {
+  return e.type === "goal" || e.type === "owngoal" || e.type === "penalty";
+}
+
+// "45+2'" bzw. "17'"
+export function eventMinuteText(e: LiveEvent): string {
+  return e.extra ? `${e.minute}+${e.extra}'` : `${e.minute}'`;
+}
+
+// Nachname bzw. kurzer Anzeigename: "M. Cissé" → "Cissé".
+export function shortPlayerName(name: string | null): string {
+  if (!name) return "";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length > 1 && /^[A-ZÄÖÜ]\.$/.test(parts[0])) return parts.slice(1).join(" ");
+  return name.trim();
+}
+
+// Torschützen eines Teams für die Anzeigetafel: "Cissé 15', 32' · Kane 40' (E)".
+export function scorerLine(events: LiveEvent[] | undefined, side: "home" | "away"): string {
+  if (!events) return "";
+  const byPlayer = new Map<string, string[]>();
+  for (const e of events) {
+    if (!isGoalEvent(e) || e.side !== side) continue;
+    const name = shortPlayerName(e.player) || "Tor";
+    const mark = e.type === "owngoal" ? " (ET)" : e.type === "penalty" ? " (E)" : "";
+    const list = byPlayer.get(name) ?? [];
+    list.push(`${eventMinuteText(e)}${mark}`);
+    byPlayer.set(name, list);
+  }
+  return Array.from(byPlayer, ([name, minutes]) => `${name} ${minutes.join(", ")}`).join(" · ");
+}
+
 export interface LiveGame {
   id: string;
   kickoff: string; // ISO 8601
@@ -28,6 +76,9 @@ export interface LiveGame {
   statusText: string; // deutsch für die Karte, z. B. "67'", "Halbzeit", "2. Drittel"
   elapsed: number | null; // Spielminute (Fußball) bzw. Uhr im Abschnitt
   league: string;
+  // Tore, Karten, Wechsel (nur Fußball; Rene, 15.10.2026: Spieltag-Umbau).
+  // Leer, wenn die API keine liefert (Tagesliste ohne Live-Stand im Cache).
+  events?: LiveEvent[];
 }
 
 export interface LiveResponse {
@@ -109,6 +160,16 @@ export interface LiveMatchResult {
   // Spielstand schon als App-Heim/-Gast (falls die API die Seiten vertauscht).
   homeScore: number | null;
   awayScore: number | null;
+  // Heim/Gast bei der API andersrum (Rene, 15.10.2026: Spieltag-Umbau, für
+  // die Seiten der Ereignisse).
+  swapped: boolean;
+}
+
+// Ereignisse eines zugeordneten Spiels mit Heim/Gast wie in der App.
+export function appSideEvents(result: LiveMatchResult): LiveEvent[] {
+  const events = result.game.events ?? [];
+  if (!result.swapped) return events;
+  return events.map((e) => ({ ...e, side: e.side === "home" ? "away" : "home" }));
 }
 
 // Passendes API-Spiel zu einem App-Spiel: Anpfiff innerhalb ±20 Minuten und
@@ -134,13 +195,13 @@ export function findLiveGame(
     let candidate: { result: LiveMatchResult; score: number } | null = null;
     if (straightHome > 0 && straightAway > 0) {
       candidate = {
-        result: { game, homeScore: game.homeScore, awayScore: game.awayScore },
+        result: { game, homeScore: game.homeScore, awayScore: game.awayScore, swapped: false },
         score: straightHome + straightAway + 1,
       };
     } else if (swappedHome > 0 && swappedAway > 0) {
       // Heim/Gast bei der API andersrum: Stand passend zur App drehen.
       candidate = {
-        result: { game, homeScore: game.awayScore, awayScore: game.homeScore },
+        result: { game, homeScore: game.awayScore, awayScore: game.homeScore, swapped: true },
         score: swappedHome + swappedAway,
       };
     }

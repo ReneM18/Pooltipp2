@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import type { Match, Sport } from "./types";
 import {
+  appSideEvents,
   findLiveGame,
   isLiveFinished,
   isLiveRunning,
   liveIntervalSeconds,
   viennaDate,
+  type LiveEvent,
   type LiveGame,
   type LiveResponse,
   type LiveStatus,
@@ -52,6 +54,15 @@ interface Entry {
 
 const entries = new Map<string, Entry>();
 
+// Hört auf ALLE Einträge (Rene, 15.10.2026: Spieltag-Umbau) – für "Wenn es
+// so bleibt", das die Stände aller laufenden Spiele einer Sportart braucht.
+const globalListeners = new Set<() => void>();
+
+function notify(entry: Entry) {
+  entry.listeners.forEach((l) => l());
+  globalListeners.forEach((l) => l());
+}
+
 function entryFor(sport: Sport, date: string): Entry {
   const key = `${sport}|${date}`;
   let entry = entries.get(key);
@@ -81,7 +92,7 @@ function intervalMs(entry: Entry): number {
 async function load(entry: Entry) {
   if (entry.loading) return;
   entry.loading = true;
-  entry.listeners.forEach((l) => l());
+  notify(entry);
   try {
     const res = await fetch(`/api/live?sport=${encodeURIComponent(entry.sport)}&date=${entry.date}`);
     const data = (await res.json()) as LiveResponse;
@@ -105,7 +116,7 @@ async function load(entry: Entry) {
   } finally {
     entry.loadedAt = Date.now();
     entry.loading = false;
-    entry.listeners.forEach((l) => l());
+    notify(entry);
     schedule(entry);
   }
 }
@@ -231,6 +242,8 @@ export interface LiveScore {
   statusShort: string;
   elapsed: number | null;
   dataAt: number;
+  // Tore/Karten mit Heim/Gast wie in der App (Rene, 15.10.2026: Spieltag-Umbau).
+  events: LiveEvent[];
 }
 
 // Live-Stand eines App-Spiels oder null (nicht gestartet, schon mit Endstand
@@ -274,5 +287,60 @@ export function useLiveScore(match: Match, homeName: string, awayName: string): 
     statusShort: found.game.statusShort,
     elapsed: found.game.elapsed,
     dataAt: entry?.dataAt ?? 0,
+    events: appSideEvents(found),
   };
+}
+
+// Ereignisse eines Spiels, das in der App schon einen Endstand hat
+// (Rene, 15.10.2026: Spieltag-Umbau): Torschützen auf der Tafel und
+// "Spielverlauf" nach der Wertung. Nur eingeschaltete Ligen und nur bis
+// 36 Stunden nach Anpfiff (die Route kennt Ereignisse ohnehin nur aus dem
+// letzten Live-Stand). Lädt höchstens einmal je Takt, kein Dauer-Abfragen.
+const EVENTS_AFTER_MS = 36 * 60 * 60 * 1000;
+
+export function useFinishedEvents(match: Match, homeName: string, awayName: string, enabled: boolean): LiveEvent[] | null {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    if (enabled) setNow(Date.now());
+  }, [enabled]);
+  const kickoff = new Date(match.kickoff).getTime();
+  const relevant =
+    enabled &&
+    now !== null &&
+    isLiveLeagueEnabled(match.sport, match.competition) &&
+    now >= kickoff &&
+    now - kickoff < EVENTS_AFTER_MS;
+  const day = useLiveDay(match.sport, relevant ? viennaDate(match.kickoff) : null);
+  if (!relevant || !day.games) return null;
+  const found = findLiveGame(day.games, match.kickoff, homeName, awayName);
+  return found ? appSideEvents(found) : null;
+}
+
+// Neu rendern, sobald irgendein Live-Eintrag neue Daten hat.
+export function useLiveStoreVersion(): number {
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    const listener = () => setVersion((v) => v + 1);
+    globalListeners.add(listener);
+    return () => {
+      globalListeners.delete(listener);
+    };
+  }, []);
+  return version;
+}
+
+// Live-Stand eines App-Spiels direkt aus dem Speicher, ohne zu laden
+// (für "Wenn es so bleibt"). null = keine Daten oder nicht begonnen.
+export function peekLiveScore(
+  match: Match,
+  homeName: string,
+  awayName: string,
+): { homeScore: number; awayScore: number; status: LiveStatus } | null {
+  const entry = entries.get(`${match.sport}|${viennaDate(match.kickoff)}`);
+  if (!entry?.games) return null;
+  const found = findLiveGame(entry.games, match.kickoff, homeName, awayName);
+  if (!found || found.homeScore === null || found.awayScore === null) return null;
+  const { status } = found.game;
+  if (!isLiveRunning(status) && !isLiveFinished(status)) return null;
+  return { homeScore: found.homeScore, awayScore: found.awayScore, status };
 }
