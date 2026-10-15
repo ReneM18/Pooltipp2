@@ -766,7 +766,8 @@ export default function MatchCard({
           // Kompakte Karte (Rene, 14.10.2026, Variante 2): beide Teams in einer
           // Zeile, Ergebnis-Felder dazwischen. Sieger-Tipp: Knöpfe darunter.
           <div className="mb-3">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-1 sm:gap-x-2">
+            {/* Teams samt Trikot 2 mm weiter innen, am Rand sah es zu weit außen aus (Rene, 15.10.2026). */}
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-1 px-2 sm:gap-x-2">
               <TeamInline match={match} team={leftTeam} />
               {finalScore ? (
                 <div className="flex flex-col items-center">
