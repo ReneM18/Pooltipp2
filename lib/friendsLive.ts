@@ -24,6 +24,11 @@ import type { Match, Sport } from "@/lib/types";
 // die der Browser Live-Daten hat (ohne Live-Daten ist der Stand unbekannt).
 // Wer auf ein Spiel nicht getippt hat, bekommt dafür 0.
 //
+// Nur Mittipper (Rene, 16.10.2026): In eine Tabelle kommen außer dir nur
+// Spieler mit mindestens einem Tipp auf ein gezähltes Spiel. Tippt außer dir
+// niemand mit, gibt es die Tabelle nicht (Tippkarte ohne Zeile, Reiter
+// "Freunde" mit Leerzustand) – vorher zählten Freunde ohne Tipp mit 0 mit.
+//
 // Tabellen: "Spieltag" = du + deine Freunde, dazu je Tipprunde du + ihre
 // Mitglieder. Datenschutz ohne neues SQL: fremde Tipps gibt die Datenbank
 // erst ab Tippschluss heraus (supabase/tipps-schutz.sql) – laufende Spiele
@@ -74,7 +79,7 @@ export interface FriendsLiveTable {
   label: string; // "Spieltag" bzw. Name der Tipprunde
   isLeague: boolean;
   gameCount: number; // gezählte Spiele (für "x von y richtig")
-  players: FriendsLivePlayer[]; // sortiert nach Platz
+  players: FriendsLivePlayer[]; // du + Mittipper, sortiert nach Platz (mind. 2)
   me: FriendsLivePlayer;
   ticker: FriendsLiveTicker[]; // neueste zuerst
 }
@@ -82,11 +87,21 @@ export interface FriendsLiveTable {
 export interface FriendsLiveState {
   // Spieler hat mindestens einen Freund (Bedingung für die Zeile auf der Tippkarte).
   hasFriends: boolean;
+  // Mindestens eine Tipprunde mit Mitspielern (für den Leerzustand).
+  hasLeagues: boolean;
   // Alle Tipps geladen, Tabellen gerechnet.
   ready: boolean;
   games: FriendsLiveGame[];
   liveCount: number; // davon laufend (für "● n Spiele live")
-  tables: FriendsLiveTable[]; // [0] = Spieltag (Freunde), danach Tipprunden
+  tables: FriendsLiveTable[]; // [0] = Spieltag (Freunde), danach Tipprunden – nur mit Mittippern
+}
+
+// Tabelle "Spieltag" für die Zeile auf der Tippkarte bzw. im Matchcenter:
+// nur fertig gerechnet und mit mindestens einem mittippenden Freund
+// (Rene, 16.10.2026: sonst keine Zeile, auch nicht "lädt").
+export function friendsRowTable(state: FriendsLiveState | null): FriendsLiveTable | null {
+  if (!state?.ready) return null;
+  return state.tables.find((t) => t.key === "friends") ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -331,8 +346,9 @@ function trackTable(
 }
 
 // "du bist 2. von 12 ▲1" (Text ohne Pfeil-Farbe), für Tor-Hinweis und Tippkarte.
+// Ohne Bewegung leer statt "–" (wirkte wie ein Fehler, Rene, 16.10.2026).
 export function moveText(move: number): string {
-  return move > 0 ? `▲${move}` : move < 0 ? `▼${-move}` : "–";
+  return move > 0 ? `▲${move}` : move < 0 ? `▼${-move}` : "";
 }
 
 // ---------------------------------------------------------------------------
@@ -431,12 +447,13 @@ export function useFriendsLive(enabled = true, poll = false): FriendsLiveState |
   return useMemo<FriendsLiveState | null>(() => {
     if (!active || !authUserId || games.length === 0) return null;
     const hasFriends = friends.length > 0;
+    const hasLeagues = leagueIds.length > 0;
     const liveCount = games.filter((g) => g.running).length;
-    if (!store.tips || (leagueIds.length > 0 && !store.members)) return { hasFriends, ready: false, games, liveCount, tables: [] };
+    if (!store.tips || (leagueIds.length > 0 && !store.members)) return { hasFriends, hasLeagues, ready: false, games, liveCount, tables: [] };
     // Gerade angepfiffene Spiele zählen, sobald ihre Tipps geladen sind
     // (höchstens ~20 s später) – so springt die Anzeige nicht auf "lädt".
     const counted = games.filter((g) => store.tips!.has(g.match.id));
-    if (counted.length === 0) return { hasFriends, ready: false, games, liveCount, tables: [] };
+    if (counted.length === 0) return { hasFriends, hasLeagues, ready: false, games, liveCount, tables: [] };
 
     const myScored = myTips.filter((t) => t.evaluated && t.resultTier && !t.refunded).length;
     const myOpen = new Map(myTips.filter((t) => !t.refunded).map((t) => [t.matchId, t]));
@@ -481,8 +498,12 @@ export function useFriendsLive(enabled = true, poll = false): FriendsLiveState |
       return { minute, goal: `Tor für ${team?.name ?? "?"} (${scoreText(orderFor(g.match), g.home, g.away)})` };
     };
 
-    const buildTable = (key: string, label: string, isLeague: boolean, ids: string[]): FriendsLiveTable => {
-      const unique = Array.from(new Set([authUserId, ...ids]));
+    const buildTable = (key: string, label: string, isLeague: boolean, ids: string[]): FriendsLiveTable | null => {
+      // Nur Mittipper (Rene, 16.10.2026): außer dir nur, wer mind. ein
+      // gezähltes Spiel getippt hat; tippt niemand mit, keine Tabelle.
+      const others = Array.from(new Set(ids)).filter((id) => id !== authUserId && (totals.get(id)?.tipped ?? 0) > 0);
+      if (others.length === 0) return null;
+      const unique = [authUserId, ...others];
       const rows = unique.map((id) => {
         const t = totals.get(id) ?? { points: 0, correct: 0, tipped: 0 };
         return { id, name: id === authUserId ? displayName || "Du" : nameOf(id), isMe: id === authUserId, ...t, rank: 0, tied: false, move: 0 };
@@ -504,13 +525,16 @@ export function useFriendsLive(enabled = true, poll = false): FriendsLiveState |
     };
 
     const tables: FriendsLiveTable[] = [];
-    if (hasFriends) tables.push(buildTable("friends", "Spieltag", false, friends.map((f) => f.id)));
+    const push = (t: FriendsLiveTable | null) => {
+      if (t) tables.push(t);
+    };
+    if (hasFriends) push(buildTable("friends", "Spieltag", false, friends.map((f) => f.id)));
     for (const league of leagues) {
       const members = store.members?.get(league.id);
       if (!members || members.length < 2) continue;
-      tables.push(buildTable(`league:${league.id}`, league.name, true, members));
+      push(buildTable(`league:${league.id}`, league.name, true, members));
     }
-    return { hasFriends, ready: true, games, liveCount, tables };
+    return { hasFriends, hasLeagues, ready: true, games, liveCount, tables };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, authUserId, games, dataVersion, myTips, friends, leagues, leagueIds, knownNames, displayName]);
 }

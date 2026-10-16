@@ -31,10 +31,11 @@ import { useFinishedEvents, useLiveScore } from "@/lib/useLiveScores";
 import { isGoalEvent, shortPlayerName, eventMinuteText } from "@/lib/liveScores";
 import { useLiveForecast } from "@/lib/liveForecast";
 import { useBeginnerShieldLeft } from "./BeginnerShieldHint";
+import { liveTipToastText } from "@/lib/liveTipText";
 import { EventTimeline, LivePill, LiveTipLine, Scoreboard, forecastPlain, signedPoints, timelineCount, useBoardClock, useNewGoal, type NewGoal } from "./LiveMatch";
 import { showGoalToast } from "./GoalToast";
 import { FriendsLiveRow, FriendsLiveSheet } from "./FriendsLive";
-import { moveText, useFriendsLive } from "@/lib/friendsLive";
+import { friendsRowTable, moveText, useFriendsLive } from "@/lib/friendsLive";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -384,7 +385,8 @@ export default function MatchCard({
   // läuft, Pause hat oder abgepfiffen, aber noch nicht gewertet ist – nur
   // mit mindestens einem Freund. Antippen öffnet die Tabelle als Sheet.
   const friendsLive = useFriendsLive(!!live);
-  const showFriendsRow = !!live && !!friendsLive?.hasFriends && friendsLive.games.some((g) => g.match.id === match.id);
+  // Nur mit mittippenden Freunden (Rene, 16.10.2026), sonst keine Zeile.
+  const showFriendsRow = !!live && !!friendsRowTable(friendsLive) && !!friendsLive?.games.some((g) => g.match.id === match.id);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [eventsOpen, setEventsOpen] = useState(false);
   // Ohne bekannte Ereignisse nach Abpfiff kein leerer "Spielverlauf".
@@ -439,16 +441,17 @@ export default function MatchCard({
     const scorer = goals.length === (side === "home" ? live.homeScore : live.awayScore)
       ? goals.slice().sort((a, b) => a.minute - b.minute || (a.extra ?? 0) - (b.extra ?? 0))[goals.length - 1]
       : null;
-    const tier = classifyRankingTip(myTip.predictedHomeScore, myTip.predictedAwayScore, live.homeScore, live.awayScore, isOneXTwo);
     const detail = [
       scorer ? `${shortPlayerName(scorer.player) || "Tor"} ${eventMinuteText(scorer)}` : null,
-      `Dein Tipp liegt ${tier === "falsch" ? "daneben" : "richtig"}`,
+      // "Stand jetzt" statt "liegt richtig" (Rene, 16.10.2026).
+      liveTipToastText(myTip.predictedHomeScore, myTip.predictedAwayScore, live.homeScore, live.awayScore, isOneXTwo),
       forecast ? `wenn es so bleibt ${forecastPlain(forecast)}` : null,
     ]
       .filter(Boolean)
       .join(" · ");
     // Freunde-Platz geändert (Rene, 16.10.2026: Freunde-Live): Zusatzzeile.
-    const friendsMe = friendsLive?.ready ? friendsLive.tables.find((t) => t.key === "friends") : undefined;
+    // Nur mit mittippenden Freunden (Rene, 16.10.2026).
+    const friendsMe = friendsRowTable(friendsLive) ?? undefined;
     const friendsLine =
       friendsMe && friendsMe.me.move !== 0
         ? `Du bist jetzt ${friendsMe.me.rank}. von ${friendsMe.players.length} ${moveText(friendsMe.me.move)} unter deinen Freunden`
@@ -1015,13 +1018,15 @@ export default function MatchCard({
               {compactTeamRow(rightTeam, rightSide)}
             </div>
           )}
-          {/* EINE Zeile "Dein Tipp: … · richtig  +5 vorläufig" mit "wenn es so
-              bleibt" darunter; nach Abpfiff ohne Wertung "Wertung folgt"
-              (Rene, 15.10.2026: Spieltag-Umbau, ersetzt "Stand jetzt"). */}
-          {pendingTip && pendingTier && (
+          {/* EINE Zeile "Dein Tipp 3:1 · Stand jetzt: Tendenz  +5 vorläufig" mit
+              "wenn es so bleibt" darunter; nach Abpfiff ohne Wertung
+              "Endstand: … · Wertung folgt" (Rene, 15.10.2026: Spieltag-Umbau;
+              "Stand jetzt" statt "richtig", Rene, 16.10.2026). */}
+          {pendingTip && pendingTier && boardScore && (
             <LiveTipLine
               tipText={tipName(pendingTip.predictedHomeScore, pendingTip.predictedAwayScore)}
-              tier={pendingTier}
+              predicted={{ home: pendingTip.predictedHomeScore, away: pendingTip.predictedAwayScore }}
+              actual={boardScore}
               points={pendingPoints}
               isOneXTwo={isOneXTwo}
               finished={!live || live.finished}
@@ -1336,8 +1341,10 @@ export default function MatchCard({
         )}
 
         {/* Footer (Rene, 15.10.2026): immer EINE Zeile (auch 3er-Reihe am PC
-            und 375 px): "👥 2 ▼ · Spielverlauf (6) ▾ · 💬 Kommentieren", kleine
-            Abstände, Icons statt Wörter, nie umbrechen. */}
+            und 375 px): "👥 2 getippt ▼ · Spielverlauf (6) ▾ · 💬 Kommentieren",
+            kleine Abstände, nie umbrechen. (Rene, 16.10.2026) "getippt" wieder
+            sichtbar; dafür ist "Kommentieren" neben dem Spielverlauf am Handy
+            und in der PC-3er-Reihe nur das Sprechblasen-Icon. */}
         <div className="mt-auto flex flex-nowrap items-center justify-between gap-1.5 whitespace-nowrap pt-3 text-xs text-muted">
           {tipCount > 0 ? (
             <button
@@ -1346,21 +1353,20 @@ export default function MatchCard({
               className="flex shrink-0 items-center gap-1 font-semibold text-muted transition-colors hover:text-ink"
             >
               <PeopleIcon className="h-3.5 w-3.5" />
-              {tipCount.toLocaleString("de-DE")}
-              <span className="sr-only">getippt</span>
+              {tipCount.toLocaleString("de-DE")} getippt
               <span aria-hidden className="text-[10px]">{tippersOpen ? "▲" : "▼"}</span>
             </button>
           ) : (
             <span className="flex shrink-0 items-center gap-1">
-              <PeopleIcon className="h-3.5 w-3.5" />0<span className="sr-only">getippt</span>
+              <PeopleIcon className="h-3.5 w-3.5" />0 getippt
             </span>
           )}
           {/* getippt · Spielverlauf (live, beendet, gewertet) · Kommentieren.
               Neues Tor: Spielverlauf golden mit pulsierendem Punkt.
               Spielverlauf-Knopf (Rene, 15.10.2026): 2 px größer als der Rest
               (14 statt 12 px), Farbe ink statt muted, Pfeil ▾/▴ – ruhig, gold
-              nur beim Puls. Damit die Zeile hält, ist "Kommentieren" in der
-              engen PC-3er-Reihe (lg bis xl) nur das Sprechblasen-Icon. */}
+              nur beim Puls. Damit die Zeile hält, ist "Kommentieren" neben dem
+              Spielverlauf am Handy und ab lg nur das Sprechblasen-Icon. */}
           <div className="flex min-w-0 items-center gap-2">
             {showEventsButton && (
               <button
@@ -1387,7 +1393,7 @@ export default function MatchCard({
             >
               <ChatIcon className="h-3.5 w-3.5 shrink-0" />
               {matchComments.length === 0 ? (
-                <span className="truncate lg:max-xl:hidden">Kommentieren</span>
+                <span className={`truncate ${showEventsButton ? "max-sm:hidden lg:hidden" : ""}`}>Kommentieren</span>
               ) : (
                 <span className="truncate">{matchComments.length.toLocaleString("de-DE")}</span>
               )}
