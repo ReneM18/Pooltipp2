@@ -44,8 +44,12 @@ export interface LiveGame {
   statusShort: string;
   statusText: string; // deutsch für die Karte, z. B. "67'", "Halbzeit", "2. Drittel"
   elapsed: number | null; // Spielminute (Fußball) bzw. Uhr im Abschnitt
+  // Fortschritt 0..1 für den dünnen Balken, wenn der Anbieter ihn ohne
+  // mitlaufende Minute kennt (Eishockey: über 60 Min., Rene, 16.10.2026).
+  progress?: number;
   league: string; // "Wettbewerb · Land"
-  // Tore, Karten, Wechsel (nur Fußball). Leer, wenn der Anbieter keine liefert.
+  // Tore, Karten, Wechsel (nur Fußball). Fehlt das Feld, liefert der Anbieter
+  // für diese Sportart keine Ereignisse (Eishockey) → Spielverlauf ausblenden.
   events?: LiveEvent[];
 }
 
@@ -100,6 +104,16 @@ export interface LiveDiagnostics {
   lastErrorAt: number | null;
   quota: LiveQuota | null;
   quotaAt: number | null;
+  // Letzte Spiellisten je Sportart + Tag (Rene, 16.10.2026: Zuordnungs-Check
+  // im Admin) – nur was ohnehin abgefragt wurde.
+  days?: LiveDayStatus[];
+}
+
+export interface LiveDayStatus {
+  sport: Sport;
+  date: string;
+  fetchedAt: number;
+  games: LiveGame[];
 }
 
 // Ergebnis eines Anbieters für eine Sportart und einen Tag.

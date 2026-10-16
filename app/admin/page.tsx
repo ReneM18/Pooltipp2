@@ -31,8 +31,11 @@ import { useJokers } from "@/lib/JokerContext";
 import { DuelReport } from "@/components/DuelReport";
 import { GrowthReport } from "@/components/GrowthReport";
 import Emoji from "@/components/Emoji";
-import { peekLiveDiagnostics } from "@/lib/useLiveScores";
-import type { LiveDiagnostics, LiveSource } from "@/lib/live/types";
+import { peekLiveDays, peekLiveDiagnostics } from "@/lib/useLiveScores";
+import type { LiveDayStatus, LiveDiagnostics, LiveGame, LiveSource } from "@/lib/live/types";
+import { findLiveLeague, liveGameLeague } from "@/lib/liveConfig";
+import { findLiveGame, viennaDate } from "@/lib/liveScores";
+import { competitionCountry } from "@/lib/competitionFlag";
 
 type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news" | "wachstum";
 
@@ -335,6 +338,115 @@ function LiveDataInfo() {
         Stand vom letzten Abruf – diese Kachel fragt nicht selbst beim Anbieter nach.
         {!lastFetch && " Noch kein Abruf seit dem letzten Server-Start."}
       </p>
+      <LiveMatchCheck serverDays={server?.days ?? []} />
+    </div>
+  );
+}
+
+// Zuordnungs-Check (Rene, 16.10.2026): heutige App-Spiele (inkl. der
+// kommenden Nacht bis 12:00, z. B. NHL um 03:00) in eingeschalteten Ligen –
+// passt ein Live-Spiel dazu? Nur aus bereits geladenen Daten (Server-Stand
+// von /api/live?status=1 bzw. was dieser Browser schon hat), KEINE
+// zusätzliche Abfrage. Ohne Treffer stehen die Live-Spiele derselben Liga
+// um diese Uhrzeit darunter – so sieht man den Namen, den die API
+// verwendet (dann in lib/live/aliases.ts eintragen).
+function viennaClock(iso: string): string {
+  return new Date(iso).toLocaleTimeString("de-AT", { timeZone: "Europe/Vienna", hour: "2-digit", minute: "2-digit" });
+}
+
+function LiveMatchCheck({ serverDays }: { serverDays: LiveDayStatus[] }) {
+  const { matches, getTeam, orderFor, competitions } = useAppData();
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => setNow(Date.now()), [serverDays]);
+  if (now === null) return null;
+
+  const today = viennaDate(now);
+  const tomorrow = viennaDate(now + 24 * 60 * 60 * 1000);
+  const viennaHour = (iso: string) =>
+    Number(new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Europe/Vienna", hour: "2-digit", hour12: false }));
+
+  // Je Sportart + Tag der neueste geladene Stand (Server oder Browser).
+  const days = new Map<string, { fetchedAt: number; games: LiveGame[] }>();
+  for (const d of [...serverDays, ...peekLiveDays()]) {
+    const key = `${d.sport}|${d.date}`;
+    const prev = days.get(key);
+    if (!prev || d.fetchedAt > prev.fetchedAt) days.set(key, { fetchedAt: d.fetchedAt, games: d.games });
+  }
+
+  const list = matches
+    .filter((m) => !m.draft && m.status !== "cancelled")
+    .filter((m) => {
+      const day = viennaDate(m.kickoff);
+      return day === today || (day === tomorrow && viennaHour(m.kickoff) < 12);
+    })
+    .map((m) => ({ m, league: findLiveLeague(m.sport, m.competition, competitionCountry(m.sport, m.competition, competitions)) }))
+    .filter((x) => x.league !== null)
+    .sort((a, b) => new Date(a.m.kickoff).getTime() - new Date(b.m.kickoff).getTime());
+
+  return (
+    <div className="mt-3 border-t border-edge pt-3">
+      <p className="mb-2 text-sm font-semibold text-ink">Zuordnungs-Check</p>
+      {list.length === 0 ? (
+        <p className="text-xs text-muted">Heute keine App-Spiele in eingeschalteten Live-Ligen.</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {list.map(({ m, league }) => {
+            const home = getTeam(m.homeTeamId);
+            const away = getTeam(m.awayTeamId);
+            const title = home && away ? matchTitle(orderFor(m), home.name, away.name) : "Team fehlt";
+            const day = days.get(`${m.sport}|${viennaDate(m.kickoff)}`);
+            const kickoff = new Date(m.kickoff).getTime();
+            let body: React.ReactNode;
+            if (!home || !away) {
+              body = <span className="text-yellow-400">✗ Team nicht gefunden</span>;
+            } else if (!day) {
+              body = <span className="text-muted">– noch keine Live-Daten für diesen Tag geladen (Tippkarte oder Matchcenter öffnen, dann „Neu laden")</span>;
+            } else {
+              const found = findLiveGame(day.games, m.kickoff, home.name, away.name);
+              if (found) {
+                body = (
+                  <span className="text-action-hover">
+                    ✓ zugeordnet: {found.game.home} – {found.game.away}
+                    {found.swapped && <span className="text-muted"> (Heim/Gast bei der API andersrum)</span>}
+                  </span>
+                );
+              } else {
+                // Hinweis: Live-Spiele derselben Liga ±30 Min. um den Anpfiff.
+                const hints = day.games.filter((g) => {
+                  const gl = liveGameLeague(m.sport, g.league);
+                  return gl === league && Math.abs(new Date(g.kickoff).getTime() - kickoff) <= 30 * 60 * 1000;
+                });
+                body = (
+                  <>
+                    <span className="text-yellow-400">✗ kein passendes Live-Spiel gefunden</span>
+                    {hints.length > 0 ? (
+                      <span className="mt-0.5 block text-muted">
+                        API um diese Zeit:{" "}
+                        {hints.map((g) => `${viennaClock(g.kickoff)} ${g.home} – ${g.away}`).join(" · ")}
+                      </span>
+                    ) : (
+                      <span className="mt-0.5 block text-muted">Keine Spiele dieser Liga um {viennaClock(m.kickoff)} in den Live-Daten.</span>
+                    )}
+                  </>
+                );
+              }
+            }
+            return (
+              <li key={m.id} className="min-w-0 break-words text-xs">
+                <span className="font-semibold text-ink">
+                  {viennaClock(m.kickoff)} {title}
+                </span>
+                <span className="text-muted">
+                  {" "}
+                  · {league!.label}
+                  {league!.country ? ` ${flagEmoji(league!.country)}` : ""}
+                </span>
+                <span className="block">{body}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

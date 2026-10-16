@@ -1,5 +1,6 @@
 import type { Sport } from "./types";
 import { normalizeTeamName } from "./teamName";
+import { isTeamAlias } from "./live/aliases";
 
 // Live-Spielstände (Rene, 15.10.2026). Gemeinsame Hilfen für die
 // Server-Route (app/api/live/route.ts), den Anbieter und die Karten
@@ -132,6 +133,14 @@ export function teamNameScore(a: string, b: string): number {
   return 0;
 }
 
+// Zuordnung eines Teamnamens (Rene, 16.10.2026): zuerst die Alias-Liste
+// (lib/live/aliases.ts, z. B. "KAC" = "Klagenfurt"), dann die tolerante
+// Namenslogik. Alias zählt mehr als jeder tolerante Treffer.
+export function teamMatchScore(appName: string, apiName: string): number {
+  if (isTeamAlias(appName, apiName)) return 4;
+  return teamNameScore(appName, apiName);
+}
+
 export interface LiveMatchResult {
   game: LiveGame;
   // Spielstand schon als App-Heim/-Gast (falls die API die Seiten vertauscht).
@@ -165,10 +174,10 @@ export function findLiveGame(
   for (const game of games) {
     const diff = Math.abs(new Date(game.kickoff).getTime() - target);
     if (!(diff <= 20 * 60 * 1000)) continue;
-    const straightHome = teamNameScore(homeName, game.home);
-    const straightAway = teamNameScore(awayName, game.away);
-    const swappedHome = teamNameScore(homeName, game.away);
-    const swappedAway = teamNameScore(awayName, game.home);
+    const straightHome = teamMatchScore(homeName, game.home);
+    const straightAway = teamMatchScore(awayName, game.away);
+    const swappedHome = teamMatchScore(homeName, game.away);
+    const swappedAway = teamMatchScore(awayName, game.home);
     let candidate: { result: LiveMatchResult; score: number } | null = null;
     if (straightHome > 0 && straightAway > 0) {
       candidate = {
