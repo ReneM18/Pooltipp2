@@ -52,6 +52,7 @@ import {
   useBoardClock,
   type BoardSide,
 } from "@/components/LiveMatch";
+import { liveTipLabel } from "@/lib/liveTipText";
 
 const LEAGUES = Object.keys(LEAGUE_IDS);
 
@@ -974,6 +975,11 @@ function LcDetail({
     const d = Math.sign(tip.predictedHomeScore - tip.predictedAwayScore);
     return d > 0 ? link.home.name : d < 0 ? link.away.name : "Unentschieden";
   })();
+  // Live-Zeile kurz: "Sieg Frankfurt" / "Unentschieden" / "3:1" (Rene, 16.10.2026).
+  const liveTipTextShort =
+    tip && match && link
+      ? liveTipLabel(tip.predictedHomeScore, tip.predictedAwayScore, isOneXTwo, link.home.name, link.away.name, tipText)
+      : "";
   const tendency = match ? tipTendencies[match.id] : undefined;
   const flag = liveLeagueFlag(sport, game, competitions);
   const [leftKick, rightKick] = displayOrder(order, appHome, appAway);
@@ -1017,11 +1023,8 @@ function LcDetail({
 
       {pending && tier && (
         <LiveTipLine
-          tipText={tipText}
-          predicted={{ home: tip!.predictedHomeScore, away: tip!.predictedAwayScore }}
-          actual={{ home: homeScore!, away: awayScore! }}
+          tipText={liveTipTextShort}
           points={points}
-          isOneXTwo={isOneXTwo}
           finished={!isLiveRunning(game.status)}
           forecast={forecast}
         />
