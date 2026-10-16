@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Sport } from "@/lib/types";
-import { liveTipPhrase } from "@/lib/liveTipText";
+import { livePointsText } from "@/lib/liveTipText";
 import { eventMinuteText, isGoalEvent, shortPlayerName, type LiveEvent, type LiveStatus } from "@/lib/liveScores";
 import { useLiveClock } from "@/lib/useLiveMinute";
 import type { LiveForecast } from "@/lib/liveForecast";
@@ -222,25 +222,20 @@ export function forecastPlain(forecast: LiveForecast): string {
   return `${arrow}Platz ${forecast.rankThen}`;
 }
 
-// EINE Zeile "Dein Tipp 3:1 · Stand jetzt: Tendenz" mit rechts "+5 vorläufig"
-// (nach Abpfiff ohne offiziellen Endstand: "Endstand: Tendenz" und "Wertung
-// folgt"; Texte aus lib/liveTipText.ts, Rene, 16.10.2026), darunter klein der
-// vorläufige Platz. Gold nur, wenn der Tipp gerade Punkte bringt. Nur feste
-// Punkte (ohne Bonus und Joker), mit Anfänger-Schutz ein Minus als 0.
+// EINE Zeile: links nur der Tipp ("Dein Tipp: Sieg Frankfurt" / "3:1"),
+// rechts nur die Punkte beim jetzigen Stand ("+5" grün, "−3" rot) mit klein
+// "vorläufig" bzw. nach Abpfiff ohne App-Endstand "Wertung folgt" – keine
+// Status-Wörter mehr (Rene, 16.10.2026). Darunter klein der vorläufige Platz.
+// Gold nur, wenn der Tipp gerade Punkte bringt. Nur feste Punkte (ohne Bonus
+// und Joker), mit Anfänger-Schutz ein Minus als 0.
 export function LiveTipLine({
   tipText,
-  predicted,
-  actual,
   points,
-  isOneXTwo,
   finished,
   forecast,
 }: {
   tipText: string;
-  predicted: { home: number; away: number };
-  actual: { home: number; away: number };
   points: number;
-  isOneXTwo: boolean;
   finished: boolean;
   forecast: LiveForecast | null;
 }) {
@@ -252,24 +247,18 @@ export function LiveTipLine({
           good ? "border-gold/70 bg-gold/10" : "border-edge bg-pitch"
         }`}
       >
-        <span className="min-w-0 text-muted">
-          Dein Tipp <span className={`font-semibold ${good ? "text-gold" : "text-ink"}`}>{tipText}</span>
-          <span className="whitespace-nowrap">
-            {" · "}
-            {liveTipPhrase(predicted.home, predicted.away, actual.home, actual.away, isOneXTwo, finished)}
-          </span>
+        <span className="min-w-0 truncate text-muted">
+          Dein Tipp: <span className={`font-semibold ${good ? "text-gold" : "text-ink"}`}>{tipText}</span>
         </span>
         <span className="flex shrink-0 items-baseline gap-1 whitespace-nowrap">
-          {finished ? (
-            <span className="text-xs text-muted">Wertung folgt</span>
-          ) : (
-            <>
-              <span className={`font-display text-sm font-bold ${good ? "text-gold" : "text-ink"}`}>
-                {signedPoints(points)}
-              </span>
-              <span className="text-[10px] text-muted/80">vorläufig</span>
-            </>
-          )}
+          <span
+            className={`font-display text-sm font-bold ${
+              points > 0 ? "text-[#4FC181]" : points < 0 ? "text-red-400" : "text-ink"
+            }`}
+          >
+            {livePointsText(points)}
+          </span>
+          <span className="text-[10px] text-muted/80">{finished ? "Wertung folgt" : "vorläufig"}</span>
         </span>
       </div>
       {forecast && !finished && (

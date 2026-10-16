@@ -1,62 +1,57 @@
-import { classifyRankingTip, type TipResultTier } from "./poolScore";
+import { classifyRankingTip, RANKING_POINTS } from "./poolScore";
 
 // Texte zur "Dein Tipp"-Zeile während des Spiels (Tippkarte, Topspiel,
-// Matchcenter, Tor-Toast) an einer Stelle (Rene, 16.10.2026): "richtig"
-// klang mitten im Spiel endgültig, darum "Stand jetzt: …" bzw. nach Abpfiff
-// ohne App-Endstand "Endstand: …".
+// Matchcenter, Tor-Toast) an einer Stelle (Rene, 16.10.2026): nur noch der
+// Tipp kurz ("Sieg Frankfurt", "Unentschieden", "3:1") und die Punkte beim
+// jetzigen Stand – keine Status-Wörter ("Stand jetzt", "Tendenz",
+// "Gleichstand" …) mehr, die haben verwirrt.
 
-const TIER_TEXT: Record<TipResultTier, string> = {
-  exakt: "exakt",
-  differenz: "Tordifferenz",
-  tendenz: "Tendenz",
-  falsch: "daneben",
-};
+// Kürzel und Zusätze, die nicht als Kurzname taugen ("FC", "1.", "e.V.").
+const FILLER = /^(\d+\.?|e\.?\s?v\.?|[A-Z]{1,4}|[A-Z]\.?[A-Z]?\.?|de|di|la|le|del|von|am|an|der)$/;
 
-/**
- * Wie der Tipp beim aktuellen Stand liegt, ohne Vorsatz: Ergebnistipp nach
- * Stufe ("Tendenz"), Siegertipp "liegt vorne"/"liegt hinten"/"Gleichstand",
- * Remis-Tipp "Remis passt"/"kein Remis". Nach Abpfiff beim Siegertipp
- * "gewonnen"/"verloren"/"Remis".
- */
-export function liveTipStatus(
-  predictedHome: number,
-  predictedAway: number,
-  actualHome: number,
-  actualAway: number,
-  isOneXTwo: boolean,
-  finished = false
-): string {
-  if (!isOneXTwo) {
-    return TIER_TEXT[classifyRankingTip(predictedHome, predictedAway, actualHome, actualAway, false)];
+/** Kurzname eines Vereins: letztes markantes Wort ("Eintracht Frankfurt" → "Frankfurt", "1. FC Köln" → "Köln", "Vienna Capitals" → "Capitals"). */
+export function shortTeamName(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  for (let i = words.length - 1; i >= 0; i--) {
+    if (!FILLER.test(words[i])) return words[i];
   }
-  const pick = Math.sign(predictedHome - predictedAway);
-  const now = Math.sign(actualHome - actualAway);
-  if (pick === 0) return now === 0 ? "Remis passt" : "kein Remis";
-  if (now === 0) return finished ? "Remis" : "Gleichstand";
-  if (now === pick) return finished ? "gewonnen" : "liegt vorne";
-  return finished ? "verloren" : "liegt hinten";
+  return name.trim();
 }
 
-/** "Stand jetzt: Tendenz" bzw. nach Abpfiff "Endstand: Tendenz". */
-export function liveTipPhrase(
+/** Tipp kurz für die Live-Zeile: "Sieg Frankfurt", "Unentschieden" bzw. "3:1". */
+export function liveTipLabel(
+  predictedHome: number,
+  predictedAway: number,
+  isOneXTwo: boolean,
+  homeName: string,
+  awayName: string,
+  scoreText: string
+): string {
+  if (!isOneXTwo) return scoreText;
+  const pick = Math.sign(predictedHome - predictedAway);
+  if (pick === 0) return "Unentschieden";
+  return `Sieg ${shortTeamName(pick > 0 ? homeName : awayName)}`;
+}
+
+/** Vorläufige feste Punkte beim jetzigen Stand (mit Anfänger-Schutz ein Minus als 0). */
+export function livePoints(
   predictedHome: number,
   predictedAway: number,
   actualHome: number,
   actualAway: number,
   isOneXTwo: boolean,
-  finished: boolean
-): string {
-  const status = liveTipStatus(predictedHome, predictedAway, actualHome, actualAway, isOneXTwo, finished);
-  return `${finished ? "Endstand" : "Stand jetzt"}: ${status}`;
+  shield: boolean
+): number {
+  const p = RANKING_POINTS[classifyRankingTip(predictedHome, predictedAway, actualHome, actualAway, isOneXTwo)];
+  return shield ? Math.max(0, p) : p;
 }
 
-/** Zusatz im Tor-Toast: "Dein Tipp: Stand jetzt Tendenz". */
-export function liveTipToastText(
-  predictedHome: number,
-  predictedAway: number,
-  actualHome: number,
-  actualAway: number,
-  isOneXTwo: boolean
-): string {
-  return `Dein Tipp: Stand jetzt ${liveTipStatus(predictedHome, predictedAway, actualHome, actualAway, isOneXTwo)}`;
+/** "+5", "−3" bzw. "0". */
+export function livePointsText(points: number): string {
+  return points > 0 ? `+${points}` : points < 0 ? `−${-points}` : "0";
+}
+
+/** Zusatz im Tor-Toast: "Dein Tipp: +5 vorläufig". */
+export function liveTipToastText(points: number): string {
+  return `Dein Tipp: ${livePointsText(points)} vorläufig`;
 }

@@ -31,7 +31,7 @@ import { useFinishedEvents, useLiveScore } from "@/lib/useLiveScores";
 import { isGoalEvent, shortPlayerName, eventMinuteText } from "@/lib/liveScores";
 import { useLiveForecast } from "@/lib/liveForecast";
 import { useBeginnerShieldLeft } from "./BeginnerShieldHint";
-import { liveTipToastText } from "@/lib/liveTipText";
+import { liveTipLabel, livePoints, liveTipToastText } from "@/lib/liveTipText";
 import { EventTimeline, LivePill, LiveTipLine, Scoreboard, forecastPlain, signedPoints, timelineCount, useBoardClock, useNewGoal, type NewGoal } from "./LiveMatch";
 import { showGoalToast } from "./GoalToast";
 import { FriendsLiveRow, FriendsLiveSheet } from "./FriendsLive";
@@ -443,8 +443,8 @@ export default function MatchCard({
       : null;
     const detail = [
       scorer ? `${shortPlayerName(scorer.player) || "Tor"} ${eventMinuteText(scorer)}` : null,
-      // "Stand jetzt" statt "liegt richtig" (Rene, 16.10.2026).
-      liveTipToastText(myTip.predictedHomeScore, myTip.predictedAwayScore, live.homeScore, live.awayScore, isOneXTwo),
+      // Nur die vorläufigen Punkte: "Dein Tipp: +5 vorläufig" (Rene, 16.10.2026).
+      liveTipToastText(livePoints(myTip.predictedHomeScore, myTip.predictedAwayScore, live.homeScore, live.awayScore, isOneXTwo, shieldLeft > 0)),
       forecast ? `wenn es so bleibt ${forecastPlain(forecast)}` : null,
     ]
       .filter(Boolean)
@@ -1018,17 +1018,20 @@ export default function MatchCard({
               {compactTeamRow(rightTeam, rightSide)}
             </div>
           )}
-          {/* EINE Zeile "Dein Tipp 3:1 · Stand jetzt: Tendenz  +5 vorläufig" mit
-              "wenn es so bleibt" darunter; nach Abpfiff ohne Wertung
-              "Endstand: … · Wertung folgt" (Rene, 15.10.2026: Spieltag-Umbau;
-              "Stand jetzt" statt "richtig", Rene, 16.10.2026). */}
+          {/* EINE Zeile "Dein Tipp: Sieg Frankfurt  +5 vorläufig" mit "wenn es so
+              bleibt" darunter; nach Abpfiff ohne Wertung "Wertung folgt"
+              statt "vorläufig" (Rene, 16.10.2026: nur Tipp und Punkte). */}
           {pendingTip && pendingTier && boardScore && (
             <LiveTipLine
-              tipText={tipName(pendingTip.predictedHomeScore, pendingTip.predictedAwayScore)}
-              predicted={{ home: pendingTip.predictedHomeScore, away: pendingTip.predictedAwayScore }}
-              actual={boardScore}
+              tipText={liveTipLabel(
+                pendingTip.predictedHomeScore,
+                pendingTip.predictedAwayScore,
+                isOneXTwo,
+                homeTeam.name,
+                awayTeam.name,
+                scoreText(order, pendingTip.predictedHomeScore, pendingTip.predictedAwayScore)
+              )}
               points={pendingPoints}
-              isOneXTwo={isOneXTwo}
               finished={!live || live.finished}
               forecast={forecast}
             />
