@@ -31,7 +31,8 @@ import { useFinishedEvents, useLiveScore } from "@/lib/useLiveScores";
 import { isGoalEvent, shortPlayerName, eventMinuteText } from "@/lib/liveScores";
 import { useLiveForecast } from "@/lib/liveForecast";
 import { useBeginnerShieldLeft } from "./BeginnerShieldHint";
-import { EventTimeline, LivePill, LiveTipLine, Scoreboard, forecastPlain, signedPoints, tierWord, timelineCount, useBoardClock, useNewGoal, type NewGoal } from "./LiveMatch";
+import { liveTipToastText } from "@/lib/liveTipText";
+import { EventTimeline, LivePill, LiveTipLine, Scoreboard, forecastPlain, signedPoints, timelineCount, useBoardClock, useNewGoal, type NewGoal } from "./LiveMatch";
 import { showGoalToast } from "./GoalToast";
 import { FriendsLiveRow, FriendsLiveSheet } from "./FriendsLive";
 import { friendsRowTable, moveText, useFriendsLive } from "@/lib/friendsLive";
@@ -440,11 +441,10 @@ export default function MatchCard({
     const scorer = goals.length === (side === "home" ? live.homeScore : live.awayScore)
       ? goals.slice().sort((a, b) => a.minute - b.minute || (a.extra ?? 0) - (b.extra ?? 0))[goals.length - 1]
       : null;
-    const tier = classifyRankingTip(myTip.predictedHomeScore, myTip.predictedAwayScore, live.homeScore, live.awayScore, isOneXTwo);
     const detail = [
       scorer ? `${shortPlayerName(scorer.player) || "Tor"} ${eventMinuteText(scorer)}` : null,
-      // Stufe benannt wie in "Dein Tipp" (Rene, 16.10.2026).
-      `Dein Tipp: ${tierWord(tier, isOneXTwo)}`,
+      // "Stand jetzt" statt "liegt richtig" (Rene, 16.10.2026).
+      liveTipToastText(myTip.predictedHomeScore, myTip.predictedAwayScore, live.homeScore, live.awayScore, isOneXTwo),
       forecast ? `wenn es so bleibt ${forecastPlain(forecast)}` : null,
     ]
       .filter(Boolean)
@@ -1018,13 +1018,15 @@ export default function MatchCard({
               {compactTeamRow(rightTeam, rightSide)}
             </div>
           )}
-          {/* EINE Zeile "Dein Tipp: … · richtig  +5 vorläufig" mit "wenn es so
-              bleibt" darunter; nach Abpfiff ohne Wertung "Wertung folgt"
-              (Rene, 15.10.2026: Spieltag-Umbau, ersetzt "Stand jetzt"). */}
-          {pendingTip && pendingTier && (
+          {/* EINE Zeile "Dein Tipp 3:1 · Stand jetzt: Tendenz  +5 vorläufig" mit
+              "wenn es so bleibt" darunter; nach Abpfiff ohne Wertung
+              "Endstand: … · Wertung folgt" (Rene, 15.10.2026: Spieltag-Umbau;
+              "Stand jetzt" statt "richtig", Rene, 16.10.2026). */}
+          {pendingTip && pendingTier && boardScore && (
             <LiveTipLine
               tipText={tipName(pendingTip.predictedHomeScore, pendingTip.predictedAwayScore)}
-              tier={pendingTier}
+              predicted={{ home: pendingTip.predictedHomeScore, away: pendingTip.predictedAwayScore }}
+              actual={boardScore}
               points={pendingPoints}
               isOneXTwo={isOneXTwo}
               finished={!live || live.finished}

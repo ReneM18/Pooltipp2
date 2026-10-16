@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Sport } from "@/lib/types";
-import type { TipResultTier } from "@/lib/poolScore";
+import { liveTipPhrase } from "@/lib/liveTipText";
 import { eventMinuteText, isGoalEvent, shortPlayerName, type LiveEvent, type LiveStatus } from "@/lib/liveScores";
 import { useLiveClock } from "@/lib/useLiveMinute";
 import type { LiveForecast } from "@/lib/liveForecast";
@@ -198,23 +198,6 @@ export function Scoreboard({
   );
 }
 
-const TIER_WORD: Record<TipResultTier, string> = {
-  exakt: "exakt richtig",
-  differenz: "Tordifferenz richtig",
-  tendenz: "Tendenz richtig",
-  falsch: "daneben",
-};
-
-// Ergebnistipp mit benannter Stufe (Rene, 16.10.2026: "3:1 · richtig" beim
-// Stand 1:0 war unklar): exakt richtig / Tordifferenz richtig / Tendenz
-// richtig / daneben (classifyRankingTip). 1X2-/Siegertipp: richtig/daneben.
-// Für Tippkarte, Matchcenter-Detail und Tor-Hinweis.
-
-export function tierWord(tier: TipResultTier, isOneXTwo: boolean): string {
-  if (isOneXTwo) return tier === "falsch" ? "daneben" : "richtig";
-  return TIER_WORD[tier];
-}
-
 export function signedPoints(n: number): string {
   return n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "±0";
 }
@@ -239,20 +222,23 @@ export function forecastPlain(forecast: LiveForecast): string {
   return `${arrow}Platz ${forecast.rankThen}`;
 }
 
-// EINE Zeile "Dein Tipp: Milan · richtig" mit rechts "+5 vorläufig" (nach
-// Abpfiff ohne offiziellen Endstand: "Wertung folgt"), darunter klein der
+// EINE Zeile "Dein Tipp 3:1 · Stand jetzt: Tendenz" mit rechts "+5 vorläufig"
+// (nach Abpfiff ohne offiziellen Endstand: "Endstand: Tendenz" und "Wertung
+// folgt"; Texte aus lib/liveTipText.ts, Rene, 16.10.2026), darunter klein der
 // vorläufige Platz. Gold nur, wenn der Tipp gerade Punkte bringt. Nur feste
 // Punkte (ohne Bonus und Joker), mit Anfänger-Schutz ein Minus als 0.
 export function LiveTipLine({
   tipText,
-  tier,
+  predicted,
+  actual,
   points,
   isOneXTwo,
   finished,
   forecast,
 }: {
   tipText: string;
-  tier: TipResultTier;
+  predicted: { home: number; away: number };
+  actual: { home: number; away: number };
   points: number;
   isOneXTwo: boolean;
   finished: boolean;
@@ -267,8 +253,11 @@ export function LiveTipLine({
         }`}
       >
         <span className="min-w-0 text-muted">
-          Dein Tipp: <span className={`font-semibold ${good ? "text-gold" : "text-ink"}`}>{tipText}</span>
-          <span className="whitespace-nowrap"> · {tierWord(tier, isOneXTwo)}</span>
+          Dein Tipp <span className={`font-semibold ${good ? "text-gold" : "text-ink"}`}>{tipText}</span>
+          <span className="whitespace-nowrap">
+            {" · "}
+            {liveTipPhrase(predicted.home, predicted.away, actual.home, actual.away, isOneXTwo, finished)}
+          </span>
         </span>
         <span className="flex shrink-0 items-baseline gap-1 whitespace-nowrap">
           {finished ? (

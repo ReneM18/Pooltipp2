@@ -990,7 +990,8 @@ function LcDetail({
       {pending && tier && (
         <LiveTipLine
           tipText={tipText}
-          tier={tier}
+          predicted={{ home: tip!.predictedHomeScore, away: tip!.predictedAwayScore }}
+          actual={{ home: homeScore!, away: awayScore! }}
           points={points}
           isOneXTwo={isOneXTwo}
           finished={!isLiveRunning(game.status)}
