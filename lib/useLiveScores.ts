@@ -286,7 +286,11 @@ export interface LiveScore {
   elapsed: number | null;
   dataAt: number;
   // Tore/Karten mit Heim/Gast wie in der App (Rene, 15.10.2026: Spieltag-Umbau).
-  events: LiveEvent[];
+  // null = der Anbieter liefert für diese Sportart keine Ereignisse
+  // (Eishockey) → kein Knopf "Spielverlauf" (Rene, 16.10.2026).
+  events: LiveEvent[] | null;
+  // Fortschritt 0..1 vom Anbieter (Eishockey über 60 Min.), sonst undefined.
+  progress?: number;
   // Live-Daten verzögert (Rene, 16.10.2026), siehe isLiveDelayed.
   delayed: boolean;
 }
@@ -332,7 +336,8 @@ export function useLiveScore(match: Match, homeName: string, awayName: string): 
     statusShort: found.game.statusShort,
     elapsed: found.game.elapsed,
     dataAt: entry?.dataAt ?? 0,
-    events: appSideEvents(found),
+    events: found.game.events ? appSideEvents(found) : null,
+    ...(found.game.progress !== undefined ? { progress: found.game.progress } : {}),
     delayed: isLiveDelayed(match.sport, entry?.dataAt ?? 0, entry?.source ?? null, isLiveRunning(status), now ?? Date.now()),
   };
 }
@@ -359,7 +364,8 @@ export function useFinishedEvents(match: Match, homeName: string, awayName: stri
   const day = useLiveDay(match.sport, relevant ? viennaDate(match.kickoff) : null);
   if (!relevant || !day.games) return null;
   const found = findLiveGame(day.games, match.kickoff, homeName, awayName);
-  return found ? appSideEvents(found) : null;
+  // Ohne Ereignisse vom Anbieter (Eishockey) kein Spielverlauf.
+  return found && found.game.events ? appSideEvents(found) : null;
 }
 
 // Neu rendern, sobald irgendein Live-Eintrag neue Daten hat.
@@ -389,6 +395,16 @@ export function peekLiveScore(
   const { status } = found.game;
   if (!isLiveRunning(status) && !isLiveFinished(status)) return null;
   return { homeScore: found.homeScore, awayScore: found.awayScore, status };
+}
+
+// Alle Spiellisten, die dieser Browser schon geladen hat (Rene, 16.10.2026:
+// Zuordnungs-Check im Admin). Keine Abfrage.
+export function peekLiveDays(): { sport: Sport; date: string; fetchedAt: number; games: LiveGame[] }[] {
+  const list: { sport: Sport; date: string; fetchedAt: number; games: LiveGame[] }[] = [];
+  entries.forEach((e) => {
+    if (e.games && e.loadedAt > 0) list.push({ sport: e.sport, date: e.date, fetchedAt: e.dataAt || e.loadedAt, games: e.games });
+  });
+  return list;
 }
 
 // Letzte Diagnose, die dieser Browser von /api/live bekommen hat

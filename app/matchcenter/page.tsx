@@ -24,14 +24,16 @@ import {
   type LiveMatchResult,
 } from "@/lib/liveScores";
 import { reloadLiveDay, useLiveDay, useLivePolling } from "@/lib/useLiveScores";
-import { LIVE_SPORTS } from "@/lib/liveConfig";
+import { LIVE_SPORTS, liveGameCountry } from "@/lib/liveConfig";
+import { liveIntervalSeconds } from "@/lib/liveScores";
+import { flagEmoji } from "@/lib/flags";
 import { useLiveClock, useMinuteTick } from "@/lib/useLiveMinute";
 import { useLiveForecast } from "@/lib/liveForecast";
 import { useAppData } from "@/lib/AppDataContext";
 import { classifyRankingTip, RANKING_POINTS } from "@/lib/poolScore";
 import { competitionFlag } from "@/lib/competitionFlag";
 import { displayOrder, scoreText, type TeamOrder } from "@/lib/teamOrder";
-import type { Match, Sport, Team } from "@/lib/types";
+import { SPORT_ICONS, sportLabel, type Match, type Sport, type Team } from "@/lib/types";
 import TeamBadge, { matchJerseyProps } from "@/components/TeamBadge";
 import CommentThread from "@/components/CommentThread";
 import Emoji from "@/components/Emoji";
@@ -94,7 +96,7 @@ export default function MatchcenterPage() {
 
       {/* Live-Bereich mit Detail (Rene, 15.10.2026: Spieltag-Umbau), nur die
           in lib/liveConfig.ts eingeschalteten Ligen (zum Testen Europa League). */}
-      {LIVE_SPORT && <LiveCenterSection sport={LIVE_SPORT} />}
+      {LIVE_SPORT && <LiveCenter />}
 
       <AdBanner />
 
@@ -244,7 +246,8 @@ function SubTab({ label, active, onClick }: { label: string; active: boolean; on
 // Antippen wird dorthin gescrollt. Standardmäßig ist das erste getippte
 // laufende Spiel gewählt.
 
-// Erste eingeschaltete Sportart (derzeit nur Fußball).
+// Erste eingeschaltete Sportart (Fußball). Seit 16.10.2026 auch Eishockey:
+// bei mehreren Sportarten oben ein Umschalter (Rene, 16.10.2026).
 const LIVE_SPORT: Sport | null = LIVE_SPORTS[0] ?? null;
 const MAX_LIVE_MS = 4 * 60 * 60 * 1000;
 
@@ -274,6 +277,41 @@ function leagueName(g: LiveGame): string {
   return g.league.split(" · ")[0] || "Weitere Spiele";
 }
 
+// Flagge einer Live-Liga (Rene, 16.10.2026): aus dem Land der API, damit
+// die österreichische und die deutsche "Bundesliga" auseinanderzuhalten
+// sind ("World" = international, keine Flagge). Ohne Land wie bisher nach Name.
+function liveLeagueFlag(sport: Sport, g: LiveGame, competitions: Parameters<typeof competitionFlag>[2]): string | null {
+  if (!g.league.includes(" · ")) return competitionFlag(sport, leagueName(g), competitions);
+  const country = liveGameCountry(g.league);
+  return country ? flagEmoji(country) : null;
+}
+
+// Mehrere Sportarten (Rene, 16.10.2026): Umschalter ⚽/🏒 über dem
+// Live-Bereich; je Sportart eigener Bereich (key → Auswahl beginnt neu).
+function LiveCenter() {
+  const [sport, setSport] = useState<Sport>(LIVE_SPORT ?? "Fußball");
+  const switcher =
+    LIVE_SPORTS.length > 1 ? (
+      <div className="flex gap-1.5" role="tablist" aria-label="Sportart">
+        {LIVE_SPORTS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            role="tab"
+            aria-selected={sport === s}
+            onClick={() => setSport(s)}
+            className={`rounded-full border px-2.5 py-0.5 text-[12px] font-semibold transition-colors ${
+              sport === s ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
+            }`}
+          >
+            <Emoji e={SPORT_ICONS[s]} /> <span className="hidden sm:inline">{sportLabel(s)}</span>
+          </button>
+        ))}
+      </div>
+    ) : null;
+  return <LiveCenterSection key={sport} sport={sport} switcher={switcher} />;
+}
+
 // Läuft das Spiel (oder müsste es laut Anstoß gleich/gerade laufen)?
 function needsPolling(g: LiveGame, now: number): boolean {
   if (isLiveRunning(g.status)) return true;
@@ -285,7 +323,7 @@ function needsPolling(g: LiveGame, now: number): boolean {
 const byKickoff = (a: LiveGame, b: LiveGame) =>
   new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime() || a.home.localeCompare(b.home);
 
-function LiveCenterSection({ sport }: { sport: Sport }) {
+function LiveCenterSection({ sport, switcher }: { sport: Sport; switcher?: React.ReactNode }) {
   const [view, setView] = useState<LcView>("live");
   const [today, setToday] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
@@ -371,15 +409,18 @@ function LiveCenterSection({ sport }: { sport: Sport }) {
   }
 
   const selected = selectedId ? allGames.find((g) => g.id === selectedId) ?? null : null;
-  const listProps = { links, isTipped, selectedId, onSelect: select };
+  const listProps = { sport, links, isTipped, selectedId, onSelect: select };
 
   return (
     <section className="mb-6 rounded-card border border-edge bg-surface px-3 pt-3 pb-4 sm:px-4">
       <div className="flex items-center justify-between gap-2">
         <h2 className="font-display text-base font-bold text-ink sm:text-lg">Live-Spiele</h2>
-        <span className="shrink-0 rounded-full border border-edge px-2 py-0.5 text-[11px] font-semibold text-muted">
-          Test
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          {switcher}
+          <span className="shrink-0 rounded-full border border-edge px-2 py-0.5 text-[11px] font-semibold text-muted">
+            Test
+          </span>
+        </div>
       </div>
 
       <div className="mb-4 flex gap-4 border-b border-edge">
@@ -435,13 +476,14 @@ function LiveCenterSection({ sport }: { sport: Sport }) {
         <a href={todayDay.providerUrl ?? "https://www.api-football.com/"} className="underline" target="_blank" rel="noreferrer">
           {todayDay.providerName ?? "API-Sports"}
         </a>
-        {polling && " · aktualisiert sich alle 3 Minuten"}
+        {polling && ` · aktualisiert sich alle ${Math.round(liveIntervalSeconds(sport) / 60)} Minuten`}
       </p>
     </section>
   );
 }
 
 interface ListProps {
+  sport: Sport;
   links: Map<string, AppLink>;
   isTipped: (g: LiveGame) => boolean;
   selectedId: string | null;
@@ -466,9 +508,10 @@ function LcError({ error, onRetry }: { error: string; onRetry: () => void }) {
 }
 
 // Überschrift einer Liga mit Flagge (falls es eine passende gibt).
-function LeagueHeading({ sport, name }: { sport: Sport; name: string }) {
+function LeagueHeading({ sport, game }: { sport: Sport; game: LiveGame }) {
   const { competitions } = useAppData();
-  const flag = competitionFlag(sport, name, competitions);
+  const flag = liveLeagueFlag(sport, game, competitions);
+  const name = leagueName(game);
   return (
     <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted">
       {flag && (
@@ -481,11 +524,13 @@ function LeagueHeading({ sport, name }: { sport: Sport; name: string }) {
   );
 }
 
+// Gruppiert nach "Name · Land" (Rene, 16.10.2026: sonst landen AT- und
+// DE-Bundesliga in einer Gruppe). Reihenfolge = erstes Spiel der Liga.
 function groupByLeague(games: LiveGame[]): { league: string; games: LiveGame[] }[] {
   const groups = new Map<string, LiveGame[]>();
   for (const g of games) {
-    const name = leagueName(g);
-    groups.set(name, [...(groups.get(name) ?? []), g]);
+    const key = g.league || "Weitere Spiele";
+    groups.set(key, [...(groups.get(key) ?? []), g]);
   }
   return Array.from(groups, ([league, list]) => ({ league, games: list }));
 }
@@ -508,10 +553,11 @@ function LcLive({
 }) {
   if (!games) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
   if (error) return <LcError error={error} onRetry={onRetry} />;
+  const { sport } = listProps;
   if (games.length === 0) {
     return (
       <EmptyState
-        emoji="⚽"
+        emoji={SPORT_ICONS[sport]}
         title="Heute keine Spiele"
         text="Sobald wieder gespielt wird, siehst du hier alle Spiele live."
         className="border-none bg-transparent"
@@ -529,6 +575,7 @@ function LcLive({
     ...games.filter((g) => isLiveFinished(g.status)).sort(byKickoff),
     ...games.filter((g) => g.status !== "NS" && !isLiveRunning(g.status) && !isLiveFinished(g.status)).sort(byKickoff),
   ];
+  const multiLeague = new Set(games.map((g) => g.league)).size > 1;
   const upcomingGroups: { time: string; games: LiveGame[] }[] = [];
   for (const g of upcoming) {
     const time = viennaTime(g.kickoff);
@@ -536,7 +583,6 @@ function LcLive({
     if (last && last.time === time) last.games.push(g);
     else upcomingGroups.push({ time, games: [g] });
   }
-  const sport = LIVE_SPORT ?? "Fußball";
   const rows = (list: LiveGame[]) => (
     <div className="flex flex-col gap-2">
       {list.map((g) => (
@@ -547,25 +593,41 @@ function LcLive({
 
   return (
     <div className="flex flex-col gap-4">
-      {running.length > 0 && <LcLiveHeader count={running.length} dataAt={dataAt} source={source} />}
+      {running.length > 0 && <LcLiveHeader sport={sport} count={running.length} dataAt={dataAt} source={source} />}
       {groupByLeague(running).map((group) => (
         <div key={`live-${group.league}`}>
-          <LeagueHeading sport={sport} name={group.league} />
+          <LeagueHeading sport={sport} game={group.games[0]} />
           {rows(group.games)}
         </div>
       ))}
-      {upcomingGroups.map((group) => (
-        <div key={`ns-${group.time}`}>
-          <p className="mb-2 text-xs font-semibold text-muted">ab {group.time}</p>
-          {rows(group.games)}
-        </div>
-      ))}
+      {/* Mehrere Ligen zur selben Zeit (Rene, 16.10.2026): unter "ab 19:30"
+          je Liga mit Flagge, damit man sieht, welches Spiel wohin gehört. */}
+      {upcomingGroups.map((group) => {
+        const leagues = groupByLeague(group.games);
+        return (
+          <div key={`ns-${group.time}`}>
+            <p className="mb-2 text-xs font-semibold text-muted">ab {group.time}</p>
+            {!multiLeague ? (
+              rows(group.games)
+            ) : (
+              <div className="flex flex-col gap-3">
+                {leagues.map((l) => (
+                  <div key={`ns-${group.time}-${l.league}`}>
+                    <LeagueHeading sport={sport} game={l.games[0]} />
+                    {rows(l.games)}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
       {finished.length > 0 && (
         <div className="flex flex-col gap-3 border-t border-edge pt-3">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">Beendet</p>
           {groupByLeague(finished).map((group) => (
             <div key={`ft-${group.league}`}>
-              <LeagueHeading sport={sport} name={group.league} />
+              <LeagueHeading sport={sport} game={group.games[0]} />
               {rows(group.games)}
             </div>
           ))}
@@ -580,9 +642,8 @@ function LcLive({
 // (fetchedAt = Abruf beim Anbieter, nicht beim Laden im Browser).
 // (Rene, 16.10.2026: ehrliche Aktualität) Hängen die Daten (älter als 2×
 // Takt oder nicht aus dem Live-Abruf), steht dezent "Live-Daten verzögert".
-function LcLiveHeader({ count, dataAt, source }: { count: number; dataAt: number; source: LiveSource | null }) {
+function LcLiveHeader({ sport, count, dataAt, source }: { sport: Sport; count: number; dataAt: number; source: LiveSource | null }) {
   const now = useMinuteTick(dataAt || null);
-  const sport = LIVE_SPORT ?? "Fußball";
   const delayed = now !== null && isLiveDelayed(sport, dataAt, source, true, now);
   return (
     <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted" aria-live="polite">
@@ -647,6 +708,8 @@ function LcResults({
 
 const OTHER_STATUS: Record<string, string> = {
   PST: "Verschoben",
+  POST: "Verschoben",
+  INTR: "Unterbrochen",
   CANC: "Abgesagt",
   ABD: "Abgebrochen",
   SUSP: "Unterbrochen",
@@ -698,8 +761,7 @@ function useSectionMove(id: string, section: string): boolean {
 // untereinander, rechts die Tore untereinander, unten ein dünner Balken
 // (Minute/90). "Getippt" klein in Gold unter dem Status, gewählte Zeile mit Gold-Rand.
 // Rahmen eine Spur heller als border-edge, neutral für alle Zustände.
-function GameRow({ game, dataAt = 0, links, isTipped, selectedId, onSelect }: ListProps & { game: LiveGame; dataAt?: number }) {
-  const sport = LIVE_SPORT ?? "Fußball";
+function GameRow({ sport, game, dataAt = 0, links, isTipped, selectedId, onSelect }: ListProps & { game: LiveGame; dataAt?: number }) {
   const clock = useLiveClock(sport, game.statusShort, game.elapsed, dataAt);
   const running = isLiveRunning(game.status);
   const pause = game.status === "HT" || game.status === "BREAK";
@@ -730,11 +792,13 @@ function GameRow({ game, dataAt = 0, links, isTipped, selectedId, onSelect }: Li
   } else if (game.status === "NS") {
     status = viennaTime(game.kickoff);
   } else if (isLiveFinished(game.status)) {
-    status = game.status === "AET" ? "n. V." : game.status === "PEN" ? "n. E." : "Beendet";
+    // Eishockey: "n. V." / "n. P." aus dem Anbieter (Rene, 16.10.2026).
+    status = game.status === "FT" ? "Beendet" : sport !== "Fußball" && game.statusText ? game.statusText : game.status === "AET" ? "n. V." : "n. E.";
   } else {
     status = OTHER_STATUS[game.statusShort.toUpperCase()] ?? "—";
   }
-  const progress = running ? (clock?.progress ?? (game.status === "HT" ? 0.5 : null)) : null;
+  // Eishockey: Fortschritt über 60 Min. vom Anbieter (Rene, 16.10.2026).
+  const progress = running ? (clock?.progress ?? (game.status === "HT" ? 0.5 : game.progress ?? null)) : null;
   const moved = useSectionMove(game.id, running ? "live" : game.status === "NS" ? "ns" : "done");
 
   return (
@@ -824,7 +888,7 @@ function LcDetail({ sport, game, link, dataAt }: { sport: Sport; game: LiveGame;
     return d > 0 ? link.home.name : d < 0 ? link.away.name : "Unentschieden";
   })();
   const tendency = match ? tipTendencies[match.id] : undefined;
-  const flag = competitionFlag(sport, leagueName(game), competitions);
+  const flag = liveLeagueFlag(sport, game, competitions);
   const [leftKick, rightKick] = displayOrder(order, appHome, appAway);
 
   return (
@@ -888,7 +952,8 @@ function LcDetail({ sport, game, link, dataAt }: { sport: Sport; game: LiveGame;
         </p>
       )}
 
-      {liveLike && (
+      {/* Ohne Ereignisse vom Anbieter (Eishockey) kein Spielverlauf (Rene, 16.10.2026). */}
+      {liveLike && game.events !== undefined && (
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Spielverlauf</p>
           {/* Immer sichtbar, daher kein Pulsknopf: neues Tor erkennt der

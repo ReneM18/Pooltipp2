@@ -3,6 +3,7 @@ import { isLiveLeagueEnabled, sameLeague } from "../../liveConfig";
 import { isLiveFinished, liveIntervalSeconds, viennaDate } from "../../liveScores";
 import { cachedLoad, type LoadResult } from "../cache";
 import type {
+  LiveDayStatus,
   LiveDiagnostics,
   LiveEvent,
   LiveGame,
@@ -45,6 +46,10 @@ import type {
 // ~5–20. Achtung: der Cache gilt pro Server-Instanz; das CDN (Cache-Control
 // der Route) teilt die Antwort aber für alle Nutzer, sodass meist nur eine
 // Instanz abfragt. Die Quote steht in jeder Antwort (quota) und im Admin.
+// (Rene, 16.10.2026) Fußball-Abend 16.10. mit Rapid 19:30, Frankfurt 20:30,
+// Frosinone 20:45: live=all 19:25 bis zum letzten Abpfiff ca. 22:40 =
+// 195 Min. / 3 = ~65 Abfragen, Tagesliste ~10–20 → ca. 75–85 von 100.
+// Eishockey zählt auf ein eigenes Kontingent (siehe otherSport).
 //
 // Ereignisse (Rene, 15.10.2026: Spieltag-Umbau): live=all liefert je Spiel
 // "events" (Tore, Karten, Wechsel) gleich mit. Die Tagesliste hat keine.
@@ -188,10 +193,14 @@ function rememberEvents(games: LiveGame[], at: number) {
 // neuer ist als die Tagesliste.
 let lastLive: { list: Raw[]; at: number } | null = null;
 
+// Liga-Filter über Name UND Land (Rene, 16.10.2026): Fußball hat
+// league.country, Eishockey country.name. Strikt – ohne passendes Land kein
+// Treffer (z. B. brasilianische "Serie A").
 function leagueFilter(sport: Sport, league: string | null) {
   return (g: Raw) => {
     const name = typeof g?.league?.name === "string" ? g.league.name : null;
-    return isLiveLeagueEnabled(sport, name) && (!league || (!!name && sameLeague(league, name)));
+    const country = typeof g?.league?.country === "string" ? g.league.country : typeof g?.country?.name === "string" ? g.country.name : null;
+    return isLiveLeagueEnabled(sport, name, country, true) && (!league || (!!name && sameLeague(league, name)));
   };
 }
 
@@ -200,6 +209,19 @@ function normalizeAll(sport: Sport, list: Raw[], league: string | null): LiveGam
     .filter(leagueFilter(sport, league))
     .map((g) => normalize(sport, g))
     .filter((g): g is LiveGame => g !== null);
+}
+
+// Letzter Stand je Sportart + Tag (Rene, 16.10.2026: Zuordnungs-Check im
+// Admin). Nur was ohnehin abgefragt wurde, ohne league-Einschränkung.
+const MAX_DAYS = 12;
+const LAST_DAYS = new Map<string, LiveDayStatus>();
+
+function rememberDay(sport: Sport, date: string, league: string | null, games: LiveGame[], fetchedAt: number) {
+  if (league) return;
+  const key = `${sport}|${date}`;
+  LAST_DAYS.delete(key);
+  LAST_DAYS.set(key, { sport, date, fetchedAt, games });
+  while (LAST_DAYS.size > MAX_DAYS) LAST_DAYS.delete(LAST_DAYS.keys().next().value as string);
 }
 
 function snapshotResult(
@@ -274,16 +296,77 @@ async function football(date: string, league: string | null, key: string): Promi
     const cached = LAST_EVENTS.get(games[i].id);
     games[i] = { ...games[i], events: cached ? cached.events : [] };
   }
+  rememberDay(sport, date, league, games, fetchedAt);
   return snapshotResult(games, fetchedAt, source, expiresAt, liveError);
 }
 
 // Andere Sportarten: nur die Tagesliste, die hier zugleich der Live-Stand
 // ist (Ablauf = Takt, 300 s). Deshalb source "live", vergangene Tage "day".
+//
+// Eishockey (Rene, 16.10.2026): games?date=…&timezone=Europe/Vienna,
+// eigenes Kontingent 100/Tag (hockey.api-sports.io). Abgerufen wird im
+// 300-s-Takt NUR im Spielfenster (Anpfiff −5 Min. bis Abpfiff, höchstens
+// Anpfiff +4 h). Außerhalb davon bleibt die Tagesliste liegen bis kurz vor
+// dem nächsten Anpfiff (höchstens 3 h, siehe holdUntil).
+// Rechnung für heute (16./17.10.):
+//  - ICE Hockey League 19:15 (2 Spiele gleichzeitig, eine Abfrage für
+//    alle): 19:10 bis ca. 21:50 = 160 Min. / 5 = ~32 Abrufe
+//  - NHL Sa 03:00 + 04:00 (Wiener Datum 17.10., eigene URL): 02:55 bis
+//    ca. 06:45 = 230 Min. / 5 = ~46 Abrufe
+//  - Tagesliste außerhalb der Fenster: höchstens alle 3 h = ~4–8 Abrufe
+//  → zusammen ca. 80–85 von 100. Achtung: gilt pro Server-Instanz; das CDN
+//    teilt die Antwort aber für alle Nutzer (s-maxage), daher meist eine.
+const WINDOW_BEFORE_MS = 5 * 60 * 1000;
+const WINDOW_AFTER_MS = 4 * 60 * 60 * 1000;
+const MAX_HOLD_MS = 3 * 60 * 60 * 1000;
+
+// Gemerkte Tagesliste außerhalb der Spielfenster: url → Daten + bis wann.
+const HOLD = new Map<string, { list: Raw[]; at: number; until: number }>();
+
+// Bis wann darf die Tagesliste ohne neuen Abruf liegen bleiben? null =
+// gerade Spielfenster (also im Takt abrufen).
+function holdUntil(games: LiveGame[], now: number): number | null {
+  let next = Infinity;
+  for (const g of games) {
+    if (isLiveFinished(g.status) || g.status === "OTHER") continue;
+    const kickoff = new Date(g.kickoff).getTime();
+    if (now >= kickoff - WINDOW_BEFORE_MS && now <= kickoff + WINDOW_AFTER_MS) return null;
+    if (kickoff - WINDOW_BEFORE_MS > now) next = Math.min(next, kickoff - WINDOW_BEFORE_MS);
+  }
+  return Math.min(next, now + MAX_HOLD_MS);
+}
+
 async function otherSport(sport: Sport, date: string, league: string | null, key: string): Promise<LiveProviderResult> {
-  const isPast = date < viennaDate(Date.now());
-  const day = await load(`${ENDPOINTS[sport]}?date=${date}&timezone=Europe/Vienna`, key, isPast ? PAST_TTL : liveIntervalSeconds(sport));
+  const now = Date.now();
+  const isPast = date < viennaDate(now);
+  const url = `${ENDPOINTS[sport]}?date=${date}&timezone=Europe/Vienna`;
+  const held = HOLD.get(url);
+  if (!isPast && held && now < held.until) {
+    const games = normalizeAll(sport, held.list, league);
+    // Inzwischen im Spielfenster (Uhr läuft weiter)? Dann neu abrufen.
+    if (holdUntil(games, now) !== null) {
+      rememberDay(sport, date, league, games, held.at);
+      return snapshotResult(games, held.at, "live", held.until);
+    }
+  }
+  const day = await load(url, key, isPast ? PAST_TTL : liveIntervalSeconds(sport));
   if (!day.ok) return { ok: false, error: day.error, expiresAt: day.expiresAt };
-  return snapshotResult(normalizeAll(sport, day.hit.value, league), day.hit.at, isPast ? "day" : "live", day.hit.expiresAt);
+  const games = normalizeAll(sport, day.hit.value, league);
+  let expiresAt = day.hit.expiresAt;
+  if (!isPast) {
+    // Alle Ligen der Sportart prüfen (nicht nur league), damit ein
+    // Matchcenter-Filter das Fenster nicht verschluckt.
+    const all = league ? normalizeAll(sport, day.hit.value, null) : games;
+    const until = holdUntil(all, Date.now());
+    if (until !== null && until > day.hit.expiresAt) {
+      HOLD.set(url, { list: day.hit.value, at: day.hit.at, until });
+      expiresAt = until;
+    } else {
+      HOLD.delete(url);
+    }
+  }
+  rememberDay(sport, date, league, games, day.hit.at);
+  return snapshotResult(games, day.hit.at, isPast ? "day" : "live", expiresAt);
 }
 
 // ---------------------------------------------------------------------------
@@ -318,12 +401,14 @@ const PERIOD_NAME: Partial<Record<Sport, string>> = { NHL: "Drittel", NBA: "Vier
 // Status der API (Kürzel je Sportart) → einheitlicher Status + deutscher Text.
 function mapStatus(sport: Sport, short: string, elapsed: number | null): { status: LiveStatus; text: string } {
   const s = short.toUpperCase();
+  // Eishockey eigene Texte (Rene, 16.10.2026), siehe hockeyStatus.
+  if (sport === "NHL") return hockeyStatus(s, elapsed);
   const minute = elapsed !== null && elapsed > 0 ? `${elapsed}'` : "";
   if (s === "NS" || s === "TBD") return { status: "NS", text: "Noch nicht begonnen" };
   if (s === "HT") return { status: "HT", text: "Halbzeit" };
   if (s === "FT") return { status: "FT", text: "Beendet" };
   if (s === "AET" || s === "AOT") return { status: "AET", text: sport === "Fußball" || sport === "Handball" ? "n. V." : "n. OT" };
-  if (s === "PEN" || s === "AP") return { status: "PEN", text: sport === "NHL" ? "n. Penaltys" : sport === "Handball" ? "n. 7m" : "n. E." };
+  if (s === "PEN" || s === "AP") return { status: "PEN", text: sport === "Handball" ? "n. 7m" : "n. E." };
   if (s === "BT") return { status: "BREAK", text: "Pause" };
 
   if (sport === "Fußball") {
@@ -353,11 +438,54 @@ function mapStatus(sport: Sport, short: string, elapsed: number | null): { statu
   return { status: "OTHER", text: "" };
 }
 
+// Eishockey (Rene, 16.10.2026). Kürzel von hockey.api-sports.io:
+// NS, P1/P2/P3 (Drittel), BT (Drittelpause), OT (Verlängerung), PT
+// (Penaltyschießen), FT, AOT (nach Verlängerung), AP (nach Penalty),
+// POST/CANC/INTR/ABD/AWD (verschoben, abgesagt …). Minute = timer im
+// Drittel, falls vorhanden, sonst nur das Drittel.
+function hockeyStatus(s: string, minute: number | null): { status: LiveStatus; text: string } {
+  if (s === "NS" || s === "TBD") return { status: "NS", text: "Noch nicht begonnen" };
+  const period = /^P([1-3])$/.exec(s);
+  if (period) return { status: "LIVE", text: `${period[1]}. Drittel${minute !== null && minute > 0 ? ` ${minute}'` : ""}` };
+  if (s === "BT") return { status: "BREAK", text: "Drittelpause" };
+  if (s === "OT") return { status: "LIVE", text: "Verlängerung" };
+  if (s === "PT") return { status: "LIVE", text: "Penaltyschießen" };
+  if (s === "FT") return { status: "FT", text: "Beendet" };
+  if (s === "AOT") return { status: "AET", text: "n. V." };
+  if (s === "AP") return { status: "PEN", text: "n. P." };
+  if (s === "LIVE") return { status: "LIVE", text: "Live" };
+  return { status: "OTHER", text: "" };
+}
+
+// Eishockey: Minute im Drittel und Fortschritt über 60 Min. timer kann je
+// nach Liga die Minute im Drittel (≤ 20) oder die Gesamtminute sein – beides
+// wird erkannt. Drittelpause: Ende des zuletzt gespielten Drittels (aus
+// periods.first/second/third).
+function hockeyClock(g: Raw, s: string): { minute: number | null; progress?: number } {
+  const timer = toNumber(g?.timer ?? g?.status?.timer);
+  const period = /^P([1-3])$/.exec(s);
+  if (period) {
+    const p = Number(period[1]);
+    const start = (p - 1) * 20;
+    if (timer === null || timer <= 0) return { minute: null, progress: start / 60 };
+    const inPeriod = Math.min(20, timer > 20 ? timer - start : timer);
+    if (inPeriod <= 0) return { minute: null, progress: start / 60 };
+    return { minute: inPeriod, progress: Math.min(60, start + inPeriod) / 60 };
+  }
+  if (s === "BT") {
+    const played = ["first", "second", "third"].filter((k) => g?.periods?.[k] !== null && g?.periods?.[k] !== undefined).length;
+    return { minute: null, progress: Math.max(1, Math.min(3, played || 1)) / 3 };
+  }
+  if (s === "OT" || s === "PT") return { minute: null, progress: 1 };
+  return { minute: null };
+}
+
 function normalize(sport: Sport, g: Raw): LiveGame | null {
   const isFootball = sport === "Fußball";
   const statusObj = isFootball ? g?.fixture?.status : g?.status ?? g?.game?.status;
   const short = typeof statusObj?.short === "string" ? statusObj.short : "";
-  const elapsed = toNumber(isFootball ? statusObj?.elapsed : statusObj?.timer);
+  const hockey = sport === "NHL" ? hockeyClock(g, short.toUpperCase()) : null;
+  const elapsed = hockey ? hockey.minute : toNumber(isFootball ? statusObj?.elapsed : statusObj?.timer);
   const kickoff = readKickoff(g);
   const home = g?.teams?.home?.name;
   const away = g?.teams?.away?.name;
@@ -381,6 +509,7 @@ function normalize(sport: Sport, g: Raw): LiveGame | null {
     statusShort: short,
     statusText: text,
     elapsed,
+    ...(hockey?.progress !== undefined ? { progress: hockey.progress } : {}),
     league: [g?.league?.name, g?.league?.country ?? g?.country?.name].filter((x) => typeof x === "string" && x).join(" · "),
     ...(isFootball && Array.isArray(g?.events) ? { events: normalizeEvents(g, homeScore, awayScore) } : {}),
   };
@@ -460,6 +589,6 @@ export const apiSportsProvider: LiveProvider = {
     return sport === "Fußball" ? football(date, league, key) : otherSport(sport, date, league, key);
   },
   diagnostics(): LiveDiagnostics {
-    return { provider: "api-sports", providerName: "API-Sports", ...diag };
+    return { provider: "api-sports", providerName: "API-Sports", ...diag, days: Array.from(LAST_DAYS.values()) };
   },
 };

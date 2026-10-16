@@ -26,7 +26,7 @@ export interface BoardClock {
 // Zustand + Text unter dem Spielstand, Minute zählt im Browser mit.
 export function useBoardClock(
   sport: Sport,
-  live: { status: LiveStatus; statusText: string; statusShort: string; elapsed: number | null; dataAt: number } | null,
+  live: { status: LiveStatus; statusText: string; statusShort: string; elapsed: number | null; dataAt: number; progress?: number } | null,
 ): BoardClock {
   const clock = useLiveClock(sport, live?.statusShort ?? "", live?.elapsed ?? null, live?.dataAt ?? 0);
   if (!live) return { state: "finished", text: "Beendet", progress: null };
@@ -35,7 +35,8 @@ export function useBoardClock(
   if (status === "AET") return { state: "finished", text: live.statusText || "n. V.", progress: null };
   if (status === "PEN") return { state: "finished", text: sport === "Fußball" ? "i. E." : live.statusText, progress: null };
   if (status === "HT") return { state: "pause", text: "Halbzeit", progress: 0.5 };
-  if (status === "BREAK") return { state: "pause", text: live.statusText || "Pause", progress: null };
+  // Drittelpause: Balken bleibt am Ende des Drittels stehen (Rene, 16.10.2026).
+  if (status === "BREAK") return { state: "pause", text: live.statusText || "Pause", progress: live.progress ?? null };
   if (clock && clock.text !== "Halbzeit") {
     const text = clock.text.endsWith("'") ? `${clock.text.slice(0, -1)}. Minute` : clock.text;
     return { state: "live", text, progress: clock.progress };
@@ -44,7 +45,8 @@ export function useBoardClock(
   return {
     state: "live",
     text: minute ? `${minute[1]}. Minute${minute[2]}` : live.statusText || "Live",
-    progress: sport === "Fußball" && live.elapsed !== null ? Math.min(1, live.elapsed / 90) : null,
+    // Eishockey (Rene, 16.10.2026): Fortschritt über 60 Min. vom Anbieter.
+    progress: sport === "Fußball" && live.elapsed !== null ? Math.min(1, live.elapsed / 90) : live.progress ?? null,
   };
 }
 

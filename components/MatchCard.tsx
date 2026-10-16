@@ -426,7 +426,7 @@ export default function MatchCard({
     const side: "home" | "away" = homeUp && !awayUp ? "home" : !homeUp && awayUp ? "away" : live.homeScore - prev.home >= live.awayScore - prev.away ? "home" : "away";
     const team = side === "home" ? homeTeam : awayTeam;
     // Torschütze nur, wenn die Ereignisse schon bis zu diesem Tor reichen.
-    const goals = live.events.filter((e) => isGoalEvent(e) && e.side === side);
+    const goals = (live.events ?? []).filter((e) => isGoalEvent(e) && e.side === side);
     const scorer = goals.length === (side === "home" ? live.homeScore : live.awayScore)
       ? goals.slice().sort((a, b) => a.minute - b.minute || (a.extra ?? 0) - (b.extra ?? 0))[goals.length - 1]
       : null;

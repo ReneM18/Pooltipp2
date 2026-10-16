@@ -55,20 +55,28 @@ function storedCountry(sport: Sport, competition: string, competitions?: Competi
   return hit?.countryCode || null;
 }
 
-// competitions = Liste aus useAppData. Zuerst zählt das dort gewählte Land
-// (z. B. 🇦🇹 für die ICE Hockey League, obwohl Eishockey sonst USA ist),
-// dann wie bisher (Rene, 15.10.2026).
-export function competitionFlag(sport: Sport, competition: string, competitions?: Competition[]): string | null {
+// Land der Liga als ISO-Code (Rene, 16.10.2026: Ligen-Abgleich der
+// Live-Daten über Name + Land), gleiche Regeln wie competitionFlag.
+// null = international bzw. unbekannt.
+export function competitionCountry(sport: Sport, competition: string, competitions?: Competition[]): string | null {
   const stored = storedCountry(sport, competition, competitions);
-  if (stored) return flagEmoji(stored);
-  if (US_SPORTS.includes(sport)) return flagEmoji("US");
+  if (stored) return stored;
+  if (US_SPORTS.includes(sport)) return "US";
   const name = (competition ?? "").toLowerCase();
-  // International: keine Flagge
   if (/uefa|fifa|champions|europa|conference|nations|welt|wm|em-|em |europameister|länderspiel|qualifikation|club world/.test(name)) {
     return null;
   }
   const hit = LEAGUE_COUNTRY.find(([key]) => name.includes(key));
-  return hit ? flagEmoji(hit[1]) : null;
+  return hit ? hit[1] : null;
+}
+
+// competitions = Liste aus useAppData. Zuerst zählt das dort gewählte Land
+// (z. B. 🇦🇹 für die ICE Hockey League, obwohl Eishockey sonst USA ist),
+// dann wie bisher (Rene, 15.10.2026).
+export function competitionFlag(sport: Sport, competition: string, competitions?: Competition[]): string | null {
+  // International (uefa, wm …) und unbekannte Ligen: keine Flagge.
+  const country = competitionCountry(sport, competition, competitions);
+  return country ? flagEmoji(country) : null;
 }
 
 // Name des Wettbewerbs auf der Spielkarte: Steht die Landesflagge schon davor,
