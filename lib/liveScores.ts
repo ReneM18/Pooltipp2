@@ -1,32 +1,25 @@
 import type { Sport } from "./types";
 import { normalizeTeamName } from "./teamName";
 
-// Live-Spielstände von API-Sports (Rene, 15.10.2026). Gemeinsame Typen und
-// Hilfen für die Server-Route (app/api/live/route.ts) und die Karten
+// Live-Spielstände (Rene, 15.10.2026). Gemeinsame Hilfen für die
+// Server-Route (app/api/live/route.ts), den Anbieter und die Karten
 // (lib/useLiveScores.ts). Reine Anzeige: an Wertung und Datenbank ändert
 // sich nichts, der offizielle Endstand kommt weiter vom Admin.
 
-// Vereinheitlichter Status über alle Sportarten:
-// NS = noch nicht begonnen, LIVE = läuft, HT = Halbzeit, BREAK = Pause
-// (Drittel-/Viertelpause), FT/AET/PEN = beendet (regulär, nach
-// Verlängerung, nach Penalty-/Siebenmeterschießen), OTHER = verschoben,
-// abgesagt, abgebrochen usw. (wird auf den Karten nicht gezeigt).
-export type LiveStatus = "NS" | "LIVE" | "HT" | "BREAK" | "FT" | "AET" | "PEN" | "OTHER";
-
-// Ereignis im Spiel (Rene, 15.10.2026: Spieltag-Umbau), aus "events" von
-// fixtures?live=all (nur Fußball). side = Team, dem es zählt: bei Toren
-// (auch Eigentoren) das Team, dessen Stand steigt; bei Karten, Wechseln und
-// verschossenen Elfmetern das Team des Spielers.
-export type LiveEventType = "goal" | "owngoal" | "penalty" | "missed_penalty" | "yellow" | "red" | "subst";
-
-export interface LiveEvent {
-  minute: number;
-  extra: number | null; // Nachspielzeit, z. B. 45+2 → minute 45, extra 2
-  type: LiveEventType;
-  side: "home" | "away";
-  player: string | null;
-  assist: string | null;
-}
+// Typen anbieterneutral in lib/live/types.ts (Rene, 16.10.2026: Anbieter
+// austauschbar), hier weitergereicht, damit bestehende Imports bleiben.
+import type { LiveEvent, LiveGame, LiveSource, LiveStatus } from "./live/types";
+export type {
+  LiveDiagnostics,
+  LiveEvent,
+  LiveEventType,
+  LiveGame,
+  LiveQuota,
+  LiveResponse,
+  LiveSnapshot,
+  LiveSource,
+  LiveStatus,
+} from "./live/types";
 
 // Tor im Sinne des Spielstands (verschossener Elfmeter zählt nicht).
 export function isGoalEvent(e: LiveEvent): boolean {
@@ -61,41 +54,25 @@ export function scorerLine(events: LiveEvent[] | undefined, side: "home" | "away
   return Array.from(byPlayer, ([name, minutes]) => `${name} ${minutes.join(", ")}`).join(" · ");
 }
 
-export interface LiveGame {
-  id: string;
-  kickoff: string; // ISO 8601
-  home: string;
-  away: string;
-  homeScore: number | null;
-  awayScore: number | null;
-  // Elfmeterschießen (nur Fußball, nur wenn es eines gab).
-  penaltyHome?: number;
-  penaltyAway?: number;
-  status: LiveStatus;
-  statusShort: string; // Original-Kürzel der API, z. B. "2H", "P2", "Q3"
-  statusText: string; // deutsch für die Karte, z. B. "67'", "Halbzeit", "2. Drittel"
-  elapsed: number | null; // Spielminute (Fußball) bzw. Uhr im Abschnitt
-  league: string;
-  // Tore, Karten, Wechsel (nur Fußball; Rene, 15.10.2026: Spieltag-Umbau).
-  // Leer, wenn die API keine liefert (Tagesliste ohne Live-Stand im Cache).
-  events?: LiveEvent[];
-}
-
-export interface LiveResponse {
-  sport: Sport;
-  date: string;
-  games: LiveGame[];
-  error?: string;
-  // Server-Zeitpunkt (ms) der Daten: beim Fußball der Abruf der Live-Liste
-  // (live=all), sonst der Tagesliste. Daraus und aus "elapsed" rechnet der
-  // Browser die mitlaufende Minute (Rene, 15.10.2026).
-  fetchedAt?: number;
-}
-
 // Server-Cache und Abfrage-Takt in Sekunden: Fußball 180 s, sonst 300 s
 // (Gratis-Plan: 100 Abfragen pro Tag und Sport-API).
 export function liveIntervalSeconds(sport: Sport): number {
   return sport === "Fußball" ? 180 : 300;
+}
+
+// Live-Daten verzögert? (Rene, 16.10.2026: ehrliche Aktualität) Ja, wenn
+// Spiele laufen und die Daten älter als 2× Takt sind oder nicht aus dem
+// Live-Abruf stammen (source "day"/"stale"). Ohne laufendes Spiel nie.
+export function isLiveDelayed(
+  sport: Sport,
+  dataAt: number,
+  source: LiveSource | null,
+  running: boolean,
+  now: number,
+): boolean {
+  if (!running || !dataAt) return false;
+  if (source !== null && source !== "live") return true;
+  return now - dataAt > 2 * liveIntervalSeconds(sport) * 1000;
 }
 
 export function isLiveFinished(status: LiveStatus): boolean {
@@ -220,8 +197,10 @@ export function findLiveGame(
 // Mitlaufende Spielminute (Rene, 15.10.2026: Live-Gefühl)
 //
 // Die API liefert die Minute nur alle 3 Minuten. Aus "elapsed" und dem
-// Zeitpunkt, zu dem diese Daten im Browser ankamen, rechnen wir die aktuelle
-// Minute hoch – nur im Fußball und nur im 1./2. Durchgang. Über 45 bzw. 90
+// Zeitpunkt des Abrufs beim Anbieter (fetchedAt) rechnen wir die aktuelle
+// Minute hoch – nur im Fußball und nur im 1./2. Durchgang. Höchstens bis
+// fetchedAt + ein Takt (Rene, 16.10.2026): kommen keine neuen Daten, bleibt
+// die Minute lieber stehen als falsch zu raten. Über 45 bzw. 90
 // hinaus wird nicht geraten, dann steht "45+" bzw. "90+". In der Halbzeit
 // bleibt "Halbzeit" stehen. progress = Anteil an 90 Minuten (Halbzeit 50 %).
 export interface LiveClock {
@@ -242,7 +221,8 @@ export function liveClock(
   if ((s !== "1H" && s !== "2H") || elapsed === null || !dataAt) return null;
   const end = s === "1H" ? 45 : 90;
   const start = s === "1H" ? 1 : 46;
-  const minute = Math.max(start, elapsed + Math.max(0, Math.floor((now - dataAt) / 60000)));
+  const until = Math.min(now, dataAt + liveIntervalSeconds(sport) * 1000);
+  const minute = Math.max(start, elapsed + Math.max(0, Math.floor((until - dataAt) / 60000)));
   if (minute > end) return { text: `${end}+`, progress: end / 90 };
   return { text: `${minute}'`, progress: minute / 90 };
 }

@@ -5,15 +5,13 @@ import type { Match, Sport } from "./types";
 import {
   appSideEvents,
   findLiveGame,
+  isLiveDelayed,
   isLiveFinished,
   isLiveRunning,
   liveIntervalSeconds,
   viennaDate,
-  type LiveEvent,
-  type LiveGame,
-  type LiveResponse,
-  type LiveStatus,
 } from "./liveScores";
+import type { LiveEvent, LiveGame, LiveQuota, LiveResponse, LiveSource, LiveStatus } from "./live/types";
 import { isLiveLeagueEnabled } from "./liveConfig";
 
 // Live-Spielstände für die Tippkarten (Rene, 15.10.2026). Eine gemeinsame
@@ -45,6 +43,14 @@ interface Entry {
   // Server-Zeitpunkt der aktuellen Spieldaten (fetchedAt der Route), für die
   // mitlaufende Minute und "aktualisiert vor …".
   dataAt: number;
+  // Diagnose der Route (Rene, 16.10.2026: ehrliche Aktualität): Quelle der
+  // Daten, Fehler beim Live-Abruf, Abfragen heute, Anbieter.
+  source: LiveSource | null;
+  liveError: string | null;
+  quota: LiveQuota | null;
+  provider: string | null;
+  providerName: string | null;
+  providerUrl: string | null;
   loading: boolean;
   staleRetried: boolean;
   listeners: Set<() => void>;
@@ -74,6 +80,12 @@ function entryFor(sport: Sport, date: string): Entry {
       error: null,
       loadedAt: 0,
       dataAt: 0,
+      source: null,
+      liveError: null,
+      quota: null,
+      provider: null,
+      providerName: null,
+      providerUrl: null,
       loading: false,
       staleRetried: false,
       listeners: new Set(),
@@ -97,21 +109,38 @@ async function load(entry: Entry) {
     const res = await fetch(`/api/live?sport=${encodeURIComponent(entry.sport)}&date=${entry.date}`);
     const data = (await res.json()) as LiveResponse;
     const games = Array.isArray(data.games) ? data.games : [];
-    // Bei einem Fehler (z. B. Tageslimit) bleiben die letzten Daten stehen.
+    if (data.quota) entry.quota = data.quota;
+    if (data.provider) entry.provider = data.provider;
+    if (data.providerName) entry.providerName = data.providerName;
+    if (data.providerUrl) entry.providerUrl = data.providerUrl;
+    // Bei einem Fehler (z. B. Tageslimit) bleiben die letzten Daten stehen –
+    // aber ehrlich als Fehler markiert (Rene, 16.10.2026), damit die Anzeige
+    // "verzögert" zeigt statt so zu tun, als wären sie aktuell.
     if (games.length > 0 || !data.error) {
       entry.games = games;
       entry.error = null;
-      // Server-Zeit, höchstens "jetzt" (falls die Uhren etwas abweichen).
-      entry.dataAt = Math.min(typeof data.fetchedAt === "number" ? data.fetchedAt : Date.now(), Date.now());
+      // Server-Zeit des Abrufs beim Anbieter, höchstens "jetzt" (falls die
+      // Uhren etwas abweichen). Ohne fetchedAt: unbekannt = 0 (nie "jetzt"
+      // erfinden).
+      entry.dataAt = typeof data.fetchedAt === "number" ? Math.min(data.fetchedAt, Date.now()) : 0;
+      entry.source = data.source ?? null;
+      entry.liveError = data.liveError ?? null;
     } else if (!entry.games || entry.games.length === 0) {
       entry.games = [];
       entry.error = data.error ?? null;
+      entry.liveError = data.error ?? null;
+    } else {
+      entry.source = "stale";
+      entry.liveError = data.error ?? null;
     }
   } catch {
     // Netzwerkfehler: einfach beim nächsten Takt wieder versuchen.
     if (!entry.games) {
       entry.games = [];
       entry.error = "Live-Daten nicht erreichbar";
+    } else {
+      entry.source = "stale";
+      entry.liveError = "Live-Daten nicht erreichbar";
     }
   } finally {
     entry.loadedAt = Date.now();
@@ -199,6 +228,10 @@ export interface LiveDay {
   loading: boolean;
   loadedAt: number;
   dataAt: number;
+  source: LiveSource | null;
+  liveError: string | null;
+  providerName: string | null;
+  providerUrl: string | null;
 }
 
 // Alle Live-Spiele eines Tages aus dem gemeinsamen Speicher (fürs
@@ -211,8 +244,18 @@ export function useLiveDay(sport: Sport, date: string | null): LiveDay {
     if (!entry || entry.loading) return;
     if (Date.now() - entry.loadedAt >= intervalMs(entry)) void load(entry);
   }, [entry]);
-  if (!entry) return { games: null, error: null, loading: false, loadedAt: 0, dataAt: 0 };
-  return { games: entry.games, error: entry.error, loading: entry.loading, loadedAt: entry.loadedAt, dataAt: entry.dataAt };
+  if (!entry) return { games: null, error: null, loading: false, loadedAt: 0, dataAt: 0, source: null, liveError: null, providerName: null, providerUrl: null };
+  return {
+    games: entry.games,
+    error: entry.error,
+    loading: entry.loading,
+    loadedAt: entry.loadedAt,
+    dataAt: entry.dataAt,
+    source: entry.source,
+    liveError: entry.liveError,
+    providerName: entry.providerName,
+    providerUrl: entry.providerUrl,
+  };
 }
 
 // Im Takt neu laden, solange active (z. B. ein Spiel läuft).
@@ -244,6 +287,8 @@ export interface LiveScore {
   dataAt: number;
   // Tore/Karten mit Heim/Gast wie in der App (Rene, 15.10.2026: Spieltag-Umbau).
   events: LiveEvent[];
+  // Live-Daten verzögert (Rene, 16.10.2026), siehe isLiveDelayed.
+  delayed: boolean;
 }
 
 // Live-Stand eines App-Spiels oder null (nicht gestartet, schon mit Endstand
@@ -288,6 +333,7 @@ export function useLiveScore(match: Match, homeName: string, awayName: string): 
     elapsed: found.game.elapsed,
     dataAt: entry?.dataAt ?? 0,
     events: appSideEvents(found),
+    delayed: isLiveDelayed(match.sport, entry?.dataAt ?? 0, entry?.source ?? null, isLiveRunning(status), now ?? Date.now()),
   };
 }
 
@@ -343,4 +389,26 @@ export function peekLiveScore(
   const { status } = found.game;
   if (!isLiveRunning(status) && !isLiveFinished(status)) return null;
   return { homeScore: found.homeScore, awayScore: found.awayScore, status };
+}
+
+// Letzte Diagnose, die dieser Browser von /api/live bekommen hat
+// (Rene, 16.10.2026: Admin-Kachel "Live-Daten"). Keine Abfrage.
+export interface LiveClientDiagnostics {
+  provider: string | null;
+  providerName: string | null;
+  loadedAt: number;
+  dataAt: number;
+  source: LiveSource | null;
+  error: string | null;
+  quota: LiveQuota | null;
+}
+
+export function peekLiveDiagnostics(): LiveClientDiagnostics | null {
+  let newest: Entry | null = null;
+  entries.forEach((e) => {
+    if (e.loadedAt > 0 && (!newest || e.loadedAt > newest.loadedAt)) newest = e;
+  });
+  const e = newest as Entry | null;
+  if (!e) return null;
+  return { provider: e.provider, providerName: e.providerName, loadedAt: e.loadedAt, dataAt: e.dataAt, source: e.source, error: e.liveError ?? e.error, quota: e.quota };
 }

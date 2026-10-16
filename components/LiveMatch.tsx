@@ -60,14 +60,20 @@ export function StateDot({ state }: { state: BoardState }) {
 }
 
 // Pill oben rechts: "● LIVE", "● Halbzeit" (gelb, ohne Puls), grau "Beendet".
-export function LivePill({ state, pauseText = "Halbzeit" }: { state: BoardState; pauseText?: string }) {
+// delayed (Rene, 16.10.2026: ehrliche Aktualität): kleines gelbes
+// "verzögert" in der Pill, wenn die Live-Daten hängen (isLiveDelayed).
+export function LivePill({ state, pauseText = "Halbzeit", delayed = false }: { state: BoardState; pauseText?: string; delayed?: boolean }) {
   if (state === "finished") {
     return <span className="rounded-full border border-edge bg-pitch px-2 py-0.5 font-semibold text-muted">Beendet</span>;
   }
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-pitch px-2 py-0.5 font-semibold text-ink">
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full border border-edge bg-pitch px-2 py-0.5 font-semibold text-ink"
+      title={delayed ? "Live-Daten verzögert" : undefined}
+    >
       <StateDot state={state} />
       {state === "live" ? "LIVE" : pauseText}
+      {delayed && <span className="text-[10px] font-medium leading-none text-yellow-400">verzögert</span>}
     </span>
   );
 }

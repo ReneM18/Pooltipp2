@@ -90,9 +90,50 @@ API_SPORTS_KEY=
 - **Auf Vercel:** Vercel → Settings → Environment Variables. Ohne `NEXT_PUBLIC_`,
   der Schlüssel bleibt auf dem Server (Route `app/api/live/route.ts`).
 - Ohne Schlüssel zeigen die Karten einfach keine Live-Stände.
-- Abgefragt wird nur, während ein angezeigtes Spiel läuft; die Antwort wird für
-  alle Nutzer gemeinsam zwischengespeichert (Fußball 3 Min., sonst 5 Min.).
-  Reine Anzeige, gewertet wird weiter der Endstand aus dem Admin-Bereich.
+- Abgefragt wird nur, während ein angezeigtes Spiel läuft. Der Server merkt
+  sich jeden Abruf mit fester Ablaufzeit (live 3 Min., Tagesliste 15 Min.,
+  vergangene Tage 1 h, nie länger) und das CDN teilt die Antwort für alle
+  Nutzer. Reine Anzeige, gewertet wird weiter der Endstand aus dem Admin-Bereich.
+- Jede Antwort sagt ehrlich, wie aktuell sie ist (`source`, `fetchedAt`,
+  `liveError`, `quota`). Hängen die Daten, steht im Matchcenter „Live-Daten
+  verzögert“ und auf der Tippkarte „verzögert“ am LIVE-Pill. Der Admin-Bereich
+  zeigt in der Kachel „Live-Daten“ Anbieter, letzten Abruf, Fehler und die
+  Abfragen von heute (ohne zusätzliche Abfrage).
+
+### Live-Anbieter wechseln oder neu ergänzen
+
+Der Anbieter ist austauschbar (Rene, 16.10.2026). Gewählt wird er über die
+Umgebungsvariable `LIVE_PROVIDER` (Standard `api-sports`):
+
+```
+LIVE_PROVIDER=api-sports
+```
+
+Aufbau:
+
+| Datei | Was |
+| --- | --- |
+| `lib/live/types.ts` | anbieterneutrale Typen (`LiveGame`, `LiveSnapshot`, `LiveProvider` …) – nur davon hängen Route und Browser ab |
+| `lib/live/cache.ts` | Server-Cache mit festen Ablaufzeiten, fasst gleichzeitige Abrufe zusammen |
+| `lib/live/providers/apiSports.ts` | alles API-Sports-Spezifische (URLs, Schlüssel, Umwandlung, Fehler, Quote) |
+| `lib/live/index.ts` | wählt den Anbieter über `LIVE_PROVIDER` |
+
+Neuen Anbieter ergänzen:
+
+1. Datei `lib/live/providers/<name>.ts` anlegen, die ein `LiveProvider`-Objekt
+   exportiert (Vorlage: `apiSports.ts`): `id`, `name`, `url`,
+   `configError()` (fehlender Schlüssel), `getDay({ sport, date, league })`
+   und `diagnostics()`.
+2. In `getDay` die Spiele des Tages (Wiener Zeit) abrufen – mit
+   `cachedLoad` aus `lib/live/cache.ts` und `cache: "no-store"` – und in
+   `LiveGame` umwandeln. Status auf `NS/LIVE/HT/BREAK/FT/AET/PEN/OTHER`
+   abbilden, für die mitlaufende Minute `statusShort` „1H“/„2H“/„HT“ setzen.
+   Nur eingeschaltete Ligen liefern (`isLiveLeagueEnabled` aus `lib/liveConfig.ts`).
+3. `source` ehrlich setzen: `live` (frischer Live-Stand), `day` (nur
+   Tagesliste) oder `stale` (alter Live-Stand nach Fehler), Fehler beim
+   Live-Abruf in `liveError`, Quote in `quota`, falls der Anbieter sie mitschickt.
+4. In `lib/live/index.ts` in `PROVIDERS` eintragen, Schlüssel und
+   `LIVE_PROVIDER=<id>` bei Vercel setzen.
 
 ## Lokal starten
 

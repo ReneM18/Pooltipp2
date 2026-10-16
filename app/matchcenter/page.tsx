@@ -16,9 +16,11 @@ import {
   findLiveGame,
   isLiveFinished,
   isLiveRunning,
+  isLiveDelayed,
   updatedAgoText,
   viennaDate,
   type LiveGame,
+  type LiveSource,
   type LiveMatchResult,
 } from "@/lib/liveScores";
 import { reloadLiveDay, useLiveDay, useLivePolling } from "@/lib/useLiveScores";
@@ -397,7 +399,7 @@ function LiveCenterSection({ sport }: { sport: Sport }) {
         <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
           <div className="min-w-0">
             {view === "live" ? (
-              <LcLive games={todayDay.games} error={todayDay.error} dataAt={todayDay.dataAt} loading={polling && todayDay.loading} onRetry={retry} {...listProps} />
+              <LcLive games={todayDay.games} error={todayDay.error} dataAt={todayDay.dataAt} source={todayDay.source} loading={polling && todayDay.loading} onRetry={retry} {...listProps} />
             ) : (
               <LcResults
                 today={today}
@@ -428,9 +430,10 @@ function LiveCenterSection({ sport }: { sport: Sport }) {
       )}
 
       <p className="mt-4 text-center text-[11px] text-muted">
+        {/* Anbieter aus der Antwort (Rene, 16.10.2026: austauschbar). */}
         Daten von{" "}
-        <a href="https://www.api-football.com/" className="underline" target="_blank" rel="noreferrer">
-          API-Sports
+        <a href={todayDay.providerUrl ?? "https://www.api-football.com/"} className="underline" target="_blank" rel="noreferrer">
+          {todayDay.providerName ?? "API-Sports"}
         </a>
         {polling && " · aktualisiert sich alle 3 Minuten"}
       </p>
@@ -491,10 +494,18 @@ function LcLive({
   games,
   error,
   dataAt,
+  source,
   loading,
   onRetry,
   ...listProps
-}: ListProps & { games: LiveGame[] | null; error: string | null; dataAt: number; loading: boolean; onRetry: () => void }) {
+}: ListProps & {
+  games: LiveGame[] | null;
+  error: string | null;
+  dataAt: number;
+  source: LiveSource | null;
+  loading: boolean;
+  onRetry: () => void;
+}) {
   if (!games) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
   if (error) return <LcError error={error} onRetry={onRetry} />;
   if (games.length === 0) {
@@ -536,7 +547,7 @@ function LcLive({
 
   return (
     <div className="flex flex-col gap-4">
-      {running.length > 0 && <LcLiveHeader count={running.length} dataAt={dataAt} />}
+      {running.length > 0 && <LcLiveHeader count={running.length} dataAt={dataAt} source={source} />}
       {groupByLeague(running).map((group) => (
         <div key={`live-${group.league}`}>
           <LeagueHeading sport={sport} name={group.league} />
@@ -565,16 +576,22 @@ function LcLive({
   );
 }
 
-// Kopf: "● 8 Spiele live · aktualisiert vor 1 Min.", Zeit zählt mit.
-function LcLiveHeader({ count, dataAt }: { count: number; dataAt: number }) {
+// Kopf: "● 8 Spiele live · aktualisiert vor 1 Min.", Zeit zählt mit
+// (fetchedAt = Abruf beim Anbieter, nicht beim Laden im Browser).
+// (Rene, 16.10.2026: ehrliche Aktualität) Hängen die Daten (älter als 2×
+// Takt oder nicht aus dem Live-Abruf), steht dezent "Live-Daten verzögert".
+function LcLiveHeader({ count, dataAt, source }: { count: number; dataAt: number; source: LiveSource | null }) {
   const now = useMinuteTick(dataAt || null);
+  const sport = LIVE_SPORT ?? "Fußball";
+  const delayed = now !== null && isLiveDelayed(sport, dataAt, source, true, now);
   return (
-    <p className="flex items-center gap-1.5 text-xs text-muted" aria-live="polite">
+    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted" aria-live="polite">
       <StateDot state="live" />
       <span className="font-semibold text-ink">
         {count} {count === 1 ? "Spiel" : "Spiele"} live
       </span>
       {now !== null && dataAt > 0 && <span>· {updatedAgoText(dataAt, now)}</span>}
+      {delayed && <span className="text-[11px] font-medium text-yellow-400">· Live-Daten verzögert</span>}
     </p>
   );
 }

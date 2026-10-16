@@ -31,6 +31,8 @@ import { useJokers } from "@/lib/JokerContext";
 import { DuelReport } from "@/components/DuelReport";
 import { GrowthReport } from "@/components/GrowthReport";
 import Emoji from "@/components/Emoji";
+import { peekLiveDiagnostics } from "@/lib/useLiveScores";
+import type { LiveDiagnostics, LiveSource } from "@/lib/live/types";
 
 type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news" | "wachstum";
 
@@ -80,6 +82,8 @@ export default function AdminPage() {
       <SaveProblemBanner />
 
       <ShopSwitch />
+
+      <LiveDataInfo />
 
       <DuelReport />
 
@@ -240,6 +244,97 @@ function ShopSwitch() {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// Info-Kachel "Live-Daten" (Rene, 16.10.2026): Anbieter, letzter Abruf,
+// Quelle, letzter Fehler, Abfragen heute. Kostet KEINE Abfrage beim
+// Anbieter: /api/live?status=1 liefert nur, was sich die Server-Instanz vom
+// letzten Abruf gemerkt hat (Quote aus den Antwort-Headern), dazu die letzte
+// Antwort, die dieser Browser bekommen hat. Gezeigt wird jeweils der neuere
+// Stand (auf Vercel kann jede Server-Instanz ihren eigenen Stand haben).
+const SOURCE_TEXT: Record<LiveSource, string> = {
+  live: "Live-Abruf",
+  day: "nur Tagesliste",
+  stale: "letzter Live-Stand (verzögert)",
+};
+
+function timeText(ms: number | null): string {
+  if (!ms) return "–";
+  const t = new Date(ms).toLocaleTimeString("de-AT", { timeZone: "Europe/Vienna", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const min = Math.max(0, Math.floor((Date.now() - ms) / 60000));
+  return `${t} (vor ${min} Min.)`;
+}
+
+function LiveDataInfo() {
+  const [server, setServer] = useState<LiveDiagnostics | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function refresh() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/live?status=1", { cache: "no-store" });
+      if (!res.ok) throw new Error(String(res.status));
+      setServer((await res.json()) as LiveDiagnostics);
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  const client = peekLiveDiagnostics();
+  const useClient = !!client && client.dataAt > (server?.lastFetchAt ?? 0);
+  const provider = server?.providerName ?? client?.providerName ?? client?.provider ?? "–";
+  const lastFetch = useClient ? client!.dataAt : server?.lastFetchAt ?? null;
+  const source = useClient ? client!.source : server?.lastSource ?? null;
+  const error = useClient ? client!.error : server?.lastError ?? null;
+  const errorAt = useClient ? null : server?.lastErrorAt ?? null;
+  const quota = (useClient ? client!.quota : null) ?? server?.quota ?? client?.quota ?? null;
+
+  const rows: [string, string][] = [
+    ["Anbieter", provider],
+    ["Letzter Abruf", timeText(lastFetch)],
+    ["Quelle", source ? SOURCE_TEXT[source] : "–"],
+    ["Letzter Fehler", error ? `${error}${errorAt ? ` · ${timeText(errorAt)}` : ""}` : "keiner"],
+    ["Abfragen heute", quota ? `${quota.used} / ${quota.limit}` : "–"],
+  ];
+
+  return (
+    <div className="mb-7 rounded-card border border-edge bg-surface px-4 py-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="font-display text-base font-semibold text-ink">📡 Live-Daten</p>
+        <button
+          onClick={() => void refresh()}
+          disabled={loading}
+          className="rounded-full border border-edge px-3 py-1 text-xs font-semibold text-muted transition-colors hover:border-gold/40 hover:text-ink disabled:cursor-wait"
+        >
+          {loading ? "Lädt…" : "Neu laden"}
+        </button>
+      </div>
+      {failed && !client ? (
+        <p className="text-sm text-muted">Status gerade nicht abrufbar.</p>
+      ) : (
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+          {rows.map(([label, value]) => (
+            <div key={label} className="contents">
+              <dt className="text-muted">{label}</dt>
+              <dd className={`min-w-0 break-words ${label === "Letzter Fehler" && error ? "text-yellow-400" : "text-ink"}`}>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <p className="mt-2 text-[11px] text-muted">
+        Stand vom letzten Abruf – diese Kachel fragt nicht selbst beim Anbieter nach.
+        {!lastFetch && " Noch kein Abruf seit dem letzten Server-Start."}
+      </p>
     </div>
   );
 }
