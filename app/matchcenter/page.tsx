@@ -803,15 +803,59 @@ function useSectionMove(id: string, section: string): boolean {
   return moved;
 }
 
-// Eine Zeile (Rene, 15.10.2026: Spieltag-Umbau): links Status ("● 44'" mit
-// pulsierendem Punkt, "Halbzeit", "21:00", "Beendet"), Mitte Heim und Gast
+// Status-Spalte der Spielzeile (Rene, 16.10.2026): kurze, zweizeilige Labels,
+// damit "Drittelpause", "Penaltyschießen" & Co. nicht in die Namen laufen.
+// Zeile 1 (main) groß/fett mit Punkt, Zeile 2 (sub) klein muted.
+interface RowStatus {
+  dot?: "live" | "pause";
+  main: string;
+  sub?: string;
+  muted?: boolean;
+}
+
+function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowStatus {
+  const s = game.statusShort.toUpperCase();
+  const minute = game.elapsed !== null && game.elapsed > 0 ? `${game.elapsed}'` : undefined;
+  if (game.status === "NS") {
+    const today = viennaDate(Date.now());
+    const day = viennaDate(game.kickoff);
+    return { main: viennaTime(game.kickoff), sub: day === today ? "heute" : day < today ? "gestern" : "morgen", muted: true };
+  }
+  if (isLiveFinished(game.status)) {
+    const sub =
+      game.status === "AET" ? "n. V." : game.status === "PEN" ? (sport === "Fußball" ? "i. E." : sport === "NHL" ? "n. P." : game.statusText) : undefined;
+    return { main: "Beendet", sub, muted: true };
+  }
+  if (sport === "NHL") {
+    if (game.status === "BREAK") {
+      // Welches Drittel vorbei ist, steckt im Fortschritt (1/3, 2/3, 3/3).
+      const done = game.progress !== undefined ? Math.round(game.progress * 3) : 0;
+      return { dot: "pause", main: "Pause", sub: done >= 1 && done <= 3 ? `nach ${done}. Dr.` : undefined };
+    }
+    const period = /^P([1-3])$/.exec(s);
+    if (period) return { dot: "live", main: `${period[1]}. Drittel`, sub: minute };
+    if (s === "OT") return { dot: "live", main: "Verl.", sub: minute };
+    if (s === "PT") return { dot: "live", main: "Penalty" };
+  }
+  if (sport === "Fußball") {
+    if (game.status === "HT") return { dot: "pause", main: "Pause", sub: "Halbzeit" };
+    if (s === "ET") return { dot: "live", main: "Verl.", sub: minute };
+    if (s === "P") return { dot: "live", main: "Elfmeter" };
+    if (game.status === "LIVE") return { dot: "live", main: clockText ?? minute ?? "Live" };
+  }
+  if (game.status === "HT" || game.status === "BREAK") return { dot: "pause", main: "Pause", sub: game.statusText && game.statusText !== "Pause" ? game.statusText : undefined };
+  if (game.status === "LIVE") return { dot: "live", main: game.statusText || "Live", sub: minute && !game.statusText.includes(minute) ? minute : undefined };
+  return { main: OTHER_STATUS[s] ?? "—", muted: true };
+}
+
+// Eine Zeile (Rene, 15.10.2026: Spieltag-Umbau): links Status (siehe
+// rowStatus, feste Breite seit 16.10.2026), Mitte Heim und Gast
 // untereinander, rechts die Tore untereinander, unten ein dünner Balken
 // (Minute/90). "Getippt" klein in Gold unter dem Status, gewählte Zeile mit Gold-Rand.
 // Rahmen eine Spur heller als border-edge, neutral für alle Zustände.
 function GameRow({ sport, game, dataAt = 0, links, isTipped, selectedId, onSelect }: ListProps & { game: LiveGame; dataAt?: number }) {
   const clock = useLiveClock(sport, game.statusShort, game.elapsed, dataAt);
   const running = isLiveRunning(game.status);
-  const pause = game.status === "HT" || game.status === "BREAK";
   const hasScore = game.homeScore !== null && game.awayScore !== null && game.status !== "NS";
   const flash = useGoalFlash(game.id, hasScore ? `${game.homeScore}:${game.awayScore}` : null);
   const tipped = isTipped(game);
@@ -821,29 +865,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, selectedId, onSelec
   const homeName = link ? (link.result.swapped ? link.away.name : link.home.name) : game.home;
   const awayName = link ? (link.result.swapped ? link.home.name : link.away.name) : game.away;
 
-  let status: React.ReactNode;
-  if (running && !pause) {
-    status = (
-      <span className="inline-flex items-center gap-1.5 font-semibold text-ink">
-        <StateDot state="live" />
-        {clock?.text ?? (game.statusText || "Live")}
-      </span>
-    );
-  } else if (pause) {
-    status = (
-      <span className="inline-flex items-center gap-1.5 text-ink">
-        <StateDot state="pause" />
-        {game.status === "HT" ? "Halbzeit" : game.statusText || "Pause"}
-      </span>
-    );
-  } else if (game.status === "NS") {
-    status = viennaTime(game.kickoff);
-  } else if (isLiveFinished(game.status)) {
-    // Eishockey: "n. V." / "n. P." aus dem Anbieter (Rene, 16.10.2026).
-    status = game.status === "FT" ? "Beendet" : sport !== "Fußball" && game.statusText ? game.statusText : game.status === "AET" ? "n. V." : "n. E.";
-  } else {
-    status = OTHER_STATUS[game.statusShort.toUpperCase()] ?? "—";
-  }
+  const status = rowStatus(sport, game, clock?.text ?? null);
   // Eishockey: Fortschritt über 60 Min. vom Anbieter (Rene, 16.10.2026).
   const progress = running ? (clock?.progress ?? (game.status === "HT" ? 0.5 : game.progress ?? null)) : null;
   const moved = useSectionMove(game.id, running ? "live" : game.status === "NS" ? "ns" : "done");
@@ -859,12 +881,18 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, selectedId, onSelec
         selected ? "border-gold" : "border-muted/25 hover:border-muted/50"
       }`}
     >
-      <div className="grid grid-cols-[4.25rem_minmax(0,1fr)_auto] items-center gap-2 text-sm">
+      <div className="grid grid-cols-[4.75rem_minmax(0,1fr)_auto] items-center gap-x-2.5 text-sm">
         {/* "Getippt" steht klein unter dem Status statt absolut über der
             Tor-Spalte – dort überlappte es die obere Tor-Zahl (Rene, 15.10.2026). */}
-        <span className="flex min-w-0 flex-col gap-0.5 text-xs tabular-nums text-muted">
-          <span>{status}</span>
-          {tipped && <span className="text-[10px] font-semibold leading-none text-gold">Getippt</span>}
+        {/* Feste Breite, nichts läuft in die Namen (Rene, 16.10.2026):
+            Zeile 1 groß/fett, Zeile 2 klein muted, "Getippt" darunter. */}
+        <span className="flex w-[4.75rem] min-w-0 flex-col gap-0.5 overflow-hidden tabular-nums">
+          <span className={`flex min-w-0 items-center gap-1 text-[13px] font-semibold leading-tight ${status.muted ? "text-muted" : "text-ink"}`}>
+            {status.dot && <StateDot state={status.dot} />}
+            <span className="min-w-0 truncate">{status.main}</span>
+          </span>
+          {status.sub && <span className="truncate text-[10px] leading-tight text-muted">{status.sub}</span>}
+          {tipped && <span className="truncate text-[10px] font-semibold leading-tight text-gold">Getippt</span>}
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
           <FitText text={homeName} maxLines={2} minPx={12} className="leading-tight text-ink" />
@@ -962,7 +990,7 @@ function LcDetail({
           <span className="min-w-0 truncate">{leagueName(game)}</span>
         </span>
         {liveLike && (
-          <span className="shrink-0">
+          <span className="shrink-0 whitespace-nowrap">
             <LivePill state={clock.state} pauseText={game.status === "HT" ? "Halbzeit" : game.statusText || "Pause"} />
           </span>
         )}
