@@ -94,13 +94,30 @@ const diag: Omit<LiveDiagnostics, "provider" | "providerName"> = {
   quotaAt: null,
 };
 
+// Quote je API-Host (Rene, 16.10.2026: Diagnose aus den Antworten): Fußball
+// und Eishockey haben bei API-Sports getrennte Tageskontingente. at = Zeitpunkt
+// der Anbieter-Antwort, aus deren Headern die Werte stammen.
+const QUOTA_BY_HOST = new Map<string, LiveQuota>();
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
+  }
+}
+
+function quotaFor(sport: Sport): LiveQuota | null {
+  return QUOTA_BY_HOST.get(hostOf(ENDPOINTS[sport])) ?? null;
+}
+
 function readQuota(headers: Headers): LiveQuota | null {
   const limit = Number(headers.get("x-ratelimit-requests-limit"));
   const remaining = Number(headers.get("x-ratelimit-requests-remaining"));
   if (!headers.has("x-ratelimit-requests-limit") || !Number.isFinite(limit) || !Number.isFinite(remaining) || limit <= 0) {
     return null;
   }
-  return { used: Math.max(0, limit - remaining), limit };
+  return { used: Math.max(0, limit - remaining), limit, at: Date.now() };
 }
 
 // "errors" ist bei API-Sports ein leeres Array oder ein Objekt wie
@@ -141,7 +158,8 @@ async function apiGet(url: string, key: string): Promise<LoadResult<Raw[]>> {
   const quota = readQuota(res.headers);
   if (quota) {
     diag.quota = quota;
-    diag.quotaAt = Date.now();
+    diag.quotaAt = quota.at ?? Date.now();
+    QUOTA_BY_HOST.set(hostOf(url), quota);
   }
   if (!res.ok) return fail(res.status === 429 ? "Zu viele Abfragen (HTTP 429)" : `Live-Daten nicht erreichbar (HTTP ${res.status})`);
   let data: Raw;
@@ -234,7 +252,7 @@ function snapshotResult(
   diag.lastSource = source;
   return {
     ok: true,
-    snapshot: { games, fetchedAt, source, ...(liveError ? { liveError } : {}), ...(diag.quota ? { quota: diag.quota } : {}) },
+    snapshot: { games, fetchedAt, source, ...(liveError ? { liveError } : {}) },
     expiresAt,
   };
 }
@@ -586,7 +604,12 @@ export const apiSportsProvider: LiveProvider = {
   async getDay({ sport, date, league }: LiveProviderRequest): Promise<LiveProviderResult> {
     const key = process.env.API_SPORTS_KEY;
     if (!key) return { ok: false, error: "Kein API_SPORTS_KEY gesetzt", expiresAt: Date.now() + 300 * 1000 };
-    return sport === "Fußball" ? football(date, league, key) : otherSport(sport, date, league, key);
+    const result = await (sport === "Fußball" ? football(date, league, key) : otherSport(sport, date, league, key));
+    // Quote dieser Sportart (ihres API-Hosts) in jede Antwort, auch bei
+    // Fehlern (Rene, 16.10.2026: Diagnose aus den Antworten).
+    const quota = quotaFor(sport);
+    if (!quota) return result;
+    return result.ok ? { ...result, snapshot: { ...result.snapshot, quota } } : { ...result, quota };
   },
   diagnostics(): LiveDiagnostics {
     return { provider: "api-sports", providerName: "API-Sports", ...diag, days: Array.from(LAST_DAYS.values()) };

@@ -66,6 +66,9 @@ export type LiveSource = "live" | "day" | "stale";
 export interface LiveQuota {
   used: number;
   limit: number;
+  // Zeitpunkt (ms) der Anbieter-Antwort, aus deren Headern die Werte stammen
+  // (Rene, 16.10.2026: Diagnose aus den Antworten).
+  at?: number;
 }
 
 export interface LiveSnapshot {
@@ -119,7 +122,7 @@ export interface LiveDayStatus {
 // Ergebnis eines Anbieters für eine Sportart und einen Tag.
 export type LiveProviderResult =
   | { ok: true; snapshot: LiveSnapshot; expiresAt: number }
-  | { ok: false; error: string; expiresAt: number };
+  | { ok: false; error: string; expiresAt: number; quota?: LiveQuota };
 
 export interface LiveProviderRequest {
   sport: Sport;

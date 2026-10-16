@@ -101,13 +101,27 @@ function intervalMs(entry: Entry): number {
   return liveIntervalSeconds(entry.sport) * 1000;
 }
 
-async function load(entry: Entry) {
+// Laufender Abruf je Eintrag, damit refreshLiveDays darauf warten kann
+// (Rene, 16.10.2026).
+const pending = new Map<Entry, Promise<void>>();
+
+function load(entry: Entry): Promise<void> {
+  let running = pending.get(entry);
+  if (!running) {
+    running = loadNow(entry).finally(() => pending.delete(entry));
+    pending.set(entry, running);
+  }
+  return running;
+}
+
+async function loadNow(entry: Entry) {
   if (entry.loading) return;
   entry.loading = true;
   notify(entry);
   try {
     const res = await fetch(`/api/live?sport=${encodeURIComponent(entry.sport)}&date=${entry.date}`);
     const data = (await res.json()) as LiveResponse;
+    rememberSport(entry.sport, data);
     const games = Array.isArray(data.games) ? data.games : [];
     if (data.quota) entry.quota = data.quota;
     if (data.provider) entry.provider = data.provider;
@@ -135,6 +149,7 @@ async function load(entry: Entry) {
     }
   } catch {
     // Netzwerkfehler: einfach beim nächsten Takt wieder versuchen.
+    rememberSport(entry.sport, null);
     if (!entry.games) {
       entry.games = [];
       entry.error = "Live-Daten nicht erreichbar";
@@ -399,32 +414,57 @@ export function peekLiveScore(
 
 // Alle Spiellisten, die dieser Browser schon geladen hat (Rene, 16.10.2026:
 // Zuordnungs-Check im Admin). Keine Abfrage.
-export function peekLiveDays(): { sport: Sport; date: string; fetchedAt: number; games: LiveGame[] }[] {
-  const list: { sport: Sport; date: string; fetchedAt: number; games: LiveGame[] }[] = [];
+export function peekLiveDays(): { sport: Sport; date: string; fetchedAt: number; games: LiveGame[]; error: string | null }[] {
+  const list: { sport: Sport; date: string; fetchedAt: number; games: LiveGame[]; error: string | null }[] = [];
   entries.forEach((e) => {
-    if (e.games && e.loadedAt > 0) list.push({ sport: e.sport, date: e.date, fetchedAt: e.dataAt || e.loadedAt, games: e.games });
+    if (e.games && e.loadedAt > 0) list.push({ sport: e.sport, date: e.date, fetchedAt: e.dataAt || e.loadedAt, games: e.games, error: e.error });
   });
   return list;
 }
 
-// Letzte Diagnose, die dieser Browser von /api/live bekommen hat
-// (Rene, 16.10.2026: Admin-Kachel "Live-Daten"). Keine Abfrage.
-export interface LiveClientDiagnostics {
-  provider: string | null;
+// Diagnose je Sportart aus den Antworten von /api/live (Rene, 16.10.2026:
+// Diagnose aus den Antworten statt aus dem Speicher einer Server-Instanz).
+// Jede Antwort bringt fetchedAt, source, liveError und quota mit; gemerkt
+// wird je Sportart der neueste Datenstand, der Fehler der letzten Antwort und
+// die neueste Quote (nach ihrem Zeitpunkt at). Keine Abfrage.
+export interface LiveSportDiagnostics {
+  sport: Sport;
   providerName: string | null;
-  loadedAt: number;
-  dataAt: number;
+  loadedAt: number; // letzte Antwort im Browser
+  dataAt: number; // Abruf beim Anbieter (fetchedAt), 0 = unbekannt
   source: LiveSource | null;
   error: string | null;
   quota: LiveQuota | null;
 }
 
-export function peekLiveDiagnostics(): LiveClientDiagnostics | null {
-  let newest: Entry | null = null;
-  entries.forEach((e) => {
-    if (e.loadedAt > 0 && (!newest || e.loadedAt > newest.loadedAt)) newest = e;
+const sportDiags = new Map<Sport, LiveSportDiagnostics>();
+
+function rememberSport(sport: Sport, data: LiveResponse | null) {
+  const prev = sportDiags.get(sport);
+  const now = Date.now();
+  const fetchedAt = data && typeof data.fetchedAt === "number" ? Math.min(data.fetchedAt, now) : 0;
+  const newer = !prev || fetchedAt >= prev.dataAt;
+  const quota = data?.quota ?? null;
+  const newerQuota = quota && (!prev?.quota || (quota.at ?? 0) >= (prev.quota.at ?? 0));
+  sportDiags.set(sport, {
+    sport,
+    providerName: data?.providerName ?? prev?.providerName ?? null,
+    loadedAt: now,
+    dataAt: newer ? fetchedAt : prev!.dataAt,
+    source: newer && data?.source ? data.source : prev?.source ?? null,
+    error: data ? data.liveError ?? data.error ?? null : "Live-Daten nicht erreichbar",
+    quota: newerQuota ? quota : prev?.quota ?? null,
   });
-  const e = newest as Entry | null;
-  if (!e) return null;
-  return { provider: e.provider, providerName: e.providerName, loadedAt: e.loadedAt, dataAt: e.dataAt, source: e.source, error: e.liveError ?? e.error, quota: e.quota };
+}
+
+export function peekLiveSportDiagnostics(): LiveSportDiagnostics[] {
+  return Array.from(sportDiags.values());
+}
+
+// Tageslisten gezielt laden, auch ohne laufendes Spiel (Rene, 16.10.2026:
+// Admin-Kachel "Live-Daten" lädt selbst). Gleiche Route und gleicher
+// Speicher wie Tippkarten/Matchcenter; die Route hält Tageslisten 900 s im
+// Cache, das kostet also keine Extra-Quote. Wartet, bis alle da sind.
+export async function refreshLiveDays(days: { sport: Sport; date: string }[]): Promise<void> {
+  await Promise.all(days.map((d) => load(entryFor(d.sport, d.date))));
 }
