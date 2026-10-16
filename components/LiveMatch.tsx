@@ -201,9 +201,14 @@ export function Scoreboard({
 const TIER_WORD: Record<TipResultTier, string> = {
   exakt: "exakt richtig",
   differenz: "Tordifferenz richtig",
-  tendenz: "richtig",
+  tendenz: "Tendenz richtig",
   falsch: "daneben",
 };
+
+// Ergebnistipp mit benannter Stufe (Rene, 16.10.2026: "3:1 · richtig" beim
+// Stand 1:0 war unklar): exakt richtig / Tordifferenz richtig / Tendenz
+// richtig / daneben (classifyRankingTip). 1X2-/Siegertipp: richtig/daneben.
+// Für Tippkarte, Matchcenter-Detail und Tor-Hinweis.
 
 export function tierWord(tier: TipResultTier, isOneXTwo: boolean): string {
   if (isOneXTwo) return tier === "falsch" ? "daneben" : "richtig";

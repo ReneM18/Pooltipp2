@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import PlayerAvatar from "./PlayerAvatar";
 import { StateDot, signedPoints } from "./LiveMatch";
-import { useFriendsLive, type FriendsLivePlayer, type FriendsLiveState, type FriendsLiveTable } from "@/lib/friendsLive";
+import { friendsRowTable, useFriendsLive, type FriendsLivePlayer, type FriendsLiveState, type FriendsLiveTable } from "@/lib/friendsLive";
 
 // Freunde-Live (Rene, 16.10.2026: Freunde-Live): Zeile auf der Tippkarte,
 // Tabelle (Matchcenter-Reiter "Freunde" und Bottom-Sheet) und Ticker.
@@ -16,7 +16,9 @@ const ALL_UP_TO = 7;
 function MoveMark({ move, className = "" }: { move: number; className?: string }) {
   if (move > 0) return <span className={`text-gold ${className}`}>▲{move}</span>;
   if (move < 0) return <span className={`text-muted ${className}`}>▼{-move}</span>;
-  return <span className={`text-muted/60 ${className}`}>–</span>;
+  // Ohne Bewegung nichts (Rene, 16.10.2026: "–" wirkte wie ein Fehler); in
+  // der Tabelle bleibt die Spalte als leerer Platzhalter gleich breit.
+  return <span aria-hidden className={className} />;
 }
 
 // Gestapelte Profilbilder der Top 3.
@@ -33,38 +35,34 @@ function TopAvatars({ players }: { players: FriendsLivePlayer[] }) {
 }
 
 // EINE Zeile unter "Dein Tipp": "Freunde: du bist 2. von 12 ▲1" + Top 3.
-// Feste Höhe, auch solange noch geladen wird – die Karte springt nicht.
+// Nur mit mittippenden Freunden (Rene, 16.10.2026): sonst – und solange
+// noch geladen wird – keine Zeile, statt erst "lädt" und dann nichts.
 export function FriendsLiveRow({ state, onOpen, className = "mt-1.5" }: { state: FriendsLiveState; onOpen: () => void; className?: string }) {
-  const table = state.tables.find((t) => t.key === "friends");
-  const ready = state.ready && !!table;
+  const table = friendsRowTable(state);
+  if (!table) return null;
   return (
     <button
       type="button"
       onClick={onOpen}
-      disabled={!ready}
       aria-haspopup="dialog"
-      aria-label={ready ? `Freunde live: du bist ${table!.me.rank}. von ${table!.players.length}. Tabelle öffnen` : "Freunde live wird geladen"}
-      className={`${className} flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-edge bg-pitch px-3 text-left text-[13px] transition-colors enabled:hover:border-muted/40 disabled:cursor-default`}
+      aria-label={`Freunde live: du bist ${table.me.rank}. von ${table.players.length}. Tabelle öffnen`}
+      className={`${className} flex h-9 w-full items-center justify-between gap-2 rounded-lg border border-edge bg-pitch px-3 text-left text-[13px] transition-colors hover:border-muted/40`}
     >
-      {ready ? (
-        <>
-          <span className="min-w-0 truncate text-muted">
-            Freunde: du bist{" "}
-            <span className="font-display font-bold text-ink">
-              {table!.me.rank}.
-            </span>{" "}
-            von {table!.players.length}{" "}
-            <MoveMark move={table!.me.move} className="text-[12px] font-semibold" />
-            {table!.me.tied && <span className="text-muted/80"> · gleichauf</span>}
-          </span>
-          <span className="flex shrink-0 items-center gap-1.5">
-            <TopAvatars players={table!.players} />
-            <span aria-hidden className="text-[12px] leading-none text-muted">›</span>
-          </span>
-        </>
-      ) : (
-        <span className="text-muted/70">Freunde live wird geladen …</span>
-      )}
+      <span className="min-w-0 truncate text-muted">
+        Freunde: du bist{" "}
+        <span className="font-display font-bold text-ink">{table.me.rank}.</span> von {table.players.length}
+        {table.me.move !== 0 && (
+          <>
+            {" "}
+            <MoveMark move={table.me.move} className="text-[12px] font-semibold" />
+          </>
+        )}
+        {table.me.tied && <span className="text-muted/80"> · gleichauf</span>}
+      </span>
+      <span className="flex shrink-0 items-center gap-1.5">
+        <TopAvatars players={table.players} />
+        <span aria-hidden className="text-[12px] leading-none text-muted">›</span>
+      </span>
     </button>
   );
 }
@@ -231,7 +229,13 @@ export function FriendsLivePanel({ state, onClose }: { state: FriendsLiveState |
         ) : !state.ready ? (
           <p className="py-6 text-center text-sm text-muted">Lädt…</p>
         ) : !table ? (
-          <p className="py-6 text-center text-sm text-muted">Füge Freunde hinzu, um live gegen sie zu spielen.</p>
+          // Leerzustand (Rene, 16.10.2026): Freunde/Tipprunde da, aber außer
+          // dir tippt niemand auf die laufenden Spiele.
+          <p className="py-6 text-center text-sm text-muted">
+            {state.hasFriends || state.hasLeagues
+              ? "Noch tippt keiner deiner Freunde bei den laufenden Spielen mit."
+              : "Füge Freunde hinzu, um live gegen sie zu spielen."}
+          </p>
         ) : (
           <TableView key={table.key} table={table} games={table.gameCount} />
         )}

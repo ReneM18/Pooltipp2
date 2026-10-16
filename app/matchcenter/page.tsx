@@ -29,7 +29,7 @@ import { liveIntervalSeconds } from "@/lib/liveScores";
 import { flagEmoji } from "@/lib/flags";
 import { useLiveClock, useMinuteTick } from "@/lib/useLiveMinute";
 import { useLiveForecast } from "@/lib/liveForecast";
-import { useFriendsLive } from "@/lib/friendsLive";
+import { friendsRowTable, useFriendsLive } from "@/lib/friendsLive";
 import { FriendsLivePanel, FriendsLiveRow, FriendsLiveSheet } from "@/components/FriendsLive";
 import { useAppData } from "@/lib/AppDataContext";
 import { classifyRankingTip, RANKING_POINTS } from "@/lib/poolScore";
@@ -424,7 +424,8 @@ function LiveCenterSection({ sport, switcher }: { sport: Sport; switcher?: React
   const friendsTab = showFriendsTab && rightTab === "freunde";
   const selectedLink = selected ? links.get(selected.id) ?? null : null;
   const friendsRow =
-    friendsLive?.hasFriends && selectedLink && friendsLive.games.some((g) => g.match.id === selectedLink.match.id) ? (
+    // Nur mit mittippenden Freunden (Rene, 16.10.2026), sonst keine Zeile.
+    friendsLive && friendsRowTable(friendsLive) && selectedLink && friendsLive.games.some((g) => g.match.id === selectedLink.match.id) ? (
       <div className="lg:hidden">
         <FriendsLiveRow state={friendsLive} onOpen={() => setFriendsSheet(true)} className="-mt-2" />
         <FriendsLiveSheet open={friendsSheet} onClose={() => setFriendsSheet(false)} />
