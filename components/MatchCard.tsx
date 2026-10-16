@@ -870,7 +870,7 @@ export default function MatchCard({
                 Abgesagt
               </span>
             ) : showBoard ? (
-              <LivePill state={boardClock.state} pauseText={live?.status === "HT" ? "Halbzeit" : live?.statusText || "Pause"} />
+              <LivePill state={boardClock.state} pauseText={live?.status === "HT" ? "Halbzeit" : live?.statusText || "Pause"} delayed={!!live?.delayed} />
             ) : (
               <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
             )}
@@ -898,7 +898,7 @@ export default function MatchCard({
               Abgesagt
             </span>
           ) : showBoard ? (
-            <LivePill state={boardClock.state} pauseText={live?.status === "HT" ? "Halbzeit" : live?.statusText || "Pause"} />
+            <LivePill state={boardClock.state} pauseText={live?.status === "HT" ? "Halbzeit" : live?.statusText || "Pause"} delayed={!!live?.delayed} />
           ) : (
             <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
           )}
