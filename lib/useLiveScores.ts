@@ -383,16 +383,19 @@ export function useFinishedEvents(match: Match, homeName: string, awayName: stri
   return found && found.game.events ? appSideEvents(found) : null;
 }
 
-// Neu rendern, sobald irgendein Live-Eintrag neue Daten hat.
-export function useLiveStoreVersion(): number {
+// Neu rendern, sobald irgendein Live-Eintrag neue Daten hat. enabled = false:
+// nicht zuhören (Rene, 16.10.2026: Freunde-Live – Karten ohne Live-Spiel
+// rendern dann nicht bei jedem Abruf mit).
+export function useLiveStoreVersion(enabled = true): number {
   const [version, setVersion] = useState(0);
   useEffect(() => {
+    if (!enabled) return;
     const listener = () => setVersion((v) => v + 1);
     globalListeners.add(listener);
     return () => {
       globalListeners.delete(listener);
     };
-  }, []);
+  }, [enabled]);
   return version;
 }
 
@@ -402,14 +405,22 @@ export function peekLiveScore(
   match: Match,
   homeName: string,
   awayName: string,
-): { homeScore: number; awayScore: number; status: LiveStatus } | null {
+): { homeScore: number; awayScore: number; status: LiveStatus; elapsed: number | null; events: LiveEvent[] | null } | null {
   const entry = entries.get(`${match.sport}|${viennaDate(match.kickoff)}`);
   if (!entry?.games) return null;
   const found = findLiveGame(entry.games, match.kickoff, homeName, awayName);
   if (!found || found.homeScore === null || found.awayScore === null) return null;
   const { status } = found.game;
   if (!isLiveRunning(status) && !isLiveFinished(status)) return null;
-  return { homeScore: found.homeScore, awayScore: found.awayScore, status };
+  // Minute und Tore (App-Seiten) für den Freunde-Live-Ticker
+  // (Rene, 16.10.2026: Freunde-Live).
+  return {
+    homeScore: found.homeScore,
+    awayScore: found.awayScore,
+    status,
+    elapsed: found.game.elapsed,
+    events: found.game.events ? appSideEvents(found) : null,
+  };
 }
 
 // Alle Spiellisten, die dieser Browser schon geladen hat (Rene, 16.10.2026:

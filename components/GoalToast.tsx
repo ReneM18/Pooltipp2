@@ -13,6 +13,10 @@ import { useEffect, useState } from "react";
 export interface GoalToastData {
   title: string;
   detail: string;
+  // Zusatzzeile "Du bist jetzt 2. von 12 ▲1 unter deinen Freunden"
+  // (Rene, 16.10.2026: Freunde-Live), extraGood = aufgestiegen (Gold).
+  extra?: string;
+  extraGood?: boolean;
 }
 
 interface Item extends GoalToastData {
@@ -65,6 +69,9 @@ export function GoalToastHost() {
         >
           <p className="font-display text-[15px] font-bold text-ink">{item.title}</p>
           {item.detail && <p className="mt-0.5 text-xs leading-snug text-muted">{item.detail}</p>}
+          {item.extra && (
+            <p className={`mt-0.5 text-xs font-semibold leading-snug ${item.extraGood ? "text-gold" : "text-ink"}`}>{item.extra}</p>
+          )}
         </div>
       ))}
     </div>

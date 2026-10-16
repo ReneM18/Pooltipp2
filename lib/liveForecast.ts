@@ -147,6 +147,59 @@ async function ensureLoaded(matchIds: string[]) {
   }
 }
 
+// Feste vorläufige Punkte eines Tipps mit dem Live-Stand (ohne Bonus und
+// Joker), mit Anfänger-Schutz: scoredBefore = gewertete Tipps des Spielers
+// vor diesem Tipp; unter BEGINNER_SHIELD_TIPS zählt ein Minus als 0.
+// Auch für Freunde-Live (lib/friendsLive.ts) (Rene, 16.10.2026: Freunde-Live).
+export function fixedLivePoints(
+  tipHome: number,
+  tipAway: number,
+  home: number,
+  away: number,
+  isOneXTwo: boolean,
+  scoredBefore: number,
+): { tier: ReturnType<typeof classifyRankingTip>; points: number } {
+  const tier = classifyRankingTip(tipHome, tipAway, home, away, isOneXTwo);
+  const raw = RANKING_POINTS[tier];
+  return { tier, points: scoredBefore < BEGINNER_SHIELD_TIPS ? Math.max(0, raw) : raw };
+}
+
+// Gewertete Tipps je Spieler (Anfänger-Schutz) aus demselben Speicher wie
+// "Wenn es so bleibt" – Freunde-Live lädt nur nach, was noch fehlt oder
+// älter als 10 Minuten ist (Rene, 16.10.2026: Freunde-Live).
+let scoredLoading = false;
+export async function ensureScoredCounts(userIds: string[]): Promise<void> {
+  if (scoredLoading) return;
+  const now = Date.now();
+  const stale = userIds.filter((u) => now - (store.scoredAt.get(u) ?? 0) > REFRESH_MS);
+  if (stale.length === 0) return;
+  scoredLoading = true;
+  try {
+    const counts = await loadScoredCounts(stale);
+    if (counts) {
+      for (const u of stale) {
+        store.scored.set(u, counts.get(u) ?? 0);
+        store.scoredAt.set(u, Date.now());
+      }
+    }
+  } finally {
+    scoredLoading = false;
+    changed();
+  }
+}
+
+// Gewertete Tipps eines Spielers oder undefined (noch nicht geladen).
+export function peekScoredCount(userId: string): number | undefined {
+  return store.scored.get(userId);
+}
+
+export function subscribeForecastStore(listener: () => void): () => void {
+  store.listeners.add(listener);
+  return () => {
+    store.listeners.delete(listener);
+  };
+}
+
 export interface LiveForecast {
   rankNow: number;
   rankThen: number;
@@ -212,9 +265,7 @@ export function useLiveForecast(sport: Sport, enabled = true): LiveForecast | nu
         if (!then.has(tip.user_id)) continue; // ohne Profil steht niemand in der Rangliste
         const scored = (tip.user_id === authUserId ? myScored : store.scored.get(tip.user_id) ?? BEGINNER_SHIELD_TIPS) + (slots.get(tip.user_id) ?? 0);
         slots.set(tip.user_id, (slots.get(tip.user_id) ?? 0) + 1);
-        const tier = classifyRankingTip(tip.predicted_home_score, tip.predicted_away_score, r.home, r.away, isOneXTwo);
-        const raw = RANKING_POINTS[tier];
-        const points = scored < BEGINNER_SHIELD_TIPS ? Math.max(0, raw) : raw;
+        const { points } = fixedLivePoints(tip.predicted_home_score, tip.predicted_away_score, r.home, r.away, isOneXTwo, scored);
         if (tip.user_id === authUserId) myPoints += points;
         then.set(tip.user_id, Math.max(0, (then.get(tip.user_id) ?? 0) + points));
       }
