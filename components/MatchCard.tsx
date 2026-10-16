@@ -33,6 +33,8 @@ import { useLiveForecast } from "@/lib/liveForecast";
 import { useBeginnerShieldLeft } from "./BeginnerShieldHint";
 import { EventTimeline, LivePill, LiveTipLine, Scoreboard, forecastPlain, signedPoints, timelineCount, useBoardClock, useNewGoal, type NewGoal } from "./LiveMatch";
 import { showGoalToast } from "./GoalToast";
+import { FriendsLiveRow, FriendsLiveSheet } from "./FriendsLive";
+import { moveText, useFriendsLive } from "@/lib/friendsLive";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -377,6 +379,13 @@ export default function MatchCard({
   const pendingPoints = pendingTier ? (shieldLeft > 0 ? Math.max(0, RANKING_POINTS[pendingTier]) : RANKING_POINTS[pendingTier]) : 0;
   // "Wenn es so bleibt": vorläufiger Platz in der Rangliste (lib/liveForecast.ts).
   const forecast = useLiveForecast(match.sport, !!live && !!pendingTip);
+  // Freunde-Live (Rene, 16.10.2026: Freunde-Live): eine Zeile unter "Dein
+  // Tipp" mit deinem Platz unter Freunden am Spieltag, solange das Spiel
+  // läuft, Pause hat oder abgepfiffen, aber noch nicht gewertet ist – nur
+  // mit mindestens einem Freund. Antippen öffnet die Tabelle als Sheet.
+  const friendsLive = useFriendsLive(!!live);
+  const showFriendsRow = !!live && !!friendsLive?.hasFriends && friendsLive.games.some((g) => g.match.id === match.id);
+  const [friendsOpen, setFriendsOpen] = useState(false);
   const [eventsOpen, setEventsOpen] = useState(false);
   // Ohne bekannte Ereignisse nach Abpfiff kein leerer "Spielverlauf".
   const showEventsButton = showBoard && !!events && (!!live || events.some((e) => e.type !== "subst"));
@@ -438,9 +447,16 @@ export default function MatchCard({
     ]
       .filter(Boolean)
       .join(" · ");
+    // Freunde-Platz geändert (Rene, 16.10.2026: Freunde-Live): Zusatzzeile.
+    const friendsMe = friendsLive?.ready ? friendsLive.tables.find((t) => t.key === "friends") : undefined;
+    const friendsLine =
+      friendsMe && friendsMe.me.move !== 0
+        ? `Du bist jetzt ${friendsMe.me.rank}. von ${friendsMe.players.length} ${moveText(friendsMe.me.move)} unter deinen Freunden`
+        : undefined;
     showGoalToast(`${match.id}:${live.homeScore}:${live.awayScore}`, {
       title: `⚽ TOR für ${team.name} · ${scoreText(order, live.homeScore, live.awayScore)}`,
       detail,
+      ...(friendsLine ? { extra: friendsLine, extraGood: friendsMe!.me.move > 0 } : {}),
     });
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1011,6 +1027,12 @@ export default function MatchCard({
               finished={!live || live.finished}
               forecast={forecast}
             />
+          )}
+          {showFriendsRow && friendsLive && (
+            <>
+              <FriendsLiveRow state={friendsLive} onOpen={() => setFriendsOpen(true)} className={pendingTip && pendingTier ? "mt-1.5" : "mt-2.5"} />
+              <FriendsLiveSheet open={friendsOpen} onClose={() => setFriendsOpen(false)} />
+            </>
           )}
           {!showResultView && closingSoon && (
             <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">

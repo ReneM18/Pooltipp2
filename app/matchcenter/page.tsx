@@ -29,6 +29,8 @@ import { liveIntervalSeconds } from "@/lib/liveScores";
 import { flagEmoji } from "@/lib/flags";
 import { useLiveClock, useMinuteTick } from "@/lib/useLiveMinute";
 import { useLiveForecast } from "@/lib/liveForecast";
+import { useFriendsLive } from "@/lib/friendsLive";
+import { FriendsLivePanel, FriendsLiveRow, FriendsLiveSheet } from "@/components/FriendsLive";
 import { useAppData } from "@/lib/AppDataContext";
 import { classifyRankingTip, RANKING_POINTS } from "@/lib/poolScore";
 import { competitionFlag } from "@/lib/competitionFlag";
@@ -411,6 +413,24 @@ function LiveCenterSection({ sport, switcher }: { sport: Sport; switcher?: React
   const selected = selectedId ? allGames.find((g) => g.id === selectedId) ?? null : null;
   const listProps = { sport, links, isTipped, selectedId, onSelect: select };
 
+  // Freunde-Live (Rene, 16.10.2026: Freunde-Live): am PC rechts ein Reiter
+  // "Freunde" neben dem Spiel-Detail, am Handy eine Zeile im Detail, die
+  // die Tabelle als Bottom-Sheet öffnet. Nur eingeloggt und mit Freunden
+  // bzw. einer Tipprunde mit Mitspielern.
+  const [rightTab, setRightTab] = useState<"spiel" | "freunde">("spiel");
+  const [friendsSheet, setFriendsSheet] = useState(false);
+  const friendsLive = useFriendsLive(view === "live", view === "live" && rightTab === "freunde");
+  const showFriendsTab = view === "live" && !!friendsLive && (friendsLive.hasFriends || friendsLive.tables.length > 0);
+  const friendsTab = showFriendsTab && rightTab === "freunde";
+  const selectedLink = selected ? links.get(selected.id) ?? null : null;
+  const friendsRow =
+    friendsLive?.hasFriends && selectedLink && friendsLive.games.some((g) => g.match.id === selectedLink.match.id) ? (
+      <div className="lg:hidden">
+        <FriendsLiveRow state={friendsLive} onOpen={() => setFriendsSheet(true)} className="-mt-2" />
+        <FriendsLiveSheet open={friendsSheet} onClose={() => setFriendsSheet(false)} />
+      </div>
+    ) : null;
+
   return (
     <section className="mb-6 rounded-card border border-edge bg-surface px-3 pt-3 pb-4 sm:px-4">
       <div className="flex items-center justify-between gap-2">
@@ -453,19 +473,45 @@ function LiveCenterSection({ sport, switcher }: { sport: Sport; switcher?: React
             )}
           </div>
           <div ref={detailRef} className="scroll-mt-32">
-            {selected ? (
-              <LcDetail
-                key={selected.id}
-                sport={sport}
-                game={selected}
-                link={links.get(selected.id) ?? null}
-                dataAt={todayDay.games?.some((g) => g.id === selected.id) ? todayDay.dataAt : 0}
-              />
-            ) : (
-              <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
-                Spiel antippen, um Spielverlauf, Tipps und Kommentare zu sehen.
-              </p>
+            {showFriendsTab && (
+              <div className="mb-2 hidden gap-1.5 lg:flex" role="tablist" aria-label="Rechte Spalte">
+                {(["spiel", "freunde"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    role="tab"
+                    aria-selected={rightTab === t}
+                    onClick={() => setRightTab(t)}
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                      rightTab === t ? "border-muted/50 bg-surface-hover text-ink" : "border-edge text-muted hover:text-ink"
+                    }`}
+                  >
+                    {t === "spiel" ? "Spiel" : "Freunde"}
+                  </button>
+                ))}
+              </div>
             )}
+            {friendsTab && (
+              <div className="hidden rounded-card border border-muted/25 bg-pitch/40 p-3 sm:p-4 lg:block">
+                <FriendsLivePanel state={friendsLive} />
+              </div>
+            )}
+            <div className={friendsTab ? "lg:hidden" : ""}>
+              {selected ? (
+                <LcDetail
+                  key={selected.id}
+                  sport={sport}
+                  game={selected}
+                  link={selectedLink}
+                  dataAt={todayDay.games?.some((g) => g.id === selected.id) ? todayDay.dataAt : 0}
+                  friendsRow={friendsRow}
+                />
+              ) : (
+                <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
+                  Spiel antippen, um Spielverlauf, Tipps und Kommentare zu sehen.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -839,7 +885,19 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, selectedId, onSelec
 
 // Detail rechts: Liga + Pill, Anzeigetafel (dieselbe wie auf der Tippkarte),
 // "Dein Tipp", Spielverlauf, Community, Kommentare.
-function LcDetail({ sport, game, link, dataAt }: { sport: Sport; game: LiveGame; link: AppLink | null; dataAt: number }) {
+function LcDetail({
+  sport,
+  game,
+  link,
+  dataAt,
+  friendsRow,
+}: {
+  sport: Sport;
+  game: LiveGame;
+  link: AppLink | null;
+  dataAt: number;
+  friendsRow?: React.ReactNode;
+}) {
   const { myTips, orderFor, tipTendencies, competitions } = useAppData();
   const shieldLeft = useBeginnerShieldLeft();
   const started = game.status !== "NS" && game.homeScore !== null && game.awayScore !== null;
@@ -938,6 +996,7 @@ function LcDetail({ sport, game, link, dataAt }: { sport: Sport; game: LiveGame;
           forecast={forecast}
         />
       )}
+      {liveLike && !appFinal && friendsRow}
       {tip && tip.evaluated && appFinal && (
         <p className="rounded-lg border border-edge bg-pitch px-3 py-2 text-[13px] text-muted">
           Dein Tipp: <span className="font-semibold text-ink">{tipText}</span>
