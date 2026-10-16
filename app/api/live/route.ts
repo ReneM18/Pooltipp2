@@ -25,8 +25,13 @@ import type { LiveDiagnostics, LiveResponse } from "@/lib/live/types";
 // liveError, quota {used, limit}. Ohne Schlüssel oder bei einem Fehler kommt
 // eine leere Liste mit Fehlertext – die App läuft normal weiter.
 //
+// (Rene, 16.10.2026: Diagnose aus den Antworten) Auch Fehler-Antworten
+// tragen source, liveError und quota (mit Zeitpunkt at der Anbieter-Antwort),
+// damit der Admin den Stand aus den normalen Antworten zeigen kann – nicht
+// aus dem Speicher einer zufälligen Server-Instanz.
+//
 // GET /api/live?status=1 → Diagnose dieser Server-Instanz für den Admin
-// (letzter Abruf, Quelle, letzter Fehler, Quote) – fragt NICHT beim Anbieter.
+// (nur noch Zusatz) – fragt NICHT beim Anbieter.
 
 const SWR = 15;
 
@@ -70,8 +75,10 @@ export async function GET(request: Request) {
   // Heute höchstens ein Live-Takt im CDN (Anpfiff soll nicht hängen bleiben).
   if (date >= viennaDate(now)) maxAge = Math.min(maxAge, liveIntervalSeconds(sport));
   if (!result.ok) {
-    const quota = provider.diagnostics().quota;
-    return json({ sport, date, games: [], error: result.error, ...who, ...(quota ? { quota } : {}) }, maxAge);
+    return json(
+      { sport, date, games: [], error: result.error, liveError: result.error, ...who, ...(result.quota ? { quota: result.quota } : {}) },
+      maxAge,
+    );
   }
   return json({ sport, date, ...who, ...result.snapshot }, maxAge);
 }

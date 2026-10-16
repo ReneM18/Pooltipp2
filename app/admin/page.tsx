@@ -9,7 +9,7 @@ import { useUser } from "@/lib/UserContext";
 import { useTournaments } from "@/lib/TournamentContext";
 import { Tournament } from "@/lib/tournamentTypes";
 import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
-import { Sport, SPORTS, sportOptions, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchJersey, MatchStatus, TipMode, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
+import { ALL_SPORTS, Sport, SPORTS, sportOptions, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchJersey, MatchStatus, TipMode, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { COUNTRIES, DEFAULT_COUNTRY_CODE, countryName, flagEmoji } from "@/lib/flags";
 import CountryPicker from "@/components/CountryPicker";
 import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
@@ -31,8 +31,8 @@ import { useJokers } from "@/lib/JokerContext";
 import { DuelReport } from "@/components/DuelReport";
 import { GrowthReport } from "@/components/GrowthReport";
 import Emoji from "@/components/Emoji";
-import { peekLiveDays, peekLiveDiagnostics } from "@/lib/useLiveScores";
-import type { LiveDayStatus, LiveDiagnostics, LiveGame, LiveSource } from "@/lib/live/types";
+import { peekLiveDays, peekLiveSportDiagnostics, refreshLiveDays, useLiveStoreVersion } from "@/lib/useLiveScores";
+import type { LiveDiagnostics, LiveGame, LiveSource } from "@/lib/live/types";
 import { findLiveLeague, liveGameLeague } from "@/lib/liveConfig";
 import { findLiveGame, viennaDate } from "@/lib/liveScores";
 import { competitionCountry } from "@/lib/competitionFlag";
@@ -251,12 +251,16 @@ function ShopSwitch() {
   );
 }
 
-// Info-Kachel "Live-Daten" (Rene, 16.10.2026): Anbieter, letzter Abruf,
-// Quelle, letzter Fehler, Abfragen heute. Kostet KEINE Abfrage beim
-// Anbieter: /api/live?status=1 liefert nur, was sich die Server-Instanz vom
-// letzten Abruf gemerkt hat (Quote aus den Antwort-Headern), dazu die letzte
-// Antwort, die dieser Browser bekommen hat. Gezeigt wird jeweils der neuere
-// Stand (auf Vercel kann jede Server-Instanz ihren eigenen Stand haben).
+// Info-Kachel "Live-Daten" (Rene, 16.10.2026; lädt seit 16.10.2026 selbst,
+// Diagnose aus den Antworten). Beim Öffnen und bei "Neu laden" holt die Kachel
+// über den gemeinsamen Speicher (lib/useLiveScores.ts) die normalen
+// Tageslisten /api/live?sport=…&date=… – nur für die Sportarten/Tage, an
+// denen heute/morgen App-Spiele in eingeschalteten Live-Ligen liegen (Tag
+// nach Wiener Zeit, NHL nach Mitternacht also über das Datum von morgen).
+// Die Route hält Tageslisten 900 s im Cache → keine Extra-Quote.
+// Letzter Abruf, Quelle, Fehler und Abfragen kommen je Sportart aus diesen
+// Antworten; /api/live?status=1 (Speicher einer zufälligen Server-Instanz)
+// ist nur noch Zusatz.
 const SOURCE_TEXT: Record<LiveSource, string> = {
   live: "Live-Abruf",
   day: "nur Tagesliste",
@@ -270,45 +274,70 @@ function timeText(ms: number | null): string {
   return `${t} (vor ${min} Min.)`;
 }
 
+function viennaClock(iso: string): string {
+  return new Date(iso).toLocaleTimeString("de-AT", { timeZone: "Europe/Vienna", hour: "2-digit", minute: "2-digit" });
+}
+
+// App-Spiele von heute (inkl. der kommenden Nacht bis 12:00, z. B. NHL um
+// 03:00) in eingeschalteten Live-Ligen.
+function useLiveCheckList(now: number | null) {
+  const { matches, competitions } = useAppData();
+  if (now === null) return [];
+  const today = viennaDate(now);
+  const tomorrow = viennaDate(now + 24 * 60 * 60 * 1000);
+  const viennaHour = (iso: string) =>
+    Number(new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Europe/Vienna", hour: "2-digit", hour12: false }));
+  return matches
+    .filter((m) => !m.draft && m.status !== "cancelled")
+    .filter((m) => {
+      const day = viennaDate(m.kickoff);
+      return day === today || (day === tomorrow && viennaHour(m.kickoff) < 12);
+    })
+    .map((m) => ({ m, league: findLiveLeague(m.sport, m.competition, competitionCountry(m.sport, m.competition, competitions)) }))
+    .filter((x) => x.league !== null)
+    .sort((a, b) => new Date(a.m.kickoff).getTime() - new Date(b.m.kickoff).getTime());
+}
+
 function LiveDataInfo() {
+  const [now, setNow] = useState<number | null>(null);
   const [server, setServer] = useState<LiveDiagnostics | null>(null);
-  const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState<Set<string>>(new Set());
+  useLiveStoreVersion();
+  const list = useLiveCheckList(now);
+  // Sportart + Tag (Wiener Zeit) der zu prüfenden Spiele, je einmal.
+  const dayKeys = Array.from(new Set(list.map(({ m }) => `${m.sport}|${viennaDate(m.kickoff)}`))).sort();
+  const dayKeysText = dayKeys.join(",");
 
   async function refresh() {
+    setNow(Date.now());
     setLoading(true);
-    try {
-      const res = await fetch("/api/live?status=1", { cache: "no-store" });
-      if (!res.ok) throw new Error(String(res.status));
-      setServer((await res.json()) as LiveDiagnostics);
-      setFailed(false);
-    } catch {
-      setFailed(true);
-    } finally {
-      setLoading(false);
-    }
+    const days = dayKeysText
+      ? dayKeysText.split(",").map((k) => {
+          const [sport, date] = k.split("|");
+          return { sport: sport as Sport, date };
+        })
+      : [];
+    const status = fetch("/api/live?status=1", { cache: "no-store" })
+      .then((res) => (res.ok ? (res.json() as Promise<LiveDiagnostics>) : null))
+      .catch(() => null);
+    await refreshLiveDays(days);
+    setLoaded(new Set(dayKeys));
+    setServer(await status);
+    setLoading(false);
   }
 
   useEffect(() => {
-    void refresh();
+    setNow(Date.now());
   }, []);
+  // Beim Öffnen (sobald die App-Spiele da sind) und wenn sich die Tage ändern.
+  useEffect(() => {
+    if (now !== null) void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [now !== null, dayKeysText]);
 
-  const client = peekLiveDiagnostics();
-  const useClient = !!client && client.dataAt > (server?.lastFetchAt ?? 0);
-  const provider = server?.providerName ?? client?.providerName ?? client?.provider ?? "–";
-  const lastFetch = useClient ? client!.dataAt : server?.lastFetchAt ?? null;
-  const source = useClient ? client!.source : server?.lastSource ?? null;
-  const error = useClient ? client!.error : server?.lastError ?? null;
-  const errorAt = useClient ? null : server?.lastErrorAt ?? null;
-  const quota = (useClient ? client!.quota : null) ?? server?.quota ?? client?.quota ?? null;
-
-  const rows: [string, string][] = [
-    ["Anbieter", provider],
-    ["Letzter Abruf", timeText(lastFetch)],
-    ["Quelle", source ? SOURCE_TEXT[source] : "–"],
-    ["Letzter Fehler", error ? `${error}${errorAt ? ` · ${timeText(errorAt)}` : ""}` : "keiner"],
-    ["Abfragen heute", quota ? `${quota.used} / ${quota.limit}` : "–"],
-  ];
+  const sports = peekLiveSportDiagnostics().sort((a, b) => ALL_SPORTS.indexOf(a.sport) - ALL_SPORTS.indexOf(b.sport));
+  const provider = sports.find((d) => d.providerName)?.providerName ?? server?.providerName ?? "–";
 
   return (
     <div className="mb-7 rounded-card border border-edge bg-surface px-4 py-3">
@@ -322,66 +351,57 @@ function LiveDataInfo() {
           {loading ? "Lädt…" : "Neu laden"}
         </button>
       </div>
-      {failed && !client ? (
-        <p className="text-sm text-muted">Status gerade nicht abrufbar.</p>
+      <p className="mb-2 text-sm">
+        <span className="text-muted">Anbieter</span> <span className="text-ink">{provider}</span>
+      </p>
+      {sports.length === 0 ? (
+        <p className="text-sm text-muted">{loading ? "Lädt…" : "Noch keine Antwort – heute/morgen keine Spiele in eingeschalteten Live-Ligen."}</p>
       ) : (
-        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-          {rows.map(([label, value]) => (
-            <div key={label} className="contents">
-              <dt className="text-muted">{label}</dt>
-              <dd className={`min-w-0 break-words ${label === "Letzter Fehler" && error ? "text-yellow-400" : "text-ink"}`}>{value}</dd>
-            </div>
+        <ul className="flex flex-col gap-2 text-sm">
+          {sports.map((d) => (
+            <li key={d.sport} className="min-w-0 break-words">
+              <span className="font-semibold text-ink">{sportLabel(d.sport) || d.sport}:</span>{" "}
+              <span className="text-muted">letzter Abruf</span> <span className="text-ink">{timeText(d.dataAt || null)}</span>
+              <span className="text-muted"> · Quelle </span>
+              <span className="text-ink">{d.source ? SOURCE_TEXT[d.source] : "–"}</span>
+              <span className="text-muted"> · Fehler </span>
+              <span className={d.error ? "text-yellow-400" : "text-ink"}>{d.error ?? "keiner"}</span>
+              <span className="text-muted"> · Abfragen </span>
+              <span className="text-ink">
+                {d.quota ? `${d.quota.used} / ${d.quota.limit}${d.quota.at ? ` (Stand ${timeText(d.quota.at)})` : ""}` : "–"}
+              </span>
+            </li>
           ))}
-        </dl>
+        </ul>
       )}
       <p className="mt-2 text-[11px] text-muted">
-        Stand vom letzten Abruf – diese Kachel fragt nicht selbst beim Anbieter nach.
-        {!lastFetch && " Noch kein Abruf seit dem letzten Server-Start."}
+        Lädt beim Öffnen und bei „Neu laden" die Tageslisten der Sportarten/Tage mit App-Spielen (aus dem Cache der Route, keine Extra-Abfragen). Werte aus diesen Antworten.
+        {server?.lastFetchAt
+          ? ` Zusatz – Server-Instanz: letzter Abruf ${timeText(server.lastFetchAt)}${server.lastError ? `, letzter Fehler ${server.lastError}` : ""}.`
+          : ""}
       </p>
-      <LiveMatchCheck serverDays={server?.days ?? []} />
+      <LiveMatchCheck list={list} loaded={loaded} loading={loading} />
     </div>
   );
 }
 
-// Zuordnungs-Check (Rene, 16.10.2026): heutige App-Spiele (inkl. der
-// kommenden Nacht bis 12:00, z. B. NHL um 03:00) in eingeschalteten Ligen –
-// passt ein Live-Spiel dazu? Nur aus bereits geladenen Daten (Server-Stand
-// von /api/live?status=1 bzw. was dieser Browser schon hat), KEINE
-// zusätzliche Abfrage. Ohne Treffer stehen die Live-Spiele derselben Liga
-// um diese Uhrzeit darunter – so sieht man den Namen, den die API
-// verwendet (dann in lib/live/aliases.ts eintragen).
-function viennaClock(iso: string): string {
-  return new Date(iso).toLocaleTimeString("de-AT", { timeZone: "Europe/Vienna", hour: "2-digit", minute: "2-digit" });
-}
-
-function LiveMatchCheck({ serverDays }: { serverDays: LiveDayStatus[] }) {
-  const { matches, getTeam, orderFor, competitions } = useAppData();
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => setNow(Date.now()), [serverDays]);
-  if (now === null) return null;
-
-  const today = viennaDate(now);
-  const tomorrow = viennaDate(now + 24 * 60 * 60 * 1000);
-  const viennaHour = (iso: string) =>
-    Number(new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Europe/Vienna", hour: "2-digit", hour12: false }));
-
-  // Je Sportart + Tag der neueste geladene Stand (Server oder Browser).
-  const days = new Map<string, { fetchedAt: number; games: LiveGame[] }>();
-  for (const d of [...serverDays, ...peekLiveDays()]) {
-    const key = `${d.sport}|${d.date}`;
-    const prev = days.get(key);
-    if (!prev || d.fetchedAt > prev.fetchedAt) days.set(key, { fetchedAt: d.fetchedAt, games: d.games });
-  }
-
-  const list = matches
-    .filter((m) => !m.draft && m.status !== "cancelled")
-    .filter((m) => {
-      const day = viennaDate(m.kickoff);
-      return day === today || (day === tomorrow && viennaHour(m.kickoff) < 12);
-    })
-    .map((m) => ({ m, league: findLiveLeague(m.sport, m.competition, competitionCountry(m.sport, m.competition, competitions)) }))
-    .filter((x) => x.league !== null)
-    .sort((a, b) => new Date(a.m.kickoff).getTime() - new Date(b.m.kickoff).getTime());
+// Zuordnungs-Check (Rene, 16.10.2026): passt zu jedem App-Spiel aus
+// useLiveCheckList ein Live-Spiel? Daten aus dem gemeinsamen Speicher, den
+// LiveDataInfo vorher gefüllt hat. Ohne Treffer stehen die Live-Spiele
+// derselben Liga um diese Uhrzeit darunter – so sieht man den Namen, den die
+// API verwendet (dann in lib/live/aliases.ts eintragen).
+function LiveMatchCheck({
+  list,
+  loaded,
+  loading,
+}: {
+  list: ReturnType<typeof useLiveCheckList>;
+  loaded: Set<string>;
+  loading: boolean;
+}) {
+  const { getTeam, orderFor } = useAppData();
+  const days = new Map<string, { fetchedAt: number; games: LiveGame[]; error: string | null }>();
+  for (const d of peekLiveDays()) days.set(`${d.sport}|${d.date}`, { fetchedAt: d.fetchedAt, games: d.games, error: d.error });
 
   return (
     <div className="mt-3 border-t border-edge pt-3">
@@ -399,8 +419,10 @@ function LiveMatchCheck({ serverDays }: { serverDays: LiveDayStatus[] }) {
             let body: React.ReactNode;
             if (!home || !away) {
               body = <span className="text-yellow-400">✗ Team nicht gefunden</span>;
-            } else if (!day) {
-              body = <span className="text-muted">– noch keine Live-Daten für diesen Tag geladen (Tippkarte oder Matchcenter öffnen, dann „Neu laden")</span>;
+            } else if (!day || (!loaded.has(`${m.sport}|${viennaDate(m.kickoff)}`) && loading)) {
+              body = <span className="text-muted">– Live-Daten werden geladen…</span>;
+            } else if (day.games.length === 0 && day.error) {
+              body = <span className="text-yellow-400">✗ Live-Daten nicht verfügbar: {day.error}</span>;
             } else {
               const found = findLiveGame(day.games, m.kickoff, home.name, away.name);
               if (found) {
