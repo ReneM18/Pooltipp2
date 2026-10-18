@@ -18,7 +18,9 @@ interface LiveItem {
   myTip: string | null;
 }
 
-export default function LiveStrip({ items }: { items: LiveItem[] }) {
+// onSelect: statt selbst zur Karte zu rollen (Startseite: erst zum Reiter Live,
+// Rene, 18.10.2026: Tippen/Live/Beendet).
+export default function LiveStrip({ items, onSelect }: { items: LiveItem[]; onSelect?: (matchId: string) => void }) {
   const { orderFor } = useAppData();
   if (items.length === 0) return null;
   return (
@@ -31,7 +33,11 @@ export default function LiveStrip({ items }: { items: LiveItem[] }) {
           <button
             key={match.id}
             type="button"
-            onClick={() => document.getElementById(`spiel-${match.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
+            onClick={() =>
+              onSelect
+                ? onSelect(match.id)
+                : document.getElementById(`spiel-${match.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })
+            }
             className="w-full rounded-card border border-red-500/45 bg-gradient-to-r from-red-500/15 via-surface to-surface px-3 py-2 text-left transition-colors hover:border-red-500/70"
           >
             <span className="mb-1 flex items-center justify-between gap-2 text-[11px]">

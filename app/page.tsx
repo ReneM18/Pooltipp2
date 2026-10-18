@@ -2,7 +2,7 @@
 
 import EmptyState from "@/components/EmptyState";
 import { viennaDateKey } from "@/lib/seasons/schedule";
-import { useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import MatchCard from "@/components/MatchCard";
 import AdBanner from "@/components/AdBanner";
@@ -11,14 +11,15 @@ import { StreakHint } from "@/components/StreakChip";
 import BeginnerShieldHint from "@/components/BeginnerShieldHint";
 import HomeGreeting from "@/components/HomeGreeting";
 import LiveStrip from "@/components/LiveStrip";
+import HomeTipBar from "@/components/HomeTipBar";
 import { useUser } from "@/lib/UserContext";
 import { useJokers } from "@/lib/JokerContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { BOOSTER_STAKE } from "@/lib/poolScore";
 import { Match, isSportActive } from "@/lib/types";
-import { groupMatchesByDay } from "@/lib/dayGroups";
-import { splitMatchesByTab } from "@/lib/matchTabs";
+import { DayGroup, deadlineText, groupMatchesByDay } from "@/lib/dayGroups";
+import { HomeTab, autoHomeTab, homeTabOf, splitHomeTabs } from "@/lib/matchTabs";
 import { displayOrder } from "@/lib/teamOrder";
 import { useStreak } from "@/lib/streak";
 import { readPendingInvite } from "@/lib/leagueInvite";
@@ -27,7 +28,7 @@ import { peekLiveScore, useLiveStoreVersion } from "@/lib/useLiveScores";
 import { isLiveFinished } from "@/lib/liveScores";
 
 export default function DashboardPage() {
-  const { placeTip, refreshStars, isRegistered, startDone, authUserId } = useUser();
+  const { placeTip, refreshStars, isRegistered, startDone, authUserId, sessionChecked } = useUser();
   const { reloadJokers } = useJokers();
   const { orderFor, matches, getTeam, tipCounts, withdrawTip, myTips, myTipsLoaded, contentLoaded, matchesLoadFailed } = useAppData();
   const streak = useStreak();
@@ -58,23 +59,18 @@ export default function DashboardPage() {
     const timer = window.setTimeout(() => setHighlightId(null), 6000);
     return () => window.clearTimeout(timer);
   }, []);
-  useEffect(() => {
-    if (!highlightId || !contentLoaded || scrolledRef.current) return;
-    const card = document.getElementById(`spiel-${highlightId}`);
-    if (!card) return;
-    scrolledRef.current = true;
-    const header = document.querySelector("[data-pull-anchor]");
-    const top = Math.max(0, header?.getBoundingClientRect().bottom ?? 0) + 12;
-    window.scrollBy({ top: card.getBoundingClientRect().top - top, behavior: "smooth" });
-  }, [highlightId, contentLoaded, matches]);
   const { showToast, celebrate } = useFeedback();
-  // Vom Spieler angeklickter Reiter (null = noch nicht gewählt). Solange
-  // nichts gewählt ist, entscheidet die Seite selbst, siehe "tab" unten.
-  const [chosenTab, setTab] = useState<"offen" | "geschlossen" | null>(null);
-  // Klick aufs Logo: Reiter wieder automatisch wählen (Offen, sobald es
-  // offene Spiele gibt) und nach oben.
+  // Reiter Tippen/Live/Beendet (Rene, 18.10.2026: Tippen/Live/Beendet).
+  // null = noch nicht gewählt: beim Öffnen wählt die Seite EINMAL nach Renes
+  // Regel (autoHomeTab), danach bleibt der Reiter, bis der Spieler umschaltet –
+  // ändert sich die Lage, werden nur die Zahlen neu, es springt nichts um.
+  // Kein Speichern über Besuche hinweg.
+  const [chosenTab, setTab] = useState<HomeTab | null>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  // Klick aufs Logo: Reiter wieder nach der Regel wählen und nach oben.
   useEffect(() => {
     function onLogo() {
+      setPinned({});
       setTab(null);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -107,6 +103,7 @@ export default function DashboardPage() {
       );
       return;
     }
+    setPinned((p) => ({ [match.id]: "offen", ...p }));
     celebrate();
     showToast(withBooster ? `✓ Booster-Tipp gespeichert – ${BOOSTER_STAKE} Coins eingesetzt, viel Glück!` : "✓ Tipp gespeichert – viel Glück!");
   }
@@ -119,6 +116,7 @@ export default function DashboardPage() {
       showToast("Tippschluss – der Tipp kann nicht mehr geändert werden.", "info");
       return false;
     }
+    setPinned((p) => ({ [matchId]: "getippt", ...p }));
     refreshStars();
     void reloadJokers();
     const extras = [
@@ -133,46 +131,17 @@ export default function DashboardPage() {
     return true;
   }
 
-  // Geschlossen erst, wenn der Admin den Endstand eingetragen oder das Spiel
-  // abgesagt hat, nie nach Uhrzeit (Regel und Test in lib/matchTabs.ts).
   // Spiele, deren Team fehlt (z. B. gelöscht), zeigt die Seite nicht an, also
-  // zählen sie auch nicht als offen. Spiele ausgeblendeter Sportarten
-  // (HIDDEN_SPORTS in lib/types.ts) ebenfalls nicht.
+  // zählen sie auch nicht. Spiele ausgeblendeter Sportarten (HIDDEN_SPORTS in
+  // lib/types.ts) ebenfalls nicht.
   const shownMatches = matches.filter(
     (m) => isSportActive(m.sport) && getTeam(m.homeTeamId) && getTeam(m.awayTeamId)
   );
-  const { offen: offeneMatches, geschlossen: geschlosseneMatches } = splitMatchesByTab(shownMatches, now);
-  // Kein offenes Spiel mehr: gleich die geschlossenen zeigen statt einer
-  // leeren Seite. Sobald wieder eins offen ist, stehen die offenen vorne.
-  // Hat der Spieler selbst einen Reiter angeklickt, bleibt es dabei.
-  const tab =
-    chosenTab ?? (offeneMatches.length === 0 && geschlosseneMatches.length > 0 ? "geschlossen" : "offen");
-  // Booster-Spiele stehen ganz normal in der Liste (nach Anpfiff sortiert),
-  // die Karte selbst zeigt oben, dass es ein Booster ist.
-  const visibleMatches = tab === "offen" ? offeneMatches : geschlosseneMatches;
-
-  // Top-Spiel für die Bühne ganz oben: nur das vom Admin gewählte Topspiel
-  // (das nächste davon, auf das man noch tippen kann). Ist keins gewählt,
-  // gibt es keine Bühne, nur die normale Liste (Rene, 09.10.2026). Es steht
-  // dann nicht noch einmal in der Liste darunter.
-  const tippable = now === null ? [] : offeneMatches.filter((m) => m.status === "upcoming" && Date.parse(m.tipDeadline) > now);
-  // Bis zu zwei Topspiele oben: das nächste Topspiel und ein weiteres vom
-  // selben Tag (am PC nebeneinander, am Handy untereinander – Rene
-  // 11.10.2026). Topspiele späterer Tage kommen erst an ihrem Tag nach oben.
-  const firstTop = tab === "offen" ? tippable.find((m) => m.topMatch) ?? null : null;
-  const stageMatches = firstTop
-    ? tippable
-        .filter((m) => m.topMatch && viennaDateKey(new Date(m.kickoff)) === viennaDateKey(new Date(firstTop.kickoff)))
-        .slice(0, 2)
-    : [];
-  const stageIds = new Set(stageMatches.map((m) => m.id));
-  const listMatches = stageIds.size ? visibleMatches.filter((m) => !stageIds.has(m.id)) : visibleMatches;
-  const toTip = tippable.filter((m) => !findTipForMatch(m.id)).length;
 
   // Laut Live-Daten abgepfiffen, in der App aber noch ohne Endstand
   // (Rene, 15.10.2026): steht nicht mehr unter "Läuft gerade", sondern unter
   // "Gerade beendet · Wertung folgt". Mit Endstand ist es ohnehin unter
-  // "Beendete Spiele" wie bisher.
+  // "Beendet" wie bisher.
   function liveFinished(m: Match): boolean {
     if (m.status === "finished" && m.liveHomeScore !== null && m.liveAwayScore !== null) return false;
     const home = getTeam(m.homeTeamId);
@@ -181,21 +150,129 @@ export default function DashboardPage() {
     const live = peekLiveScore(m, home.name, away.name);
     return !!live && isLiveFinished(live.status);
   }
-  const dayGroups = groupMatchesByDay(listMatches, now, tab).flatMap((group) => {
-    if (group.key !== "jetzt") return [group];
-    const done = group.matches.filter(liveFinished);
-    if (done.length === 0) return [group];
-    const running = group.matches.filter((m) => !done.includes(m));
-    return [
-      ...(running.length ? [{ ...group, matches: running }] : []),
-      { key: "gerade-beendet", label: "Gerade beendet", sub: "Wertung folgt", matches: done },
-    ];
-  });
 
-  // Laufende Spiele als Streifen ganz oben (Spielstand kommt live mit),
-  // laut Live-Daten schon abgepfiffene nicht mehr (Rene, 15.10.2026).
-  const liveItems = shownMatches
-    .filter((m) => m.status === "live" && !liveFinished(m))
+  // Einteilung in Tippen/Live/Beendet (Regel und Test in lib/matchTabs.ts,
+  // Rene, 18.10.2026: Tippen/Live/Beendet). Ohne Live-Daten gilt: Anpfiff
+  // vorbei und kein Endstand = läuft.
+  const split = splitHomeTabs(shownMatches, now, (m) => !!findTipForMatch(m.id), liveFinished);
+  const toTip = split.offen.length;
+  const running = split.laeuft.length;
+  // Erst wählen, wenn Spiele, Uhr und (eingeloggt) die eigenen Tipps da sind,
+  // sonst stünde beim Öffnen kurz der falsche Reiter da.
+  // Hängt das Laden der Tipps, nach 5 s trotzdem zeigen statt ewig "lädt".
+  const [tipsWaitOver, setTipsWaitOver] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setTipsWaitOver(true), 5000);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const ready = contentLoaded && now !== null && (tipsWaitOver || (sessionChecked && (!authUserId || myTipsLoaded)));
+  // Vom Start-Erlebnis vorgeschlagenes Spiel: dessen Reiter zuerst.
+  const autoTab = highlightId && shownMatches.some((m) => m.id === highlightId) ? homeTabOf(split, highlightId) : autoHomeTab(split);
+  useEffect(() => {
+    if (ready && chosenTab === null) setTab(autoTab);
+  }, [ready, chosenTab, autoTab]);
+  const tab: HomeTab = chosenTab ?? autoTab;
+  // Karte erst suchen, wenn der Reiter steht (sonst ist sie noch nicht da).
+  useEffect(() => {
+    if (!highlightId || !ready || scrolledRef.current) return;
+    const card = document.getElementById(`spiel-${highlightId}`);
+    if (!card) return;
+    scrolledRef.current = true;
+    const header = document.querySelector("[data-pull-anchor]");
+    const top = Math.max(0, header?.getBoundingClientRect().bottom ?? 0) + 12;
+    window.scrollBy({ top: card.getBoundingClientRect().top - top, behavior: "smooth" });
+  }, [highlightId, ready, tab, matches]);
+
+  // Gerade getippt oder zurückgenommen: die Karte bleibt in ihrer Gruppe
+  // ("Noch offen" bzw. "Schon getippt"), statt beim Tippen wegzuspringen.
+  // Beim nächsten Reiterwechsel wird neu einsortiert. Die Zahlen stimmen sofort.
+  const [pinned, setPinned] = useState<Record<string, "offen" | "getippt">>({});
+  function selectTab(next: HomeTab | null) {
+    setPinned({});
+    setTab(next);
+  }
+
+  // Reiter wechseln und die Reiter-Leiste unter die angeheftete Kopfzeile holen.
+  function goToTab(next: HomeTab) {
+    selectTab(next);
+    const tabs = tabsRef.current;
+    if (!tabs) return;
+    const header = document.querySelector("[data-pull-anchor]");
+    const top = Math.max(0, header?.getBoundingClientRect().bottom ?? 0) + 8;
+    window.scrollBy({ top: tabs.getBoundingClientRect().top - top, behavior: "smooth" });
+  }
+
+  // Live-Streifen antippen (auf Tippen/Beendet): zum Reiter Live, dann zur Karte.
+  const [scrollToId, setScrollToId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!scrollToId) return;
+    setScrollToId(null);
+    document.getElementById(`spiel-${scrollToId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [scrollToId]);
+
+  // Top-Spiel für die Bühne ganz oben im Reiter Tippen: nur das vom Admin
+  // gewählte Topspiel (das nächste davon, auf das man noch tippen kann). Ist
+  // keins gewählt, gibt es keine Bühne, nur die normale Liste (Rene,
+  // 09.10.2026). Es steht dann nicht noch einmal in der Liste darunter.
+  // Bis zu zwei Topspiele oben: das nächste Topspiel und ein weiteres vom
+  // selben Tag (am PC nebeneinander, am Handy untereinander – Rene
+  // 11.10.2026). Topspiele späterer Tage kommen erst an ihrem Tag nach oben.
+  const tippable = [...split.offen, ...split.getippt].sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff));
+  const firstTop = tab === "tippen" ? tippable.find((m) => m.topMatch) ?? null : null;
+  const stageMatches = firstTop
+    ? tippable
+        .filter((m) => m.topMatch && viennaDateKey(new Date(m.kickoff)) === viennaDateKey(new Date(firstTop.kickoff)))
+        .slice(0, 2)
+    : [];
+  const stageIds = new Set(stageMatches.map((m) => m.id));
+  const notOnStage = (list: Match[]) => (stageIds.size ? list.filter((m) => !stageIds.has(m.id)) : list);
+
+  // Nächster Tippschluss eines noch nicht getippten Spiels für die Leiste oben.
+  const nextOpen = split.offen[0];
+  const nextOpenTeams = nextOpen ? displayOrder(orderFor(nextOpen), getTeam(nextOpen.homeTeamId)!, getTeam(nextOpen.awayTeamId)!) : null;
+  const next =
+    nextOpen && nextOpenTeams && now !== null
+      ? { time: deadlineText(Date.parse(nextOpen.tipDeadline), now), home: nextOpenTeams[0].name, away: nextOpenTeams[1].name }
+      : null;
+
+  // Gruppen je Reiter. Tippen: "Noch offen" und "✓ Schon getippt", darin nach
+  // Tag ("Heute", "Morgen" …). Live: "Läuft gerade", "Tippschluss vorbei ·
+  // beginnt gleich", "Gerade beendet · Wertung folgt". Beendet: nach Tag.
+  type Section = { key: string; label: string; sub?: string; dot?: boolean; count: number; days: DayGroup<Match>[] };
+  const byDay = (list: Match[]) => groupMatchesByDay(list, now, "offen");
+  const flat = (list: Match[]) => (list.length ? [{ key: "alle", label: "", sub: "", matches: list }] : []);
+  const groupOf = (m: Match) => pinned[m.id] ?? (findTipForMatch(m.id) ? "getippt" : "offen");
+  const byDeadline = (a: Match, b: Match) => Date.parse(a.tipDeadline) - Date.parse(b.tipDeadline);
+  const offenList = notOnStage(tippable.filter((m) => groupOf(m) === "offen")).sort(byDeadline);
+  const getipptList = notOnStage(tippable.filter((m) => groupOf(m) === "getippt")).sort(byDeadline);
+  const sections: Section[] =
+    tab === "tippen"
+      ? [
+          ...(offenList.length ? [{ key: "offen", label: "Noch offen", count: offenList.length, days: byDay(offenList) }] : []),
+          ...(getipptList.length
+            ? [{ key: "getippt", label: "✓ Schon getippt", sub: "bis Tippschluss änderbar", count: getipptList.length, days: byDay(getipptList) }]
+            : []),
+        ]
+      : tab === "live"
+        ? [
+            ...(split.laeuft.length ? [{ key: "laeuft", label: "Läuft gerade", dot: true, count: split.laeuft.length, days: flat(split.laeuft) }] : []),
+            ...(split.gleich.length
+              ? [{ key: "gleich", label: "🔒 Tippschluss vorbei", sub: "beginnt gleich", count: split.gleich.length, days: flat(split.gleich) }]
+              : []),
+            ...(split.geradeBeendet.length
+              ? [{ key: "gerade-beendet", label: "Gerade beendet", sub: "Wertung folgt", count: split.geradeBeendet.length, days: flat(split.geradeBeendet) }]
+              : []),
+          ]
+        : split.beendet.length
+          ? [{ key: "beendet", label: "", count: split.beendet.length, days: groupMatchesByDay(split.beendet, now, "geschlossen") }]
+          : [];
+
+  // Laufende Spiele als Streifen über den Reitern Tippen und Beendet
+  // (Spielstand kommt live mit), laut Live-Daten schon abgepfiffene nicht
+  // mehr (Rene, 15.10.2026). Im Reiter Live stehen sie als Karten mit
+  // Anzeigetafel, dort kein Streifen (Rene, 18.10.2026: Tippen/Live/Beendet).
+  const liveItems = tab === "live" ? [] : split.laeuft
+    .filter((m) => m.status === "live")
     .map((m) => {
       const tip = findTipForMatch(m.id);
       const [l, r] = tip ? displayOrder(orderFor(m), tip.predictedHomeScore, tip.predictedAwayScore) : [0, 0];
@@ -270,7 +347,7 @@ export default function DashboardPage() {
           kommen. Am Handy (zu schmal für eine Zeile) fällt sie automatisch
           darunter. */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <HomeGreeting streak={streak} toTip={toTip} openCount={tippable.length} />
+        <HomeGreeting streak={streak} />
 
         <AdBanner />
       </div>
@@ -282,12 +359,18 @@ export default function DashboardPage() {
       {/* Anfänger-Schutz: noch X von 10 Tipps insgesamt ohne Punktabzug (Rene, 15.10.2026) */}
       <BeginnerShieldHint className="-mt-3 mb-5" />
 
+      {/* Hinweis-Leiste: offene Tipps und nächster Tippschluss (Rene,
+          18.10.2026: Tippen/Live/Beendet). Erst wenn alles geladen ist. */}
+      {ready && sessionChecked && (
+        <HomeTipBar guest={!authUserId} toTip={toTip} next={next} running={running} onGo={goToTab} />
+      )}
+
       <WeeklyReviewCard />
 
-      {/* Bis die echten Spiele geladen sind (nach Einloggen oder Neuladen),
-          stehen nur Demo-Spiele im Speicher. Erst danach wird der Reiter
-          gewählt, sonst blitzt "Kommende Spiele" kurz auf. */}
-      {!contentLoaded ? (
+      {/* Bis die echten Spiele (und eingeloggt die eigenen Tipps) geladen
+          sind, stehen nur Demo-Spiele im Speicher. Erst danach wird der
+          Reiter gewählt, sonst blitzt kurz der falsche auf. */}
+      {!ready ? (
         <p className="py-8 text-center text-sm text-muted">
           {matchesLoadFailed
             ? "Spiele konnten nicht geladen werden – bitte die Seite neu laden."
@@ -295,20 +378,27 @@ export default function DashboardPage() {
         </p>
       ) : (
       <>
-      <LiveStrip items={liveItems} />
-      <div className="mb-5 flex gap-2 border-b border-edge">
-        <TabButton
-          label="Kommende Spiele"
-          count={offeneMatches.length}
-          active={tab === "offen"}
-          onClick={() => setTab("offen")}
-        />
-        <TabButton
-          label="Beendete Spiele"
-          count={geschlosseneMatches.length}
-          active={tab === "geschlossen"}
-          onClick={() => setTab("geschlossen")}
-        />
+      <LiveStrip
+        items={liveItems}
+        onSelect={(id) => {
+          selectTab("live");
+          setScrollToId(id);
+        }}
+      />
+      <div ref={tabsRef} className="mb-5 flex gap-5 border-b border-edge" role="tablist">
+        <TabButton active={tab === "tippen"} onClick={() => selectTab("tippen")}>
+          Tippen <span className={toTip > 0 ? "text-gold" : "text-muted"}>({toTip})</span>
+        </TabButton>
+        <TabButton active={tab === "live"} onClick={() => selectTab("live")}>
+          <span
+            aria-hidden
+            className={`h-2 w-2 shrink-0 rounded-full ${running > 0 ? "animate-pulse bg-red-500" : "bg-edge"}`}
+          />
+          Live <span className={running > 0 ? "text-red-400" : "text-muted"}>({running})</span>
+        </TabButton>
+        <TabButton active={tab === "beendet"} onClick={() => selectTab("beendet")}>
+          Beendet
+        </TabButton>
       </div>
 
       {stageMatches.length > 0 && (
@@ -317,48 +407,66 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {visibleMatches.length === 0 && (
-        tab === "offen" ? (
-          <EmptyState
-            emoji="🗓️"
-            title="Gerade keine offenen Spiele"
-            text="Neue Spiele kommen bald. Schau solange im Matchcenter vorbei."
-            action={{ href: "/matchcenter", label: "Zum Matchcenter" }}
-          />
-        ) : (
-          <EmptyState
-            emoji="🏁"
-            title="Noch keine beendeten Spiele"
-            text="Sobald ein Spiel ausgewertet ist, siehst du hier deine Punkte."
-          />
-        )
+      {/* Leerzustände je Reiter (Rene, 18.10.2026: Tippen/Live/Beendet). */}
+      {tab === "tippen" && split.offen.length === 0 && (
+        <EmptyState
+          className="mb-7"
+          emoji="✅"
+          title="Alles getippt"
+          text={
+            tippable.length > 0
+              ? "Neue Spiele erscheinen hier, sobald sie angesetzt sind. Deine Tipps kannst du bis zum Tippschluss ändern."
+              : "Neue Spiele erscheinen hier, sobald sie angesetzt sind. Schau solange im Matchcenter vorbei."
+          }
+          action={tippable.length > 0 ? undefined : { href: "/matchcenter", label: "Zum Matchcenter" }}
+        />
       )}
-      {/* Abschnitte nach Tag ("Läuft gerade", "Heute", "Morgen" …), die
-          Reihenfolge bleibt wie in lib/matchTabs.ts. Am PC je Tag drei Spalten. */}
-      <div className="flex flex-col gap-7">
-        {dayGroups.map((group) => (
-          <section key={group.key} aria-label={group.label || undefined}>
-            {group.label && (
-              <h2 className="mb-3 flex items-baseline gap-2 px-0.5">
-                {group.key === "jetzt" && (
+      {tab === "live" && sections.length === 0 && (
+        <EmptyState
+          emoji="📺"
+          title="Gerade läuft kein Spiel."
+          text={toTip > 0 ? "Bis zum Anpfiff kannst du noch tippen." : "Sobald ein Spiel angepfiffen ist, siehst du es hier mit Spielstand."}
+        />
+      )}
+      {tab === "beendet" && sections.length === 0 && (
+        <EmptyState
+          emoji="🏁"
+          title="Noch keine beendeten Spiele"
+          text="Sobald ein Spiel ausgewertet ist, siehst du hier deine Punkte."
+        />
+      )}
+
+      {/* Gruppen des Reiters, darin Abschnitte nach Tag ("Heute", "Morgen" …),
+          Reihenfolge wie in lib/matchTabs.ts. Am PC je Abschnitt drei Spalten. */}
+      <div className="flex flex-col gap-8">
+        {sections.map((section) => (
+          <section key={section.key} aria-label={section.label || undefined} className="flex flex-col gap-5">
+            {section.label && (
+              <h2 className="-mb-1 flex items-baseline gap-2 px-0.5">
+                {section.dot && (
                   <span className="relative top-[-1px] h-2 w-2 shrink-0 animate-pulse self-center rounded-full bg-red-500" aria-hidden />
                 )}
-                <span className="font-display text-base font-bold text-ink">{group.label}</span>
-                {group.sub && (
-                  <span className="text-xs text-muted">
-                    {group.key === "gerade-beendet" && "· "}
-                    {group.sub}
-                  </span>
-                )}
+                <span className="font-display text-base font-bold text-ink">{section.label}</span>
+                {section.sub && <span className="text-xs text-muted">· {section.sub}</span>}
                 <span className="text-xs text-muted">
-                  · {group.matches.length} {group.matches.length === 1 ? "Spiel" : "Spiele"}
+                  · {section.count} {section.count === 1 ? "Spiel" : "Spiele"}
                 </span>
               </h2>
             )}
-            {/* Am PC wieder drei Karten nebeneinander: Seit die Vereine
-                untereinander stehen (Variante B), passen die Namen auch in
-                schmalere Karten (Rene, 15.10.2026). */}
-            <div className="flex flex-col gap-5 lg:grid lg:grid-cols-3 lg:gap-5">{group.matches.map((m) => renderCard(m))}</div>
+            {section.days.map((day) => (
+              <div key={day.key}>
+                {day.label && (
+                  <h3 className={`mb-3 flex items-baseline gap-2 px-0.5 ${section.label ? "text-xs font-semibold uppercase tracking-wide text-muted" : ""}`}>
+                    <span className={section.label ? "" : "font-display text-base font-bold text-ink"}>{day.label}</span>
+                    {day.sub && <span className="text-xs font-normal normal-case tracking-normal text-muted">{day.sub}</span>}
+                  </h3>
+                )}
+                {/* Am PC wieder drei Karten nebeneinander: Seit die Vereine
+                    untereinander stehen (Variante B), passen die Namen auch in
+                    schmalere Karten (Rene, 15.10.2026). */}
+                <div className="flex flex-col gap-5 lg:grid lg:grid-cols-3 lg:gap-5">{day.matches.map((m) => renderCard(m))}</div>
+              </div>
+            ))}
           </section>
         ))}
       </div>
@@ -369,31 +477,25 @@ export default function DashboardPage() {
 }
 
 function TabButton({
-  label,
-  count,
   active,
   onClick,
+  children,
 }: {
-  label: string;
-  count: number;
   active: boolean;
   onClick: () => void;
+  children: ReactNode;
 }) {
   return (
     <button
+      type="button"
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
-      className={`relative flex items-center gap-2 px-1 pb-2.5 font-display text-sm font-semibold transition-colors ${
+      className={`relative flex items-center gap-1.5 px-1 pb-2.5 font-display text-sm font-semibold transition-colors ${
         active ? "text-ink" : "text-muted hover:text-ink"
       }`}
     >
-      {label}
-      <span
-        className={`rounded-full px-1.5 py-0.5 text-xs ${
-          active ? "bg-gold text-pitch" : "bg-surface-hover text-muted"
-        }`}
-      >
-        {count}
-      </span>
+      {children}
       {active && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-gold" />}
     </button>
   );

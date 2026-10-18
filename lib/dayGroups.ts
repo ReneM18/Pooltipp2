@@ -63,3 +63,17 @@ export function groupMatchesByDay<T extends DayMatch>(
   }
   return groups;
 }
+
+/**
+ * Tippschluss kurz für Karte und Hinweis-Leiste (Rene, 18.10.2026:
+ * Tippen/Live/Beendet): heute "15:30", sonst "Sa. 15:30", ab einer Woche
+ * mit Datum ("Sa. 24.10. 15:30").
+ */
+export function deadlineText(t: number, now: number): string {
+  const d = new Date(t);
+  const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const diff = Math.round((startOfDay(t) - startOfDay(now)) / 86_400_000);
+  if (diff === 0) return time;
+  const weekday = WEEKDAYS[d.getDay()].slice(0, 2);
+  return diff > 0 && diff < 7 ? `${weekday}. ${time}` : `${weekday}. ${dateText(t)} ${time}`;
+}
