@@ -248,6 +248,8 @@ export default function MatchCard({
     return () => clearInterval(interval);
   }, [match.tipDeadline, match.kickoff]);
 
+  const deadlineDate = new Date(match.tipDeadline);
+  const deadlineClock = `${String(deadlineDate.getHours()).padStart(2, "0")}:${String(deadlineDate.getMinutes()).padStart(2, "0")}`;
   const kickoffLabel = new Date(match.kickoff).toLocaleString("de-DE", {
     weekday: "short",
     day: "2-digit",
@@ -845,13 +847,34 @@ export default function MatchCard({
     />
   );
 
+  // Kopfstatus rechts (Rene, 18.10.2026: Tippen/Live/Beendet): abgesagt,
+  // live/Pause/beendet laut Live-Daten, ohne Live-Daten "● LIVE" ab Anpfiff
+  // bis zum Endstand, sonst bis wann getippt werden kann (Countdown).
+  const headerStatus = isCancelled ? (
+    <span className="rounded-full border border-red-400/60 bg-red-400/10 px-2 py-0.5 font-semibold text-red-300">
+      Abgesagt
+    </span>
+  ) : showBoard ? (
+    <LivePill state={boardClock.state} pauseText={live?.status === "HT" ? "Halbzeit" : live?.statusText || "Pause"} delayed={!!live?.delayed} />
+  ) : match.status === "finished" ? (
+    <LivePill state="finished" />
+  ) : match.status === "live" || kickedOff ? (
+    <LivePill state="live" />
+  ) : (
+    <Countdown deadline={match.tipDeadline} tipped={hasTipped} changeable={!!onWithdrawTip} />
+  );
+  // Tippschluss vorbei (Rene, 18.10.2026: Tippen/Live/Beendet): Rand neutral
+  // statt gold, vor dem Anpfiff zusätzlich leicht gedämpft.
+  const closedLook = tippingClosed || isCancelled || match.status !== "upcoming";
+  const waitingForKickoff = tippingClosed && !kickedOff && match.status === "upcoming" && !showBoard;
+
   return (
     <div
       ref={cardRef}
       id={`spiel-${match.id}`}
       className={`relative isolate flex h-full flex-col overflow-hidden match-card-rand rounded-card border bg-surface ${
         highlight ? "outline outline-2 outline-offset-2 outline-gold" : ""
-      } ${stage ? "match-card-stage" : ""}`}
+      } ${stage ? "match-card-stage" : ""} ${closedLook ? "match-card-zu" : ""} ${waitingForKickoff ? "opacity-[0.85]" : ""}`}
       style={{ backgroundImage: cardBackground }}
     >
       {stage && (
@@ -884,15 +907,7 @@ export default function MatchCard({
               (Rene, 13.10.2026: beim Topspiel fehlte die ablaufende Zeit, nach
               dem Tippen gab es sie gar nicht mehr). */}
           <span className="min-w-0 whitespace-nowrap text-right text-xs font-medium normal-case tracking-normal">
-            {isCancelled ? (
-              <span className="rounded-full border border-red-400/60 bg-red-400/10 px-2 py-0.5 font-semibold text-red-300">
-                Abgesagt
-              </span>
-            ) : showBoard ? (
-              <LivePill state={boardClock.state} pauseText={live?.status === "HT" ? "Halbzeit" : live?.statusText || "Pause"} delayed={!!live?.delayed} />
-            ) : (
-              <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
-            )}
+            {headerStatus}
           </span>
         </div>
       ) : isBooster && (
@@ -912,15 +927,7 @@ export default function MatchCard({
           <span className="min-w-0 leading-tight">{competitionName}</span>
         </span>
         <span className="ml-auto shrink-0 whitespace-nowrap text-xs font-medium">
-          {isCancelled ? (
-            <span className="rounded-full border border-red-400/60 bg-red-400/10 px-2 py-0.5 font-semibold text-red-300">
-              Abgesagt
-            </span>
-          ) : showBoard ? (
-            <LivePill state={boardClock.state} pauseText={live?.status === "HT" ? "Halbzeit" : live?.statusText || "Pause"} delayed={!!live?.delayed} />
-          ) : (
-            <Countdown kickoff={match.tipDeadline} remind={!hasTipped} />
-          )}
+          {headerStatus}
         </span>
         {/* Kompakte Karte (Rene, 14.10.2026): Punkteverteilung als (i) oben
             rechts statt eigener Zeile über dem Knopf. */}
@@ -1227,6 +1234,10 @@ export default function MatchCard({
 
         {showResultView && (
           <div className="flex flex-col gap-3">
+            {/* Nicht getippt und Tippschluss vorbei (Rene, 18.10.2026: Tippen/Live/Beendet). */}
+            {!hasTipped && tippingClosed && !isCancelled && !!authUserId && (
+              <p className="text-center text-xs text-muted">Nicht getippt – Tippschluss war {deadlineClock}</p>
+            )}
             {/* Getippt (Rene, 15.10.2026: Spieltag-Umbau): der Tipp steht in den
                 Vereins-Zeilen, hier nur noch Booster-Hinweis und "Tipp ändern"
                 (dezent, Umriss). Ersetzt den früheren Kasten "Dein Tipp". */}

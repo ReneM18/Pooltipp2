@@ -335,6 +335,13 @@ html[data-season-design] .match-card-rand {
   border-color: rgb(var(--c-action) / 0.65);
   box-shadow: 0 0 0 1px rgb(var(--c-action) / 0.14), 0 6px 18px -10px rgb(0 0 0 / 0.6);
 }
+/* Tippschluss vorbei (Rene, 18.10.2026: Tippen/Live/Beendet): Rand neutral
+   statt gold, Gold bleibt den offenen Karten. */
+.match-card-rand.match-card-zu,
+html[data-season-design] .match-card-rand.match-card-zu {
+  border-color: rgb(var(--c-edge));
+  box-shadow: 0 6px 18px -10px rgb(0 0 0 / 0.6);
+}
 
 /* Countdown auf noch nicht getippten Karten in den letzten 2 Stunden vor
    Tippschluss: leuchtet sanft, damit man das Tippen nicht vergisst. */

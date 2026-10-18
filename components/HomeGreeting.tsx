@@ -8,7 +8,7 @@ import { SPORTS, sportLabel } from "@/lib/types";
 import { getNextTier, getTierForPoints, RANK_COLORS, tierLabel } from "@/lib/rankTiers";
 import RankEmblem from "./RankEmblem";
 
-// Begrüßung oben auf der Tipps-Seite: Name, was heute ansteht und drei
+// Begrüßung oben auf der Tipps-Seite: Name und drei
 // Kurzinfos (Serie, Rang, Tagesbonus). Alles kommt aus dem Konto (UserContext,
 // live über Realtime), damit es auf jedem Gerät gleich dasteht.
 
@@ -26,7 +26,7 @@ function greetingFor(date: Date): string {
   return "Guten Abend";
 }
 
-export default function HomeGreeting({ streak, toTip, openCount }: { streak: StreakState; toTip: number; openCount: number }) {
+export default function HomeGreeting({ streak }: { streak: StreakState }) {
   const { displayName, isRegistered, sessionChecked, profileLoaded, rangPunkte, prestige, canClaimDailyBonus } = useUser();
   // Tageszeit erst im Browser (Server und Browser haben nicht dieselbe Uhr).
   const [hello, setHello] = useState("Hallo");
@@ -39,12 +39,8 @@ export default function HomeGreeting({ streak, toTip, openCount }: { streak: Str
   }, []);
 
   const name = isRegistered && displayName.trim() ? displayName.trim() : null;
-  const sub =
-    openCount === 0
-      ? "Gerade keine offenen Spiele."
-      : toTip === 0
-        ? `Alle ${openCount} offenen Spiele getippt ✓`
-        : `${toTip} ${toTip === 1 ? "Spiel wartet" : "Spiele warten"} auf deinen Tipp`;
+  // "X Spiele warten auf deinen Tipp" steht jetzt in der Hinweis-Leiste
+  // darunter (components/HomeTipBar.tsx, Rene, 18.10.2026: Tippen/Live/Beendet).
 
   // Rang in der Sportart mit den meisten Punkten.
   const bestSport = SPORTS.reduce((best, s) => ((rangPunkte[s] ?? 0) > (rangPunkte[best] ?? 0) ? s : best), SPORTS[0]);
@@ -59,7 +55,6 @@ export default function HomeGreeting({ streak, toTip, openCount }: { streak: Str
         {hello}
         {name ? `, ${name}` : ""} <span aria-hidden>👋</span>
       </h1>
-      <p className="mt-0.5 text-sm text-muted">{sub}</p>
       {sessionChecked && (
         <div className="mt-3 flex flex-wrap gap-2">
           <span
