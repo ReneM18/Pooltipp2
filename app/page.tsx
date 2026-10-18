@@ -227,44 +227,42 @@ export default function DashboardPage() {
   const stageIds = new Set(stageMatches.map((m) => m.id));
   const notOnStage = (list: Match[]) => (stageIds.size ? list.filter((m) => !stageIds.has(m.id)) : list);
 
-  // Nächster Tippschluss eines noch nicht getippten Spiels für die Leiste oben.
-  const nextOpen = split.offen[0];
-  const nextOpenTeams = nextOpen ? displayOrder(orderFor(nextOpen), getTeam(nextOpen.homeTeamId)!, getTeam(nextOpen.awayTeamId)!) : null;
-  const next =
-    nextOpen && nextOpenTeams && now !== null
-      ? { time: deadlineText(Date.parse(nextOpen.tipDeadline), now), home: nextOpenTeams[0].name, away: nextOpenTeams[1].name }
-      : null;
+  // Nächster Tippschluss eines noch nicht getippten Spiels ("12:30" bzw.
+  // "Sa. 15:30") für die Leiste über den Reitern und "Noch offen".
+  const next = split.offen[0] && now !== null ? deadlineText(Date.parse(split.offen[0].tipDeadline), now) : null;
 
   // Gruppen je Reiter. Tippen: "Noch offen" und "✓ Schon getippt", darin nach
   // Tag ("Heute", "Morgen" …). Live: "Läuft gerade", "Tippschluss vorbei ·
   // beginnt gleich", "Gerade beendet · Wertung folgt". Beendet: nach Tag.
-  type Section = { key: string; label: string; sub?: string; dot?: boolean; count: number; days: DayGroup<Match>[] };
+  // Ohne Spiele-Anzahl: die steht schon im Reiter (Rene, 18.10.2026).
+  type Section = { key: string; label: string; sub?: string; dot?: boolean; days: DayGroup<Match>[] };
   const byDay = (list: Match[]) => groupMatchesByDay(list, now, "offen");
   const flat = (list: Match[]) => (list.length ? [{ key: "alle", label: "", sub: "", matches: list }] : []);
   const groupOf = (m: Match) => pinned[m.id] ?? (findTipForMatch(m.id) ? "getippt" : "offen");
   const byDeadline = (a: Match, b: Match) => Date.parse(a.tipDeadline) - Date.parse(b.tipDeadline);
   const offenList = notOnStage(tippable.filter((m) => groupOf(m) === "offen")).sort(byDeadline);
   const getipptList = notOnStage(tippable.filter((m) => groupOf(m) === "getippt")).sort(byDeadline);
+  const offenNext = offenList[0] && now !== null ? deadlineText(Date.parse(offenList[0].tipDeadline), now) : null;
   const sections: Section[] =
     tab === "tippen"
       ? [
-          ...(offenList.length ? [{ key: "offen", label: "Noch offen", count: offenList.length, days: byDay(offenList) }] : []),
+          ...(offenList.length ? [{ key: "offen", label: "Noch offen", sub: offenNext ? `nächster Tippschluss ${offenNext}` : undefined, days: byDay(offenList) }] : []),
           ...(getipptList.length
-            ? [{ key: "getippt", label: "✓ Schon getippt", sub: "bis Tippschluss änderbar", count: getipptList.length, days: byDay(getipptList) }]
+            ? [{ key: "getippt", label: "✓ Schon getippt", sub: "bis Tippschluss änderbar", days: byDay(getipptList) }]
             : []),
         ]
       : tab === "live"
         ? [
-            ...(split.laeuft.length ? [{ key: "laeuft", label: "Läuft gerade", dot: true, count: split.laeuft.length, days: flat(split.laeuft) }] : []),
+            ...(split.laeuft.length ? [{ key: "laeuft", label: "Läuft gerade", dot: true, days: flat(split.laeuft) }] : []),
             ...(split.gleich.length
-              ? [{ key: "gleich", label: "🔒 Tippschluss vorbei", sub: "beginnt gleich", count: split.gleich.length, days: flat(split.gleich) }]
+              ? [{ key: "gleich", label: "🔒 Tippschluss vorbei", sub: "beginnt gleich", days: flat(split.gleich) }]
               : []),
             ...(split.geradeBeendet.length
-              ? [{ key: "gerade-beendet", label: "Gerade beendet", sub: "Wertung folgt", count: split.geradeBeendet.length, days: flat(split.geradeBeendet) }]
+              ? [{ key: "gerade-beendet", label: "Gerade beendet", sub: "Wertung folgt", days: flat(split.geradeBeendet) }]
               : []),
           ]
         : split.beendet.length
-          ? [{ key: "beendet", label: "", count: split.beendet.length, days: groupMatchesByDay(split.beendet, now, "geschlossen") }]
+          ? [{ key: "beendet", label: "", days: groupMatchesByDay(split.beendet, now, "geschlossen") }]
           : [];
 
   // Laufende Spiele als Streifen über den Reitern Tippen und Beendet
@@ -359,10 +357,9 @@ export default function DashboardPage() {
       {/* Anfänger-Schutz: noch X von 10 Tipps insgesamt ohne Punktabzug (Rene, 15.10.2026) */}
       <BeginnerShieldHint className="-mt-3 mb-5" />
 
-      {/* Hinweis-Leiste: offene Tipps und nächster Tippschluss (Rene,
-          18.10.2026: Tippen/Live/Beendet). Erst wenn alles geladen ist. */}
-      {ready && sessionChecked && (
-        <HomeTipBar guest={!authUserId} toTip={toTip} next={next} running={running} onGo={goToTab} />
+      {/* Gäste: Hinweis "Zum Tippen einloggen". Erst wenn alles geladen ist. */}
+      {ready && sessionChecked && !authUserId && (
+        <HomeTipBar guest toTip={toTip} next={next} tab={tab} onGo={goToTab} />
       )}
 
       <WeeklyReviewCard />
@@ -385,6 +382,11 @@ export default function DashboardPage() {
           setScrollToId(id);
         }}
       />
+      {/* Eingeloggt: schmale Zeile "Noch N offene Tipps · nächster
+          Tippschluss" nur auf Live/Beendet (Rene, 18.10.2026). */}
+      {sessionChecked && authUserId && (
+        <HomeTipBar guest={false} toTip={toTip} next={next} tab={tab} onGo={goToTab} />
+      )}
       <div ref={tabsRef} className="mb-5 flex gap-5 border-b border-edge" role="tablist">
         <TabButton active={tab === "tippen"} onClick={() => selectTab("tippen")}>
           Tippen <span className={toTip > 0 ? "text-gold" : "text-muted"}>({toTip})</span>
@@ -448,9 +450,6 @@ export default function DashboardPage() {
                 )}
                 <span className="font-display text-base font-bold text-ink">{section.label}</span>
                 {section.sub && <span className="text-xs text-muted">· {section.sub}</span>}
-                <span className="text-xs text-muted">
-                  · {section.count} {section.count === 1 ? "Spiel" : "Spiele"}
-                </span>
               </h2>
             )}
             {section.days.map((day) => (
