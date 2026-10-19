@@ -157,6 +157,9 @@ export default function DashboardPage() {
   // vorbei und kein Endstand = läuft.
   const split = splitHomeTabs(shownMatches, now, (m) => !!findTipForMatch(m.id), liveFinished);
   const toTip = split.offen.length;
+  // Reiter "Tipps x/y": getippte von allen noch tippbaren Spielen (Rene, 19.10.2026).
+  const tipTabDone = split.getippt.length;
+  const tipTabTotal = split.offen.length + split.getippt.length;
   const running = split.laeuft.length;
   // Erst wählen, wenn Spiele, Uhr und (eingeloggt) die eigenen Tipps da sind,
   // sonst stünde beim Öffnen kurz der falsche Reiter da.
@@ -390,7 +393,14 @@ export default function DashboardPage() {
       )}
       <div ref={tabsRef} className="mb-5 flex gap-5 border-b border-edge" role="tablist">
         <TabButton active={tab === "tippen"} onClick={() => selectTab("tippen")}>
-          Tippen <span className={toTip > 0 ? "text-gold" : "text-muted"}>({toTip})</span>
+          {/* "Tipps 4/5" = 4 von 5 Spielen in diesem Reiter getippt; ohne
+              Spiele nur "Tipps" (Rene, 19.10.2026). */}
+          Tipps{" "}
+          {tipTabTotal > 0 && (
+            <span className={toTip > 0 ? "text-gold" : "text-muted"} aria-label={`${tipTabDone} von ${tipTabTotal} getippt`}>
+              {tipTabDone}/{tipTabTotal}
+            </span>
+          )}
         </TabButton>
         <TabButton active={tab === "live"} onClick={() => selectTab("live")}>
           <span
