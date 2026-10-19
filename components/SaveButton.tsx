@@ -10,6 +10,11 @@ export function useDraft<T>(value: T) {
   const [saved, setSaved] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(timer.current), []);
+  // Gespeicherter Wert hat den Entwurf eingeholt: Entwurf auflösen, damit die
+  // Anzeige wieder dem gespeicherten Wert folgt (auch Änderungen anderer Geräte).
+  useEffect(() => {
+    if (draft && draft.v === value) setDraft(null);
+  }, [value, draft]);
 
   const shown = draft ? draft.v : value;
   const dirty = !!draft && draft.v !== value;
@@ -32,7 +37,39 @@ export function useDraft<T>(value: T) {
       clearTimeout(timer.current);
       timer.current = setTimeout(() => setSaved(false), 2500);
     },
+    // Auswählen speichert sofort, ohne "Speichern"-Knopf (Rene, 19.10.2026).
+    // Klappt es nicht (Fehlertext), springt die Anzeige auf den gespeicherten
+    // Wert zurück.
+    async pick(v: T, apply: (v: T) => void | string | null | Promise<void | string | null>) {
+      if (v === value && !draft) return;
+      setDraft({ v });
+      setSaved(false);
+      const error = await apply(v);
+      // Erfolg: Auswahl stehen lassen, bis der gespeicherte Wert nachzieht
+      // (siehe Effekt oben), damit nichts kurz zurückspringt.
+      if (error) {
+        setDraft(null);
+        return;
+      }
+      setSaved(true);
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => setSaved(false), 2500);
+    },
   };
+}
+
+// Kurzer Hinweis nach dem sofortigen Speichern (statt "Speichern"-Knopf).
+export function SavedHint({ saved, className = "" }: { saved: boolean; className?: string }) {
+  return (
+    <span
+      aria-live="polite"
+      className={`shrink-0 whitespace-nowrap font-display text-xs font-semibold text-action transition-opacity ${
+        saved ? "opacity-100" : "opacity-0"
+      } ${className}`}
+    >
+      ✓ Gespeichert
+    </span>
+  );
 }
 
 export default function SaveButton({

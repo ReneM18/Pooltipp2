@@ -5,13 +5,14 @@ import { useUser } from "@/lib/UserContext";
 import { getOwnedFrames, xpForLevel } from "@/lib/seasonPass";
 import { AUTO, NONE, PassDisplay } from "@/lib/passDisplay";
 import { SEASON_THEME } from "@/lib/seasonTheme";
-import SaveButton, { useDraft } from "@/components/SaveButton";
+import { SavedHint, useDraft } from "@/components/SaveButton";
 
 // Profil -> Einstellungen -> "Pass-Belohnungen": selbst wählen, was man von
 // seinen Saison-Pass-Belohnungen trägt (Rahmen, Titel, Abzeichen,
 // Saison-Icon), und ob man Rahmen, Titel und Abzeichen ANDERER Spieler sehen
 // will. Alles fürs Konto gespeichert (lib/passDisplay.ts), gilt sofort auf
-// jedem Gerät. Ablegen nimmt nichts weg.
+// jedem Gerät. Ablegen nimmt nichts weg. Antippen speichert sofort
+// (Rene, 19.10.2026: keine eigenen "Speichern"-Knöpfe mehr).
 export default function PassDecoSettings() {
   const { passXP, hasPremiumPass, customFrameColors, passClaims, passHonors, passDisplay, setPassDisplay, hideOthersDeco, setHideOthersDeco, accountSync, extrasLoaded } =
     useUser();
@@ -50,18 +51,14 @@ export default function PassDecoSettings() {
         title="Rahmen ums Profilbild"
         text="Sehen auch die anderen, z. B. im Chat und in der Rangliste."
         save={
-          <SaveButton
-            dirty={frameDraft.dirty}
-            saved={frameDraft.saved}
-            onClick={() => frameDraft.save((v) => saveField({ frame: v }))}
-          />
+          <SavedHint saved={frameDraft.saved} />
         }
       >
         {frames.length === 0 ? (
           <Empty>Noch kein Rahmen. Den ersten gibt es im Saison-Pass ab Level 3.</Empty>
         ) : (
           <Choices label="Rahmen">
-            <Chip active={frameDraft.value === AUTO} disabled={disabled} onClick={() => frameDraft.set(AUTO)}>
+            <Chip active={frameDraft.value === AUTO} disabled={disabled} onClick={() => frameDraft.pick(AUTO, (v) => saveField({ frame: v }))}>
               ✨ Bester
             </Chip>
             {frames.map((f) => (
@@ -69,7 +66,7 @@ export default function PassDecoSettings() {
                 key={f.variant}
                 active={frameDraft.value === f.variant}
                 disabled={disabled}
-                onClick={() => frameDraft.set(f.variant)}
+                onClick={() => frameDraft.pick(f.variant, (v) => saveField({ frame: v }))}
               >
                 <span
                   aria-hidden
@@ -79,7 +76,7 @@ export default function PassDecoSettings() {
                 {f.label.replace(/^Saison-/, "")}
               </Chip>
             ))}
-            <Chip active={frameDraft.value === NONE} disabled={disabled} onClick={() => frameDraft.set(NONE)}>
+            <Chip active={frameDraft.value === NONE} disabled={disabled} onClick={() => frameDraft.pick(NONE, (v) => saveField({ frame: v }))}>
               Keiner
             </Chip>
           </Choices>
@@ -90,18 +87,14 @@ export default function PassDecoSettings() {
         title="Titel neben deinem Namen"
         text="Im Profil, im Chat und bei Kommentaren."
         save={
-          <SaveButton
-            dirty={titleDraft.dirty}
-            saved={titleDraft.saved}
-            onClick={() => titleDraft.save((v) => saveField({ title: v }))}
-          />
+          <SavedHint saved={titleDraft.saved} />
         }
       >
         {titles.length === 0 ? (
           <Empty>Noch kein Titel. Den ersten gibt es im Saison-Pass ab Level 4.</Empty>
         ) : (
           <Choices label="Titel">
-            <Chip active={titleDraft.value === AUTO} disabled={disabled} onClick={() => titleDraft.set(AUTO)}>
+            <Chip active={titleDraft.value === AUTO} disabled={disabled} onClick={() => titleDraft.pick(AUTO, (v) => saveField({ title: v }))}>
               ✨ Neuester
             </Chip>
             {titles.map((t) => (
@@ -109,13 +102,13 @@ export default function PassDecoSettings() {
                 key={t.label}
                 active={titleDraft.value === t.label}
                 disabled={disabled}
-                onClick={() => titleDraft.set(t.label)}
+                onClick={() => titleDraft.pick(t.label, (v) => saveField({ title: v }))}
               >
                 <span aria-hidden>{t.icon}</span>
                 {t.label}
               </Chip>
             ))}
-            <Chip active={titleDraft.value === NONE} disabled={disabled} onClick={() => titleDraft.set(NONE)}>
+            <Chip active={titleDraft.value === NONE} disabled={disabled} onClick={() => titleDraft.pick(NONE, (v) => saveField({ title: v }))}>
               Keiner
             </Chip>
           </Choices>
@@ -126,11 +119,7 @@ export default function PassDecoSettings() {
         title="Abzeichen neben deinem Namen"
         text="Im Profil, im Chat und bei Kommentaren."
         save={
-          <SaveButton
-            dirty={badgeDraft.dirty}
-            saved={badgeDraft.saved}
-            onClick={() => badgeDraft.save((v) => saveField({ badge: v }))}
-          />
+          <SavedHint saved={badgeDraft.saved} />
         }
       >
         {badges.length === 0 ? (
@@ -138,7 +127,7 @@ export default function PassDecoSettings() {
         ) : (
           <Choices label="Abzeichen">
             {badges.length > 1 && (
-              <Chip active={badgeDraft.value === AUTO} disabled={disabled} onClick={() => badgeDraft.set(AUTO)}>
+              <Chip active={badgeDraft.value === AUTO} disabled={disabled} onClick={() => badgeDraft.pick(AUTO, (v) => saveField({ badge: v }))}>
                 ✨ Alle
               </Chip>
             )}
@@ -147,13 +136,13 @@ export default function PassDecoSettings() {
                 key={b.label}
                 active={badgeDraft.value === b.label || (badges.length === 1 && badgeDraft.value === AUTO)}
                 disabled={disabled}
-                onClick={() => badgeDraft.set(badges.length === 1 ? AUTO : b.label)}
+                onClick={() => badgeDraft.pick(badges.length === 1 ? AUTO : b.label, (v) => saveField({ badge: v }))}
               >
                 <span aria-hidden>{b.icon}</span>
                 {b.label}
               </Chip>
             ))}
-            <Chip active={badgeDraft.value === NONE} disabled={disabled} onClick={() => badgeDraft.set(NONE)}>
+            <Chip active={badgeDraft.value === NONE} disabled={disabled} onClick={() => badgeDraft.pick(NONE, (v) => saveField({ badge: v }))}>
               Keins
             </Chip>
           </Choices>
@@ -165,18 +154,14 @@ export default function PassDecoSettings() {
           title={`Saison-Icon ${SEASON_THEME.icon} neben deinem Namen`}
           text="Premium-Belohnung, im Profil."
           save={
-            <SaveButton
-              dirty={nameIconDraft.dirty}
-              saved={nameIconDraft.saved}
-              onClick={() => nameIconDraft.save((on) => saveField({ nameIcon: on }))}
-            />
+            <SavedHint saved={nameIconDraft.saved} />
           }
         >
           <Choices label="Saison-Icon">
-            <Chip active={nameIconDraft.value} disabled={disabled} onClick={() => nameIconDraft.set(true)}>
+            <Chip active={nameIconDraft.value} disabled={disabled} onClick={() => nameIconDraft.pick(true, (on) => saveField({ nameIcon: on }))}>
               Zeigen
             </Chip>
-            <Chip active={!nameIconDraft.value} disabled={disabled} onClick={() => nameIconDraft.set(false)}>
+            <Chip active={!nameIconDraft.value} disabled={disabled} onClick={() => nameIconDraft.pick(false, (on) => saveField({ nameIcon: on }))}>
               Nicht zeigen
             </Chip>
           </Choices>
@@ -187,18 +172,14 @@ export default function PassDecoSettings() {
         title="Deko anderer Spieler"
         text="Rahmen, Titel und Abzeichen der anderen. Gilt nur für deine Ansicht, die anderen behalten alles."
         save={
-          <SaveButton
-            dirty={othersDraft.dirty}
-            saved={othersDraft.saved}
-            onClick={() => othersDraft.save((show) => setHideOthersDeco(!show))}
-          />
+          <SavedHint saved={othersDraft.saved} />
         }
       >
         <Choices label="Deko anderer Spieler">
-          <Chip active={othersDraft.value} disabled={disabled} onClick={() => othersDraft.set(true)}>
+          <Chip active={othersDraft.value} disabled={disabled} onClick={() => othersDraft.pick(true, (show) => setHideOthersDeco(!show))}>
             Anzeigen
           </Chip>
-          <Chip active={!othersDraft.value} disabled={disabled} onClick={() => othersDraft.set(false)}>
+          <Chip active={!othersDraft.value} disabled={disabled} onClick={() => othersDraft.pick(false, (show) => setHideOthersDeco(!show))}>
             Ausblenden
           </Chip>
         </Choices>

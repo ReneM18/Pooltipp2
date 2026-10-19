@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import AccountSettings from "@/components/AccountSettings";
 import StartPagePicker from "@/components/StartPagePicker";
 import PassDecoSettings from "@/components/PassDecoSettings";
-import SaveButton, { useDraft } from "@/components/SaveButton";
+import SaveButton, { SavedHint, useDraft } from "@/components/SaveButton";
 import RivalCompareButton from "@/components/RivalCompare";
 import { StatsVisibility, useStatsVisibility } from "@/lib/rivals";
 import { useOnline } from "@/lib/OnlineContext";
@@ -29,7 +29,8 @@ import { SEASON_THEME } from "@/lib/seasonTheme";
 import { CURRENT_SEASON } from "@/lib/seasons";
 import { xpForLevel } from "@/lib/seasonPass";
 import { useSeasonDesign } from "@/lib/seasonDesign";
-import { matchTitle, oneXTwoText, scoreText } from "@/lib/teamOrder";
+import { matchTitle, scoreText } from "@/lib/teamOrder";
+import { liveTipLabel, livePointsText } from "@/lib/liveTipText";
 import { getCurrentWeekWindow, kickoffLookup, sumWeeklyRangDelta, sumWeeklyTipPoints } from "@/lib/weeklyLeaderboard";
 import { CoinIcon } from "@/components/CoinIcon";
 import { resetDateText } from "@/lib/rankingReset";
@@ -63,7 +64,6 @@ export default function ProfilPage() {
 function ProfilInhalt() {
   const {
     displayName,
-    userNumber,
     setDisplayName,
     freeStars,
     passXP,
@@ -307,7 +307,6 @@ function ProfilInhalt() {
               </span>
             )}
           </h1>
-          {userNumber !== null && <p className="text-xs font-semibold text-gold">Nummer #{userNumber}</p>}
           <p className="text-sm text-muted">
             {currentRank
               ? `Aktuell Platz ${currentRank} in der Rangliste`
@@ -455,98 +454,37 @@ function ProfilInhalt() {
         </>
       )}
 
+      {/* Übersicht neu sortiert (Rene, 19.10.2026): Zahlen oben (ohne doppelte
+          Rangpunkte), dann Tipp-Historie mit Rangpunkten je Tipp, Tipp-Typ,
+          Rückblick und zuletzt kleine Fotos. "Werbefrei" steht jetzt unter
+          Einstellungen → App. */}
       {profileTab === "Übersicht" && (
         <>
       <section className="mb-8">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold text-ink">Deine Fotos</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-lg font-semibold text-ink">Deine Zahlen</h2>
+          {isRegistered && <RivalCompareButton />}
         </div>
-
-        <div className="grid grid-cols-3 gap-3">
-          {photos.map((photo, index) => (
-            <div
-              key={index}
-              className="relative flex aspect-square items-center justify-center overflow-hidden rounded-card border border-dashed border-edge bg-surface"
-            >
-              {photo ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={photo} alt={`Foto ${index + 1}`} className="h-full w-full object-cover" />
-                  <button
-                    onClick={() => removePhoto(index)}
-                    aria-label={`Foto ${index + 1} entfernen`}
-                    className="absolute right-1 top-1 flex h-9 w-9 items-center justify-center rounded-full bg-pitch/80 text-sm text-ink"
-                  >
-                    ✕
-                  </button>
-                </>
-              ) : (
-                <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-1 text-muted">
-                  <span className="text-2xl">＋</span>
-                  <span className="text-xs">Foto {index + 1}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handlePhotoChange(index, e)}
-                    className="hidden"
-                  />
-                </label>
-              )}
-            </div>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-muted">
-          Fotos werden in deinem Konto gespeichert, sobald du eingeloggt bist.
-        </p>
-      </section>
-
-      <section className="mb-8">
-        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Rangpunkte</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          <StatCard label="Rangpunkte" value={totalRangPunkte.toLocaleString("de-DE")} accent="action" />
           <StatCard label="Diese Woche" value={signedPoints(weekPoints)} accent={weekPoints >= 0 ? "action" : "ink"} />
-          <StatCard label="Diese Saison" value={signedPoints(seasonPoints)} accent={seasonPoints >= 0 ? "action" : "ink"} />
+          <StatCard label="Coins" value={freeStars.toLocaleString("de-DE")} accent="gold" />
+          <StatCard label="Tipp-Serie" value={`🔥 ${streakCount.toLocaleString("de-DE")}`} accent="gold" />
         </div>
         {/* Anfänger-Schutz (erste 10 Tipps insgesamt), solange noch übrig (Rene, 15.10.2026) */}
         <BeginnerShieldHint className="mt-3 rounded-card border border-edge bg-surface px-4 py-3" />
         <p className="mt-3 text-xs text-muted">
-          Schlägst du Spieler über dir, gibt es mehr Punkte. Gegen Spieler unter dir gibt es weniger. Die genauen
-          Punkte stehen bei jedem Spiel unter „Punkteverteilung“. Wer 2 Wochen gar nicht tippt, verliert 5 Punkte
-          pro Woche.
+          Pro Tipp gibt es feste Punkte: exakt +10, richtige Tordifferenz +7, richtige Tendenz +5, daneben −3 (bei
+          Sieger-Tipps richtig +5, falsch −3). Dazu kommt ein Bonus bis ±10, je nachdem, wie viele Mittipper du
+          schlägst. Wer 2 Wochen gar nicht tippt, verliert 5 Punkte pro Woche.
         </p>
-        {isRegistered && (
-          <Link
-            href="/rueckblick"
-            className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
-          >
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-ink">📊 Wochenrückblick</span>
-              <span className="block text-xs text-muted">Deine letzte Woche und diese Woche bisher</span>
-            </span>
-            <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
-              Ansehen
-            </span>
-          </Link>
-        )}
-      </section>
-
-      <section className="mb-8">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-display text-lg font-semibold text-ink">Deine Statistik</h2>
-          {isRegistered && <RivalCompareButton />}
-        </div>
-        {/* Oben nur die drei wichtigsten Zahlen, der Rest unter "Mehr Zahlen"
-            (Rene, 14.10.2026: weniger Zähler auf einmal). */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          <StatCard label="Rangpunkte" value={totalRangPunkte.toLocaleString("de-DE")} accent="action" />
-          <StatCard label="Coins" value={freeStars.toLocaleString("de-DE")} accent="gold" />
-          <StatCard label="Tipp-Serie" value={`🔥 ${streakCount.toLocaleString("de-DE")}`} accent="gold" />
-        </div>
         <details className="group mt-3">
           <summary className="flex cursor-pointer list-none items-center justify-between rounded-card border border-edge bg-surface px-4 py-3 text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
             Mehr Zahlen
             <span className="text-xs text-gold transition-transform group-open:rotate-180" aria-hidden>▼</span>
           </summary>
-        <div className="mt-3 grid grid-cols-2 gap-3">
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <StatCard label="Diese Saison" value={signedPoints(seasonPoints)} accent={seasonPoints >= 0 ? "action" : "ink"} />
           <StatCard label="Pass-XP" value={passXP.toLocaleString("de-DE")} accent="action" />
           <StatCard label="Abgegebene Tipps" value={tipsSubmitted.toLocaleString("de-DE")} accent="ink" />
         </div>
@@ -574,8 +512,6 @@ function ProfilInhalt() {
             )}
           </div>
         )}
-        {/* Tipps nach Sportart – stand früher unter dem Saison-Pass, gehört aber
-            zur Statistik (gleiche Zählung ab Neustart wie "Abgegebene Tipps"). */}
         <p className="mb-2 mt-4 font-display text-sm font-semibold text-ink">Tipps nach Sportart</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {SPORTS.map((sport) => (
@@ -586,11 +522,126 @@ function ProfilInhalt() {
             </div>
           ))}
         </div>
-        <p className="mt-3 text-xs text-muted">
-          {resetDate && <>Gezählt werden deine Tipps seit dem Neustart der Rangpunkte am {resetDate}. </>}
-          Genauere Statistiken (Trefferquote, Tipp-Verlauf) folgen in einem späteren Update.
-        </p>
+        {resetDate && (
+          <p className="mt-3 text-xs text-muted">Gezählt werden deine Tipps seit dem Neustart der Rangpunkte am {resetDate}.</p>
+        )}
         </details>
+        {isRegistered && (
+          <Link
+            href="/rueckblick"
+            className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
+          >
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-ink">📊 Wochenrückblick</span>
+              <span className="block text-xs text-muted">Deine letzte Woche und diese Woche bisher</span>
+            </span>
+            <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
+              Ansehen
+            </span>
+          </Link>
+        )}
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Meine Tipp-Historie</h2>
+        <div className="flex flex-col gap-3">
+          {historyTips.length === 0 && (
+            <EmptyState
+              emoji="🎯"
+              title="Noch keine Tipps"
+              text={myTips.length === 0 ? "Hier siehst du später alle deine Tipps mit Punkten." : "Seit dem Neustart der Rangpunkte hast du noch nichts getippt."}
+              action={{ href: "/", label: "Jetzt tippen" }}
+            />
+          )}
+          {historyTips.map((tip) => {
+            const match = matches.find((m) => m.id === tip.matchId);
+            if (!match) return null;
+            const homeTeam = getTeam(match.homeTeamId);
+            const awayTeam = getTeam(match.awayTeamId);
+            if (!homeTeam || !awayTeam) return null;
+            const order = orderFor(match);
+            const isOneXTwo = match.tipMode === "1x2";
+            // Tipp wie auf den Karten: "Sieg Frankfurt", "Unentschieden" bzw. "2:1"
+            // (Rene, 19.10.2026: statt "1 (Tottenham)" und Abgabezeit mit Sekunden).
+            const tipLabel = liveTipLabel(
+              tip.predictedHomeScore,
+              tip.predictedAwayScore,
+              isOneXTwo,
+              homeTeam.name,
+              awayTeam.name,
+              scoreText(order, tip.predictedHomeScore, tip.predictedAwayScore)
+            );
+            const kickoff = new Date(match.kickoff).toLocaleString("de-DE", {
+              weekday: "short",
+              day: "2-digit",
+              month: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            // Ergebnis als farbiges Wort (nicht nur Farbe), sobald der Tipp
+            // ausgewertet ist. Offene und abgesagte Tipps bleiben ohne.
+            const tier = tip.evaluated && !tip.refunded ? tip.resultTier ?? "falsch" : null;
+            // 1X2 kennt nur richtig (grün) oder falsch (rot).
+            const badge = !tier
+              ? null
+              : isOneXTwo && tier !== "falsch"
+              ? { text: "Richtig", className: TIER_BADGE.exakt.className }
+              : TIER_BADGE[tier];
+            // Rangpunkte des Tipps statt Coins (Coins gibt es nur noch beim Booster).
+            const points = tip.evaluated && !tip.refunded ? tip.rangDelta : undefined;
+
+            return (
+              <div
+                key={tip.id}
+                className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface px-5 py-4"
+              >
+                <div className="min-w-0">
+                  <p className="text-xs text-muted">
+                    <Emoji e={sportIcon[match.sport]} /> {match.competition}
+                    {match.matchday ? ` · Spieltag ${match.matchday}` : ""} · {kickoff}
+                  </p>
+                  <p className="font-display text-sm font-semibold text-ink">
+                    {matchTitle(order, homeTeam.name, awayTeam.name)}
+                  </p>
+                  <p className="text-xs text-muted">
+                    Dein Tipp: <span className="font-semibold text-ink">{tipLabel}</span>
+                    {match.status === "finished" &&
+                      ` · Endstand ${scoreText(order, match.liveHomeScore, match.liveAwayScore)}`}
+                    {tip.stake > 0 && (
+                      <span className="ml-1 inline-flex items-center gap-1 text-gold">
+                        · ⚡ <CoinIcon className="h-3 w-3" />
+                        {tip.evaluated && tip.starsDelta !== undefined
+                          ? `${tip.starsDelta > 0 ? "+" : ""}${tip.starsDelta}`
+                          : tip.stake}
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                  {badge && (
+                    <span
+                      className={`whitespace-nowrap rounded-full border px-2.5 py-0.5 font-display text-xs font-bold ${badge.className}`}
+                    >
+                      {badge.text}
+                    </span>
+                  )}
+                  {tip.refunded ? (
+                    <span className="text-xs text-muted">abgesagt</span>
+                  ) : points !== undefined ? (
+                    <span
+                      className={`font-display text-base font-bold ${points > 0 ? "text-action" : points < 0 ? "text-red-400" : "text-muted"}`}
+                      title={tip.beginnerShielded ? "Anfänger-Schutz: kein Minus" : undefined}
+                    >
+                      {livePointsText(points)} <span className="text-[11px] font-semibold text-muted">Pkt.</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted">offen</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </section>
 
       {/* Dein Tipp-Typ (supabase/tipp-typ.sql): was für ein Tipper du bist, mit Bild zum Teilen. */}
@@ -648,102 +699,45 @@ function ProfilInhalt() {
         </section>
       )}
 
+      {/* Fotos klein statt drei großer Felder (Rene, 19.10.2026). */}
       <section className="mb-8">
-        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Werbefrei</h2>
-        {hasAdFreeSubscription ? (
-          <div className="flex items-center gap-3 rounded-card border border-gold bg-gold/10 p-4">
-            <span className="text-2xl">🚫📢</span>
-            <div>
-              <p className="font-display text-sm font-semibold text-gold">Werbefrei aktiv</p>
-              <p className="text-xs text-muted">
-                Im Premium-Pass enthalten – du siehst keine Werbebanner in der App.
-              </p>
+        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Fotos</h2>
+        <div className="grid max-w-md grid-cols-3 gap-2">
+          {photos.map((photo, index) => (
+            <div
+              key={index}
+              className="relative flex aspect-square items-center justify-center overflow-hidden rounded-card border border-dashed border-edge bg-surface"
+            >
+              {photo ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photo} alt={`Foto ${index + 1}`} className="h-full w-full object-cover" />
+                  <button
+                    onClick={() => removePhoto(index)}
+                    aria-label={`Foto ${index + 1} entfernen`}
+                    className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-pitch/80 text-xs text-ink"
+                  >
+                    ✕
+                  </button>
+                </>
+              ) : (
+                <label className="flex h-full w-full cursor-pointer flex-col items-center justify-center gap-0.5 text-muted">
+                  <span className="text-xl">＋</span>
+                  <span className="text-[11px]">Foto {index + 1}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handlePhotoChange(index, e)}
+                    className="hidden"
+                  />
+                </label>
+              )}
             </div>
-          </div>
-        ) : (
-          <Link
-            href="/fortschritt"
-            className="flex flex-col items-start gap-3 rounded-card border border-edge bg-gradient-to-br from-surface to-surface-hover p-4 transition-colors hover:border-gold/60 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div>
-              <p className="flex items-center gap-2 font-display text-sm font-semibold text-ink">
-                <span className="text-lg">🚫📢</span> Werbung ausblenden
-              </p>
-              <p className="mt-0.5 text-xs text-muted">
-                Ist im Premium-Pass enthalten – kein separater Kauf nötig.
-              </p>
-            </div>
-            <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
-              Premium-Pass ansehen →
-            </span>
-          </Link>
-        )}
-      </section>
-
-      <section>
-        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Meine Tipp-Historie</h2>
-        <div className="flex flex-col gap-3">
-          {historyTips.length === 0 && (
-            <EmptyState
-              emoji="🎯"
-              title="Noch keine Tipps"
-              text={myTips.length === 0 ? "Hier siehst du später alle deine Tipps mit Punkten." : "Seit dem Neustart der Rangpunkte hast du noch nichts getippt."}
-              action={{ href: "/", label: "Jetzt tippen" }}
-            />
-          )}
-          {historyTips.map((tip) => {
-            const match = matches.find((m) => m.id === tip.matchId);
-            if (!match) return null;
-            const homeTeam = getTeam(match.homeTeamId);
-            const awayTeam = getTeam(match.awayTeamId);
-            if (!homeTeam || !awayTeam) return null;
-            // Ergebnis als farbiges Wort (nicht nur Farbe), sobald der Tipp
-            // ausgewertet ist. Offene und abgesagte Tipps bleiben ohne.
-            const tier = tip.evaluated && !tip.refunded ? tip.resultTier ?? "falsch" : null;
-            // 1X2 kennt nur richtig (grün) oder falsch (rot).
-            const badge = !tier
-              ? null
-              : match.tipMode === "1x2" && tier !== "falsch"
-              ? { text: "Richtig", className: TIER_BADGE.exakt.className }
-              : TIER_BADGE[tier];
-
-            return (
-              <div
-                key={tip.id}
-                className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface px-5 py-4"
-              >
-                <div className="min-w-0">
-                  <p className="text-xs text-muted">
-                    <Emoji e={sportIcon[match.sport]} /> {match.competition}
-                    {match.matchday ? ` · Spieltag ${match.matchday}` : ""}
-                  </p>
-                  <p className="font-display text-sm font-semibold text-ink">
-                    {matchTitle(orderFor(match), homeTeam.name, awayTeam.name)}
-                  </p>
-                  <p className="text-xs text-muted">
-                    Getippt:{" "}
-                    {match.tipMode === "1x2"
-                      ? oneXTwoText(orderFor(match), tip.predictedHomeScore, tip.predictedAwayScore, homeTeam.name, awayTeam.name)
-                      : scoreText(orderFor(match), tip.predictedHomeScore, tip.predictedAwayScore)}
-                    {match.status === "finished" &&
-                      ` · Endstand: ${scoreText(orderFor(match), match.liveHomeScore, match.liveAwayScore)}`}{" "}
-                    · {new Date(tip.submittedAt).toLocaleString("de-DE")}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  {badge && (
-                    <span
-                      className={`whitespace-nowrap rounded-full border px-2.5 py-0.5 font-display text-xs font-bold ${badge.className}`}
-                    >
-                      {badge.text}
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1 font-display font-semibold text-gold"><CoinIcon className="h-4 w-4" />{tip.stake}</span>
-                </div>
-              </div>
-            );
-          })}
+          ))}
         </div>
+        <p className="mt-2 text-xs text-muted">
+          Das erste Foto ist dein Profilbild. Wer deine Fotos sehen darf, stellst du unter Einstellungen ein.
+        </p>
       </section>
         </>
       )}
@@ -788,7 +782,7 @@ function ProfilInhalt() {
               <div className="grid shrink-0 grid-cols-2 items-center gap-2 sm:flex">
                   <button
                     type="button"
-                    onClick={() => visibilityDraft.set("public")}
+                    onClick={() => visibilityDraft.pick("public", (v) => setPhotoVisibility(v))}
                     className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-center text-xs font-semibold transition-colors ${
                       visibilityDraft.value === "public"
                         ? "border-gold bg-gold/15 text-gold"
@@ -799,7 +793,7 @@ function ProfilInhalt() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => visibilityDraft.set("friends")}
+                    onClick={() => visibilityDraft.pick("friends", (v) => setPhotoVisibility(v))}
                     className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-center text-xs font-semibold transition-colors ${
                       visibilityDraft.value === "friends"
                         ? "border-gold bg-gold/15 text-gold"
@@ -808,12 +802,7 @@ function ProfilInhalt() {
                   >
                     🔒 Nur für Freunde
                   </button>
-                <SaveButton
-                  className="col-span-2 justify-self-start"
-                  dirty={visibilityDraft.dirty}
-                  saved={visibilityDraft.saved}
-                  onClick={() => visibilityDraft.save((v) => setPhotoVisibility(v))}
-                />
+                <SavedHint className="col-span-2" saved={visibilityDraft.saved} />
               </div>
             </div>
             <div className="mt-3 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -837,7 +826,7 @@ function ProfilInhalt() {
                     key={v}
                     type="button"
                     disabled={statsVisibility.missing}
-                    onClick={() => statsDraft.set(v)}
+                    onClick={() => statsDraft.pick(v, (x) => statsVisibility.save(x))}
                     className={`whitespace-nowrap rounded-full border px-2.5 py-1.5 text-center text-xs font-semibold transition-colors sm:px-3.5 ${
                       statsDraft.value === v
                         ? "border-gold bg-gold/15 text-gold"
@@ -847,12 +836,7 @@ function ProfilInhalt() {
                     {label}
                   </button>
                 ))}
-                <SaveButton
-                  className="col-span-3 justify-self-start"
-                  dirty={statsDraft.dirty}
-                  saved={statsDraft.saved}
-                  onClick={() => statsDraft.save((v) => statsVisibility.save(v))}
-                />
+                <SavedHint className="col-span-3" saved={statsDraft.saved} />
               </div>
             </div>
             <div className="mt-3 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -875,7 +859,7 @@ function ProfilInhalt() {
                     key={label}
                     type="button"
                     disabled={online.settingState !== "ready"}
-                    onClick={() => onlineDraft.set(v)}
+                    onClick={() => onlineDraft.pick(v, (x) => online.saveShowOnline(x))}
                     className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-center text-xs font-semibold transition-colors ${
                       onlineDraft.value === v
                         ? "border-gold bg-gold/15 text-gold"
@@ -885,12 +869,7 @@ function ProfilInhalt() {
                     {label}
                   </button>
                 ))}
-                <SaveButton
-                  className="col-span-2 justify-self-start"
-                  dirty={onlineDraft.dirty}
-                  saved={onlineDraft.saved}
-                  onClick={() => onlineDraft.save((v) => online.saveShowOnline(v))}
-                />
+                <SavedHint className="col-span-2" saved={onlineDraft.saved} />
               </div>
             </div>
           </section>
@@ -898,6 +877,30 @@ function ProfilInhalt() {
           <section className="mb-8">
             <h2 className="font-display text-lg font-semibold text-ink">App</h2>
             {isRegistered && <StartPagePicker />}
+            {/* Werbefrei: kompakt hier statt als große Box in der Übersicht (Rene, 19.10.2026). */}
+            {isRegistered &&
+              (hasAdFreeSubscription ? (
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink">Werbefrei</p>
+                    <p className="text-xs text-muted">Im Premium-Pass enthalten – du siehst keine Werbebanner.</p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-gold/50 px-3 py-1 text-xs font-semibold text-gold">✓ aktiv</span>
+                </div>
+              ) : (
+                <Link
+                  href="/fortschritt"
+                  className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-ink">Werbung ausblenden</span>
+                    <span className="block text-xs text-muted">Ist im Premium-Pass enthalten – kein separater Kauf nötig.</span>
+                  </span>
+                  <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
+                    Ansehen
+                  </span>
+                </Link>
+              ))}
             {/* Saison-Design: kommt automatisch ab dem Level aus der Saison-Datei,
                 hier abschaltbar (gilt pro Gerät, siehe lib/seasons/design.ts). */}
             {seasonDesign.available && (
@@ -912,27 +915,23 @@ function ProfilInhalt() {
                 </div>
                 {seasonDesign.unlocked ? (
                   <div className="flex shrink-0 items-center gap-2">
+                    {/* Schalter wie bei "Für Vereine spielen", speichert sofort
+                        (Rene, 19.10.2026: vorher nur ein Knopf "Aus" ohne "An"). */}
                     <button
                       type="button"
                       role="switch"
                       aria-checked={designDraft.value}
                       aria-label="Saison-Design an oder aus"
-                      onClick={() => designDraft.set(!designDraft.value)}
-                      className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 font-display text-sm font-semibold transition-colors ${
-                        designDraft.value ? "border-gold bg-gold/15 text-gold" : "border-edge bg-pitch text-muted"
+                      onClick={() => designDraft.pick(!designDraft.value, (on) => seasonDesign.setEnabled(on))}
+                      className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors ${
+                        designDraft.value ? "border-gold bg-gold/80" : "border-edge bg-pitch"
                       }`}
                     >
                       <span
-                        className={`h-3 w-3 rounded-full ${designDraft.value ? "bg-gold" : "bg-muted"}`}
-                        aria-hidden
+                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-ink transition-all ${designDraft.value ? "left-6" : "left-0.5"}`}
                       />
-                      {designDraft.value ? "An" : "Aus"}
                     </button>
-                    <SaveButton
-                      dirty={designDraft.dirty}
-                      saved={designDraft.saved}
-                      onClick={() => designDraft.save((on) => seasonDesign.setEnabled(on))}
-                    />
+                    <SavedHint saved={designDraft.saved} />
                   </div>
                 ) : (
                   <span className="shrink-0 self-start rounded-full border border-edge px-3 py-1.5 font-display text-sm font-semibold text-muted sm:self-auto">

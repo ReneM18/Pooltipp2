@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import FitText from "@/components/FitText";
-import SaveButton, { useDraft } from "@/components/SaveButton";
+import { SavedHint, useDraft } from "@/components/SaveButton";
 import TeamBadge, { teamColorProps } from "@/components/TeamBadge";
 import TeamGroupChips from "@/components/TeamGroupChips";
 import { groupTeams, hasTeamGroups } from "@/lib/teamGroups";
@@ -28,7 +28,6 @@ export default function FavoriteClubs() {
   const [groupKey, setGroupKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [showRules, setShowRules] = useState(false);
-  // Schalter ändert erst den Entwurf, "Speichern" übernimmt ihn.
   const playDraft = useDraft(playForClubs);
 
   if (!isRegistered || !authUserId) {
@@ -45,9 +44,10 @@ export default function FavoriteClubs() {
     );
   }
 
-  async function handleSavePlay() {
+  // Schalter speichert sofort (Rene, 19.10.2026: keine "Speichern"-Knöpfe mehr).
+  async function handleSavePlay(nextValue: boolean) {
     setBusy(true);
-    await playDraft.save(async (next) => {
+    await playDraft.pick(nextValue, async (next) => {
       const message = await setPlayForClubs(next);
       if (message) showToast(message, "info");
       else showToast(next ? "Du spielst wieder für deine Vereine." : "Vereinswertung ausgeschaltet.", "info");
@@ -106,7 +106,7 @@ export default function FavoriteClubs() {
             aria-checked={playDraft.value}
             aria-label="Für Vereine spielen"
             disabled={busy || loading}
-            onClick={() => playDraft.set(!playDraft.value)}
+            onClick={() => handleSavePlay(!playDraft.value)}
             className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors disabled:opacity-50 ${
               playDraft.value ? "border-gold bg-gold/80" : "border-edge bg-pitch"
             }`}
@@ -115,7 +115,7 @@ export default function FavoriteClubs() {
               className={`absolute top-0.5 h-5 w-5 rounded-full bg-ink transition-all ${playDraft.value ? "left-6" : "left-0.5"}`}
             />
           </button>
-          <SaveButton dirty={playDraft.dirty} saved={playDraft.saved} busy={busy} onClick={handleSavePlay} />
+          <SavedHint saved={playDraft.saved} />
         </div>
       </div>
 
