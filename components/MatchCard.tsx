@@ -24,6 +24,7 @@ import { CoinIcon } from "./CoinIcon";
 import { competitionDisplayName, competitionFlag } from "@/lib/competitionFlag";
 import { TvIcon, HighlightTvIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
 import { SeasonCardWatermark } from "./SeasonDeco";
+import { SPORT_EMOJI_WATERMARK } from "@/lib/cardStyle";
 import ShareTipButton from "./ShareTipCard";
 import type { ShareCardData } from "@/lib/shareCard";
 import Emoji from "@/components/Emoji";
@@ -886,6 +887,15 @@ export default function MatchCard({
       )}
       {/* Saison-Design: verblasstes Blatt hinter dem Karteninhalt. */}
       <SeasonCardWatermark variant={match.id.length + match.id.charCodeAt(match.id.length - 1)} />
+      {/* Großes Sport-Emoji als Wasserzeichen hinter dem Inhalt (Rene,
+          19.10.2026: großes Sport-Emoji, Schalter SPORT_EMOJI_WATERMARK).
+          Bei der Live-Anzeigetafel blasser und weiter unten, damit Spielstand
+          und Trikots gut lesbar bleiben. */}
+      {SPORT_EMOJI_WATERMARK && (
+        <span aria-hidden className={`sport-emoji-watermark ${showBoard ? "sport-emoji-watermark-board" : ""}`}>
+          <Emoji e={sportIcon[match.sport]} />
+        </span>
+      )}
       {/* Booster-Spiel: eigene goldene Leiste ganz oben, damit man es auch
           zwischen normalen Spielen (z. B. bei den geschlossenen) sofort sieht. */}
       {stage ? (
