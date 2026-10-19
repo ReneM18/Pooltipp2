@@ -536,3 +536,31 @@ html[data-season-design] .match-card-rand.match-card-zu {
     animation: none;
   }
 }
+
+/* Großes Sport-Emoji als Wasserzeichen in den Tippkarten (Rene, 19.10.2026:
+   großes Sport-Emoji, Schalter SPORT_EMOJI_WATERMARK in lib/cardStyle.ts).
+   Liegt hinter dem Inhalt (Karte ist "isolate"), wird vom Kartenrand
+   abgeschnitten. */
+.sport-emoji-watermark {
+  position: absolute;
+  right: -10px;
+  bottom: 40px;
+  z-index: -10;
+  font-size: 100px;
+  line-height: 1;
+  opacity: 0.2;
+  filter: saturate(0.7);
+  transform: rotate(-12deg);
+  pointer-events: none;
+  user-select: none;
+}
+@media (min-width: 640px) {
+  .sport-emoji-watermark {
+    font-size: 118px;
+  }
+}
+/* Live-Anzeigetafel: blasser und weiter unten rechts. */
+.sport-emoji-watermark.sport-emoji-watermark-board {
+  bottom: 12px;
+  opacity: 0.13;
+}
