@@ -106,6 +106,14 @@ function ProfilInhalt() {
   const historyTips = [...countingTips].sort(
     (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
   );
+  // Tipp-Historie: erst 10, "Mehr anzeigen" lädt je 20 weitere; Filter nach
+  // Sportart (Rene, 19.10.2026: Liste wurde sonst endlos lang).
+  const [historySport, setHistorySport] = useState<Sport | null>(null);
+  const [historyCount, setHistoryCount] = useState(10);
+  const historySportOf = (matchId: string) => matches.find((m) => m.id === matchId)?.sport;
+  const historySports = SPORTS.filter((sp) => historyTips.some((t) => historySportOf(t.matchId) === sp));
+  const filteredHistory = historySport ? historyTips.filter((t) => historySportOf(t.matchId) === historySport) : historyTips;
+  const shownHistory = filteredHistory.slice(0, historyCount);
   const { showToast, celebrate } = useFeedback();
   const [nameInput, setNameInput] = useState(displayName);
   // Name auf einem anderen Gerät geändert: Eingabefeld mitziehen.
@@ -544,6 +552,32 @@ function ProfilInhalt() {
 
       <section className="mb-8">
         <h2 className="mb-3 font-display text-lg font-semibold text-ink">Meine Tipp-Historie</h2>
+        {historySports.length > 1 && (
+          <div role="group" aria-label="Nach Sportart filtern" className="mb-3 flex flex-wrap gap-2">
+            {[null, ...historySports].map((sp) => (
+              <button
+                key={sp ?? "alle"}
+                type="button"
+                aria-pressed={historySport === sp}
+                onClick={() => {
+                  setHistorySport(sp);
+                  setHistoryCount(10);
+                }}
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  historySport === sp ? "border-gold bg-gold/15 text-gold" : "border-edge bg-surface text-muted hover:text-ink"
+                }`}
+              >
+                {sp ? (
+                  <>
+                    <Emoji e={sportIcon[sp]} /> {sportLabel(sp)}
+                  </>
+                ) : (
+                  "Alle"
+                )}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex flex-col gap-3">
           {historyTips.length === 0 && (
             <EmptyState
@@ -553,7 +587,7 @@ function ProfilInhalt() {
               action={{ href: "/", label: "Jetzt tippen" }}
             />
           )}
-          {historyTips.map((tip) => {
+          {shownHistory.map((tip) => {
             const match = matches.find((m) => m.id === tip.matchId);
             if (!match) return null;
             const homeTeam = getTeam(match.homeTeamId);
@@ -642,6 +676,15 @@ function ProfilInhalt() {
             );
           })}
         </div>
+        {filteredHistory.length > shownHistory.length && (
+          <button
+            type="button"
+            onClick={() => setHistoryCount((n) => n + 20)}
+            className="mt-3 w-full rounded-full border border-edge py-2 text-sm font-semibold text-muted transition-colors hover:border-gold hover:text-ink"
+          >
+            Mehr anzeigen ({filteredHistory.length - shownHistory.length} weitere)
+          </button>
+        )}
       </section>
 
       {/* Dein Tipp-Typ (supabase/tipp-typ.sql): was für ein Tipper du bist, mit Bild zum Teilen. */}
