@@ -39,6 +39,9 @@ import { daysDative, daysLabel, useStreak } from "@/lib/streak";
 import Emoji from "@/components/Emoji";
 import TippTypCard from "@/components/TippTyp";
 import BeginnerShieldHint from "@/components/BeginnerShieldHint";
+import SportBioCard, { SportBioTag } from "@/components/SportBioCard";
+import SportBioEditor from "@/components/SportBioEditor";
+import { useSportBio } from "@/lib/sportBio";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -140,6 +143,14 @@ function ProfilInhalt() {
     window.addEventListener("hashchange", openFromHash);
     return () => window.removeEventListener("hashchange", openFromHash);
   }, []);
+  // Sport-Steckbrief (lib/sportBio.ts): oben in der Übersicht, bearbeiten unter Einstellungen.
+  const sportBio = useSportBio(isRegistered ? authUserId : null);
+  function openSportBioEditor() {
+    chooseProfileTab("Einstellungen");
+    for (const ms of [100, 700]) {
+      setTimeout(() => document.getElementById("steckbrief")?.scrollIntoView({ block: "start" }), ms);
+    }
+  }
   function chooseProfileTab(tab: ProfileTab) {
     setProfileTab(tab);
     // Reiter in der Adresse merken, damit Neuladen auf demselben Reiter bleibt.
@@ -322,6 +333,8 @@ function ProfilInhalt() {
                 ? "Platz wird geladen …"
                 : "Noch nicht platziert"}
           </p>
+          {/* Hauptrolle aus dem Sport-Steckbrief, z. B. "🎽 Ex-Vereinsspieler". */}
+          <SportBioTag bio={sportBio.bio} />
           {/* Saison-Pass: Titel (Level 4/6/8) und Abzeichen (Level 10, bleibt für immer). */}
           {(passHonors.title || passHonors.badges.length > 0) && (
             <div className="mt-2">
@@ -468,6 +481,7 @@ function ProfilInhalt() {
           Einstellungen → App. */}
       {profileTab === "Übersicht" && (
         <>
+      {sportBio.status === "ready" && <SportBioCard bio={sportBio.bio} onEdit={openSportBioEditor} />}
       <section className="mb-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-display text-lg font-semibold text-ink">Deine Zahlen</h2>
@@ -917,6 +931,15 @@ function ProfilInhalt() {
             </div>
           </section>
 
+          {isRegistered && authUserId && sportBio.status !== "loading" && (
+            <SportBioEditor
+              userId={authUserId}
+              bio={sportBio.bio}
+              unavailable={sportBio.status === "missing"}
+              onSaved={sportBio.reload}
+            />
+          )}
+
           <section className="mb-8">
             <h2 className="font-display text-lg font-semibold text-ink">App</h2>
             {isRegistered && <StartPagePicker />}
@@ -1065,6 +1088,7 @@ const HASH_TABS: Record<string, ProfileTab> = {
   einstellungen: "Einstellungen",
   herzensvereine: "Einstellungen",
   "pass-belohnungen": "Einstellungen",
+  steckbrief: "Einstellungen",
 };
 
 function StatCard({
