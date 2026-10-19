@@ -3,10 +3,10 @@
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { DEFAULT_START_PAGE, START_PAGES } from "@/lib/startPage";
-import SaveButton, { useDraft } from "@/components/SaveButton";
+import { SavedHint, useDraft } from "@/components/SaveButton";
 
 // Im Profil unter "Einstellungen": welche Seite die App beim Öffnen zeigt
-// (siehe lib/startPage.ts).
+// (siehe lib/startPage.ts). Antippen speichert sofort (Rene, 19.10.2026).
 export default function StartPagePicker() {
   const { startPage, setStartPage, accountSync } = useUser();
   const { showToast } = useFeedback();
@@ -19,17 +19,7 @@ export default function StartPagePicker() {
           <p className="text-sm font-semibold text-ink">Startseite</p>
           <p className="text-xs text-muted">Diese Seite zeigt die App, wenn du sie öffnest.</p>
         </div>
-        <SaveButton
-          dirty={draft.dirty}
-          saved={draft.saved}
-          onClick={() =>
-            draft.save((href) => {
-              setStartPage(href);
-              const page = START_PAGES.find((p) => p.href === href);
-              if (page) showToast(`${page.icon} Startseite: ${page.label}`, "gold");
-            })
-          }
-        />
+        <SavedHint saved={draft.saved} />
       </div>
       <div role="radiogroup" aria-label="Startseite" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {START_PAGES.map((page) => {
@@ -41,7 +31,13 @@ export default function StartPagePicker() {
               role="radio"
               aria-checked={active}
               disabled={startPage === null}
-              onClick={() => draft.set(page.href)}
+              onClick={() =>
+                draft.pick(page.href, (href) => {
+                  setStartPage(href);
+                  const p = START_PAGES.find((x) => x.href === href);
+                  if (p) showToast(`${p.icon} Startseite: ${p.label}`, "gold");
+                })
+              }
               className={`flex min-w-0 items-center justify-center gap-1.5 rounded-full border px-3 py-2 font-display text-sm font-semibold transition-colors disabled:opacity-60 ${
                 active ? "border-action bg-action text-pitch" : "border-edge bg-pitch text-muted hover:border-gold/60 hover:text-ink"
               }`}
