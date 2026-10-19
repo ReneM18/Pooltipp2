@@ -864,10 +864,12 @@ export default function MatchCard({
   ) : (
     <Countdown deadline={match.tipDeadline} tipped={hasTipped} changeable={!!onWithdrawTip} />
   );
-  // Tippschluss vorbei (Rene, 18.10.2026: Tippen/Live/Beendet): Rand neutral
-  // statt gold, vor dem Anpfiff zusätzlich leicht gedämpft.
-  const closedLook = tippingClosed || isCancelled || match.status !== "upcoming";
+  // Tippschluss vorbei, noch nicht angepfiffen (Rene, 18.10.2026): Rand
+  // neutral statt gold und leicht gedämpft. Live- und beendete Karten behalten
+  // den normalen Rand wie die Tipps-Karten (Rene, 19.10.2026); abgesagte
+  // bleiben neutral.
   const waitingForKickoff = tippingClosed && !kickedOff && match.status === "upcoming" && !showBoard;
+  const closedLook = waitingForKickoff || isCancelled;
 
   const card = (
     <div
