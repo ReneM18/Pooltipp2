@@ -5,6 +5,7 @@ import { viennaDateKey } from "@/lib/seasons/schedule";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import MatchCard from "@/components/MatchCard";
+import { SPORT_BADGE } from "@/lib/cardStyle";
 import AdBanner from "@/components/AdBanner";
 import WeeklyReviewCard from "@/components/WeeklyReviewCard";
 import { StreakHint } from "@/components/StreakChip";
@@ -444,7 +445,7 @@ export default function DashboardPage() {
         {sections.map((section) => (
           <section key={section.key} aria-label={section.label || undefined} className="flex flex-col gap-5">
             {section.label && (
-              <h2 className="-mb-1 flex items-baseline gap-2 px-0.5">
+              <h2 className={`${SPORT_BADGE ? "mb-0" : "-mb-1"} flex items-baseline gap-2 px-0.5`}>
                 {section.dot && (
                   <span className="relative top-[-1px] h-2 w-2 shrink-0 animate-pulse self-center rounded-full bg-red-500" aria-hidden />
                 )}
@@ -452,10 +453,13 @@ export default function DashboardPage() {
                 {section.sub && <span className="text-xs text-muted">· {section.sub}</span>}
               </h2>
             )}
+            {/* Mit SPORT_BADGE ragt das Abzeichen 14 px über die Karte, daher
+                über den Karten etwas mehr Luft (Rene, 19.10.2026:
+                Sportart-Abzeichen, Schalter SPORT_BADGE). */}
             {section.days.map((day) => (
               <div key={day.key}>
                 {day.label && (
-                  <h3 className={`mb-3 flex items-baseline gap-2 px-0.5 ${section.label ? "text-xs font-semibold uppercase tracking-wide text-muted" : ""}`}>
+                  <h3 className={`${SPORT_BADGE ? "mb-5" : "mb-3"} flex items-baseline gap-2 px-0.5 ${section.label ? "text-xs font-semibold uppercase tracking-wide text-muted" : ""}`}>
                     <span className={section.label ? "" : "font-display text-base font-bold text-ink"}>{day.label}</span>
                     {day.sub && <span className="text-xs font-normal normal-case tracking-normal text-muted">{day.sub}</span>}
                   </h3>

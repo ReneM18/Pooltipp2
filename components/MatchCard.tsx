@@ -27,6 +27,7 @@ import { SeasonCardWatermark } from "./SeasonDeco";
 import ShareTipButton from "./ShareTipCard";
 import type { ShareCardData } from "@/lib/shareCard";
 import Emoji from "@/components/Emoji";
+import { SPORT_BADGE, SPORT_BADGE_COLOR } from "@/lib/cardStyle";
 import { useFinishedEvents, useLiveScore } from "@/lib/useLiveScores";
 import { isGoalEvent, shortPlayerName, eventMinuteText } from "@/lib/liveScores";
 import { useLiveForecast } from "@/lib/liveForecast";
@@ -868,7 +869,7 @@ export default function MatchCard({
   const closedLook = tippingClosed || isCancelled || match.status !== "upcoming";
   const waitingForKickoff = tippingClosed && !kickedOff && match.status === "upcoming" && !showBoard;
 
-  return (
+  const card = (
     <div
       ref={cardRef}
       id={`spiel-${match.id}`}
@@ -889,7 +890,7 @@ export default function MatchCard({
       {/* Booster-Spiel: eigene goldene Leiste ganz oben, damit man es auch
           zwischen normalen Spielen (z. B. bei den geschlossenen) sofort sieht. */}
       {stage ? (
-        <div className="flex items-center justify-between gap-2 border-b border-gold/30 bg-gold/15 px-4 py-1.5 font-display text-xs font-bold uppercase tracking-[0.14em] text-gold sm:grid sm:grid-cols-[1fr_auto_1fr] sm:px-5">
+        <div className={`flex items-center justify-between gap-2 border-b border-gold/30 bg-gold/15 ${SPORT_BADGE ? "pl-8 pr-4" : "px-4"} py-1.5 font-display text-xs font-bold uppercase tracking-[0.14em] text-gold sm:grid sm:grid-cols-[1fr_auto_1fr] ${SPORT_BADGE ? "sm:pl-9 sm:pr-5" : "sm:px-5"}`}>
           {/* Links Sportart + Wettbewerb wie in der Kopfzeile normaler Karten,
               "Top-Spiel" zentriert in der Mitte, rechts der Countdown
               (Rene, 14.10.2026). Nur "Top-Spiel" (13.10.2026); dass es ein
@@ -898,7 +899,7 @@ export default function MatchCard({
               steht der Wettbewerb über dem Datum, hier nur "Top-Spiel" und
               Countdown in einer Zeile. Am PC unverändert. */}
           <span className="hidden min-w-0 items-center gap-1.5 text-sm font-semibold normal-case tracking-normal text-ink sm:flex">
-            <span className="shrink-0 text-lg" aria-hidden><Emoji e={sportIcon[match.sport]} /></span>
+            {!SPORT_BADGE && <span className="shrink-0 text-lg" aria-hidden><Emoji e={sportIcon[match.sport]} /></span>}
             {leagueFlag && <span className="shrink-0" aria-hidden><Emoji e={leagueFlag} /></span>}
             <span className="min-w-0 leading-tight">{competitionName}</span>
           </span>
@@ -920,9 +921,12 @@ export default function MatchCard({
           eine zweite Zeile um statt abgeschnitten zu werden; der Countdown
           bleibt rechts daneben. */}
       {!stage && (
-      <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-surface-hover/80 to-surface/60 px-4 py-2.5 sm:gap-3 sm:px-5">
+      <div className={`flex items-center justify-between gap-2 bg-gradient-to-r from-surface-hover/80 to-surface/60 ${SPORT_BADGE ? "pl-8 pr-4" : "px-4"} py-2.5 sm:gap-3 ${SPORT_BADGE ? "sm:pl-9 sm:pr-5" : "sm:px-5"}`}>
+        {/* Mit SPORT_BADGE zeigt das Abzeichen an der Ecke die Sportart, der
+            Kopf rückt dafür nach rechts (Rene, 19.10.2026: Sportart-Abzeichen,
+            Schalter SPORT_BADGE). */}
         <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-ink">
-          <span className="shrink-0 text-lg"><Emoji e={sportIcon[match.sport]} /></span>
+          {!SPORT_BADGE && <span className="shrink-0 text-lg"><Emoji e={sportIcon[match.sport]} /></span>}
           {leagueFlag && <span className="shrink-0"><Emoji e={leagueFlag} /></span>}
           <span className="min-w-0 leading-tight">{competitionName}</span>
         </span>
@@ -961,7 +965,7 @@ export default function MatchCard({
             goldenen Leiste (Rene, 14.10.2026). */}
         {stage && (
           <div className="mb-1 flex items-center justify-center gap-1.5 text-center text-sm font-semibold text-ink sm:hidden">
-            <span className="shrink-0 text-lg" aria-hidden><Emoji e={sportIcon[match.sport]} /></span>
+            {!SPORT_BADGE && <span className="shrink-0 text-lg" aria-hidden><Emoji e={sportIcon[match.sport]} /></span>}
             {leagueFlag && <span className="shrink-0" aria-hidden><Emoji e={leagueFlag} /></span>}
             <span className="min-w-0 leading-tight">{competitionName}</span>
           </div>
@@ -1532,6 +1536,23 @@ export default function MatchCard({
           </div>
         )}
       </div>
+    </div>
+  );
+  if (!SPORT_BADGE) return card;
+  // Sportart-Abzeichen (Rene, 19.10.2026: Sportart-Abzeichen, Schalter
+  // SPORT_BADGE): sitzt wie ein Aufkleber über der linken oberen Ecke. Die
+  // Karte selbst bleibt overflow-hidden (Ecken, Flutlicht, Vereins-Streifen),
+  // das Abzeichen hängt daher an einer Hülle außen herum.
+  return (
+    <div className="sport-badge-wrap relative h-full">
+      {card}
+      <span
+        aria-hidden
+        className="sport-badge pointer-events-none absolute -left-2.5 -top-3.5 z-[2] flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 bg-[#0f1916] text-lg leading-none shadow-[0_3px_8px_rgb(0_0_0/0.45)] sm:h-[38px] sm:w-[38px] sm:text-xl"
+        style={{ borderColor: SPORT_BADGE_COLOR[match.sport] }}
+      >
+        <Emoji e={sportIcon[match.sport]} />
+      </span>
     </div>
   );
 }

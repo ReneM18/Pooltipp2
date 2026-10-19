@@ -417,6 +417,17 @@ html[data-season-design] .match-card-rand.match-card-zu {
     transform: translateY(-2px);
   }
 }
+/* Sportart-Abzeichen (Rene, 19.10.2026: Sportart-Abzeichen, Schalter
+   SPORT_BADGE in lib/cardStyle.ts): hebt sich mit der Karte an. */
+@media (hover: hover) and (min-width: 1024px) {
+  .sport-badge {
+    transition: transform 0.2s ease;
+  }
+  .sport-badge-wrap:hover > .sport-badge,
+  .sport-badge-wrap:hover > .match-card-rand {
+    transform: translateY(-2px);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .animate-tip-saved,
   .animate-check-pop,
@@ -424,7 +435,9 @@ html[data-season-design] .match-card-rand.match-card-zu {
   .animate-count-down {
     animation: none !important;
   }
-  .match-card-rand:hover {
+  .match-card-rand:hover,
+  .sport-badge-wrap:hover > .sport-badge,
+  .sport-badge-wrap:hover > .match-card-rand {
     transform: none;
   }
 }
