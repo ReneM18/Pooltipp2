@@ -30,6 +30,7 @@ import { boostersOnDay } from "@/lib/booster";
 import { useJokers } from "@/lib/JokerContext";
 import { DuelReport } from "@/components/DuelReport";
 import { GrowthReport } from "@/components/GrowthReport";
+import { SportBioAdmin } from "@/components/SportBioAdmin";
 import Emoji from "@/components/Emoji";
 import { peekLiveDays, peekLiveSportDiagnostics, refreshLiveDays, useLiveStoreVersion } from "@/lib/useLiveScores";
 import type { LiveDiagnostics, LiveGame, LiveSource } from "@/lib/live/types";
@@ -37,7 +38,7 @@ import { findLiveLeague, liveGameLeague } from "@/lib/liveConfig";
 import { findLiveGame, viennaDate } from "@/lib/liveScores";
 import { competitionCountry } from "@/lib/competitionFlag";
 
-type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news" | "wachstum";
+type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news" | "wachstum" | "steckbriefe";
 
 // Zugang nur für den eingeloggten Admin-Account – geprüft über die
 // Datenbank-Funktion is_admin() (siehe isAdmin in lib/UserContext.tsx).
@@ -72,6 +73,8 @@ export default function AdminPage() {
     { id: "news", label: "News", icon: "📰", count: newsItems.length },
     // Ohne Zahl: die Werte stehen im Reiter selbst (Rene, 14.10.2026).
     { id: "wachstum", label: "Wachstum", icon: "📈" },
+    // Sport-Steckbriefe: Vereine freigeben, Angaben bestätigen.
+    { id: "steckbriefe", label: "Steckbriefe", icon: "🏟️" },
   ];
 
   return (
@@ -149,6 +152,7 @@ export default function AdminPage() {
         {tab === "turniere" && <TournamentManager />}
         {tab === "news" && <NewsManager />}
         {tab === "wachstum" && <GrowthReport />}
+        {tab === "steckbriefe" && <SportBioAdmin />}
       </div>
     </main>
   );

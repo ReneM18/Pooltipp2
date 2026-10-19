@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import { supabase } from "@/lib/supabaseClient";
+import SportBioCard, { SportBioTag } from "@/components/SportBioCard";
+import { useSportBio } from "@/lib/sportBio";
 import { ProfileRow, loadProfiles, sumPoints, toPointsBySport } from "@/lib/globalLeaderboard";
 import { RivalCompare as Compare, compareRival } from "@/lib/rivals";
 import { CompareTable } from "@/components/RivalCompare";
@@ -54,6 +56,8 @@ export default function SpielerProfilPage() {
   const honors = isSelf ? shownPassHonors : otherHonors;
   // Profilbild (eigenes bzw. das des Spielers, wenn er es zeigen lässt).
   const avatarPhoto = usePlayerPhoto(isSelf ? authUserId : playerId);
+  // Sport-Steckbrief: die Datenbank prüft, ob man ihn sehen darf (alle/Freunde/niemand).
+  const sportBio = useSportBio(isSelf ? authUserId : playerId);
 
   // Platz in der Gesamt-Rangliste (gleiche Rechnung wie dort: Summe der
   // Rangpunkte, gleiche Punkte = gleicher Platz, nur Spieler mit Punkten).
@@ -181,6 +185,7 @@ export default function SpielerProfilPage() {
                 ? `Platz ${place} von ${totals.length} in der Gesamt-Rangliste · ${total.toLocaleString("de-DE")} Rangpunkte`
                 : "Noch keine Rangpunkte"}
           </p>
+          <SportBioTag bio={sportBio.bio} />
           {honors && (honors.title || honors.badges.length > 0) && (
             <div className="mt-2">
               <PassHonorTags honors={honors} />
@@ -188,6 +193,8 @@ export default function SpielerProfilPage() {
           )}
         </div>
       </div>
+
+      <SportBioCard bio={sportBio.bio} />
 
       {!isSelf && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
