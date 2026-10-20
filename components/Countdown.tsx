@@ -3,14 +3,27 @@
 import { useEffect, useState } from "react";
 import { deadlineText } from "@/lib/dayGroups";
 
-// Status rechts im Kartenkopf bis zum Anpfiff (Rene, 18.10.2026:
-// Tippen/Live/Beendet). Statt "noch X Std." steht da, bis wann getippt
-// werden kann:
-// - offen: "Tippen bis 15:30" bzw. "Tippen bis Sa. 15:30" (gold)
-// - unter 60 Min.: gold hervorgehoben "⏰ noch 12 Min."
-// - getippt: "✓ Getippt · änderbar bis 15:30" (grünlich)
+// Status rechts im Kartenkopf bis zum Anpfiff. Mischung aus Uhrzeit und
+// Countdown (Rene, 20.10.2026: "der Countdown war doch cool"):
+// - mehr als 3 Std.: "Tippen bis 15:30" bzw. "Tippen bis Sa. 15:30" (gold)
+// - ab 3 Std.: laufender Countdown "noch 2 Std. 14 Min." (gold)
+// - letzte 30 Min.: orange mit ⏰ und Sekunden "noch 4 Min. 12 Sek."
+// - getippt: "✓ Getippt", darunter dasselbe (Uhrzeit oder Countdown)
 // - Tippschluss vorbei: "🔒 Tippschluss vorbei"
 // Live, Beendet und Abgesagt zeigt die Karte selbst (components/MatchCard.tsx).
+const COUNTDOWN_FROM = 3 * 60 * 60 * 1000;
+const SOON = 30 * 60 * 1000;
+
+function remainingText(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `noch ${hours} Std. ${minutes} Min.`;
+  if (minutes > 0) return `noch ${minutes} Min. ${seconds} Sek.`;
+  return `noch ${seconds} Sek.`;
+}
+
 export default function Countdown({
   deadline,
   tipped = false,
@@ -48,27 +61,34 @@ export default function Countdown({
     return <span className="inline-flex items-center gap-1 text-muted">🔒 Tippschluss vorbei</span>;
   }
 
-  const until = deadlineText(target, now);
+  const soon = remaining <= SOON;
+  const counting = remaining <= COUNTDOWN_FROM;
+  const color = soon ? "text-[#FF9B5C]" : "text-gold";
+  const text = counting ? remainingText(remaining) : null;
+
   if (tipped) {
     // Zweizeilig, damit am Handy (375 px) und in der 3er-Reihe am PC der
     // Wettbewerb links daneben lesbar bleibt.
     return (
       <span className="inline-flex flex-col items-end leading-tight text-action">
         <span className="font-semibold">✓ Getippt</span>
-        {changeable && <span className="text-[11px] text-action/80">änderbar bis {until}</span>}
+        {changeable && (
+          <span className={`whitespace-nowrap text-[11px] ${counting ? color : "text-action/80"}`}>
+            {text ? `${soon ? "⏰ " : ""}änderbar, ${text}` : `änderbar bis ${deadlineText(target, now)}`}
+          </span>
+        )}
       </span>
     );
   }
 
-  if (remaining <= 60 * 60 * 1000) {
-    const minutes = Math.floor(remaining / 60_000);
+  if (text) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/15 px-2 py-0.5 font-semibold text-gold">
-        <span aria-hidden>⏰</span>
-        {minutes > 0 ? `noch ${minutes} Min.` : `noch ${Math.floor(remaining / 1000)} Sek.`}
+      <span className={`inline-flex items-center gap-1 whitespace-nowrap font-semibold ${color}`}>
+        {soon && <span aria-hidden>⏰</span>}
+        {text}
       </span>
     );
   }
 
-  return <span className="text-gold">Tippen bis {until}</span>;
+  return <span className="text-gold">Tippen bis {deadlineText(target, now)}</span>;
 }
