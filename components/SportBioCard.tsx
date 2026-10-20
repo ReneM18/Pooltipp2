@@ -12,7 +12,6 @@ import {
   isBioEmpty,
   isFanRole,
   mainRole,
-  PALETTES,
   roleDef,
   sortedHonors,
   SportBio,
@@ -27,8 +26,9 @@ import {
 // Editionen (Holo, Gold, Saison) gibt es mit dem Premium-Pass.
 // Daten und Regeln: lib/sportBio.ts.
 
-/** Kartenfarben: Verein aus der App (Teamfarben), sonst gewählte Palette. */
-export function useCardColors(stations: Station[] | undefined, palette: number | undefined): [string, string] {
+/** Kartenfarben: Verein aus der App (Teamfarben), sonst die Farben des
+ * Rang-Icons – Farben verdient man sich (Rene, 20.10.2026). */
+export function useCardColors(stations: Station[] | undefined, rankIcon?: RankIconOption | null): [string, string] {
   const { teams } = useAppData();
   return useMemo(() => {
     for (const st of stations ?? []) {
@@ -36,9 +36,9 @@ export function useCardColors(stations: Station[] | undefined, palette: number |
       const team = teams.find((t) => t.name.toLowerCase() === st.club!.toLowerCase());
       if (team) return [team.primaryColor, team.secondaryColor];
     }
-    const p = PALETTES[palette ?? 0] ?? PALETTES[0];
-    return [p[1], p[2]];
-  }, [stations, palette, teams]);
+    if (rankIcon) return [rankIcon.colorFrom, rankIcon.colorTo];
+    return ["#1f7a4a", "#ffffff"];
+  }, [stations, rankIcon, teams]);
 }
 
 export default function SportBioCard({
@@ -140,7 +140,7 @@ export function SportCard({
   const second = stations.slice(1).find((st) => !isFanRole(st.role)) ?? stations[1];
   const honors = sortedHonors(data);
   const interests = data.interests ?? [];
-  const [c1, c2] = useCardColors(stations, data.palette);
+  const [c1, c2] = useCardColors(stations, rankIcon);
   const style = data.cardStyle ?? "standard";
 
   const frame =
@@ -164,7 +164,7 @@ export function SportCard({
   const top = honors[0];
   const alsoLine = [
     second ? `+ ${roleDef(second.role).icon} ${stationTitle(second)}` : "",
-    top ? `${honorIcon(top.t)} ${top.t}${top.year ? ` ${top.year}` : ""}` : "",
+    top ? `${honorIcon(top.t)} ${top.t}` : "",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -172,7 +172,19 @@ export function SportCard({
   const flip = () => setFlipped((f) => !f);
 
   return (
-    <div className="mx-auto w-full max-w-[320px] [perspective:1200px]">
+    <div className="relative mx-auto w-full max-w-[320px] [perspective:1200px]">
+      {/* Umdreh-Pfeil an der Ecke (Rene, 20.10.2026), dreht sich nicht mit. */}
+      <button
+        type="button"
+        onClick={flip}
+        aria-label={flipped ? "Vorderseite zeigen" : "Rückseite zeigen"}
+        title="Karte umdrehen"
+        className="absolute -bottom-3 -right-3 z-20 grid h-10 w-10 place-items-center rounded-full bg-gold text-xl font-bold text-pitch shadow-[0_4px_12px_rgba(0,0,0,0.5)] ring-2 ring-pitch transition-transform hover:scale-110 motion-reduce:transition-none"
+      >
+        <span aria-hidden className={`inline-block transition-transform duration-700 motion-reduce:transition-none ${flipped ? "rotate-180" : ""}`}>
+          ↻
+        </span>
+      </button>
       <div
         role="button"
         tabIndex={0}
@@ -194,9 +206,11 @@ export function SportCard({
         }`}
       >
         {/* Vorderseite */}
+        {/* Jede Seite ist nur sichtbar, solange sie vorne ist – sonst schien
+            die Vorderseite gespiegelt durch (Rene, 20.10.2026). */}
         <div
-          className="absolute inset-0 overflow-hidden rounded-[18px] p-2.5 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.7)] [backface-visibility:hidden]"
-          style={{ background: frame }}
+          className="absolute inset-0 overflow-hidden rounded-[18px] p-2.5 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.7)] [backface-visibility:hidden] [transform:rotateY(0deg)]"
+          style={{ background: frame, visibility: flipped ? "hidden" : "visible", transition: "visibility 0s linear 0.35s" }}
         >
           <div
             className="relative h-full overflow-hidden rounded-xl"
@@ -271,7 +285,7 @@ export function SportCard({
                   ))}
                 </div>
               )}
-              <div className="mt-2 flex items-center justify-between gap-2 border-t border-white/10 pt-1.5 text-[10.5px] text-[#cfd8d3]">
+              <div className="mt-2 flex items-center justify-between gap-2 border-t border-white/10 pr-6 pt-1.5 text-[10.5px] text-[#cfd8d3]">
                 <span className="truncate">
                   PoolTipp
                   {points != null && (
@@ -308,7 +322,11 @@ export function SportCard({
         {/* Rückseite: Erfolge, Laufbahn, Interessen */}
         <div
           className="absolute inset-0 flex flex-col gap-2.5 overflow-hidden rounded-[18px] border-[3px] bg-surface p-3.5 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.7)] [backface-visibility:hidden] [transform:rotateY(180deg)]"
-          style={{ borderColor: style === "gold" ? "#d4a943" : style === "saison" ? SEASON_THEME.colorFrom : c1 }}
+          style={{
+            borderColor: style === "gold" ? "#d4a943" : style === "saison" ? SEASON_THEME.colorFrom : c1,
+            visibility: flipped ? "visible" : "hidden",
+            transition: "visibility 0s linear 0.35s",
+          }}
         >
           <p className="flex items-baseline justify-between gap-2 font-display text-[15px] font-bold text-ink">
             <span className="truncate">{name}</span>
@@ -319,7 +337,7 @@ export function SportCard({
               <BackSection title="Erfolge">
                 <ul className="flex flex-col gap-1.5">
                   {honors.map((h, i) => (
-                    <li key={i} className="grid grid-cols-[20px_1fr_auto] items-center gap-1.5 rounded-lg border border-gold/25 bg-gold/[0.08] px-2 py-1.5">
+                    <li key={i} className="grid grid-cols-[20px_1fr] items-center gap-1.5 rounded-lg border border-gold/25 bg-gold/[0.08] px-2 py-1.5">
                       <span aria-hidden className="text-sm">
                         {honorIcon(h.t)}
                       </span>
@@ -328,7 +346,6 @@ export function SportCard({
                         {h.league ? ` · ${h.league}` : ""}
                         {h.club && <span className="block truncate text-[11px] font-normal text-muted">{h.club}</span>}
                       </span>
-                      <span className="font-display text-xs font-extrabold text-gold">{h.year}</span>
                     </li>
                   ))}
                 </ul>
@@ -362,8 +379,8 @@ export function SportCard({
               </BackSection>
             )}
           </div>
-          <div className="flex items-center justify-between gap-2 border-t border-edge pt-1.5 text-[10px] text-muted">
-            <span>{data.since ? `❤️ Sport-Fan seit ${data.since}` : ""}</span>
+          <div className="flex items-center justify-between gap-2 border-t border-edge pr-7 pt-1.5 text-[10px] text-muted">
+            <span />
             {bio.verified ? <b className="font-bold text-action">✓ bestätigt von PoolTipp</b> : <span>Angaben vom Spieler selbst</span>}
           </div>
         </div>

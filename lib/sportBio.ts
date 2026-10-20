@@ -196,14 +196,10 @@ export const POSITIONS: Record<string, string[]> = {
   vb: ["Zuspiel", "Außen", "Mitte", "Diagonal", "Libero"],
 };
 
-const LEAGUES: Record<string, string[]> = {
-  "fb|AT": ["Bundesliga", "2. Liga", "Regionalliga", "Landesliga", "Oberliga", "Unterliga", "1. Klasse", "2. Klasse", "Hobby"],
-  "fb|DE": ["Bundesliga", "2. Bundesliga", "3. Liga", "Regionalliga", "Oberliga", "Verbandsliga", "Landesliga", "Bezirksliga", "Kreisliga", "Hobby"],
-  "ih|AT": ["ICE Hockey League", "AlpsHL", "Eliteliga", "Landesliga", "Hobby"],
-  "*": ["Profi", "Halbprofi", "Amateur", "Hobby"],
-};
-export function leaguesFor(sport?: string, land?: string): string[] {
-  return LEAGUES[`${sport}|${land}`] ?? LEAGUES["*"];
+// Nur wenige Stufen (Rene, 20.10.2026: "die Landesligen weg, nur ganz wenig für Profis").
+const LEVELS = ["Profi", "Halbprofi", "Amateur", "Hobby"];
+export function leaguesFor(_sport?: string, _land?: string): string[] {
+  return LEVELS;
 }
 const PRO_LEAGUES = ["Bundesliga", "2. Liga", "2. Bundesliga", "3. Liga", "ICE Hockey League", "Profi"];
 
@@ -282,9 +278,9 @@ export function stationTitle(st: Station): string {
   return `${st.ex ? "Ex-" : ""}${base}`;
 }
 
-export function stationYears(st: Station): string {
-  if (!st.from) return "";
-  return `${st.from} – ${st.to || (st.ex ? "?" : "heute")}`;
+// Jahreszahlen werden nicht mehr gezeigt (Rene, 20.10.2026); alte Angaben bleiben gespeichert.
+export function stationYears(_st: Station): string {
+  return "";
 }
 
 /** Ort einer Station für die Anzeige: "SK Sturm Graz · Steiermark". */
