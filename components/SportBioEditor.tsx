@@ -174,7 +174,7 @@ export default function SportBioEditor({
       {previewStations.length > 0 && (
         <div className="mt-4">
           <SportCard bio={preview} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} streak={streak} />
-          <p className="mt-2 text-center text-[11px] text-muted">Vorschau · antippen zum Umdrehen</p>
+          <p className="mt-1 text-center text-[11px] text-muted">Vorschau</p>
         </div>
       )}
 
