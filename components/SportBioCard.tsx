@@ -90,7 +90,7 @@ export default function SportBioCard({
       <div style={compact ? { zoom: 0.78 } : undefined}>
         <SportCard bio={bio} name={name} photo={photo} rankIcon={rankIcon} place={place} />
       </div>
-      <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted">
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted">
         {!compact && <span>Antippen zum Umdrehen</span>}
         {own && (
           <>
@@ -137,7 +137,11 @@ export function SportCard({
         : c1;
   const foil = style === "holo" || style === "gold" || style === "saison";
 
-  const sports = Array.from(new Set(stations.map((s) => s.sport).filter(Boolean) as string[])).slice(0, 3);
+  // Weitere Sportarten als Kreise; die Hauptsportart steht schon oben links
+  // (Rene, 20.10.2026: sonst zwei Fußbälle neben dem Rang-Icon).
+  const sports = Array.from(new Set(stations.map((s) => s.sport).filter(Boolean) as string[]))
+    .filter((s) => s !== main?.sport)
+    .slice(0, 3);
   const flag = main?.land ? COUNTRIES[main.land]?.flag ?? "" : "";
   // Nur ausgefüllte Felder zeigen (Rene, 20.10.2026: kein "–"). Die Sportart
   // steht schon oben links, darum hier nur die Position.

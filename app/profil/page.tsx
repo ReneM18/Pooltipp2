@@ -376,7 +376,7 @@ function ProfilInhalt() {
         </div>
         </div>
         {hasSportCard && (
-          <div className="hidden w-[250px] shrink-0 lg:block">
+          <div className="hidden w-[250px] shrink-0 lg:mb-10 lg:block">
             <SportBioCard
               compact
               bio={sportBio.bio}
