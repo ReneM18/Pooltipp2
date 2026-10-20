@@ -28,7 +28,8 @@ export interface Station {
 
 export interface BioData {
   stations?: Station[];
-  honors?: string[];
+  honors?: Honor[];
+  interests?: Interest[];
   nr?: string;
   since?: string;
   palette?: number;
@@ -36,6 +37,20 @@ export interface BioData {
   // Eigenes Kartenfoto (quadratisches JPEG als data-URL, components/CardPhotoEditor.tsx).
   // Fehlt es, zeigt die Karte das Profilbild.
   photo?: string;
+}
+
+// Erfolg mit Verein und Jahr (Karte v5, Rene 20.10.2026: "Erfolge mit wem und das Jahr").
+export interface Honor {
+  t: string; // Art, z. B. "Meister" (siehe HONOR_TYPES)
+  league?: string; // z. B. "Unterliga"
+  club?: string; // mit wem
+  year?: string;
+}
+
+// Interesse an einer anderen Sportart, optional mit Lieblingsverein/-sportler.
+export interface Interest {
+  k: string; // Schlüssel aus BIO_SPORTS
+  fav?: string;
 }
 
 export interface SportBio {
@@ -206,18 +221,28 @@ export const COUNTRIES: Record<string, { flag: string; name: string; states: str
   XX: { flag: "🌍", name: "anderes Land", states: [] },
 };
 
-export const HONORS = [
-  "🏆 Meister",
-  "⬆️ Aufstieg",
-  "🥇 Cupsieg",
-  "🇦🇹 Nationalteam",
-  "🎖️ Landesauswahl",
-  "👟 Torschützenkönig",
-  "🧤 Bester Torwart",
-  "⭐ 100+ Spiele",
-  "🏅 Ehrenmitglied",
-  "🎯 Schiri des Jahres",
+export const HONOR_TYPES: { t: string; icon: string }[] = [
+  { t: "Meister", icon: "🏆" },
+  { t: "Aufstieg", icon: "⬆️" },
+  { t: "Cupsieg", icon: "🥇" },
+  { t: "Nationalteam", icon: "🇦🇹" },
+  { t: "Landesauswahl", icon: "🎖️" },
+  { t: "Torschützenkönig", icon: "👟" },
+  { t: "Bester Torwart", icon: "🧤" },
+  { t: "100+ Spiele", icon: "⭐" },
+  { t: "Ehrenmitglied", icon: "🏅" },
+  { t: "Trainerlizenz", icon: "🎓" },
+  { t: "Schiri des Jahres", icon: "🎯" },
 ];
+export const honorIcon = (t: string) => HONOR_TYPES.find((h) => h.t === t)?.icon ?? "🏅";
+export const MAX_HONORS = 12;
+export const MAX_INTERESTS = 8;
+export const FAV_MAX = 30;
+
+/** Erfolge nach Jahr, neueste zuerst (ohne Jahr ans Ende). */
+export function sortedHonors(data: BioData): Honor[] {
+  return [...(data.honors ?? [])].sort((a, b) => Number(b.year || 0) - Number(a.year || 0));
+}
 
 // Kartenfarben, wenn der Verein nicht in der App ist.
 export const PALETTES: [string, string, string][] = [
@@ -269,7 +294,7 @@ export function stationPlace(st: Station): string {
 }
 
 export function isBioEmpty(data: BioData | null | undefined): boolean {
-  return !data || (!(data.stations?.length) && !(data.honors?.length) && !data.since);
+  return !data || (!(data.stations?.length) && !(data.honors?.length) && !(data.interests?.length) && !data.since);
 }
 
 /** Hauptrolle für das Abzeichen unter dem Namen: [Icon, Bezeichnung]. */
@@ -277,6 +302,20 @@ export function mainRole(data: BioData | null | undefined): [string, string] | n
   const st = data?.stations?.[0];
   if (!st) return null;
   return [roleDef(st.role).icon, stationTitle(st)];
+}
+
+// Erfolge aus #299 waren nur Texte wie "🏆 Meister" – in Einträge umwandeln.
+function normalizeHonors(raw: unknown): Honor[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((h): Honor | null => {
+      if (typeof h === "string") {
+        const label = h.replace(/^\S+\s/, "");
+        return { t: label };
+      }
+      return h && typeof h === "object" && typeof (h as Honor).t === "string" ? (h as Honor) : null;
+    })
+    .filter((h): h is Honor => !!h);
 }
 
 // Steckbriefe aus der ersten Version (Rollen statt Stationen) umwandeln.
@@ -291,7 +330,16 @@ export function normalizeBio(raw: unknown): BioData {
   };
   if (Array.isArray(d.stations) || !d.roles) {
     const photo = typeof d.photo === "string" && d.photo.startsWith("data:image/jpeg;base64,") ? d.photo : undefined;
-    return { stations: d.stations ?? [], honors: d.honors ?? [], nr: d.nr, since: d.since, palette: d.palette, cardStyle: d.cardStyle, photo };
+    return {
+      stations: d.stations ?? [],
+      honors: normalizeHonors(d.honors),
+      interests: Array.isArray(d.interests) ? d.interests.filter((i) => i && typeof i.k === "string") : [],
+      nr: d.nr,
+      since: d.since,
+      palette: d.palette,
+      cardStyle: d.cardStyle,
+      photo,
+    };
   }
   const sport = LEGACY_SPORT[d.sports?.[0] ?? ""] ?? "fb";
   const stations: Station[] = Object.entries(d.roles).map(([key, r]) => {

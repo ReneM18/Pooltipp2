@@ -384,6 +384,8 @@ function ProfilInhalt() {
               photo={photos[0]}
               rankIcon={activeRankIcon}
               place={currentRank}
+              points={totalRangPunkte}
+              streak={streakCount}
               onEdit={openSportBioEditor}
             />
           </div>
@@ -509,6 +511,8 @@ function ProfilInhalt() {
           photo={photos[0]}
           rankIcon={activeRankIcon}
           place={currentRank}
+              points={totalRangPunkte}
+              streak={streakCount}
           onEdit={openSportBioEditor}
         />
       )}
@@ -968,6 +972,8 @@ function ProfilInhalt() {
               photo={photos[0]}
               rankIcon={activeRankIcon}
               place={currentRank}
+              points={totalRangPunkte}
+              streak={streakCount}
               bio={sportBio.bio}
               unavailable={sportBio.status === "missing"}
               onSaved={sportBio.reload}

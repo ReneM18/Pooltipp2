@@ -16,7 +16,13 @@ import {
   CardStyle,
   CLUB_MAX,
   COUNTRIES,
-  HONORS,
+  FAV_MAX,
+  Honor,
+  honorIcon,
+  HONOR_TYPES,
+  MAX_HONORS,
+  MAX_INTERESTS,
+  sortedHonors,
   isFanRole,
   leaguesFor,
   PALETTES,
@@ -47,6 +53,8 @@ export default function SportBioEditor({
   photo,
   rankIcon,
   place,
+  points,
+  streak,
   bio,
   unavailable,
   onSaved,
@@ -56,6 +64,8 @@ export default function SportBioEditor({
   photo?: string | null;
   rankIcon?: RankIconOption | null;
   place?: number | null;
+  points?: number | null;
+  streak?: number | null;
   bio: SportBio | null;
   unavailable: boolean;
   onSaved: () => void;
@@ -175,7 +185,7 @@ export default function SportBioEditor({
 
       {previewStations.length > 0 && (
         <div className="mt-4">
-          <SportCard bio={preview} name={name} photo={photo} rankIcon={rankIcon} place={place} />
+          <SportCard bio={preview} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} streak={streak} />
           <p className="mt-2 text-center text-[11px] text-muted">Vorschau · antippen zum Umdrehen</p>
         </div>
       )}
@@ -312,21 +322,65 @@ export default function SportBioEditor({
         )}
       </Card>
 
-      <Card title="Erfolge" text="Stehen auf der Rückseite deiner Karte. Antippen speichert sofort." saved={savedAt("erfolge")}>
+      <Card title="Erfolge" text="Was, in welcher Liga, mit welchem Verein und wann. Stehen auf der Rückseite deiner Karte." saved={savedAt("erfolge")}>
+        <HonorsEditor
+          honors={data.honors ?? []}
+          clubs={Array.from(new Set(stations.map((st) => st.club).filter((c): c is string => !!c)))}
+          leagues={leaguesFor(stations[0]?.sport, stations[0]?.land)}
+          onChange={(honors) => commit({ ...data, honors }, visibility, "erfolge")}
+        />
+      </Card>
+
+      <Card
+        title="Interessen"
+        text="Andere Sportarten, die du verfolgst oder selbst machst. Antippen speichert sofort. Lieblingsverein oder Sportler optional (wird vom Admin geprüft)."
+        saved={savedAt("interessen")}
+      >
         <div className="mt-3 flex flex-wrap gap-2">
-          {HONORS.map((h) => {
-            const on = (data.honors ?? []).includes(h);
+          {BIO_SPORTS.map((sp) => {
+            const on = (data.interests ?? []).some((i) => i.k === sp.key);
+            const full = !on && (data.interests ?? []).length >= MAX_INTERESTS;
             return (
               <Chip
-                key={h}
+                key={sp.key}
+                small
                 active={on}
-                onClick={() => commit({ ...data, honors: on ? data.honors!.filter((x) => x !== h) : [...(data.honors ?? []), h] }, visibility, "erfolge")}
+                onClick={() =>
+                  !full &&
+                  commit(
+                    {
+                      ...data,
+                      interests: on ? (data.interests ?? []).filter((i) => i.k !== sp.key) : [...(data.interests ?? []), { k: sp.key }],
+                    },
+                    visibility,
+                    "interessen"
+                  )
+                }
               >
-                {h}
+                <span aria-hidden>{sp.icon}</span>
+                {sp.label}
               </Chip>
             );
           })}
         </div>
+        {(data.interests ?? []).length > 0 && (
+          <div className="mt-3 flex flex-col gap-2">
+            {(data.interests ?? []).map((it) => (
+              <FavRow
+                key={it.k}
+                label={bioSportLabel(it.k)}
+                value={it.fav ?? ""}
+                onSave={(fav) =>
+                  commit(
+                    { ...data, interests: (data.interests ?? []).map((i) => (i.k === it.k ? { ...i, fav: fav || undefined } : i)) },
+                    visibility,
+                    "interessen"
+                  )
+                }
+              />
+            ))}
+          </div>
+        )}
       </Card>
 
       <Card
@@ -629,6 +683,154 @@ function SmallButton({
 function bioSportLabel(key?: string): string {
   const s = BIO_SPORTS.find((x) => x.key === key);
   return s ? `${s.icon} ${s.label}` : "";
+}
+
+// Erfolge: Liste mit Löschen (mit Rückfrage) und Formular "Erfolg speichern".
+// Der Verein kommt aus der eigenen Laufbahn (kein neuer Freitext).
+function HonorsEditor({
+  honors,
+  clubs,
+  leagues,
+  onChange,
+}: {
+  honors: Honor[];
+  clubs: string[];
+  leagues: string[];
+  onChange: (honors: Honor[]) => Promise<boolean>;
+}) {
+  const [t, setT] = useState(HONOR_TYPES[0].t);
+  const [league, setLeague] = useState("");
+  const [club, setClub] = useState("");
+  const [year, setYear] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [confirmIdx, setConfirmIdx] = useState<number | null>(null);
+  const list = sortedHonors({ honors });
+
+  async function add() {
+    if (year && !validYear(year)) {
+      setErr(`Jahr bitte vierstellig zwischen 1930 und ${THIS_YEAR}.`);
+      return;
+    }
+    setErr(null);
+    const h: Honor = { t };
+    if (league) h.league = league;
+    if (club) h.club = club;
+    if (year) h.year = year;
+    if (await onChange([...honors, h])) {
+      setLeague("");
+      setYear("");
+    }
+  }
+
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      {list.map((h) => {
+        const idx = honors.indexOf(h);
+        return (
+          <div key={idx} className="flex flex-col gap-2 rounded-lg border border-edge bg-pitch px-3 py-2 sm:flex-row sm:items-center">
+            <p className="min-w-0 flex-1 text-sm text-ink">
+              {honorIcon(h.t)} <b>{h.t}</b>
+              {h.league ? ` · ${h.league}` : ""}
+              <span className="text-muted">{[h.club, h.year].filter(Boolean).length ? ` · ${[h.club, h.year].filter(Boolean).join(" · ")}` : ""}</span>
+            </p>
+            {confirmIdx === idx ? (
+              <span className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
+                <span className="text-muted">Wirklich löschen?</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (await onChange(honors.filter((_, j) => j !== idx))) setConfirmIdx(null);
+                  }}
+                  className="rounded-full bg-red-500/90 px-3 py-1 font-semibold text-white hover:bg-red-500"
+                >
+                  Ja, löschen
+                </button>
+                <button type="button" onClick={() => setConfirmIdx(null)} className="rounded-full border border-edge px-3 py-1 text-muted hover:text-ink">
+                  Nein
+                </button>
+              </span>
+            ) : (
+              <SmallButton onClick={() => setConfirmIdx(idx)}>🗑️ Löschen</SmallButton>
+            )}
+          </div>
+        );
+      })}
+      {honors.length < MAX_HONORS && (
+        <div className="flex flex-col gap-2 rounded-lg border border-dashed border-edge p-3">
+          <p className="text-xs font-semibold text-muted">Neuer Erfolg</p>
+          <div className="grid gap-2 sm:grid-cols-4">
+            <select value={t} onChange={(e) => setT(e.target.value)} aria-label="Art des Erfolgs" className={INPUT}>
+              {HONOR_TYPES.map((h) => (
+                <option key={h.t} value={h.t}>
+                  {h.icon} {h.t}
+                </option>
+              ))}
+            </select>
+            <select value={league} onChange={(e) => setLeague(e.target.value)} aria-label="Liga" className={INPUT}>
+              <option value="">Liga (optional)</option>
+              {leagues.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+            <select value={club} onChange={(e) => setClub(e.target.value)} aria-label="Verein" className={INPUT}>
+              <option value="">{clubs.length ? "Mit welchem Verein?" : "Verein (erst in Laufbahn eintragen)"}</option>
+              {clubs.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <input
+              value={year}
+              maxLength={4}
+              inputMode="numeric"
+              placeholder="Jahr"
+              onChange={(e) => setYear(e.target.value.replace(/\D/g, ""))}
+              className={INPUT}
+            />
+          </div>
+          {err && <p className="text-xs text-red-400">{err}</p>}
+          <button
+            type="button"
+            onClick={add}
+            className="self-start rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch hover:bg-action-hover"
+          >
+            Erfolg speichern
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Lieblingsverein/-sportler zu einem Interesse, mit eigenem Speichern-Knopf.
+function FavRow({ label, value, onSave }: { label: string; value: string; onSave: (fav: string) => Promise<boolean> }) {
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value]);
+  const dirty = text.trim() !== value;
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-edge bg-pitch px-3 py-2 sm:flex-row sm:items-center">
+      <span className="shrink-0 text-sm text-ink sm:w-36">{label}</span>
+      <input
+        value={text}
+        maxLength={FAV_MAX}
+        list="sport-bio-clubs"
+        placeholder="Lieblingsverein oder Sportler (optional)"
+        onChange={(e) => setText(e.target.value)}
+        className={`${INPUT} min-w-0 flex-1`}
+      />
+      <button
+        type="button"
+        disabled={!dirty}
+        onClick={() => onSave(text.trim())}
+        className="shrink-0 rounded-full bg-action px-4 py-1.5 text-xs font-semibold text-pitch hover:bg-action-hover disabled:cursor-default disabled:bg-transparent disabled:text-muted disabled:ring-1 disabled:ring-edge"
+      >
+        Speichern
+      </button>
+    </div>
+  );
 }
 
 function validYear(v: string): string | undefined {

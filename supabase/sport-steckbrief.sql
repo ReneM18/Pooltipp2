@@ -133,6 +133,32 @@ begin
   if octet_length((new.data - 'photo')::text) > 20000 then
     raise exception 'Steckbrief zu groß';
   end if;
+  -- Karte v5 (20.10.2026): Erfolge (max. 12) und Interessen (max. 8).
+  if jsonb_typeof(new.data -> 'honors') = 'array' and jsonb_array_length(new.data -> 'honors') > 12 then
+    raise exception 'Höchstens 12 Erfolge';
+  end if;
+  if jsonb_typeof(new.data -> 'interests') = 'array' and jsonb_array_length(new.data -> 'interests') > 8 then
+    raise exception 'Höchstens 8 Interessen';
+  end if;
+  -- Verein beim Erfolg und Lieblingsverein/-sportler: wie Vereine prüfen lassen.
+  if jsonb_typeof(new.data -> 'honors') = 'array' then
+    for v_idx in 0 .. jsonb_array_length(new.data -> 'honors') - 1 loop
+      v_club := left(trim(coalesce(new.data -> 'honors' -> v_idx ->> 'club', '')), 30);
+      if v_club <> '' then
+        new.data := jsonb_set(new.data, array['honors', v_idx::text, 'club'], to_jsonb(v_club));
+        perform public.sport_bio_note_club(v_club, new.user_id);
+      end if;
+    end loop;
+  end if;
+  if jsonb_typeof(new.data -> 'interests') = 'array' then
+    for v_idx in 0 .. jsonb_array_length(new.data -> 'interests') - 1 loop
+      v_club := left(trim(coalesce(new.data -> 'interests' -> v_idx ->> 'fav', '')), 30);
+      if v_club <> '' then
+        new.data := jsonb_set(new.data, array['interests', v_idx::text, 'fav'], to_jsonb(v_club));
+        perform public.sport_bio_note_club(v_club, new.user_id);
+      end if;
+    end loop;
+  end if;
 
   -- Vereinsnamen kürzen (max. 30 Zeichen) und unbekannte als "wartet" merken.
   if jsonb_typeof(new.data -> 'stations') = 'array' then
@@ -211,6 +237,26 @@ begin
         end if;
       end if;
     end loop;
+  end if;
+  -- Erfolge (Verein) und Interessen (Lieblingsverein/-sportler): andere
+  -- sehen nur Bekanntes oder vom Admin Freigegebenes.
+  if v_row.user_id is distinct from v_me then
+    if jsonb_typeof(v_data -> 'honors') = 'array' then
+      for v_idx in 0 .. jsonb_array_length(v_data -> 'honors') - 1 loop
+        v_club := coalesce(v_data -> 'honors' -> v_idx ->> 'club', '');
+        if v_club <> '' and not public.sport_bio_club_ok(v_club) then
+          v_data := v_data #- array['honors', v_idx::text, 'club'];
+        end if;
+      end loop;
+    end if;
+    if jsonb_typeof(v_data -> 'interests') = 'array' then
+      for v_idx in 0 .. jsonb_array_length(v_data -> 'interests') - 1 loop
+        v_club := coalesce(v_data -> 'interests' -> v_idx ->> 'fav', '');
+        if v_club <> '' and not public.sport_bio_club_ok(v_club) then
+          v_data := v_data #- array['interests', v_idx::text, 'fav'];
+        end if;
+      end loop;
+    end if;
   end if;
   if jsonb_typeof(v_data -> 'roles') = 'object' then
     for v_role in select key, value from jsonb_each(v_data -> 'roles') loop
