@@ -561,7 +561,7 @@ function TickerSpeedEditor() {
 }
 
 function NewsManager() {
-  const { newsItems, addNews, updateNews, removeNews } = useAppData();
+  const { newsItems, addNews, updateNews, removeNews, moveNews } = useAppData();
   const { showToast } = useFeedback();
   const [text, setText] = useState("");
   const [sport, setSport] = useState<NewsSport | "">("");
@@ -648,8 +648,18 @@ function NewsManager() {
             Noch keine News angelegt.
           </p>
         )}
-        {newsItems.map((item) => (
-          <NewsItemRow key={item.id} item={item} onSave={updateNews} onRemove={removeNews} />
+        {newsItems.length > 1 && (
+          <p className="text-xs text-muted">Mit ↑ und ↓ legst du fest, in welcher Reihenfolge die Headlines im Laufband kommen.</p>
+        )}
+        {newsItems.map((item, i) => (
+          <NewsItemRow
+            key={item.id}
+            item={item}
+            onSave={updateNews}
+            onRemove={removeNews}
+            onMoveUp={i > 0 ? () => moveNews(item.id, -1) : undefined}
+            onMoveDown={i < newsItems.length - 1 ? () => moveNews(item.id, 1) : undefined}
+          />
         ))}
       </div>
     </section>
@@ -660,10 +670,14 @@ function NewsItemRow({
   item,
   onSave,
   onRemove,
+  onMoveUp,
+  onMoveDown,
 }: {
   item: NewsItem;
   onSave: (id: string, text: string, sport: NewsSport | null, article: string | null, poll?: NewsPoll | null) => void;
   onRemove: (id: string) => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }) {
   const { showToast } = useFeedback();
   const [editing, setEditing] = useState(false);
@@ -730,7 +744,27 @@ function NewsItemRow({
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 sm:p-5">
-      <span className="flex items-center gap-2 text-sm text-ink">
+      <span className="flex shrink-0 flex-col gap-1">
+        <button
+          type="button"
+          aria-label="Nach vorne"
+          disabled={!onMoveUp}
+          onClick={onMoveUp}
+          className="flex h-7 w-7 items-center justify-center rounded-full border border-edge text-sm text-muted transition-colors hover:border-gold hover:text-gold disabled:opacity-25 disabled:hover:border-edge disabled:hover:text-muted"
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          aria-label="Nach hinten"
+          disabled={!onMoveDown}
+          onClick={onMoveDown}
+          className="flex h-7 w-7 items-center justify-center rounded-full border border-edge text-sm text-muted transition-colors hover:border-gold hover:text-gold disabled:opacity-25 disabled:hover:border-edge disabled:hover:text-muted"
+        >
+          ↓
+        </button>
+      </span>
+      <span className="flex min-w-0 flex-1 items-center gap-2 text-sm text-ink">
         {item.sport && <span className="text-base"><NewsSportIcon sport={item.sport} /></span>}
         {item.text}
         {item.article && (
