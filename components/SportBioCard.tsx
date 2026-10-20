@@ -554,6 +554,37 @@ export function SportCard({
           </span>
         )}
       </div>
+      {/* Erklärung direkt bei der Karte (Rene, 20.10.2026: "der Text gehört in
+          die Nähe der Karte"). */}
+      <details className="group mt-2 text-center">
+        <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[11px] font-semibold text-muted hover:text-ink [&::-webkit-details-marker]:hidden">
+          ℹ️ So funktioniert die Karte <span className="transition-transform group-open:rotate-180">▾</span>
+        </summary>
+        <div className="mt-2 rounded-card border border-edge bg-surface p-3 text-left text-xs leading-relaxed text-muted">
+          <ul className="flex flex-col gap-1.5">
+            <li>
+              <b className="text-ink">Pro Sportart eine Karte:</b> Oben wechselst du die Sportart. Jede Karte zeigt deinen Rang, Platz
+              und deine Rangpunkte in dieser Sportart.
+            </li>
+            <li>
+              <b className="text-ink">Rückseite:</b> deine Tipp-Statistik dieser Sportart (Treffer, exakt, Tipps) vom ersten Tipp bis
+              heute, dazu Erfolge, Laufbahn und Interessen.
+            </li>
+            <li>
+              <b className="text-ink">Eigene Angaben:</b> Laufbahn und Erfolge trägst du selbst ein, sie bringen keine Punkte. „✓
+              bestätigt“ setzt nur der Admin.
+            </li>
+            <li>
+              <b className="text-ink">Unsterblich:</b> Wer in allen Sportarten GOAT ist, bekommt eine eigene Karte mit allen Sportarten.
+            </li>
+            <li>
+              <b className="text-ink">Kaufen (bald):</b> frühestens ab 500 getippten Spielen in der Sportart und nur mit klar
+              erkennbarem eigenem Gesicht, nach Antrag und Freigabe. Die Karte wird gedruckt und dir nach Hause geschickt, die
+              Statistik darauf zählt vom ersten Tipp bis zum Kauf.
+            </li>
+          </ul>
+        </div>
+      </details>
     </div>
   );
 }
