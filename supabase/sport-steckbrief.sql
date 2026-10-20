@@ -1,9 +1,11 @@
 -- ============================================================================
--- PoolTipp – Sport-Steckbrief im Profil (Rene, 19.10.2026)
+-- PoolTipp – Sport-Steckbrief / Sportlerkarte im Profil (Rene, 19./20.10.2026)
 -- ============================================================================
 -- Spieler zeigen im Profil, was sie selbst mit Sport zu tun haben:
--- Rollen (Spieler, Trainer, Schiedsrichter … jeweils aktiv oder ehemalig),
--- wo (Land, Bundesland, Verein), Sportarten, höchste Spielklasse, Fan seit.
+-- Laufbahn aus Stationen (Rolle, Sportart, aktiv/ehemalig, wo, von–bis,
+-- Position, höchste Klasse), Erfolge, Rückennummer, Fan seit.
+-- 20.10.2026: Vereine stehen jetzt in data.stations (Liste); die erste
+-- Version (data.roles) wird weiter unterstützt.
 --
 -- - Eigene Angabe, bringt keine Vorteile bei Punkten oder Rängen.
 -- - "✓ bestätigt" kann nur der Admin setzen.
@@ -69,6 +71,34 @@ as $$
   select lower(regexp_replace(trim(coalesce(p_name, '')), '\s+', ' ', 'g'));
 $$;
 
+-- Verein bekannt (Team in der App) oder vom Admin freigegeben?
+create or replace function public.sport_bio_club_ok(p_club text)
+returns boolean
+language sql
+stable
+security definer set search_path = public
+as $$
+  select exists (select 1 from public.teams t where public.sport_bio_key(t.data ->> 'name') = public.sport_bio_key(p_club))
+      or exists (select 1 from public.sport_bio_clubs c where c.name_key = public.sport_bio_key(p_club) and c.status = 'approved');
+$$;
+
+-- Unbekannten Verein als "wartet auf Prüfung" merken.
+create or replace function public.sport_bio_note_club(p_club text, p_user uuid)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if not exists (
+    select 1 from public.teams t where public.sport_bio_key(t.data ->> 'name') = public.sport_bio_key(p_club)
+  ) then
+    insert into public.sport_bio_clubs (name_key, name, first_user)
+    values (public.sport_bio_key(p_club), p_club, p_user)
+    on conflict (name_key) do nothing;
+  end if;
+end;
+$$;
+
 create or replace function public.sport_bios_before_write()
 returns trigger
 language plpgsql
@@ -77,6 +107,7 @@ as $$
 declare
   v_role record;
   v_club text;
+  v_idx int;
 begin
   if not public.is_admin() then
     if tg_op = 'INSERT' then
@@ -87,19 +118,30 @@ begin
   end if;
   new.updated_at := now();
 
+  -- Grenzen gegen Missbrauch: höchstens 15 Stationen, insgesamt klein.
+  if jsonb_typeof(new.data -> 'stations') = 'array' and jsonb_array_length(new.data -> 'stations') > 15 then
+    raise exception 'Höchstens 15 Stationen';
+  end if;
+  if octet_length(new.data::text) > 20000 then
+    raise exception 'Steckbrief zu groß';
+  end if;
+
   -- Vereinsnamen kürzen (max. 30 Zeichen) und unbekannte als "wartet" merken.
+  if jsonb_typeof(new.data -> 'stations') = 'array' then
+    for v_idx in 0 .. jsonb_array_length(new.data -> 'stations') - 1 loop
+      v_club := left(trim(coalesce(new.data -> 'stations' -> v_idx ->> 'club', '')), 30);
+      if v_club <> '' then
+        new.data := jsonb_set(new.data, array['stations', v_idx::text, 'club'], to_jsonb(v_club));
+        perform public.sport_bio_note_club(v_club, new.user_id);
+      end if;
+    end loop;
+  end if;
   if jsonb_typeof(new.data -> 'roles') = 'object' then
     for v_role in select key, value from jsonb_each(new.data -> 'roles') loop
       v_club := left(trim(coalesce(v_role.value ->> 'club', '')), 30);
       if v_club <> '' then
         new.data := jsonb_set(new.data, array['roles', v_role.key, 'club'], to_jsonb(v_club));
-        if not exists (
-          select 1 from public.teams t where public.sport_bio_key(t.data ->> 'name') = public.sport_bio_key(v_club)
-        ) then
-          insert into public.sport_bio_clubs (name_key, name, first_user)
-          values (public.sport_bio_key(v_club), v_club, new.user_id)
-          on conflict (name_key) do nothing;
-        end if;
+        perform public.sport_bio_note_club(v_club, new.user_id);
       end if;
     end loop;
   end if;
@@ -128,6 +170,7 @@ declare
   v_role record;
   v_club text;
   v_ok boolean;
+  v_idx int;
 begin
   select * into v_row from public.sport_bios b where b.user_id = p_user;
   if not found then return; end if;
@@ -146,14 +189,26 @@ begin
   end if;
 
   v_data := v_row.data;
+  -- Der Besitzer sieht seinen Verein immer (mit Hinweis "wird geprüft"),
+  -- alle anderen nur freigegebene bzw. bekannte.
+  if jsonb_typeof(v_data -> 'stations') = 'array' then
+    for v_idx in 0 .. jsonb_array_length(v_data -> 'stations') - 1 loop
+      v_club := coalesce(v_data -> 'stations' -> v_idx ->> 'club', '');
+      if v_club <> '' then
+        v_ok := public.sport_bio_club_ok(v_club);
+        if v_row.user_id = v_me then
+          v_data := jsonb_set(v_data, array['stations', v_idx::text, 'clubApproved'], to_jsonb(v_ok));
+        elsif not v_ok then
+          v_data := v_data #- array['stations', v_idx::text, 'club'];
+        end if;
+      end if;
+    end loop;
+  end if;
   if jsonb_typeof(v_data -> 'roles') = 'object' then
     for v_role in select key, value from jsonb_each(v_data -> 'roles') loop
       v_club := coalesce(v_role.value ->> 'club', '');
       if v_club <> '' then
-        v_ok := exists (select 1 from public.teams t where public.sport_bio_key(t.data ->> 'name') = public.sport_bio_key(v_club))
-             or exists (select 1 from public.sport_bio_clubs c where c.name_key = public.sport_bio_key(v_club) and c.status = 'approved');
-        -- Der Besitzer sieht seinen Verein immer (mit Hinweis "wird geprüft"),
-        -- alle anderen nur freigegebene bzw. bekannte.
+        v_ok := public.sport_bio_club_ok(v_club);
         if v_row.user_id = v_me then
           v_data := jsonb_set(v_data, array['roles', v_role.key, 'clubApproved'], to_jsonb(v_ok));
         elsif not v_ok then
@@ -226,6 +281,8 @@ grant execute on function public.admin_sport_bio_overview() to authenticated;
 grant execute on function public.admin_set_sport_club(text, text) to authenticated;
 grant execute on function public.admin_set_sport_bio_verified(uuid, boolean) to authenticated;
 revoke all on function public.sport_bios_before_write() from public, anon, authenticated;
+revoke all on function public.sport_bio_note_club(text, uuid) from public, anon, authenticated;
+revoke all on function public.sport_bio_club_ok(text) from public, anon, authenticated;
 
 commit;
 

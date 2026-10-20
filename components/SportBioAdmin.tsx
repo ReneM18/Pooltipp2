@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { BioData, orderedRoles, roleLabel, rolePlace } from "@/lib/sportBio";
+import { BioData, normalizeBio, roleDef, stationPlace, stationTitle, stationYears } from "@/lib/sportBio";
 
 // Admin -> "Steckbriefe": eingetippte Vereine freigeben (vorher sehen andere
 // sie nicht) und Steckbriefe als "✓ bestätigt" markieren. Datenbank-Funktionen:
@@ -90,7 +90,7 @@ export function SportBioAdmin() {
             {bios.map((b) => {
               let data: BioData = {};
               try {
-                data = JSON.parse(b.detail) as BioData;
+                data = normalizeBio(JSON.parse(b.detail));
               } catch {
                 data = {};
               }
@@ -100,13 +100,13 @@ export function SportBioAdmin() {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-ink">{b.label}</p>
                     <p className="text-xs text-muted">
-                      {orderedRoles(data)
-                        .map(([k, r]) => {
-                          const [icon, label] = roleLabel(k, r);
-                          const place = rolePlace(r);
-                          return `${icon} ${label}${place ? ` (${place})` : ""}`;
+                      {(data.stations ?? [])
+                        .map((st) => {
+                          const place = [stationPlace(st), stationYears(st)].filter(Boolean).join(", ");
+                          return `${roleDef(st.role).icon} ${stationTitle(st)}${place ? ` (${place})` : ""}`;
                         })
-                        .join(" · ") || "Nur Sportarten/Fan seit"}
+                        .join(" · ") || "Nur Erfolge/Fan seit"}
+                      {(data.honors?.length ?? 0) > 0 && <span className="block">{data.honors!.join(" · ")}</span>}
                     </p>
                   </div>
                   <button

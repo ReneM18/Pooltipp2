@@ -481,7 +481,16 @@ function ProfilInhalt() {
           Einstellungen → App. */}
       {profileTab === "Übersicht" && (
         <>
-      {sportBio.status === "ready" && <SportBioCard bio={sportBio.bio} onEdit={openSportBioEditor} />}
+      {sportBio.status === "ready" && (
+        <SportBioCard
+          bio={sportBio.bio}
+          name={displayName}
+          photo={photos[0]}
+          rankIcon={activeRankIcon}
+          place={currentRank}
+          onEdit={openSportBioEditor}
+        />
+      )}
       <section className="mb-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-display text-lg font-semibold text-ink">Deine Zahlen</h2>
@@ -934,6 +943,10 @@ function ProfilInhalt() {
           {isRegistered && authUserId && sportBio.status !== "loading" && (
             <SportBioEditor
               userId={authUserId}
+              name={displayName}
+              photo={photos[0]}
+              rankIcon={activeRankIcon}
+              place={currentRank}
               bio={sportBio.bio}
               unavailable={sportBio.status === "missing"}
               onSaved={sportBio.reload}
