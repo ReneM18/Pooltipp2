@@ -166,7 +166,7 @@ export default function SportBioEditor({
       <p className="mt-1 text-xs text-muted">
         Was hast du selbst mit Sport zu tun? Deine Karte gibt es pro Sportart, mit deinem Rang und deiner Tipp-Statistik. Laufbahn
         und Erfolge sind „eigene Angaben“ und bringen keine Punkte, „✓ bestätigt“ kann nur der Admin setzen. Kaufen kannst du eine
-        Karte bald, frühestens ab 500 getippten Spielen in der Sportart.
+        Karte bald, frühestens ab 500 getippten Spielen in der Sportart. Sie wird gedruckt und dir nach Hause geschickt.
       </p>
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
 
@@ -390,8 +390,8 @@ export default function SportBioEditor({
             </p>
             <p className="text-xs text-muted">
               Kaufen kann man eine Karte später frühestens ab 500 getippten Spielen (pro Sportart) und nur mit einem klar erkennbaren
-              eigenen Gesicht. Du stellst einen Antrag, PoolTipp prüft das Foto und gibt frei. Die Statistik auf der gekauften Karte zählt
-              von deinem ersten Tipp bis zum Kauf. Im Profil kannst du dein Kartenfoto weiter jederzeit tauschen.
+              eigenen Gesicht. Du stellst einen Antrag, PoolTipp prüft das Foto und gibt frei. Die gekaufte Karte wird gedruckt und dir nach Hause
+              geschickt, die Statistik darauf zählt von deinem ersten Tipp bis zum Kauf. Im Profil kannst du dein Kartenfoto weiter jederzeit tauschen.
             </p>
           </div>
         </div>
