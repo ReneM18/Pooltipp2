@@ -70,6 +70,15 @@ export default function Footer() {
             gewinnst du 40 dazu, mit der richtigen Tordifferenz 10, bei der richtigen Tendenz behältst du deinen
             Einsatz, ein Fehltipp kostet 10. <Coin /> Coins kann man nie mit echtem Geld kaufen.
           </p>
+          {/* Sportlerkarte (Rene, 20.10.2026: "in die Beschreibung reingeben"). */}
+          <p>
+            <strong className="font-semibold text-ink">🃏 Deine Sportlerkarte:</strong> Im Profil gestaltest du deine Karte
+            pro Sportart, mit deinem Foto, deiner Laufbahn (z. B. Ex-Vereinsspieler oder Trainer), deinen Erfolgen, deinem
+            Rang-Abzeichen und deiner Tipp-Statistik dieser Sportart. Wer in allen Sportarten GOAT ist, bekommt die
+            Unsterblich-Karte mit allen Sportarten. Bald kannst du deine Karte auch kaufen: frühestens ab 500 getippten Spielen
+            in dieser Sportart und nur mit einem klar erkennbaren eigenen Gesicht, nach Antrag und Freigabe. Die Statistik
+            auf der gekauften Karte zählt von deinem ersten Tipp bis zum Kauf.
+          </p>
           <p>
             Dazu gibt's echte Live-Ergebnisse und Tabellen im Matchcenter, einen Saison-Pass mit
             Belohnungen fürs tägliche Reinschauen, eine Rangliste pro Sportart, eine Wochen-Rangliste (Dienstag 8:00 bis

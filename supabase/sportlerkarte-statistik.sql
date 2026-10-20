@@ -6,7 +6,8 @@
 -- Sportart und auf der Rückseite der Tipp-Statistik dieser Sportart.
 --
 -- sport_card_stats(p_user) liefert je Sportart:
---   points, place, prestige  – wie in der Rangliste (die ist ohnehin öffentlich)
+--   points, place, prestige  – wie in der Rangliste (seit dem Neustart, öffentlich)
+--   Die Tipp-Statistik zählt dagegen ALLE Tipps seit dem ersten.
 --   tips, evaluated, exakt, richtig, first_tip, last_tip (Zeitraum der
 --     Statistik, Rene: "von wann bis wann") – NUR wenn der Betrachter die Statistik
 --     sehen darf (Einstellung "Wer sieht meine Statistik", stats_visible aus
@@ -65,7 +66,9 @@ begin
            max(t.submitted_at) as d_last
     from public.tips t
     join public.matches m on m.id = t.match_id
-    where t.user_id = p_user and t.refunded_at is null and not coalesce(t.ranking_legacy, false)
+    -- ALLE Tipps seit dem allerersten, auch die vor dem Neustart des
+    -- Punktesystems (Rene, 20.10.2026: "von Beginn an bis zum Erwerb").
+    where t.user_id = p_user and t.refunded_at is null
     group by 1
   ),
   sp as (

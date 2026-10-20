@@ -164,14 +164,15 @@ export default function SportBioEditor({
         <h2 className="font-display text-lg font-semibold text-ink">🃏 Deine Sportlerkarte</h2>
       </div>
       <p className="mt-1 text-xs text-muted">
-        Was hast du selbst mit Sport zu tun? Steht als „eigene Angabe“ auf deiner Karte und bringt keine Punkte. „✓ bestätigt“ kann
-        nur der Admin setzen.
+        Was hast du selbst mit Sport zu tun? Deine Karte gibt es pro Sportart, mit deinem Rang und deiner Tipp-Statistik. Laufbahn
+        und Erfolge sind „eigene Angaben“ und bringen keine Punkte, „✓ bestätigt“ kann nur der Admin setzen. Kaufen kannst du eine
+        Karte bald, frühestens ab 500 getippten Spielen in der Sportart.
       </p>
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
 
       {previewStations.length > 0 && (
         <div className="mt-4">
-          <SportCard bio={preview} userId={userId} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} />
+          <SportCard bio={preview} own userId={userId} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} />
           <p className="mt-1 text-center text-[11px] text-muted">Vorschau</p>
         </div>
       )}
@@ -388,8 +389,9 @@ export default function SportBioEditor({
               Karte kaufen <span className="ml-1 rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold">Bald</span>
             </p>
             <p className="text-xs text-muted">
-              Kaufen kann man die Karte später nur mit einem klar erkennbaren eigenen Gesicht. Du stellst einen Antrag, PoolTipp prüft das Foto
-              und gibt frei. Im Profil kannst du dein Kartenfoto weiter jederzeit tauschen.
+              Kaufen kann man eine Karte später frühestens ab 500 getippten Spielen (pro Sportart) und nur mit einem klar erkennbaren
+              eigenen Gesicht. Du stellst einen Antrag, PoolTipp prüft das Foto und gibt frei. Die Statistik auf der gekauften Karte zählt
+              von deinem ersten Tipp bis zum Kauf. Im Profil kannst du dein Kartenfoto weiter jederzeit tauschen.
             </p>
           </div>
         </div>
