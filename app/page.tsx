@@ -20,7 +20,7 @@ import { useFeedback } from "@/lib/FeedbackContext";
 import { BOOSTER_STAKE } from "@/lib/poolScore";
 import { Match, isSportActive } from "@/lib/types";
 import { DayGroup, deadlineText, groupMatchesByDay } from "@/lib/dayGroups";
-import { HomeTab, autoHomeTab, homeTabOf, splitHomeTabs } from "@/lib/matchTabs";
+import { HomeTab, autoHomeTab, hasUnseenResults, homeTabOf, markResultsSeen, splitHomeTabs } from "@/lib/matchTabs";
 import { displayOrder } from "@/lib/teamOrder";
 import { useStreak } from "@/lib/streak";
 import { readPendingInvite } from "@/lib/leagueInvite";
@@ -171,11 +171,22 @@ export default function DashboardPage() {
   }, []);
   const ready = contentLoaded && now !== null && (tipsWaitOver || (sessionChecked && (!authUserId || myTipsLoaded)));
   // Vom Start-Erlebnis vorgeschlagenes Spiel: dessen Reiter zuerst.
-  const autoTab = highlightId && shownMatches.some((m) => m.id === highlightId) ? homeTabOf(split, highlightId) : autoHomeTab(split);
+  // Neue Ergebnisse seit dem letzten Besuch: einmal beim Öffnen prüfen (lib/matchTabs.ts).
+  const [newResults, setNewResults] = useState<boolean | null>(null);
   useEffect(() => {
-    if (ready && chosenTab === null) setTab(autoTab);
-  }, [ready, chosenTab, autoTab]);
+    if (ready && newResults === null && now !== null) setNewResults(hasUnseenResults(split.beendet, now));
+  }, [ready, newResults, now, split.beendet]);
+  const autoTab =
+    highlightId && shownMatches.some((m) => m.id === highlightId) ? homeTabOf(split, highlightId) : autoHomeTab(split, !!newResults);
+  useEffect(() => {
+    if (ready && newResults !== null && chosenTab === null) setTab(autoTab);
+  }, [ready, newResults, chosenTab, autoTab]);
   const tab: HomeTab = chosenTab ?? autoTab;
+  // Reiter Beendet angesehen: diese Ergebnisse sind nicht mehr "neu".
+  const beendetKey = split.beendet.map((m) => m.id).join(",");
+  useEffect(() => {
+    if (tab === "beendet" && ready && beendetKey) markResultsSeen(beendetKey.split(",").map((id) => ({ id })));
+  }, [tab, ready, beendetKey]);
   // Karte erst suchen, wenn der Reiter steht (sonst ist sie noch nicht da).
   useEffect(() => {
     if (!highlightId || !ready || scrolledRef.current) return;
@@ -230,6 +241,22 @@ export default function DashboardPage() {
     : [];
   const stageIds = new Set(stageMatches.map((m) => m.id));
   const notOnStage = (list: Match[]) => (stageIds.size ? list.filter((m) => !stageIds.has(m.id)) : list);
+
+  // "Alles getippt – nächstes Spiel in 2 Std. 14 Min." (unter 3 Std.) bzw.
+  // "um 21:00" / "Sa. 15:30" (Rene, 20.10.2026).
+  const nextKickoff = tippable[0] ? Date.parse(tippable[0].kickoff) : null;
+  const nextKickoffText = (() => {
+    if (nextKickoff === null || now === null) return null;
+    const ms = nextKickoff - now;
+    if (ms <= 0) return null;
+    if (ms < 3 * 60 * 60 * 1000) {
+      const h = Math.floor(ms / 3_600_000);
+      const min = Math.floor((ms % 3_600_000) / 60_000);
+      return h > 0 ? `in ${h} Std. ${min} Min.` : `in ${Math.max(1, min)} Min.`;
+    }
+    const when = deadlineText(nextKickoff, now);
+    return /^\d/.test(when) ? `um ${when}` : when;
+  })();
 
   // Nächster Tippschluss eines noch nicht getippten Spiels ("12:30" bzw.
   // "Sa. 15:30") für die Leiste über den Reitern und "Noch offen".
@@ -425,10 +452,10 @@ export default function DashboardPage() {
         <EmptyState
           className="mb-7"
           emoji="✅"
-          title="Alles getippt"
+          title={nextKickoffText ? `Alles getippt – nächstes Spiel ${nextKickoffText}` : "Alles getippt"}
           text={
             tippable.length > 0
-              ? "Neue Spiele erscheinen hier, sobald sie angesetzt sind. Deine Tipps kannst du bis zum Tippschluss ändern."
+              ? "Deine Tipps siehst du unten und kannst sie bis zum Tippschluss ändern. Neue Spiele erscheinen hier, sobald sie angesetzt sind."
               : "Neue Spiele erscheinen hier, sobald sie angesetzt sind. Schau solange im Matchcenter vorbei."
           }
           action={tippable.length > 0 ? undefined : { href: "/matchcenter", label: "Zum Matchcenter" }}

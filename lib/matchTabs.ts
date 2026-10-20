@@ -60,11 +60,57 @@ export function splitHomeTabs<T extends TabMatch & { id: string }>(
   return split;
 }
 
-/** Reiter beim Öffnen (Renes Regel): läuft etwas → Live, sonst offene Tipps → Tippen, sonst Beendet. */
-export function autoHomeTab(split: { offen: unknown[]; laeuft: unknown[]; geradeBeendet: unknown[] }): HomeTab {
+/**
+ * Reiter beim Öffnen (Renes Regel, 20.10.2026): läuft etwas → Live, sonst
+ * offene Tipps → Tippen, sonst neue Ergebnisse seit dem letzten Besuch →
+ * Beendet, sonst Tippen (die eigenen Tipps mit "Alles getippt"). Vorher ging
+ * es nach dem letzten Tipp immer zu Beendet, auch ohne neue Ergebnisse.
+ */
+export function autoHomeTab(
+  split: { offen: unknown[]; laeuft: unknown[]; geradeBeendet: unknown[] },
+  hasNewResults = false
+): HomeTab {
   if (split.laeuft.length + split.geradeBeendet.length > 0) return "live";
   if (split.offen.length > 0) return "tippen";
-  return "beendet";
+  if (hasNewResults) return "beendet";
+  return "tippen";
+}
+
+// Neue Ergebnisse = beendete Spiele, die man im Reiter Beendet noch nicht
+// gesehen hat. Gemerkt wird pro Gerät (localStorage), welche Spiele man dort
+// schon gesehen hat. Nur Spiele der letzten 3 Tage zählen als "neu".
+const SEEN_KEY = "pooltipp.seenResults";
+const NEW_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+
+function readSeen(): Set<string> | null {
+  try {
+    const raw = window.localStorage.getItem(SEEN_KEY);
+    return raw ? new Set(JSON.parse(raw) as string[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Gibt es beendete Spiele (letzte 3 Tage), die noch nicht gesehen wurden? */
+export function hasUnseenResults(beendet: { id: string; kickoff: string }[], now: number): boolean {
+  const seen = readSeen();
+  // Erster Besuch mit dieser Regel: nichts als "neu" zählen, nur merken.
+  if (!seen) {
+    markResultsSeen(beendet);
+    return false;
+  }
+  return beendet.some((m) => now - Date.parse(m.kickoff) < NEW_WINDOW_MS && !seen.has(m.id));
+}
+
+/** Beendete Spiele als gesehen merken (die neuesten 300 reichen). */
+export function markResultsSeen(beendet: { id: string }[]) {
+  try {
+    const seen = readSeen() ?? new Set<string>();
+    for (const m of beendet) seen.add(m.id);
+    window.localStorage.setItem(SEEN_KEY, JSON.stringify(Array.from(seen).slice(-300)));
+  } catch {
+    // Speicher nicht verfügbar (privates Fenster): dann gibt es eben kein "neu".
+  }
 }
 
 /** Reiter, in dem ein Spiel steht (für /?spiel=… vom Start-Erlebnis). */

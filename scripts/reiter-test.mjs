@@ -64,8 +64,11 @@ assert.deepEqual(ids(sortiert.offen), ["a", "b"]);
 // Automatische Reiterwahl: Live vor Tippen vor Beendet.
 assert.equal(autoHomeTab(home), "live");
 assert.equal(autoHomeTab(splitHomeTabs([M("x", "upcoming", 3)], now, () => false, () => false)), "tippen");
-assert.equal(autoHomeTab(splitHomeTabs([M("x", "upcoming", 3)], now, () => true, () => false)), "beendet");
-assert.equal(autoHomeTab(gleich), "beendet");
+// Alles getippt: ohne neue Ergebnisse Tippen, mit neuen Ergebnissen Beendet (Rene, 20.10.2026).
+assert.equal(autoHomeTab(splitHomeTabs([M("x", "upcoming", 3)], now, () => true, () => false)), "tippen");
+assert.equal(autoHomeTab(splitHomeTabs([M("x", "upcoming", 3)], now, () => true, () => false), true), "beendet");
+assert.equal(autoHomeTab(gleich), "tippen");
+assert.equal(autoHomeTab(gleich, true), "beendet");
 assert.equal(homeTabOf(home, "bald"), "tippen");
 assert.equal(homeTabOf(home, "laeuft"), "live");
 assert.equal(homeTabOf(home, "beendet"), "beendet");
