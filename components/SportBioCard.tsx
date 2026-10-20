@@ -95,9 +95,8 @@ export default function SportBioCard({
       <div style={compact ? { zoom: 0.78 } : undefined}>
         <SportCard bio={bio} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} streak={streak} />
       </div>
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted">
-        {!compact && <span>Antippen zum Umdrehen</span>}
-        {own && (
+      {own && (
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted">
           <>
             <span>
               {bio.visibility === "public" ? "👁️ Sehen alle" : bio.visibility === "friends" ? "👥 Sehen deine Freunde" : "🔒 Für andere ausgeblendet"}
@@ -106,8 +105,8 @@ export default function SportBioCard({
               Bearbeiten
             </button>
           </>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -172,19 +171,7 @@ export function SportCard({
   const flip = () => setFlipped((f) => !f);
 
   return (
-    <div className="relative mx-auto w-full max-w-[320px] [perspective:1200px]">
-      {/* Umdreh-Pfeil an der Ecke (Rene, 20.10.2026), dreht sich nicht mit. */}
-      <button
-        type="button"
-        onClick={flip}
-        aria-label={flipped ? "Vorderseite zeigen" : "Rückseite zeigen"}
-        title="Karte umdrehen"
-        className="absolute -bottom-3 -right-3 z-20 grid h-10 w-10 place-items-center rounded-full bg-gold text-xl font-bold text-pitch shadow-[0_4px_12px_rgba(0,0,0,0.5)] ring-2 ring-pitch transition-transform hover:scale-110 motion-reduce:transition-none"
-      >
-        <span aria-hidden className={`inline-block transition-transform duration-700 motion-reduce:transition-none ${flipped ? "rotate-180" : ""}`}>
-          ↻
-        </span>
-      </button>
+    <div className="mx-auto w-full max-w-[320px] [perspective:1200px]">
       <div
         role="button"
         tabIndex={0}
@@ -285,19 +272,18 @@ export function SportCard({
                   ))}
                 </div>
               )}
-              <div className="mt-2 flex items-center justify-between gap-2 border-t border-white/10 pr-6 pt-1.5 text-[10.5px] text-[#cfd8d3]">
+              <div className="mt-2 flex items-center justify-between gap-2 border-t border-white/10 pt-1.5 text-[10.5px] text-[#cfd8d3]">
+                {/* Klar beschriftet (Rene, 20.10.2026: "was bedeutet PoolTipp 173"). */}
                 <span className="truncate">
-                  PoolTipp
                   {points != null && (
                     <>
-                      {" "}
                       <b className="font-display text-gold">{points.toLocaleString("de-DE")}</b> Rangpunkte
                     </>
                   )}
                   {streak ? (
                     <>
-                      {" "}
-                      · 🔥 <b className="font-display text-gold">{streak}</b>
+                      {points != null ? " · " : ""}
+                      <b className="font-display text-gold">{streak}</b> {streak === 1 ? "Tag" : "Tage"} Tipp-Serie
                     </>
                   ) : null}
                 </span>
@@ -332,7 +318,7 @@ export function SportCard({
             <span className="truncate">{name}</span>
             <span className="shrink-0 text-[10px] font-semibold text-muted">Sportlerkarte</span>
           </p>
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto">
+          <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pl-1.5">
             {honors.length > 0 && (
               <BackSection title="Erfolge">
                 <ul className="flex flex-col gap-1.5">
@@ -379,13 +365,36 @@ export function SportCard({
               </BackSection>
             )}
           </div>
-          <div className="flex items-center justify-between gap-2 border-t border-edge pr-7 pt-1.5 text-[10px] text-muted">
+          <div className="flex items-center justify-between gap-2 border-t border-edge pt-1.5 text-[10px] text-muted">
             <span />
             {bio.verified ? <b className="font-bold text-action">✓ bestätigt von PoolTipp</b> : <span>Angaben vom Spieler selbst</span>}
           </div>
         </div>
       </div>
+      {/* Umdrehen als klare Schaltfläche unter der Karte (Rene, 20.10.2026:
+          der runde Pfeil an der Ecke sah nicht gut aus). */}
+      <div className="mt-3 flex justify-center">
+        <button
+          type="button"
+          onClick={flip}
+          className="inline-flex items-center gap-2 rounded-full border border-edge bg-surface px-4 py-1.5 font-display text-xs font-semibold text-ink transition-colors hover:border-gold/60 hover:text-gold"
+        >
+          <FlipIcon />
+          {flipped ? "Vorderseite zeigen" : "Rückseite zeigen"}
+        </button>
+      </div>
     </div>
+  );
+}
+
+function FlipIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15.5 6.2L3 16" />
+      <path d="M3 21v-5h5" />
+    </svg>
   );
 }
 
