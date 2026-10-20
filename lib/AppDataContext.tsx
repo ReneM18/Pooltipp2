@@ -1,6 +1,7 @@
 "use client";
 
 import { AppSettingsRow, DEFAULT_TICKER_SPEED, SETTINGS_ROW_ID, TickerSpeed, readTickerSpeed } from "./appSettings";
+import { GROUPS_ROW_ID, setTeamGroupDefs, TeamGroupDef, TeamGroupsRow } from "./teamGroups";
 import { createContext, useContext, useState, useEffect, useMemo, useRef, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { coinText } from "@/lib/coinText";
@@ -438,6 +439,8 @@ interface AppDataContextValue {
   addTeam: (team: Omit<Team, "id">) => Promise<SaveResult>;
   updateTeam: (id: string, changes: Omit<Team, "id">) => Promise<SaveResult>;
   removeTeam: (id: string) => Promise<SaveResult>;
+  teamGroupDefs: TeamGroupDef[];
+  saveTeamGroupDefs: (list: TeamGroupDef[]) => void;
   // Fehlgeschlagenes Speichern von Spielen/News/Wettbewerben (Admin-Meldung).
   saveProblem: SaveProblem | null;
   clearSaveProblem: () => void;
@@ -567,6 +570,9 @@ function sameJson(a: unknown, b: unknown) {
 
 export function AppDataProvider({ children }: { children: ReactNode }) {
   const [teams, setTeams] = useState<Team[]>(initialTeams);
+  const [teamGroupDefs, setTeamGroupDefsState] = useState<TeamGroupDef[]>([]);
+  // Für groupTeams() überall in der App (lib/teamGroups.ts).
+  setTeamGroupDefs(teamGroupDefs);
   const [matches, setMatches] = useState<Match[]>(initialMatches);
   const [competitions, setCompetitions] = useState<Competition[]>(() =>
     buildStartCompetitions(initialMatches)
@@ -703,10 +709,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setTickerSpeed(loadedSpeed);
         setTickerSpeedSaved(loadedSpeed);
         const loadedTeams = teamsRes.data
-          .filter((row) => row.id !== COMPETITIONS_ROW_ID && row.id !== SETTINGS_ROW_ID)
+          .filter((row) => row.id !== COMPETITIONS_ROW_ID && row.id !== SETTINGS_ROW_ID && row.id !== GROUPS_ROW_ID)
           .map((row) => row.data as Team);
         syncedTeamsRef.current = new Map(loadedTeams.map((t) => [t.id, t]));
         setTeams(loadedTeams);
+        const groupsList = (teamsRes.data.find((row) => row.id === GROUPS_ROW_ID)?.data as TeamGroupsRow | undefined)?.list;
+        if (Array.isArray(groupsList)) setTeamGroupDefsState(groupsList);
         const savedList = (compRow?.data as CompetitionsRow | undefined)?.list;
         if (Array.isArray(savedList)) {
           setCompetitions(savedList);
@@ -775,7 +783,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setTickerSpeed(nextSpeed);
       }
       const nextTeams = teamsRes.data
-        .filter((row) => row.id !== COMPETITIONS_ROW_ID && row.id !== SETTINGS_ROW_ID)
+        .filter((row) => row.id !== COMPETITIONS_ROW_ID && row.id !== SETTINGS_ROW_ID && row.id !== GROUPS_ROW_ID)
         .map((row) => row.data as Team);
       setTeams((current) => {
         if (sameJson(current, nextTeams)) return current;
@@ -785,6 +793,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       });
       const savedList = (compRow?.data as CompetitionsRow | undefined)?.list;
       if (Array.isArray(savedList)) setCompetitions((current) => (sameJson(current, savedList) ? current : savedList));
+      const groupsList = (teamsRes.data.find((row) => row.id === GROUPS_ROW_ID)?.data as TeamGroupsRow | undefined)?.list;
+      if (Array.isArray(groupsList)) setTeamGroupDefsState((current) => (sameJson(current, groupsList) ? current : groupsList));
     }
     if (!matchesRes.error && matchesRes.data) {
       const nextMatches = matchesRes.data.map((row) => row.data as Match);
@@ -1104,6 +1114,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         if (!result.ok) reportSaveProblem("Wettbewerbe", result.error);
       }
     );
+  }
+
+  // Untergruppen der Team-Auswahl (lib/teamGroups.ts) als eine Zeile speichern.
+  function saveTeamGroupDefs(list: TeamGroupDef[]) {
+    setTeamGroupDefsState(list);
+    if (!loadedFromDb.teams) return;
+    const row: TeamGroupsRow = { kind: "teamGroups", list };
+    adminWriteAtRef.current = Date.now();
+    void upsertConfirmed("teams", [{ id: GROUPS_ROW_ID, data: row, updated_at: new Date().toISOString() }]).then((result) => {
+      if (!result.ok) reportSaveProblem("Untergruppen", result.error);
+    });
   }
 
   function orderFor(match: { sport: string; competition?: string | null }): TeamOrder {
@@ -1790,6 +1811,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         updateNews,
         removeNews,
         moveNews,
+        teamGroupDefs,
+        saveTeamGroupDefs,
         comments,
         getCommentsForMatch,
         addComment,

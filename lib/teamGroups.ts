@@ -19,6 +19,37 @@ export const NATIONAL_GROUP = "Nationalteams";
 const LEAGUE_OF_SPORT: Partial<Record<Sport, string>> = { NBA: "NBA", NHL: "NHL" };
 const LEAGUE_COUNTRIES = ["US", "CA"];
 
+// Vom Admin angelegte Untergruppen und ihre Reihenfolge (Rene, 20.10.2026:
+// "gleich die Untergruppen anlegen"). Liegen wie die Wettbewerbe als EINE
+// Zeile in der Tabelle "teams" (kein SQL). Die Liste enthält je Sportart alle
+// Gruppen in der gewünschten Reihenfolge, auch automatische wie "Österreich".
+// AppDataContext setzt sie hier, damit jede Team-Auswahl sie kennt.
+export const GROUPS_ROW_ID = "__untergruppen__";
+
+export interface TeamGroupDef {
+  sport: Sport;
+  label: string;
+  countryCode?: string; // Flagge, z. B. "AT" für "2. Liga Österreich"
+}
+
+export interface TeamGroupsRow {
+  kind: "teamGroups";
+  list: TeamGroupDef[];
+}
+
+let groupDefs: TeamGroupDef[] = [];
+export function setTeamGroupDefs(list: TeamGroupDef[]) {
+  groupDefs = list;
+}
+
+/** Feste Gruppen (Land, Nationalteams, NBA/NHL) kann man nicht umbenennen oder löschen. */
+export function isFixedGroup(key: string): boolean {
+  return (
+    !!countryGroupByKey(key) ||
+    [NATIONAL_GROUP, "NBA", "NHL", "Sonstige"].map(normalizeTeamName).includes(key)
+  );
+}
+
 export function hasTeamGroups(sport: Sport | string): boolean {
   return GROUPED_SPORTS.includes(sport as Sport);
 }
@@ -83,6 +114,8 @@ export function autoTeamGroup(team: Pick<Team, "name" | "sport" | "countryCode" 
 // zu "Nationalteams" oder zur Liga, das passende Symbol, sonst ein Pokal.
 function iconForLabel(label: string, teams: Team[]): string {
   const key = normalizeTeamName(label);
+  const def = groupDefs.find((d) => normalizeTeamName(d.label) === key && d.countryCode);
+  if (def?.countryCode) return flagEmoji(def.countryCode);
   const auto = teams.map(autoTeamGroup).find((g) => g.key === key);
   if (auto) return auto.icon;
   const country = COUNTRIES.find((c) => normalizeTeamName(c.name) === key);
@@ -120,6 +153,15 @@ const STANDARD_GROUPS: Partial<Record<Sport, TeamGroup[]>> = {
 export function groupTeams(teams: Team[], withStandardFor?: Sport): TeamGroupWithTeams[] {
   const byKey = new Map<string, TeamGroupWithTeams>();
   for (const g of (withStandardFor && STANDARD_GROUPS[withStandardFor]) || []) byKey.set(g.key, { ...g, teams: [] });
+  // Angelegte Untergruppen stehen (für den Admin) auch leer da.
+  const sport = withStandardFor ?? teams[0]?.sport;
+  const defs = groupDefs.filter((d) => d.sport === sport);
+  if (withStandardFor) {
+    for (const d of defs) {
+      const key = normalizeTeamName(d.label);
+      if (!byKey.has(key)) byKey.set(key, { ...groupFromLabel(d.label, iconForLabel(d.label, teams)), teams: [] });
+    }
+  }
   for (const t of teams) {
     const g = teamGroup(t, teams);
     const entry = byKey.get(g.key);
@@ -128,7 +170,12 @@ export function groupTeams(teams: Team[], withStandardFor?: Sport): TeamGroupWit
   }
   const groups = Array.from(byKey.values());
   groups.forEach((g) => g.teams.sort((a, b) => a.name.localeCompare(b.name, "de")));
+  // Reihenfolge des Admins zuerst, danach wie bisher.
+  const order = defs.map((d) => normalizeTeamName(d.label));
   return groups.sort((a, b) => {
+    const oa = order.indexOf(a.key);
+    const ob = order.indexOf(b.key);
+    if (oa !== -1 || ob !== -1) return (oa === -1 ? 999 : oa) - (ob === -1 ? 999 : ob);
     const pa = PINNED.indexOf(a.key);
     const pb = PINNED.indexOf(b.key);
     if (pa !== -1 || pb !== -1) return (pa === -1 ? 99 : pa) - (pb === -1 ? 99 : pb);
