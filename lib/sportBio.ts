@@ -33,6 +33,9 @@ export interface BioData {
   since?: string;
   palette?: number;
   cardStyle?: CardStyle;
+  // Eigenes Kartenfoto (quadratisches JPEG als data-URL, components/CardPhotoEditor.tsx).
+  // Fehlt es, zeigt die Karte das Profilbild.
+  photo?: string;
 }
 
 export interface SportBio {
@@ -287,7 +290,8 @@ export function normalizeBio(raw: unknown): BioData {
     level?: string;
   };
   if (Array.isArray(d.stations) || !d.roles) {
-    return { stations: d.stations ?? [], honors: d.honors ?? [], nr: d.nr, since: d.since, palette: d.palette, cardStyle: d.cardStyle };
+    const photo = typeof d.photo === "string" && d.photo.startsWith("data:image/jpeg;base64,") ? d.photo : undefined;
+    return { stations: d.stations ?? [], honors: d.honors ?? [], nr: d.nr, since: d.since, palette: d.palette, cardStyle: d.cardStyle, photo };
   }
   const sport = LEGACY_SPORT[d.sports?.[0] ?? ""] ?? "fb";
   const stations: Station[] = Object.entries(d.roles).map(([key, r]) => {
