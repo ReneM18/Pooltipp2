@@ -73,12 +73,8 @@ export default function Footer() {
           {/* Sportlerkarte (Rene, 20.10.2026: "in die Beschreibung reingeben"). */}
           <p>
             <strong className="font-semibold text-ink">🃏 Deine Sportlerkarte:</strong> Im Profil gestaltest du deine Karte
-            pro Sportart, mit deinem Foto, deiner Laufbahn (z. B. Ex-Vereinsspieler oder Trainer), deinen Erfolgen, deinem
-            Rang-Abzeichen und deiner Tipp-Statistik dieser Sportart. Wer in allen Sportarten GOAT ist, bekommt die
-            Unsterblich-Karte mit allen Sportarten. Bald kannst du deine Karte auch kaufen: frühestens ab 500 getippten Spielen
-            in dieser Sportart und nur mit einem klar erkennbaren eigenen Gesicht, nach Antrag und Freigabe. Die gekaufte
-            Karte wird echt gedruckt und dir nach Hause geschickt. Die Statistik darauf zählt von deinem ersten Tipp bis
-            zum Kauf.
+            pro Sportart, mit Rang, Laufbahn und Tipp-Statistik. Bald kannst du sie ab 500 getippten Spielen kaufen und bekommst
+            sie gedruckt nach Hause geschickt. Alles Weitere steht direkt bei der Karte unter „So funktioniert die Karte“.
           </p>
           <p>
             Dazu gibt's echte Live-Ergebnisse und Tabellen im Matchcenter, einen Saison-Pass mit
