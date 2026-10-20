@@ -41,7 +41,7 @@ import TippTypCard from "@/components/TippTyp";
 import BeginnerShieldHint from "@/components/BeginnerShieldHint";
 import SportBioCard, { SportBioTag } from "@/components/SportBioCard";
 import SportBioEditor from "@/components/SportBioEditor";
-import { useSportBio } from "@/lib/sportBio";
+import { isBioEmpty, useSportBio } from "@/lib/sportBio";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -145,6 +145,7 @@ function ProfilInhalt() {
   }, []);
   // Sport-Steckbrief (lib/sportBio.ts): oben in der Übersicht, bearbeiten unter Einstellungen.
   const sportBio = useSportBio(isRegistered ? authUserId : null);
+  const hasSportCard = sportBio.status === "ready" && !isBioEmpty(sportBio.bio?.data);
   function openSportBioEditor() {
     chooseProfileTab("Einstellungen");
     for (const ms of [100, 700]) {
@@ -269,105 +270,124 @@ function ProfilInhalt() {
         <WelcomeBanner userId={authUserId} name={displayName} />
       )}
 
-      {/* Level 8 Premium: Profil-Hintergrundbanner in den Saison-Farben
-          (SEASON_THEME) – nur ein Farbverlauf, kein neues Bild pro Saison nötig. */}
-      <div
-        className={`mb-8 flex items-center gap-6 ${hasLevelPremium(8) ? "rounded-card p-5" : ""}`}
-        style={
-          hasLevelPremium(8)
-            ? {
-                background: `linear-gradient(135deg, ${SEASON_THEME.colorFrom}26, ${SEASON_THEME.colorTo}26)`,
-                border: `1px solid ${SEASON_THEME.colorFrom}55`,
-              }
-            : undefined
-        }
-      >
-        <div className="relative h-16 w-16 shrink-0">
-          {/* Das Foto wird in einem eigenen, rund abgeschnittenen Kreis
-              dargestellt – die Rang-Badge sitzt außerhalb davon, sonst
-              schneidet "overflow-hidden" sie zu einem hässlichen Eck ab. */}
-          <SeasonFrame size={64}>
-            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-2xl font-bold text-gold">
-              {photos[0] ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={photos[0]} alt="Profilbild" className="h-full w-full object-cover" />
-              ) : (
-                displayName.slice(0, 1).toUpperCase()
-              )}
-            </div>
-          </SeasonFrame>
-          {/* Level 8 Premium: animiertes Kronen-Icon */}
-          {hasLevelPremium(8) && (
-            <span
-              className="animate-frame-pulse absolute -left-1 -top-1 text-lg"
-              title="Kronen-Icon (Level 8 Premium)"
-            >
-              👑
-            </span>
-          )}
-          {/* Rang-Abzeichen in der Ecke des Profilbilds – größer als in Listen,
-              weil Bild und Name hier groß sind. Bedeutung poppt bei
-              Hover/Antippen auf. Ragt etwas über den Rand hinaus, damit es
-              möglichst wenig vom Foto verdeckt. */}
-          {activeRankIcon && (
-            <span className="absolute -bottom-1.5 -right-3 z-10">
-              <RankMeaningBadge option={activeRankIcon} size="profil" />
-            </span>
-          )}
-        </div>
+      {/* Am PC steht die Sportlerkarte rechts oben neben Kopf und Reitern
+          (Rene, 20.10.2026: "rechts oben wo Platz ist"), am Handy in der Übersicht. */}
+      <div className="lg:flex lg:items-start lg:gap-8">
         <div className="min-w-0 flex-1">
-          <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-ink">
-            {/* Lange Einzelwort-Namen schrumpfen statt rechts abgeschnitten zu werden. */}
-            <FitText text={displayName} minPx={14} />
-            {/* Level 3 Premium: Saison-Icon neben dem Namen */}
-            {hasLevelPremium(3) && passDisplay.nameIcon !== false && (
-              <span className="text-lg" title={`Saison-Icon (${SEASON_THEME.name})`}>
-                {SEASON_THEME.icon}
+        {/* Level 8 Premium: Profil-Hintergrundbanner in den Saison-Farben
+            (SEASON_THEME) – nur ein Farbverlauf, kein neues Bild pro Saison nötig. */}
+        <div
+          className={`mb-8 flex items-center gap-6 ${hasLevelPremium(8) ? "rounded-card p-5" : ""}`}
+          style={
+            hasLevelPremium(8)
+              ? {
+                  background: `linear-gradient(135deg, ${SEASON_THEME.colorFrom}26, ${SEASON_THEME.colorTo}26)`,
+                  border: `1px solid ${SEASON_THEME.colorFrom}55`,
+                }
+              : undefined
+          }
+        >
+          <div className="relative h-16 w-16 shrink-0">
+            {/* Das Foto wird in einem eigenen, rund abgeschnittenen Kreis
+                dargestellt – die Rang-Badge sitzt außerhalb davon, sonst
+                schneidet "overflow-hidden" sie zu einem hässlichen Eck ab. */}
+            <SeasonFrame size={64}>
+              <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-surface font-display text-2xl font-bold text-gold">
+                {photos[0] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={photos[0]} alt="Profilbild" className="h-full w-full object-cover" />
+                ) : (
+                  displayName.slice(0, 1).toUpperCase()
+                )}
+              </div>
+            </SeasonFrame>
+            {/* Level 8 Premium: animiertes Kronen-Icon */}
+            {hasLevelPremium(8) && (
+              <span
+                className="animate-frame-pulse absolute -left-1 -top-1 text-lg"
+                title="Kronen-Icon (Level 8 Premium)"
+              >
+                👑
               </span>
             )}
-          </h1>
-          <p className="text-sm text-muted">
-            {currentRank
-              ? `Aktuell Platz ${currentRank} in der Rangliste`
-              : myRank.status === "loading"
-                ? "Platz wird geladen …"
-                : "Noch nicht platziert"}
-          </p>
-          {/* Hauptrolle aus dem Sport-Steckbrief, z. B. "🎽 Ex-Vereinsspieler". */}
-          <SportBioTag bio={sportBio.bio} />
-          {/* Saison-Pass: Titel (Level 4/6/8) und Abzeichen (Level 10, bleibt für immer). */}
-          {(passHonors.title || passHonors.badges.length > 0) && (
-            <div className="mt-2">
-              <PassHonorTags honors={passHonors} />
-            </div>
-          )}
-          {/* Level 10 Premium: Saison-gebundener Champion-Titel (siehe
-              lib/passLevels.ts – bewusst an SEASON_THEME.year statt an einen
-              Rang gebunden). */}
-          {hasLevelPremium(10) && (
-            <span className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full border border-gold px-3 py-1 font-display text-xs font-bold text-gold">
-              🎆 Champion {SEASON_THEME.year}
-            </span>
-          )}
+            {/* Rang-Abzeichen in der Ecke des Profilbilds – größer als in Listen,
+                weil Bild und Name hier groß sind. Bedeutung poppt bei
+                Hover/Antippen auf. Ragt etwas über den Rand hinaus, damit es
+                möglichst wenig vom Foto verdeckt. */}
+            {activeRankIcon && (
+              <span className="absolute -bottom-1.5 -right-3 z-10">
+                <RankMeaningBadge option={activeRankIcon} size="profil" />
+              </span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-ink">
+              {/* Lange Einzelwort-Namen schrumpfen statt rechts abgeschnitten zu werden. */}
+              <FitText text={displayName} minPx={14} />
+              {/* Level 3 Premium: Saison-Icon neben dem Namen */}
+              {hasLevelPremium(3) && passDisplay.nameIcon !== false && (
+                <span className="text-lg" title={`Saison-Icon (${SEASON_THEME.name})`}>
+                  {SEASON_THEME.icon}
+                </span>
+              )}
+            </h1>
+            <p className="text-sm text-muted">
+              {currentRank
+                ? `Aktuell Platz ${currentRank} in der Rangliste`
+                : myRank.status === "loading"
+                  ? "Platz wird geladen …"
+                  : "Noch nicht platziert"}
+            </p>
+            {/* Hauptrolle aus dem Sport-Steckbrief, z. B. "🎽 Ex-Vereinsspieler". */}
+            <SportBioTag bio={sportBio.bio} />
+            {/* Saison-Pass: Titel (Level 4/6/8) und Abzeichen (Level 10, bleibt für immer). */}
+            {(passHonors.title || passHonors.badges.length > 0) && (
+              <div className="mt-2">
+                <PassHonorTags honors={passHonors} />
+              </div>
+            )}
+            {/* Level 10 Premium: Saison-gebundener Champion-Titel (siehe
+                lib/passLevels.ts – bewusst an SEASON_THEME.year statt an einen
+                Rang gebunden). */}
+            {hasLevelPremium(10) && (
+              <span className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full border border-gold px-3 py-1 font-display text-xs font-bold text-gold">
+                🎆 Champion {SEASON_THEME.year}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Reiter: Übersicht (Fotos, Statistik, Historie), Rang (Icons, Fortschritt),
-          Einstellungen (Name, Sichtbarkeit, Startseite, Design, Vereine, Konto) */}
-      <div className="mb-6 flex flex-wrap gap-2">
-        {PROFILE_TABS.map((t) => (
-          <button
-            key={t}
-            onClick={() => chooseProfileTab(t)}
-            className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
-              profileTab === t
-                ? "border-gold bg-gold/15 text-gold"
-                : "border-edge bg-surface text-muted hover:text-ink"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
+        {/* Reiter: Übersicht (Fotos, Statistik, Historie), Rang (Icons, Fortschritt),
+            Einstellungen (Name, Sichtbarkeit, Startseite, Design, Vereine, Konto) */}
+        <div className="mb-6 flex flex-wrap gap-2">
+          {PROFILE_TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => chooseProfileTab(t)}
+              className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                profileTab === t
+                  ? "border-gold bg-gold/15 text-gold"
+                  : "border-edge bg-surface text-muted hover:text-ink"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        </div>
+        {hasSportCard && (
+          <div className="hidden w-[250px] shrink-0 lg:block">
+            <SportBioCard
+              compact
+              bio={sportBio.bio}
+              name={displayName}
+              photo={photos[0]}
+              rankIcon={activeRankIcon}
+              place={currentRank}
+              onEdit={openSportBioEditor}
+            />
+          </div>
+        )}
       </div>
 
       {profileTab === "Rang" && (
@@ -483,6 +503,7 @@ function ProfilInhalt() {
         <>
       {sportBio.status === "ready" && (
         <SportBioCard
+          className={hasSportCard ? "lg:hidden" : ""}
           bio={sportBio.bio}
           name={displayName}
           photo={photos[0]}

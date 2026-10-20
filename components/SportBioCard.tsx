@@ -47,6 +47,8 @@ export default function SportBioCard({
   rankIcon,
   place,
   onEdit,
+  compact = false,
+  className = "",
 }: {
   bio: SportBio | null;
   name: string;
@@ -55,6 +57,9 @@ export default function SportBioCard({
   place?: number | null;
   // Nur im eigenen Profil: öffnet den Baukasten unter Einstellungen.
   onEdit?: () => void;
+  // Kleiner, rechts oben im Profil am PC.
+  compact?: boolean;
+  className?: string;
 }) {
   const own = !!onEdit;
   if (!bio || isBioEmpty(bio.data)) {
@@ -63,7 +68,7 @@ export default function SportBioCard({
       <button
         type="button"
         onClick={onEdit}
-        className="group relative mb-8 block w-full overflow-hidden rounded-card border border-gold/50 bg-gradient-to-br from-gold/20 via-surface to-surface p-5 text-left transition-colors hover:border-gold"
+        className={`group relative mb-8 block w-full overflow-hidden rounded-card ${className} border border-gold/50 bg-gradient-to-br from-gold/20 via-surface to-surface p-5 text-left transition-colors hover:border-gold`}
       >
         <span aria-hidden className="pointer-events-none absolute -right-2 -top-3 select-none text-7xl opacity-20">
           🃏
@@ -80,10 +85,13 @@ export default function SportBioCard({
     );
   }
   return (
-    <section aria-label="Sportlerkarte" className="mb-8">
-      <SportCard bio={bio} name={name} photo={photo} rankIcon={rankIcon} place={place} />
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[11px] text-muted">
-        <span>Antippen zum Umdrehen</span>
+    <section aria-label="Sportlerkarte" className={`${compact ? "" : "mb-8"} ${className}`}>
+      {/* Klein: ganze Karte verkleinert, damit Schrift und Abstände stimmen. */}
+      <div style={compact ? { zoom: 0.78 } : undefined}>
+        <SportCard bio={bio} name={name} photo={photo} rankIcon={rankIcon} place={place} />
+      </div>
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted">
+        {!compact && <span>Antippen zum Umdrehen</span>}
         {own && (
           <>
             <span>
@@ -131,12 +139,14 @@ export function SportCard({
 
   const sports = Array.from(new Set(stations.map((s) => s.sport).filter(Boolean) as string[])).slice(0, 3);
   const flag = main?.land ? COUNTRIES[main.land]?.flag ?? "" : "";
+  // Nur ausgefüllte Felder zeigen (Rene, 20.10.2026: kein "–"). Die Sportart
+  // steht schon oben links, darum hier nur die Position.
   const facts: [string, string][] = main
-    ? [
-        [main.pos || bioSport(main.sport)?.label || "–", main.pos ? "Position" : "Sportart"],
-        [main.league || "–", "Höchste Klasse"],
-        [main.from ? (main.to ? `${Math.max(0, Number(main.to) - Number(main.from))} J.` : `seit ${main.from}`) : "–", "Dabei"],
-      ]
+    ? ([
+        [main.pos ?? "", "Position"],
+        [main.league ?? "", "Liga"],
+        [main.from ? (main.to ? `${Math.max(0, Number(main.to) - Number(main.from))} J.` : `seit ${main.from}`) : "", "Dabei"],
+      ] as [string, string][]).filter(([v]) => v)
     : [];
   const vars = { "--c1": c1, "--c2": c2 } as CSSProperties;
 
@@ -180,7 +190,7 @@ export function SportCard({
             {/* Kopf: Rückennummer links, Rang + Sportarten rechts */}
             <div className="absolute inset-x-3 top-2.5 z-[3] flex items-start justify-between">
               <div className="font-display text-[44px] font-black leading-[0.9] text-white [text-shadow:0_2px_0_rgba(0,0,0,0.35)]">
-                {data.nr || "–"}
+                {data.nr}
                 <span className="mt-1 block text-[10px] font-bold uppercase tracking-widest opacity-85">
                   {bioSport(main?.sport)?.label ?? ""}
                 </span>
@@ -245,7 +255,7 @@ export function SportCard({
                 {main && stationYears(main) ? <span className="opacity-70"> · {stationYears(main)}</span> : null}
               </p>
               {facts.length > 0 && (
-                <div className="mt-2.5 grid grid-cols-3 gap-1.5">
+                <div className={`mt-2.5 grid gap-1.5 ${facts.length === 3 ? "grid-cols-3" : facts.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
                   {facts.map(([v, l]) => (
                     <div key={l} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.07] px-1.5 py-1 text-center">
                       <b className="block truncate font-display text-[13px] text-white">{v}</b>
