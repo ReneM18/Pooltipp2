@@ -378,6 +378,7 @@ function ProfilInhalt() {
         {hasSportCard && (
           <div className="hidden w-[250px] shrink-0 lg:mb-10 lg:block">
             <SportBioCard
+              userId={authUserId}
               compact
               bio={sportBio.bio}
               name={displayName}
@@ -385,7 +386,6 @@ function ProfilInhalt() {
               rankIcon={activeRankIcon}
               place={currentRank}
               points={totalRangPunkte}
-              streak={streakCount}
               onEdit={openSportBioEditor}
             />
           </div>
@@ -505,6 +505,7 @@ function ProfilInhalt() {
         <>
       {sportBio.status === "ready" && (
         <SportBioCard
+              userId={authUserId}
           className={hasSportCard ? "lg:hidden" : ""}
           bio={sportBio.bio}
           name={displayName}
@@ -512,7 +513,6 @@ function ProfilInhalt() {
           rankIcon={activeRankIcon}
           place={currentRank}
               points={totalRangPunkte}
-              streak={streakCount}
           onEdit={openSportBioEditor}
         />
       )}
@@ -973,7 +973,6 @@ function ProfilInhalt() {
               rankIcon={activeRankIcon}
               place={currentRank}
               points={totalRangPunkte}
-              streak={streakCount}
               bio={sportBio.bio}
               unavailable={sportBio.status === "missing"}
               onSaved={sportBio.reload}

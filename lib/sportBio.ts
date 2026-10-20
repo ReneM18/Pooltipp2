@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { ALL_SPORTS, Sport } from "@/lib/types";
 
 // Sport-Steckbrief als Sportlerkarte (Rene, 20.10.2026: Prototyp v4 "weltklasse").
 // Laufbahn aus Stationen (Rolle, Sportart, aktiv/ehemalig, wo, von–bis,
@@ -409,3 +410,59 @@ export async function saveSportBio(userId: string, data: BioData, visibility: Bi
   if (error) return "Speichern hat nicht geklappt. Fehlt noch das Datenbank-Update?";
   return null;
 }
+
+/** Werte einer Sportart für die Karte (supabase/sportlerkarte-statistik.sql). */
+export interface SportCardStat {
+  sport: Sport;
+  points: number;
+  place: number | null;
+  prestige: number;
+  // Nur gesetzt, wenn man die Statistik sehen darf:
+  tips: number | null;
+  evaluated: number | null;
+  exakt: number | null;
+  richtig: number | null;
+  firstTip: string | null;
+  lastTip: string | null;
+}
+
+/**
+ * Karte pro Sportart (Rene, 20.10.2026: "das brauchen wir pro Sportart"):
+ * Rangpunkte, Platz und Prestige je Sportart, dazu die Tipp-Statistik mit
+ * Zeitraum, falls der Betrachter sie sehen darf. null = lädt oder SQL fehlt.
+ */
+export function useSportCardStats(userId: string | null | undefined): SportCardStat[] | null {
+  const [stats, setStats] = useState<SportCardStat[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setStats(null);
+    if (!userId) return;
+    supabase.rpc("sport_card_stats", { p_user: userId }).then(({ data, error }) => {
+      if (!alive || error || !Array.isArray(data)) return;
+      setStats(
+        (data as Record<string, unknown>[])
+          .filter((r) => ALL_SPORTS.includes(r.sport as Sport))
+          .map((r) => ({
+            sport: r.sport as Sport,
+            points: Number(r.points ?? 0),
+            place: r.place == null ? null : Number(r.place),
+            prestige: Number(r.prestige ?? 0),
+            tips: r.tips == null ? null : Number(r.tips),
+            evaluated: r.evaluated == null ? null : Number(r.evaluated),
+            exakt: r.exakt == null ? null : Number(r.exakt),
+            richtig: r.richtig == null ? null : Number(r.richtig),
+            firstTip: (r.first_tip as string | null) ?? null,
+            lastTip: (r.last_tip as string | null) ?? null,
+          }))
+      );
+    });
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
+  return stats;
+}
+
+// Sportart der App (Rangliste) <-> Sportart im Steckbrief.
+export const APP_SPORT_OF_BIO: Record<string, Sport> = { fb: "Fußball", ih: "NHL", bb: "NBA", nfl: "NFL", hb: "Handball" };
+export const BIO_SPORT_OF_APP: Partial<Record<Sport, string>> = { Fußball: "fb", NHL: "ih", NBA: "bb", NFL: "nfl", Handball: "hb" };

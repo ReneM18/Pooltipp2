@@ -194,7 +194,7 @@ export default function SpielerProfilPage() {
         </div>
       </div>
 
-      <SportBioCard bio={sportBio.bio} name={name} photo={avatarPhoto} rankIcon={rankIcon} place={place} points={rows === null ? null : total} />
+      <SportBioCard bio={sportBio.bio} userId={isSelf ? authUserId : playerId} name={name} photo={avatarPhoto} rankIcon={rankIcon} place={place} points={rows === null ? null : total} />
 
       {!isSelf && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
