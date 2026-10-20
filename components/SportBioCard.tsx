@@ -98,7 +98,7 @@ export default function SportBioCard({
     <section aria-label="Sportlerkarte" className={`${compact ? "" : "mb-8"} ${className}`}>
       {/* Klein: ganze Karte verkleinert, damit Schrift und Abstände stimmen. */}
       <div style={compact ? { zoom: 0.78 } : undefined}>
-        <SportCard bio={bio} userId={userId} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} />
+        <SportCard bio={bio} own={own} userId={userId} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} />
       </div>
       {own && (
         <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted">
@@ -122,6 +122,7 @@ export default function SportBioCard({
 // und Verein, Interessen an anderen Sportarten.
 export function SportCard({
   bio,
+  own = false,
   userId,
   name,
   photo,
@@ -130,6 +131,8 @@ export function SportCard({
   points,
 }: {
   bio: SportBio;
+  // Eigene Karte: zeigt den Hinweis "Bald kaufbar".
+  own?: boolean;
   userId?: string | null;
   name: string;
   photo?: string | null;
@@ -177,6 +180,12 @@ export function SportCard({
         : null
       : rankIcon ?? null;
   const cardPlace = showImmortal ? place : stat ? stat.place : place;
+  // Tipps dieser Karte (für "Kaufbar ab 500 Tipps"); null = unbekannt.
+  const cardTips = showImmortal
+    ? all && all.every((x) => x.tips != null)
+      ? all.reduce((n, x) => n + (x.tips ?? 0), 0)
+      : null
+    : stat?.tips ?? null;
   const cardPoints = showImmortal ? (all ?? []).reduce((n, x) => n + x.points, 0) : stat ? stat.points : points;
   const [c1, c2] = useCardColors(sportStations, cardRank);
   // Unsterblich-Karte immer in der Gold-Edition mit Glanz.
@@ -519,7 +528,7 @@ export function SportCard({
       </div>
       {/* Umdrehen als klare Schaltfläche unter der Karte (Rene, 20.10.2026:
           der runde Pfeil an der Ecke sah nicht gut aus). */}
-      <div className="mt-3 flex justify-center">
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"
           onClick={flip}
@@ -528,10 +537,29 @@ export function SportCard({
           <FlipIcon />
           {flipped ? "Vorderseite zeigen" : "Rückseite zeigen"}
         </button>
+        {/* Nur Hinweis, nicht anklickbar (Rene, 20.10.2026). Nur bei der eigenen
+            Karte. Kaufbar frühestens ab BUY_MIN_TIPS Tipps dieser Karte
+            (Sportart bzw. alle bei Unsterblich). */}
+        {own && (
+          <span
+            title="Kaufen kann man die Karte später ab 500 getippten Spielen, nur mit klar erkennbarem eigenem Gesicht, nach Antrag und Freigabe. Die Statistik zählt vom ersten Tipp bis zum Kauf."
+            className="inline-flex cursor-default items-center gap-1.5 rounded-full border border-dashed border-gold/40 px-3 py-1.5 font-display text-xs font-semibold text-gold/80"
+          >
+            🛒{" "}
+            {cardTips == null
+              ? `Kaufbar ab ${BUY_MIN_TIPS} Tipps`
+              : cardTips >= BUY_MIN_TIPS
+                ? "Kaufbar · bald im Shop"
+                : `Kaufbar ab ${BUY_MIN_TIPS} Tipps · noch ${(BUY_MIN_TIPS - cardTips).toLocaleString("de-DE")}`}
+          </span>
+        )}
       </div>
     </div>
   );
 }
+
+// Frühestens ab so vielen getippten Spielen kaufbar (Rene, 20.10.2026).
+const BUY_MIN_TIPS = 500;
 
 function FlipIcon() {
   return (
