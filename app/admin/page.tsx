@@ -15,6 +15,7 @@ import CountryPicker from "@/components/CountryPicker";
 import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
 import TeamPicker from "@/components/TeamPicker";
 import TeamGroupChips from "@/components/TeamGroupChips";
+import TeamGroupsEditor from "@/components/TeamGroupsEditor";
 import { autoTeamGroup, countryGroupByKey, groupTeams, hasTeamGroups, withSelectedGroup } from "@/lib/teamGroups";
 import { normalizeTeamName } from "@/lib/teamName";
 import TeamBadge, { helmetLogoColor, jerseyFor, matchJerseyProps, teamColorProps } from "@/components/TeamBadge";
@@ -1642,6 +1643,9 @@ function TeamManager() {
     <section>
       <h2 className="mb-4 font-display text-2xl font-semibold text-ink">Teams</h2>
 
+      {/* Untergruppen vorher anlegen und ordnen (Rene, 20.10.2026). */}
+      <TeamGroupsEditor />
+
       <form
         ref={formRef}
         onSubmit={handleSubmit}
@@ -1779,7 +1783,8 @@ function TeamManager() {
               </select>
             )}
             <p className="mt-1.5 text-xs text-muted">
-              Automatisch heißt: Nationalteams zusammen, NBA- und NHL-Teams in ihrer Liga, alle anderen nach Land.
+              Automatisch heißt: Nationalteams zusammen, NBA- und NHL-Teams in ihrer Liga, alle anderen nach Land. Eigene
+              Untergruppen wie „2. Liga Österreich“ legst du oben unter „Untergruppen“ an und ordnest sie dort.
             </p>
           </div>
         )}
