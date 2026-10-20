@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
+import CountryPicker from "@/components/CountryPicker";
 import { COUNTRIES, flagEmoji } from "@/lib/flags";
 import { normalizeTeamName } from "@/lib/teamName";
 import { GROUPED_SPORTS, groupTeams, isFixedGroup, TeamGroupDef, TeamGroupWithTeams } from "@/lib/teamGroups";
@@ -205,19 +206,10 @@ export default function TeamGroupsEditor() {
               placeholder="Neue Untergruppe, z. B. 2. Liga Österreich"
               className="min-w-0 flex-1 rounded-lg border border-edge bg-pitch px-4 py-2.5 text-sm text-ink outline-none focus:border-gold"
             />
-            <select
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              aria-label="Flagge"
-              className="rounded-lg border border-edge bg-pitch px-3 py-2.5 text-sm text-ink"
-            >
-              <option value="">🏆 ohne Flagge</option>
-              {COUNTRIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {flagEmoji(c.code)} {c.name}
-                </option>
-              ))}
-            </select>
+            {/* Mit Suchfeld (Rene, 20.10.2026: im Auswahlfeld konnte man nicht nach Buchstaben suchen). */}
+            <div className="sm:w-64">
+              <CountryPicker value={country} onChange={setCountry} emptyLabel="Ohne Flagge" />
+            </div>
             <button type="submit" className="rounded-full bg-action px-5 py-2.5 text-sm font-semibold text-pitch hover:bg-action-hover">
               Anlegen
             </button>

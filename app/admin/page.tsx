@@ -1775,8 +1775,9 @@ function TeamManager() {
                 <option value={NEW_GROUP}>＋ Neue Untergruppe…</option>
                 <optgroup label="Alle Länder">
                   {COUNTRIES.filter((c) => !groupChoices.some((g) => g.key === normalizeTeamName(c.name)) && normalizeTeamName(c.name) !== autoGroup.key).map((c) => (
+                    // Name vorne, damit man im Feld per Buchstabe springen kann (Rene, 20.10.2026).
                     <option key={c.code} value={c.name}>
-                      {flagEmoji(c.code)} {c.name}
+                      {c.name} {flagEmoji(c.code)}
                     </option>
                   ))}
                 </optgroup>
