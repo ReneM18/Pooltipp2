@@ -155,6 +155,20 @@ export interface NewsItem {
   createdAt: string;
   // Abstimmung zur News (supabase/abstimmungen.sql), sonst leer.
   poll?: NewsPoll | null;
+  // Platz im Laufband, vom Admin per ↑/↓ gesetzt (kleiner = weiter vorne).
+  // Ältere News ohne Platz kommen danach, neueste zuerst.
+  order?: number;
+}
+
+// Reihenfolge der News wie vom Admin festgelegt (Rene, 20.10.2026). Die
+// Datenbank liefert sie ungeordnet, deshalb hier sortieren.
+export function sortNews(items: NewsItem[]): NewsItem[] {
+  return [...items].sort((a, b) => {
+    const oa = a.order ?? Number.POSITIVE_INFINITY;
+    const ob = b.order ?? Number.POSITIVE_INFINITY;
+    if (oa !== ob) return oa - ob;
+    return b.createdAt.localeCompare(a.createdAt);
+  });
 }
 
 export interface SubmittedBonusAnswer {
@@ -525,6 +539,7 @@ interface AppDataContextValue {
   addNews: (text: string, sport: NewsSport | null, article: string | null, poll?: NewsPoll | null) => void;
   updateNews: (id: string, text: string, sport: NewsSport | null, article: string | null, poll?: NewsPoll | null) => void;
   removeNews: (id: string) => void;
+  moveNews: (id: string, direction: -1 | 1) => void;
   comments: Comment[];
   getCommentsForMatch: (matchId: string) => Comment[];
   addComment: (matchId: string, author: string, text: string) => void;
@@ -712,7 +727,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setMatchesLoadFailed(true);
       }
       if (!newsRes.error && newsRes.data) {
-        const loadedNews = newsRes.data.map((row) => row.data as NewsItem);
+        const loadedNews = sortNews(newsRes.data.map((row) => row.data as NewsItem));
         syncedNewsRef.current = new Map(loadedNews.map((n) => [n.id, n]));
         setNewsItems(loadedNews);
       } else {
@@ -781,7 +796,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       });
     }
     if (loadedFromDb.news && !newsRes.error && newsRes.data) {
-      const nextNews = newsRes.data.map((row) => row.data as NewsItem);
+      const nextNews = sortNews(newsRes.data.map((row) => row.data as NewsItem));
       setNewsItems((current) => {
         if (sameJson(current, nextNews)) return current;
         remoteContentRef.current.news = nextNews;
@@ -1592,10 +1607,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   function addNews(text: string, sport: NewsSport | null, article: string | null, poll: NewsPoll | null = null) {
     const id = `news-${Date.now()}`;
-    setNewsItems((current) => [
-      { id, text, sport, article, createdAt: new Date().toISOString(), poll },
-      ...current,
-    ]);
+    // Neue Headline kommt ganz nach vorne.
+    setNewsItems((current) => {
+      const first = Math.min(0, ...current.map((n) => n.order ?? 0));
+      return [{ id, text, sport, article, createdAt: new Date().toISOString(), poll, order: first - 1 }, ...current];
+    });
     const newsText = `Neue Schlagzeile: „${text}“`;
     addActivity(sport ? NEWS_SPORT_ICONS[sport] : "📰", newsText, { author: "PoolTipp", text: newsText });
   }
@@ -1604,6 +1620,19 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setNewsItems((current) =>
       current.map((n) => (n.id === id ? { ...n, text, sport, article, poll } : n))
     );
+  }
+
+  // Headline um einen Platz nach vorne (-1) oder hinten (+1) schieben. Alle
+  // bekommen dabei ihren festen Platz, damit die Reihenfolge erhalten bleibt.
+  function moveNews(id: string, direction: -1 | 1) {
+    setNewsItems((current) => {
+      const from = current.findIndex((n) => n.id === id);
+      const to = from + direction;
+      if (from < 0 || to < 0 || to >= current.length) return current;
+      const next = [...current];
+      [next[from], next[to]] = [next[to], next[from]];
+      return next.map((n, i) => (n.order === i ? n : { ...n, order: i }));
+    });
   }
 
   function removeNews(id: string) {
@@ -1760,6 +1789,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         addNews,
         updateNews,
         removeNews,
+        moveNews,
         comments,
         getCommentsForMatch,
         addComment,
