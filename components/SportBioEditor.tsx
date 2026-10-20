@@ -7,6 +7,7 @@ import { useUser } from "@/lib/UserContext";
 import { RankIconOption } from "@/lib/rankTiers";
 import { SavedHint } from "@/components/SaveButton";
 import { SportCard } from "@/components/SportBioCard";
+import CardPhotoEditor from "@/components/CardPhotoEditor";
 import {
   BIO_SPORTS,
   BioData,
@@ -58,7 +59,7 @@ export default function SportBioEditor({
   onSaved: () => void;
 }) {
   const { teams } = useAppData();
-  const { hasPremiumPass } = useUser();
+  const { hasPremiumPass, photos } = useUser();
   const [data, setData] = useState<BioData>(bio?.data ?? {});
   const [visibility, setVisibility] = useState<BioVisibility>(bio?.visibility ?? "friends");
   const [saved, setSaved] = useState(false);
@@ -214,6 +215,15 @@ export default function SportBioEditor({
             );
           })}
         </div>
+      </Card>
+
+      <Card title="Kartenfoto" text="Eigenes Foto für die Karte, z. B. im Vereinsdress. Ausschnitt verschieben und zoomen. Sieht jeder, der deine Karte sehen darf.">
+        <CardPhotoEditor
+          current={data.photo}
+          profilePhotos={photos.filter((p): p is string => !!p && p.startsWith("data:image"))}
+          onSave={(url) => commit({ ...data, photo: url })}
+          onReset={() => commit({ ...data, photo: undefined })}
+        />
       </Card>
 
       <Card title="Karte" text="Rückennummer, Fan seit und Farben.">

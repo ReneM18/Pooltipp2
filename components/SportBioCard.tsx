@@ -229,9 +229,9 @@ export function SportCard({
                   boxShadow: "0 0 0 4px rgba(0,0,0,0.35)",
                 }}
               >
-                {photo ? (
+                {data.photo || photo ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={photo} alt="" className="h-full w-full object-cover" />
+                  <img src={data.photo || photo || ""} alt="" className="h-full w-full object-cover" />
                 ) : (
                   name.slice(0, 1).toUpperCase()
                 )}

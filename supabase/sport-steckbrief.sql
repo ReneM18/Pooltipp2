@@ -122,7 +122,15 @@ begin
   if jsonb_typeof(new.data -> 'stations') = 'array' and jsonb_array_length(new.data -> 'stations') > 15 then
     raise exception 'Höchstens 15 Stationen';
   end if;
-  if octet_length(new.data::text) > 20000 then
+  -- Kartenfoto (20.10.2026): nur ein eigenes JPEG als data-URL, max. ~150 KB.
+  if new.data ? 'photo' then
+    if jsonb_typeof(new.data -> 'photo') <> 'string'
+       or left(new.data ->> 'photo', 23) <> 'data:image/jpeg;base64,'
+       or length(new.data ->> 'photo') > 150000 then
+      raise exception 'Kartenfoto ungültig oder zu groß';
+    end if;
+  end if;
+  if octet_length((new.data - 'photo')::text) > 20000 then
     raise exception 'Steckbrief zu groß';
   end if;
 
