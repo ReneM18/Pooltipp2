@@ -382,6 +382,19 @@ export default function SportBioEditor({
           onSave={(url) => commit({ ...data, photo: url }, visibility, "foto")}
           onReset={() => commit({ ...data, photo: undefined }, visibility, "foto")}
         />
+        {/* Nur Hinweis, noch nicht kaufbar (Rene, 20.10.2026). */}
+        <div className="mt-4 flex items-start gap-3 rounded-lg border border-dashed border-gold/40 bg-gold/[0.06] p-3">
+          <span aria-hidden className="text-xl">🛒</span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-ink">
+              Karte kaufen <span className="ml-1 rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold">Bald</span>
+            </p>
+            <p className="text-xs text-muted">
+              Kaufen kann man die Karte später nur mit einem klar erkennbaren eigenen Gesicht. Du stellst einen Antrag, PoolTipp prüft das Foto
+              und gibt frei. Im Profil kannst du dein Kartenfoto weiter jederzeit tauschen.
+            </p>
+          </div>
+        </div>
       </Card>
 
       <Card
