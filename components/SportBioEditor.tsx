@@ -50,7 +50,6 @@ export default function SportBioEditor({
   rankIcon,
   place,
   points,
-  streak,
   bio,
   unavailable,
   onSaved,
@@ -61,7 +60,6 @@ export default function SportBioEditor({
   rankIcon?: RankIconOption | null;
   place?: number | null;
   points?: number | null;
-  streak?: number | null;
   bio: SportBio | null;
   unavailable: boolean;
   onSaved: () => void;
@@ -173,7 +171,7 @@ export default function SportBioEditor({
 
       {previewStations.length > 0 && (
         <div className="mt-4">
-          <SportCard bio={preview} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} streak={streak} />
+          <SportCard bio={preview} userId={userId} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} />
           <p className="mt-1 text-center text-[11px] text-muted">Vorschau</p>
         </div>
       )}

@@ -212,7 +212,7 @@ function isElite(pointsBySport: Partial<Record<Sport, number>>, prestige?: Prest
 export const GOAT_MIN_POINTS = RANK_LADDER.find((t) => t.rank === "GOAT")!.minPoints;
 const UNSTERBLICH_COLORS = { from: "#B07A12", to: "#FFFFFF", text: "#1a1204" };
 
-function unsterblichIcon(idSuffix = ""): RankIconOption {
+export function unsterblichIcon(idSuffix = ""): RankIconOption {
   return {
     id: `unsterblich${idSuffix}`,
     kind: "unsterblich",
