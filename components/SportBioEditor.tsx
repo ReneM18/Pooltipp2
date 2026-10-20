@@ -25,7 +25,6 @@ import {
   sortedHonors,
   isFanRole,
   leaguesFor,
-  PALETTES,
   PLAYING_ROLES,
   POSITIONS,
   ROLE_CATS,
@@ -38,9 +37,6 @@ import {
   stationYears,
 } from "@/lib/sportBio";
 
-const THIS_YEAR = new Date().getFullYear();
-const YEARS: string[] = [];
-for (let y = THIS_YEAR; y >= 1950; y--) YEARS.push(String(y));
 const MAX_STATIONS = 15;
 
 // Profil -> Einstellungen -> "Deine Sportlerkarte": Laufbahn-Stationen,
@@ -138,17 +134,9 @@ export default function SportBioEditor({
   async function saveDraft() {
     if (!editing) return;
     const d = editing.draft;
-    const bad = (y?: string) => !!y && !validYear(y);
-    if (bad(d.from) || bad(d.to)) {
-      setDraftError(`Jahr bitte vierstellig zwischen 1930 und ${THIS_YEAR}.`);
-      return;
-    }
-    if (d.from && d.to && Number(d.to) < Number(d.from)) {
-      setDraftError("„Bis“ liegt vor „Von“.");
-      return;
-    }
     setDraftError(null);
-    const clean: Station = { ...d, club: d.club?.trim() || undefined };
+    // Keine Jahreszahlen mehr (Rene, 20.10.2026: am Anfang unkompliziert).
+    const clean: Station = { ...d, club: d.club?.trim() || undefined, from: undefined, to: undefined };
     const next = editing.index === null ? [...stations, clean] : stations.map((st, j) => (j === editing.index ? clean : st));
     if (await setStations(next)) setEditing(null);
   }
@@ -322,7 +310,7 @@ export default function SportBioEditor({
         )}
       </Card>
 
-      <Card title="Erfolge" text="Was, in welcher Liga, mit welchem Verein und wann. Stehen auf der Rückseite deiner Karte." saved={savedAt("erfolge")}>
+      <Card title="Erfolge" text="Was, auf welchem Niveau und mit welchem Verein. Stehen auf der Rückseite deiner Karte." saved={savedAt("erfolge")}>
         <HonorsEditor
           honors={data.honors ?? []}
           clubs={Array.from(new Set(stations.map((st) => st.club).filter((c): c is string => !!c)))}
@@ -396,8 +384,12 @@ export default function SportBioEditor({
         />
       </Card>
 
-      <Card title="Karte" text="Rückennummer, Fan seit, Farben und Edition. Jede Auswahl speichert sofort." saved={savedAt("karte")}>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <Card
+        title="Karte"
+        text="Rückennummer und Edition. Die Kartenfarben kommen von deinem Verein oder von deinem Rang (Rene, 20.10.2026: Farben muss man sich verdienen)."
+        saved={savedAt("karte")}
+      >
+        <div className="mt-3 max-w-[12rem]">
           <Field label="Rückennummer">
             <TextInput
               value={data.nr ?? ""}
@@ -407,38 +399,7 @@ export default function SportBioEditor({
               onCommit={(v) => v !== (data.nr ?? "") && commit({ ...data, nr: v || undefined }, visibility, "karte")}
             />
           </Field>
-          <Field label="Fan seit">
-            <select
-              value={data.since ?? ""}
-              onChange={(e) => commit({ ...data, since: e.target.value || undefined }, visibility, "karte")}
-              className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink"
-            >
-              <option value="">– keine Angabe –</option>
-              {YEARS.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </Field>
         </div>
-        <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted">Kartenfarben</p>
-        {hasKnownClub ? (
-          <p className="mt-1 text-xs text-muted">Kommen automatisch von deinem Verein.</p>
-        ) : (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {PALETTES.map((p, i) => (
-              <Chip key={p[0]} small active={(data.palette ?? 0) === i} onClick={() => commit({ ...data, palette: i }, visibility, "karte")}>
-                <span
-                  aria-hidden
-                  className="h-3 w-3 rounded-full ring-1 ring-white/30"
-                  style={{ background: `linear-gradient(135deg, ${p[1]} 50%, ${p[2]} 50%)` }}
-                />
-                {p[0]}
-              </Chip>
-            ))}
-          </div>
-        )}
         <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted">Edition</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {CARD_STYLES.map((c) => {
@@ -597,46 +558,24 @@ function StationEditor({
           {pending && <p className="mt-1 text-[11px] text-gold">⏳ Wird vom Admin geprüft, bis dahin sehen andere den Verein nicht.</p>}
         </Field>
       </div>
-      <div className="grid gap-2 sm:grid-cols-3">
-        <Field label={fan ? "Fan seit" : "Von"}>
-          <input
-            value={st.from ?? ""}
-            maxLength={4}
-            inputMode="numeric"
-            placeholder="Jahr"
-            onChange={(e) => onPatch({ from: e.target.value.replace(/\D/g, "") || undefined })}
-            className={INPUT}
-          />
-        </Field>
-        {!fan && (
-          <>
-            <Field label="Bis">
-              <input
-                value={st.to ?? ""}
-                maxLength={4}
-                inputMode="numeric"
-                placeholder={st.ex ? "Jahr" : "heute"}
-                onChange={(e) => onPatch({ to: e.target.value.replace(/\D/g, "") || undefined })}
-                className={INPUT}
-              />
-            </Field>
-            <Field label="Höchste Klasse">
-              <select
-                value={st.league ?? ""}
-                onChange={(e) => onPatch({ league: e.target.value || undefined })}
-                className="w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink"
-              >
-                <option value="">–</option>
-                {leaguesFor(st.sport, st.land).map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </>
-        )}
-      </div>
+      {!fan && (
+        <div className="max-w-xs">
+          <Field label="Niveau">
+            <select
+              value={st.league ?? ""}
+              onChange={(e) => onPatch({ league: e.target.value || undefined })}
+              className="w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink"
+            >
+              <option value="">–</option>
+              {leaguesFor(st.sport, st.land).map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      )}
       {error && <p className="text-xs text-red-400">{error}</p>}
       <div className="flex flex-wrap gap-2 border-t border-edge pt-3">
         <button
@@ -701,24 +640,17 @@ function HonorsEditor({
   const [t, setT] = useState(HONOR_TYPES[0].t);
   const [league, setLeague] = useState("");
   const [club, setClub] = useState("");
-  const [year, setYear] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [confirmIdx, setConfirmIdx] = useState<number | null>(null);
   const list = sortedHonors({ honors });
 
   async function add() {
-    if (year && !validYear(year)) {
-      setErr(`Jahr bitte vierstellig zwischen 1930 und ${THIS_YEAR}.`);
-      return;
-    }
     setErr(null);
     const h: Honor = { t };
     if (league) h.league = league;
     if (club) h.club = club;
-    if (year) h.year = year;
     if (await onChange([...honors, h])) {
       setLeague("");
-      setYear("");
     }
   }
 
@@ -731,7 +663,7 @@ function HonorsEditor({
             <p className="min-w-0 flex-1 text-sm text-ink">
               {honorIcon(h.t)} <b>{h.t}</b>
               {h.league ? ` · ${h.league}` : ""}
-              <span className="text-muted">{[h.club, h.year].filter(Boolean).length ? ` · ${[h.club, h.year].filter(Boolean).join(" · ")}` : ""}</span>
+              <span className="text-muted">{h.club ? ` · ${h.club}` : ""}</span>
             </p>
             {confirmIdx === idx ? (
               <span className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
@@ -758,7 +690,7 @@ function HonorsEditor({
       {honors.length < MAX_HONORS && (
         <div className="flex flex-col gap-2 rounded-lg border border-dashed border-edge p-3">
           <p className="text-xs font-semibold text-muted">Neuer Erfolg</p>
-          <div className="grid gap-2 sm:grid-cols-4">
+          <div className="grid gap-2 sm:grid-cols-3">
             <select value={t} onChange={(e) => setT(e.target.value)} aria-label="Art des Erfolgs" className={INPUT}>
               {HONOR_TYPES.map((h) => (
                 <option key={h.t} value={h.t}>
@@ -766,8 +698,8 @@ function HonorsEditor({
                 </option>
               ))}
             </select>
-            <select value={league} onChange={(e) => setLeague(e.target.value)} aria-label="Liga" className={INPUT}>
-              <option value="">Liga (optional)</option>
+            <select value={league} onChange={(e) => setLeague(e.target.value)} aria-label="Niveau" className={INPUT}>
+              <option value="">Niveau (optional)</option>
               {leagues.map((l) => (
                 <option key={l} value={l}>
                   {l}
@@ -782,14 +714,6 @@ function HonorsEditor({
                 </option>
               ))}
             </select>
-            <input
-              value={year}
-              maxLength={4}
-              inputMode="numeric"
-              placeholder="Jahr"
-              onChange={(e) => setYear(e.target.value.replace(/\D/g, ""))}
-              className={INPUT}
-            />
           </div>
           {err && <p className="text-xs text-red-400">{err}</p>}
           <button
@@ -831,11 +755,6 @@ function FavRow({ label, value, onSave }: { label: string; value: string; onSave
       </button>
     </div>
   );
-}
-
-function validYear(v: string): string | undefined {
-  const n = Number(v);
-  return v.length === 4 && n >= 1930 && n <= THIS_YEAR ? v : undefined;
 }
 
 function TextInput({
