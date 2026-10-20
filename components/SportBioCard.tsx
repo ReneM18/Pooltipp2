@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, useMemo, useRef, useState } from "react";
+import { CSSProperties, ReactNode, useMemo, useState } from "react";
 import { useAppData } from "@/lib/AppDataContext";
 import RankBadge from "@/components/RankBadge";
 import { RankIconOption } from "@/lib/rankTiers";
@@ -8,16 +8,17 @@ import { SEASON_THEME } from "@/lib/seasonTheme";
 import {
   bioSport,
   COUNTRIES,
+  honorIcon,
   isBioEmpty,
   isFanRole,
   mainRole,
   PALETTES,
   roleDef,
+  sortedHonors,
   SportBio,
   Station,
   stationPlace,
   stationTitle,
-  stationYears,
 } from "@/lib/sportBio";
 
 // Sportlerkarte im Panini-Stil (Rene, 20.10.2026: Prototyp v4 "weltklasse").
@@ -46,6 +47,8 @@ export default function SportBioCard({
   photo,
   rankIcon,
   place,
+  points,
+  streak,
   onEdit,
   compact = false,
   className = "",
@@ -55,6 +58,8 @@ export default function SportBioCard({
   photo?: string | null;
   rankIcon?: RankIconOption | null;
   place?: number | null;
+  points?: number | null;
+  streak?: number | null;
   // Nur im eigenen Profil: öffnet den Baukasten unter Einstellungen.
   onEdit?: () => void;
   // Kleiner, rechts oben im Profil am PC.
@@ -88,7 +93,7 @@ export default function SportBioCard({
     <section aria-label="Sportlerkarte" className={`${compact ? "" : "mb-8"} ${className}`}>
       {/* Klein: ganze Karte verkleinert, damit Schrift und Abstände stimmen. */}
       <div style={compact ? { zoom: 0.78 } : undefined}>
-        <SportCard bio={bio} name={name} photo={photo} rankIcon={rankIcon} place={place} />
+        <SportCard bio={bio} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} streak={streak} />
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted">
         {!compact && <span>Antippen zum Umdrehen</span>}
@@ -108,24 +113,33 @@ export default function SportBioCard({
 }
 
 /** Die Karte selbst, auch als Live-Vorschau im Baukasten. */
+// v5 (Rene, 20.10.2026): vorne alles Wichtige ohne Jahre, unten die
+// PoolTipp-Zahlen; hinten Erfolge mit Verein und Jahr, Laufbahn mit Rolle
+// und Verein, Interessen an anderen Sportarten.
 export function SportCard({
   bio,
   name,
   photo,
   rankIcon,
   place,
+  points,
+  streak,
 }: {
   bio: SportBio;
   name: string;
   photo?: string | null;
   rankIcon?: RankIconOption | null;
   place?: number | null;
+  points?: number | null;
+  streak?: number | null;
 }) {
   const [flipped, setFlipped] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
   const data = bio.data;
   const stations = data.stations ?? [];
   const main = stations[0];
+  const second = stations.slice(1).find((st) => !isFanRole(st.role)) ?? stations[1];
+  const honors = sortedHonors(data);
+  const interests = data.interests ?? [];
   const [c1, c2] = useCardColors(stations, data.palette);
   const style = data.cardStyle ?? "standard";
 
@@ -136,36 +150,38 @@ export function SportCard({
         ? `linear-gradient(135deg,${SEASON_THEME.colorFrom},${SEASON_THEME.colorTo})`
         : c1;
   const foil = style === "holo" || style === "gold" || style === "saison";
-
-  // Weitere Sportarten als Kreise; die Hauptsportart steht schon oben links
-  // (Rene, 20.10.2026: sonst zwei Fußbälle neben dem Rang-Icon).
-  const sports = Array.from(new Set(stations.map((s) => s.sport).filter(Boolean) as string[]))
-    .filter((s) => s !== main?.sport)
-    .slice(0, 3);
   const flag = main?.land ? COUNTRIES[main.land]?.flag ?? "" : "";
-  // Nur ausgefüllte Felder zeigen (Rene, 20.10.2026: kein "–"). Die Sportart
-  // steht schon oben links, darum hier nur die Position.
+  const sportShort = bioSport(main?.sport)?.label ?? "";
+  // Nur ausgefüllte Felder, keine Jahre (Rene, 20.10.2026).
   const facts: [string, string][] = main
     ? ([
         [main.pos ?? "", "Position"],
         [main.league ?? "", "Liga"],
-        [main.from ? (main.to ? `${Math.max(0, Number(main.to) - Number(main.from))} J.` : `seit ${main.from}`) : "", "Dabei"],
+        [honors.length ? `🏆 ${honors.length}` : "", honors.length === 1 ? "Erfolg" : "Erfolge"],
       ] as [string, string][]).filter(([v]) => v)
     : [];
+  // Zweite Zeile: weitere Rolle und größter Erfolg.
+  const top = honors[0];
+  const alsoLine = [
+    second ? `+ ${roleDef(second.role).icon} ${stationTitle(second)}` : "",
+    top ? `${honorIcon(top.t)} ${top.t}${top.year ? ` ${top.year}` : ""}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const vars = { "--c1": c1, "--c2": c2 } as CSSProperties;
+  const flip = () => setFlipped((f) => !f);
 
   return (
     <div className="mx-auto w-full max-w-[320px] [perspective:1200px]">
       <div
-        ref={cardRef}
         role="button"
         tabIndex={0}
-        aria-label={flipped ? "Karte umdrehen: Vorderseite" : "Karte umdrehen: Laufbahn"}
-        onClick={() => setFlipped((f) => !f)}
+        aria-label={flipped ? "Karte umdrehen: Vorderseite" : "Karte umdrehen: Rückseite"}
+        onClick={flip}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            setFlipped((f) => !f);
+            flip();
           }
         }}
         onPointerMove={(e) => {
@@ -184,43 +200,30 @@ export function SportCard({
         >
           <div
             className="relative h-full overflow-hidden rounded-xl"
-            style={{ background: `linear-gradient(160deg, color-mix(in srgb, ${c1} 55%, #000) 0%, #0b100e 70%)` }}
+            style={{ background: `linear-gradient(160deg, color-mix(in srgb, ${c1} 55%, #000) 0%, #0b100e 72%)` }}
           >
             <div
               aria-hidden
-              className="absolute inset-0 opacity-35"
+              className="absolute inset-0 opacity-30"
               style={{ background: `repeating-linear-gradient(115deg, ${c2} 0 14px, transparent 14px 38px)` }}
             />
-            {/* Kopf: Rückennummer links, Rang + Sportarten rechts */}
+            {/* Kopf: Nummer + Sportart links, Rang rechts */}
             <div className="absolute inset-x-3 top-2.5 z-[3] flex items-start justify-between">
-              <div className="font-display text-[44px] font-black leading-[0.9] text-white [text-shadow:0_2px_0_rgba(0,0,0,0.35)]">
+              <div className="font-display text-[42px] font-black leading-[0.9] text-white [text-shadow:0_2px_0_rgba(0,0,0,0.35)]">
                 {data.nr}
-                <span className="mt-1 block text-[10px] font-bold uppercase tracking-widest opacity-85">
-                  {bioSport(main?.sport)?.label ?? ""}
+                <span className="mt-1 block text-[10px] font-bold uppercase tracking-widest opacity-90">
+                  {[sportShort, main?.pos ? posShort(main.pos) : ""].filter(Boolean).join(" · ")}
                 </span>
               </div>
-              <div className="flex flex-col items-end gap-1.5">
-                {rankIcon && (
-                  <span className="flex items-center gap-1.5 rounded-full bg-black/50 py-0.5 pl-0.5 pr-2.5 ring-1 ring-white/20">
-                    <RankBadge option={rankIcon} size="md" />
-                    {place ? <span className="font-display text-xs font-bold text-white">#{place}</span> : null}
-                  </span>
-                )}
-                <div className="flex gap-1">
-                  {sports.map((s) => (
-                    <span
-                      key={s}
-                      title={bioSport(s)?.label}
-                      className="grid h-8 w-8 place-items-center rounded-full bg-black/45 text-base ring-1 ring-white/20"
-                    >
-                      {bioSport(s)?.icon}
-                    </span>
-                  ))}
-                </div>
-              </div>
+              {rankIcon && (
+                <span className="flex items-center gap-1.5 rounded-full bg-black/50 py-0.5 pl-0.5 pr-2.5 ring-1 ring-white/20">
+                  <RankBadge option={rankIcon} size="md" />
+                  {place ? <span className="font-display text-xs font-bold text-white">#{place}</span> : null}
+                </span>
+              )}
             </div>
-            {/* Foto bzw. Anfangsbuchstabe */}
-            <div className="absolute bottom-[37%] left-1/2 z-[2] aspect-square w-[52%] -translate-x-1/2">
+            {/* Foto; Stempel nur, wenn bestätigt (Rene, 20.10.2026) */}
+            <div className="absolute left-1/2 top-[15%] z-[2] aspect-square w-[50%] -translate-x-1/2">
               <div
                 className="grid h-full w-full place-items-center overflow-hidden rounded-full font-display text-6xl font-extrabold text-white"
                 style={{
@@ -236,38 +239,56 @@ export function SportCard({
                   name.slice(0, 1).toUpperCase()
                 )}
               </div>
-              <span
-                className={`absolute -right-4 top-1 rotate-12 rounded-md border-2 border-current bg-black/60 px-2 py-1 font-display text-[10px] font-extrabold uppercase tracking-wide ${
-                  bio.verified ? "text-action" : "text-[#cfd8d3]"
-                }`}
-              >
-                {bio.verified ? "✓ bestätigt" : "eigene Angabe"}
-              </span>
+              {bio.verified && (
+                <span className="absolute -right-4 top-1 rotate-12 rounded-md border-2 border-current bg-black/60 px-2 py-1 font-display text-[10px] font-extrabold uppercase tracking-wide text-action">
+                  ✓ bestätigt
+                </span>
+              )}
             </div>
             {/* Namensschild */}
-            <div className="absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-b from-transparent via-black/75 to-black/90 px-3.5 pb-3.5 pt-3">
+            <div className="absolute inset-x-0 bottom-0 z-[3] bg-gradient-to-b from-transparent via-black/80 to-black/90 px-3 pb-2.5 pt-3">
               {main && (
-                <span className="inline-block -skew-x-6 rounded bg-gold px-2.5 py-0.5 font-display text-[13px] font-extrabold uppercase tracking-wider text-[#111]">
+                <span className="inline-block -skew-x-6 rounded bg-gold px-2.5 py-0.5 font-display text-[12px] font-extrabold uppercase tracking-wider text-[#111]">
                   <span className="inline-block skew-x-6">
                     {roleDef(main.role).icon} {stationTitle(main)}
                   </span>
                 </span>
               )}
-              <p className="mt-1.5 truncate font-display text-[26px] font-extrabold leading-tight text-white">{name}</p>
-              <p className="truncate text-[13px] text-[#dfe7e2]">
-                {flag} {main ? stationPlace(main) : ""}
-                {main && stationYears(main) ? <span className="opacity-70"> · {stationYears(main)}</span> : null}
-              </p>
+              <p className="mt-1 truncate font-display text-[25px] font-extrabold leading-tight text-white">{name}</p>
+              {main && stationPlace(main) && (
+                <p className="truncate text-[12.5px] text-[#dfe7e2]">
+                  {flag} {stationPlace(main)}
+                </p>
+              )}
+              {alsoLine && <p className="truncate text-[11.5px] text-gold">{alsoLine}</p>}
               {facts.length > 0 && (
-                <div className={`mt-2.5 grid gap-1.5 ${facts.length === 3 ? "grid-cols-3" : facts.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+                <div className={`mt-2 grid gap-1.5 ${facts.length === 3 ? "grid-cols-3" : facts.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
                   {facts.map(([v, l]) => (
                     <div key={l} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.07] px-1.5 py-1 text-center">
-                      <b className="block truncate font-display text-[13px] text-white">{v}</b>
-                      <i className="block text-[9px] uppercase not-italic tracking-wider text-[#aab8b1]">{l}</i>
+                      <b className="block truncate font-display text-[12.5px] text-white">{v}</b>
+                      <i className="block text-[8.5px] uppercase not-italic tracking-wider text-[#aab8b1]">{l}</i>
                     </div>
                   ))}
                 </div>
               )}
+              <div className="mt-2 flex items-center justify-between gap-2 border-t border-white/10 pt-1.5 text-[10.5px] text-[#cfd8d3]">
+                <span className="truncate">
+                  PoolTipp
+                  {points != null && (
+                    <>
+                      {" "}
+                      <b className="font-display text-gold">{points.toLocaleString("de-DE")}</b> Rangpunkte
+                    </>
+                  )}
+                  {streak ? (
+                    <>
+                      {" "}
+                      · 🔥 <b className="font-display text-gold">{streak}</b>
+                    </>
+                  ) : null}
+                </span>
+                <span className="shrink-0">{SEASON_THEME.name}</span>
+              </div>
             </div>
             {foil && (
               <div
@@ -284,45 +305,90 @@ export function SportCard({
           </div>
         </div>
 
-        {/* Rückseite: Laufbahn und Erfolge */}
+        {/* Rückseite: Erfolge, Laufbahn, Interessen */}
         <div
-          className="absolute inset-0 flex flex-col gap-2.5 overflow-hidden rounded-[18px] border-[3px] bg-surface p-4 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.7)] [backface-visibility:hidden] [transform:rotateY(180deg)]"
+          className="absolute inset-0 flex flex-col gap-2.5 overflow-hidden rounded-[18px] border-[3px] bg-surface p-3.5 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.7)] [backface-visibility:hidden] [transform:rotateY(180deg)]"
           style={{ borderColor: style === "gold" ? "#d4a943" : style === "saison" ? SEASON_THEME.colorFrom : c1 }}
         >
-          <p className="font-display text-base font-bold text-ink">Laufbahn von {name}</p>
-          <ul className="flex min-h-0 flex-col gap-2.5 overflow-y-auto border-l-2 border-edge pl-3.5">
-            {stations.map((st, i) => (
-              <li key={i} className="relative">
-                <span aria-hidden className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-gold ring-[3px] ring-surface" />
-                <p className="font-display text-[11px] font-bold tracking-wide text-gold">{stationYears(st) || " "}</p>
-                <p className="text-sm font-semibold text-ink">
-                  {roleDef(st.role).icon} {stationTitle(st)}
-                  {st.sport && !isFanRole(st.role) ? ` · ${bioSport(st.sport)?.icon ?? ""}` : ""}
-                </p>
-                <p className="text-xs text-muted">{[stationPlace(st), st.pos, st.league].filter(Boolean).join(" · ")}</p>
-              </li>
-            ))}
-            {data.since && (
-              <li className="relative">
-                <span aria-hidden className="absolute -left-[21px] top-1 h-2.5 w-2.5 rounded-full bg-gold ring-[3px] ring-surface" />
-                <p className="font-display text-[11px] font-bold tracking-wide text-gold">seit {data.since}</p>
-                <p className="text-sm font-semibold text-ink">❤️ Sport-Fan</p>
-              </li>
+          <p className="flex items-baseline justify-between gap-2 font-display text-[15px] font-bold text-ink">
+            <span className="truncate">{name}</span>
+            <span className="shrink-0 text-[10px] font-semibold text-muted">Sportlerkarte</span>
+          </p>
+          <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto">
+            {honors.length > 0 && (
+              <BackSection title="Erfolge">
+                <ul className="flex flex-col gap-1.5">
+                  {honors.map((h, i) => (
+                    <li key={i} className="grid grid-cols-[20px_1fr_auto] items-center gap-1.5 rounded-lg border border-gold/25 bg-gold/[0.08] px-2 py-1.5">
+                      <span aria-hidden className="text-sm">
+                        {honorIcon(h.t)}
+                      </span>
+                      <span className="min-w-0 text-[12.5px] font-semibold leading-tight text-ink">
+                        {h.t}
+                        {h.league ? ` · ${h.league}` : ""}
+                        {h.club && <span className="block truncate text-[11px] font-normal text-muted">{h.club}</span>}
+                      </span>
+                      <span className="font-display text-xs font-extrabold text-gold">{h.year}</span>
+                    </li>
+                  ))}
+                </ul>
+              </BackSection>
             )}
-          </ul>
-          {(data.honors?.length ?? 0) > 0 && (
-            <div className="mt-auto flex flex-wrap gap-1.5">
-              {data.honors!.map((h) => (
-                <span key={h} className="rounded-full border border-gold/35 bg-gold/15 px-2 py-1 text-[11px] font-semibold text-gold">
-                  {h}
-                </span>
-              ))}
-            </div>
-          )}
+            {stations.length > 0 && (
+              <BackSection title="Laufbahn">
+                <ul className="flex flex-col gap-1 border-l-2 border-edge pl-3">
+                  {stations.map((st, i) => (
+                    <li key={i} className="relative text-xs text-ink">
+                      <span aria-hidden className="absolute -left-[17px] top-1 h-2 w-2 rounded-full bg-gold ring-[3px] ring-surface" />
+                      <b className="font-semibold">
+                        {roleDef(st.role).icon} {stationTitle(st)}
+                      </b>
+                      {st.club && <span className="text-muted"> · {st.club}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </BackSection>
+            )}
+            {interests.length > 0 && (
+              <BackSection title="Interessen">
+                <div className="flex flex-wrap gap-1.5">
+                  {interests.map((it) => (
+                    <span key={it.k} className="rounded-full border border-edge bg-white/[0.06] px-2.5 py-1 text-[11.5px] font-semibold text-ink">
+                      {bioSport(it.k)?.icon} {bioSport(it.k)?.label}
+                      {it.fav ? ` · ${it.fav}` : ""}
+                    </span>
+                  ))}
+                </div>
+              </BackSection>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-2 border-t border-edge pt-1.5 text-[10px] text-muted">
+            <span>{data.since ? `❤️ Sport-Fan seit ${data.since}` : ""}</span>
+            {bio.verified ? <b className="font-bold text-action">✓ bestätigt von PoolTipp</b> : <span>Angaben vom Spieler selbst</span>}
+          </div>
         </div>
       </div>
     </div>
   );
+}
+
+function BackSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="font-display text-[10px] font-bold uppercase tracking-[0.12em] text-gold">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+// Kurzform der Position für den Kopf: "Mittelfeld" -> "MF".
+const POS_SHORT: Record<string, string> = {
+  Tor: "TW", Abwehr: "AB", Mittelfeld: "MF", Sturm: "ST", Verteidigung: "VT", Rückraum: "RR", Kreis: "KR", Außen: "AU",
+  Aufbau: "PG", Flügel: "F", Center: "C", Quarterback: "QB", "Running Back": "RB", Receiver: "WR", Line: "OL",
+  Linebacker: "LB", "Defensive Back": "DB", Kicker: "K", Zuspiel: "ZU", Mitte: "MI", Diagonal: "DI", Libero: "LI",
+};
+function posShort(pos: string): string {
+  return POS_SHORT[pos] ?? pos.slice(0, 2).toUpperCase();
 }
 
 /** Kleines Abzeichen mit der Hauptrolle unter dem Namen. */

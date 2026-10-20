@@ -55,9 +55,10 @@ export function SportBioAdmin() {
       {error && <p className="text-sm text-red-400">{error}</p>}
 
       <section>
-        <h2 className="font-display text-lg font-semibold text-ink">Vereine prüfen ({pendingClubs.length})</h2>
+        <h2 className="font-display text-lg font-semibold text-ink">Vereine und Namen prüfen ({pendingClubs.length})</h2>
         <p className="mb-3 text-xs text-muted">
-          Eingetippte Vereine, die es in der App nicht gibt. Erst nach „Freigeben“ sehen andere Spieler den Namen.
+          Eingetippte Vereine (Laufbahn, Erfolge) und Lieblingsvereine oder Sportler (Interessen), die es in der App nicht gibt. Erst
+          nach „Freigeben“ sehen andere Spieler den Namen.
         </p>
         {pendingClubs.length === 0 ? (
           <p className="text-sm text-muted">Nichts zu prüfen.</p>
@@ -106,7 +107,14 @@ export function SportBioAdmin() {
                           return `${roleDef(st.role).icon} ${stationTitle(st)}${place ? ` (${place})` : ""}`;
                         })
                         .join(" · ") || "Nur Erfolge/Fan seit"}
-                      {(data.honors?.length ?? 0) > 0 && <span className="block">{data.honors!.join(" · ")}</span>}
+                      {(data.honors?.length ?? 0) > 0 && (
+                        <span className="block">
+                          {data.honors!.map((h) => [h.t, h.league, h.club, h.year].filter(Boolean).join(" ")).join(" · ")}
+                        </span>
+                      )}
+                      {(data.interests?.length ?? 0) > 0 && (
+                        <span className="block">Interessen: {data.interests!.map((i) => [i.k, i.fav].filter(Boolean).join(" ")).join(" · ")}</span>
+                      )}
                     </p>
                   </div>
                   <button

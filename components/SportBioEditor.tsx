@@ -16,7 +16,13 @@ import {
   CardStyle,
   CLUB_MAX,
   COUNTRIES,
-  HONORS,
+  FAV_MAX,
+  Honor,
+  honorIcon,
+  HONOR_TYPES,
+  MAX_HONORS,
+  MAX_INTERESTS,
+  sortedHonors,
   isFanRole,
   leaguesFor,
   PALETTES,
@@ -27,7 +33,9 @@ import {
   saveSportBio,
   SportBio,
   Station,
+  stationPlace,
   stationTitle,
+  stationYears,
 } from "@/lib/sportBio";
 
 const THIS_YEAR = new Date().getFullYear();
@@ -45,6 +53,8 @@ export default function SportBioEditor({
   photo,
   rankIcon,
   place,
+  points,
+  streak,
   bio,
   unavailable,
   onSaved,
@@ -54,6 +64,8 @@ export default function SportBioEditor({
   photo?: string | null;
   rankIcon?: RankIconOption | null;
   place?: number | null;
+  points?: number | null;
+  streak?: number | null;
   bio: SportBio | null;
   unavailable: boolean;
   onSaved: () => void;
@@ -63,6 +75,7 @@ export default function SportBioEditor({
   const [data, setData] = useState<BioData>(bio?.data ?? {});
   const [visibility, setVisibility] = useState<BioVisibility>(bio?.visibility ?? "friends");
   const [saved, setSaved] = useState(false);
+  const [savedWhere, setSavedWhere] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>();
@@ -90,26 +103,54 @@ export default function SportBioEditor({
   const clubNames = useMemo(() => Array.from(new Set(teams.map((t) => t.name))).sort((a, b) => a.localeCompare(b, "de")), [teams]);
   const knownClub = (club?: string) => !!club && clubNames.some((n) => n.toLowerCase() === club.toLowerCase());
 
-  async function commit(nextData: BioData, nextVis: BioVisibility = visibility) {
+  // where: welcher Bereich gespeichert hat – dort erscheint "✓ Gespeichert"
+  // (Rene, 20.10.2026: man soll sehen, was übernommen wurde).
+  async function commit(nextData: BioData, nextVis: BioVisibility = visibility, where = "") {
     touched.current = true;
     setData(nextData);
     setVisibility(nextVis);
     setSaved(false);
+    setSavedWhere(where);
     const err = await saveSportBio(userId, nextData, nextVis);
     setError(err);
-    if (err) return;
+    if (err) return false;
     setSaved(true);
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setSaved(false), 2500);
     onSaved();
+    return true;
   }
+  const savedAt = (where: string) => saved && savedWhere === where;
 
+  // Stationen bearbeitet man in einem Entwurf: erst "Speichern" übernimmt
+  // ihn, "Abbrechen" verwirft ihn (Rene, 20.10.2026: vorher wusste man nicht,
+  // was schon übernommen ist). index null = neue Station.
   const stations = data.stations ?? [];
-  function setStations(next: Station[]) {
-    commit({ ...data, stations: next });
+  const [editing, setEditing] = useState<{ index: number | null; draft: Station } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  function setStations(next: Station[], where = "laufbahn") {
+    return commit({ ...data, stations: next }, visibility, where);
   }
-  function patch(i: number, p: Partial<Station>) {
-    setStations(stations.map((st, j) => (j === i ? { ...st, ...p } : st)));
+  function patchDraft(p: Partial<Station>) {
+    setEditing((e) => (e ? { ...e, draft: { ...e.draft, ...p } } : e));
+  }
+  async function saveDraft() {
+    if (!editing) return;
+    const d = editing.draft;
+    const bad = (y?: string) => !!y && !validYear(y);
+    if (bad(d.from) || bad(d.to)) {
+      setDraftError(`Jahr bitte vierstellig zwischen 1930 und ${THIS_YEAR}.`);
+      return;
+    }
+    if (d.from && d.to && Number(d.to) < Number(d.from)) {
+      setDraftError("„Bis“ liegt vor „Von“.");
+      return;
+    }
+    setDraftError(null);
+    const clean: Station = { ...d, club: d.club?.trim() || undefined };
+    const next = editing.index === null ? [...stations, clean] : stations.map((st, j) => (j === editing.index ? clean : st));
+    if (await setStations(next)) setEditing(null);
   }
 
   if (unavailable) {
@@ -121,7 +162,13 @@ export default function SportBioEditor({
     );
   }
 
-  const preview: SportBio = { data, verified: bio?.verified ?? false, visibility };
+  // Vorschau zeigt auch den Entwurf, den man gerade bearbeitet.
+  const previewStations = editing
+    ? editing.index === null
+      ? [...stations, editing.draft]
+      : stations.map((st, j) => (j === editing.index ? editing.draft : st))
+    : stations;
+  const preview: SportBio = { data: { ...data, stations: previewStations }, verified: bio?.verified ?? false, visibility };
   const hasKnownClub = stations.some((st) => knownClub(st.club));
   const style = data.cardStyle ?? "standard";
 
@@ -129,7 +176,6 @@ export default function SportBioEditor({
     <section id="steckbrief" className="mb-8 scroll-mt-48">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-display text-lg font-semibold text-ink">🃏 Deine Sportlerkarte</h2>
-        <SavedHint saved={saved} />
       </div>
       <p className="mt-1 text-xs text-muted">
         Was hast du selbst mit Sport zu tun? Steht als „eigene Angabe“ auf deiner Karte und bringt keine Punkte. „✓ bestätigt“ kann
@@ -137,33 +183,108 @@ export default function SportBioEditor({
       </p>
       {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
 
-      {stations.length > 0 && (
+      {previewStations.length > 0 && (
         <div className="mt-4">
-          <SportCard bio={preview} name={name} photo={photo} rankIcon={rankIcon} place={place} />
+          <SportCard bio={preview} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} streak={streak} />
           <p className="mt-2 text-center text-[11px] text-muted">Vorschau · antippen zum Umdrehen</p>
         </div>
       )}
 
-      <Card title="Deine Laufbahn" text="Jede Station: was, welche Sportart, wo, von wann bis wann. Die oberste ist deine Hauptrolle auf der Karte.">
-        <div className="mt-3 flex flex-col gap-3">
-          {stations.map((st, i) => (
+      <Card
+        title="Deine Laufbahn"
+        text="Jede Station: was, welche Sportart, wo, von wann bis wann. Die oberste ist deine Hauptrolle auf der Karte."
+        saved={savedAt("laufbahn")}
+      >
+        <div className="mt-3 flex flex-col gap-2">
+          {stations.map((st, i) =>
+            editing?.index === i ? (
+              <StationEditor
+                key={i}
+                st={editing.draft}
+                isMain={i === 0}
+                known={knownClub(editing.draft.club)}
+                error={draftError}
+                onPatch={patchDraft}
+                onSave={saveDraft}
+                onCancel={() => {
+                  setEditing(null);
+                  setDraftError(null);
+                }}
+              />
+            ) : (
+              <div key={i} className="flex flex-col gap-2 rounded-card border border-edge bg-pitch px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-display text-sm font-bold text-ink">
+                    {roleDef(st.role).icon} {stationTitle(st)}
+                    {i === 0 && <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-gold">Hauptrolle</span>}
+                  </p>
+                  <p className="truncate text-xs text-muted">
+                    {[bioSportLabel(st.sport), stationPlace(st), stationYears(st)].filter(Boolean).join(" · ") || "Noch keine Details"}
+                  </p>
+                </div>
+                {confirmDelete === i ? (
+                  <span className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
+                    <span className="text-muted">Wirklich löschen?</span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (await setStations(stations.filter((_, j) => j !== i))) setConfirmDelete(null);
+                      }}
+                      className="rounded-full bg-red-500/90 px-3 py-1 font-semibold text-white hover:bg-red-500"
+                    >
+                      Ja, löschen
+                    </button>
+                    <button type="button" onClick={() => setConfirmDelete(null)} className="rounded-full border border-edge px-3 py-1 text-muted hover:text-ink">
+                      Nein
+                    </button>
+                  </span>
+                ) : (
+                  <span className="flex shrink-0 flex-wrap items-center gap-1.5">
+                    {i > 0 && (
+                      <SmallButton disabled={!!editing} onClick={() => setStations(swap(stations, i - 1, i))} label="Nach oben">
+                        ↑
+                      </SmallButton>
+                    )}
+                    <SmallButton
+                      disabled={!!editing}
+                      onClick={() => {
+                        setConfirmDelete(null);
+                        setDraftError(null);
+                        setEditing({ index: i, draft: st });
+                      }}
+                    >
+                      ✏️ Bearbeiten
+                    </SmallButton>
+                    <SmallButton disabled={!!editing} onClick={() => setConfirmDelete(i)}>
+                      🗑️ Löschen
+                    </SmallButton>
+                  </span>
+                )}
+              </div>
+            )
+          )}
+          {editing?.index === null && (
             <StationEditor
-              key={i}
-              st={st}
-              index={i}
-              known={knownClub(st.club)}
-              onPatch={(p) => patch(i, p)}
-              onUp={i > 0 ? () => setStations(swap(stations, i - 1, i)) : undefined}
-              onRemove={() => setStations(stations.filter((_, j) => j !== i))}
+              st={editing.draft}
+              isNew
+              isMain={stations.length === 0}
+              known={knownClub(editing.draft.club)}
+              error={draftError}
+              onPatch={patchDraft}
+              onSave={saveDraft}
+              onCancel={() => {
+                setEditing(null);
+                setDraftError(null);
+              }}
             />
-          ))}
+          )}
         </div>
         <datalist id="sport-bio-clubs">
           {clubNames.map((n) => (
             <option key={n} value={n} />
           ))}
         </datalist>
-        {stations.length < MAX_STATIONS && (
+        {stations.length < MAX_STATIONS && !editing && (
           <button
             type="button"
             onClick={() => setPicking((p) => !p)}
@@ -172,9 +293,9 @@ export default function SportBioEditor({
             {picking ? "Schließen" : "+ Station hinzufügen"}
           </button>
         )}
-        {picking && (
+        {picking && !editing && (
           <div className="mt-3 flex flex-col gap-3 rounded-card border border-dashed border-edge p-3">
-            <p className="text-xs text-muted">Was warst oder bist du?</p>
+            <p className="text-xs text-muted">Was warst oder bist du? Danach füllst du die Details aus und speicherst.</p>
             {ROLE_CATS.map(([cat, roles]) => (
               <div key={cat}>
                 <p className="font-display text-xs font-bold text-ink">{cat}</p>
@@ -186,7 +307,8 @@ export default function SportBioEditor({
                       active={false}
                       onClick={() => {
                         setPicking(false);
-                        setStations([...stations, { role: r.key, ex: false, sport: "fb", land: isFanRole(r.key) ? undefined : "AT" }]);
+                        setDraftError(null);
+                        setEditing({ index: null, draft: { role: r.key, ex: false, sport: "fb", land: isFanRole(r.key) ? undefined : "AT" } });
                       }}
                     >
                       <span aria-hidden>{r.icon}</span>
@@ -200,33 +322,81 @@ export default function SportBioEditor({
         )}
       </Card>
 
-      <Card title="Erfolge" text="Stehen auf der Rückseite deiner Karte.">
+      <Card title="Erfolge" text="Was, in welcher Liga, mit welchem Verein und wann. Stehen auf der Rückseite deiner Karte." saved={savedAt("erfolge")}>
+        <HonorsEditor
+          honors={data.honors ?? []}
+          clubs={Array.from(new Set(stations.map((st) => st.club).filter((c): c is string => !!c)))}
+          leagues={leaguesFor(stations[0]?.sport, stations[0]?.land)}
+          onChange={(honors) => commit({ ...data, honors }, visibility, "erfolge")}
+        />
+      </Card>
+
+      <Card
+        title="Interessen"
+        text="Andere Sportarten, die du verfolgst oder selbst machst. Antippen speichert sofort. Lieblingsverein oder Sportler optional (wird vom Admin geprüft)."
+        saved={savedAt("interessen")}
+      >
         <div className="mt-3 flex flex-wrap gap-2">
-          {HONORS.map((h) => {
-            const on = (data.honors ?? []).includes(h);
+          {BIO_SPORTS.map((sp) => {
+            const on = (data.interests ?? []).some((i) => i.k === sp.key);
+            const full = !on && (data.interests ?? []).length >= MAX_INTERESTS;
             return (
               <Chip
-                key={h}
+                key={sp.key}
+                small
                 active={on}
-                onClick={() => commit({ ...data, honors: on ? data.honors!.filter((x) => x !== h) : [...(data.honors ?? []), h] })}
+                onClick={() =>
+                  !full &&
+                  commit(
+                    {
+                      ...data,
+                      interests: on ? (data.interests ?? []).filter((i) => i.k !== sp.key) : [...(data.interests ?? []), { k: sp.key }],
+                    },
+                    visibility,
+                    "interessen"
+                  )
+                }
               >
-                {h}
+                <span aria-hidden>{sp.icon}</span>
+                {sp.label}
               </Chip>
             );
           })}
         </div>
+        {(data.interests ?? []).length > 0 && (
+          <div className="mt-3 flex flex-col gap-2">
+            {(data.interests ?? []).map((it) => (
+              <FavRow
+                key={it.k}
+                label={bioSportLabel(it.k)}
+                value={it.fav ?? ""}
+                onSave={(fav) =>
+                  commit(
+                    { ...data, interests: (data.interests ?? []).map((i) => (i.k === it.k ? { ...i, fav: fav || undefined } : i)) },
+                    visibility,
+                    "interessen"
+                  )
+                }
+              />
+            ))}
+          </div>
+        )}
       </Card>
 
-      <Card title="Kartenfoto" text="Eigenes Foto für die Karte, z. B. im Vereinsdress. Ausschnitt verschieben und zoomen. Sieht jeder, der deine Karte sehen darf.">
+      <Card
+        title="Kartenfoto"
+        text="Eigenes Foto für die Karte, z. B. im Vereinsdress. Ausschnitt verschieben und zoomen. Sieht jeder, der deine Karte sehen darf."
+        saved={savedAt("foto")}
+      >
         <CardPhotoEditor
           current={data.photo}
           profilePhotos={photos.filter((p): p is string => !!p && p.startsWith("data:image"))}
-          onSave={(url) => commit({ ...data, photo: url })}
-          onReset={() => commit({ ...data, photo: undefined })}
+          onSave={(url) => commit({ ...data, photo: url }, visibility, "foto")}
+          onReset={() => commit({ ...data, photo: undefined }, visibility, "foto")}
         />
       </Card>
 
-      <Card title="Karte" text="Rückennummer, Fan seit und Farben.">
+      <Card title="Karte" text="Rückennummer, Fan seit, Farben und Edition. Jede Auswahl speichert sofort." saved={savedAt("karte")}>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <Field label="Rückennummer">
             <TextInput
@@ -234,13 +404,13 @@ export default function SportBioEditor({
               maxLength={2}
               numeric
               placeholder="z. B. 10"
-              onCommit={(v) => v !== (data.nr ?? "") && commit({ ...data, nr: v || undefined })}
+              onCommit={(v) => v !== (data.nr ?? "") && commit({ ...data, nr: v || undefined }, visibility, "karte")}
             />
           </Field>
           <Field label="Fan seit">
             <select
               value={data.since ?? ""}
-              onChange={(e) => commit({ ...data, since: e.target.value || undefined })}
+              onChange={(e) => commit({ ...data, since: e.target.value || undefined }, visibility, "karte")}
               className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink"
             >
               <option value="">– keine Angabe –</option>
@@ -258,7 +428,7 @@ export default function SportBioEditor({
         ) : (
           <div className="mt-2 flex flex-wrap gap-2">
             {PALETTES.map((p, i) => (
-              <Chip key={p[0]} small active={(data.palette ?? 0) === i} onClick={() => commit({ ...data, palette: i })}>
+              <Chip key={p[0]} small active={(data.palette ?? 0) === i} onClick={() => commit({ ...data, palette: i }, visibility, "karte")}>
                 <span
                   aria-hidden
                   className="h-3 w-3 rounded-full ring-1 ring-white/30"
@@ -282,7 +452,7 @@ export default function SportBioEditor({
                 🔒 {c.label}
               </Link>
             ) : (
-              <Chip key={c.key} small active={style === c.key} onClick={() => commit({ ...data, cardStyle: c.key as CardStyle })}>
+              <Chip key={c.key} small active={style === c.key} onClick={() => commit({ ...data, cardStyle: c.key as CardStyle }, visibility, "karte")}>
                 {c.label}
               </Chip>
             );
@@ -291,7 +461,7 @@ export default function SportBioEditor({
         {!hasPremiumPass && <p className="mt-2 text-[11px] text-muted">Holo, Gold- und Saison-Edition gibt es mit dem Premium-Pass.</p>}
       </Card>
 
-      <Card title="Wer sieht deine Karte?" text="Du siehst sie immer.">
+      <Card title="Wer sieht deine Karte?" text="Du siehst sie immer. Antippen speichert sofort." saved={savedAt("sicht")}>
         <div className="mt-3 flex flex-wrap gap-2">
           {(
             [
@@ -300,7 +470,7 @@ export default function SportBioEditor({
               ["private", "🔒 Niemand"],
             ] as [BioVisibility, string][]
           ).map(([v, l]) => (
-            <Chip key={v} active={visibility === v} onClick={() => commit(data, v)}>
+            <Chip key={v} active={visibility === v} onClick={() => commit(data, v, "sicht")}>
               {l}
             </Chip>
           ))}
@@ -318,39 +488,36 @@ function swap<T>(list: T[], a: number, b: number): T[] {
 
 function StationEditor({
   st,
-  index,
+  isNew = false,
+  isMain,
   known,
+  error,
   onPatch,
-  onUp,
-  onRemove,
+  onSave,
+  onCancel,
 }: {
   st: Station;
-  index: number;
+  isNew?: boolean;
+  isMain: boolean;
   known: boolean;
+  error: string | null;
   onPatch: (p: Partial<Station>) => void;
-  onUp?: () => void;
-  onRemove: () => void;
+  onSave: () => void;
+  onCancel: () => void;
 }) {
   const fan = isFanRole(st.role);
   const country = st.land ? COUNTRIES[st.land] : undefined;
   const positions = !fan && PLAYING_ROLES.includes(st.role) ? POSITIONS[st.sport ?? ""] : undefined;
   const pending = !!st.club && !known && st.clubApproved !== true;
   return (
-    <div className="flex flex-col gap-3 rounded-card border border-gold/35 bg-pitch p-3">
+    <div className="flex flex-col gap-3 rounded-card border-2 border-gold/60 bg-pitch p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="min-w-0 font-display text-[15px] font-bold text-ink">
           {roleDef(st.role).icon} {stationTitle(st)}
-          {index === 0 && <span className="ml-2 font-display text-[10px] font-bold uppercase tracking-wider text-gold">Hauptrolle</span>}
+          {isMain && <span className="ml-2 font-display text-[10px] font-bold uppercase tracking-wider text-gold">Hauptrolle</span>}
         </p>
-        <span className="flex shrink-0 gap-3 text-xs text-muted">
-          {onUp && (
-            <button type="button" onClick={onUp} className="hover:text-gold">
-              ↑ nach oben
-            </button>
-          )}
-          <button type="button" onClick={onRemove} aria-label="Station entfernen" className="hover:text-ink">
-            ✕
-          </button>
+        <span className="shrink-0 rounded-full bg-gold/15 px-2.5 py-0.5 text-[11px] font-semibold text-gold">
+          {isNew ? "Neu · noch nicht gespeichert" : "Wird bearbeitet"}
         </span>
       </div>
       {!fan && (
@@ -419,29 +586,38 @@ function StationEditor({
           </>
         )}
         <Field label={fan ? "Lieblingsverein" : "Verein"}>
-          <TextInput
+          <input
             value={st.club ?? ""}
             maxLength={CLUB_MAX}
             list="sport-bio-clubs"
             placeholder="Verein …"
-            onCommit={(v) => v !== (st.club ?? "") && onPatch({ club: v || undefined, clubApproved: undefined })}
+            onChange={(e) => onPatch({ club: e.target.value || undefined, clubApproved: undefined })}
+            className={INPUT}
           />
           {pending && <p className="mt-1 text-[11px] text-gold">⏳ Wird vom Admin geprüft, bis dahin sehen andere den Verein nicht.</p>}
         </Field>
       </div>
       <div className="grid gap-2 sm:grid-cols-3">
         <Field label={fan ? "Fan seit" : "Von"}>
-          <TextInput value={st.from ?? ""} maxLength={4} numeric placeholder="Jahr" onCommit={(v) => v !== (st.from ?? "") && onPatch({ from: validYear(v) })} />
+          <input
+            value={st.from ?? ""}
+            maxLength={4}
+            inputMode="numeric"
+            placeholder="Jahr"
+            onChange={(e) => onPatch({ from: e.target.value.replace(/\D/g, "") || undefined })}
+            className={INPUT}
+          />
         </Field>
         {!fan && (
           <>
             <Field label="Bis">
-              <TextInput
+              <input
                 value={st.to ?? ""}
                 maxLength={4}
-                numeric
+                inputMode="numeric"
                 placeholder={st.ex ? "Jahr" : "heute"}
-                onCommit={(v) => v !== (st.to ?? "") && onPatch({ to: validYear(v) })}
+                onChange={(e) => onPatch({ to: e.target.value.replace(/\D/g, "") || undefined })}
+                className={INPUT}
               />
             </Field>
             <Field label="Höchste Klasse">
@@ -461,6 +637,198 @@ function StationEditor({
           </>
         )}
       </div>
+      {error && <p className="text-xs text-red-400">{error}</p>}
+      <div className="flex flex-wrap gap-2 border-t border-edge pt-3">
+        <button
+          type="button"
+          onClick={onSave}
+          className="rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover"
+        >
+          {isNew ? "Station speichern" : "Änderungen speichern"}
+        </button>
+        <button type="button" onClick={onCancel} className="rounded-full border border-edge px-5 py-2 text-sm text-muted hover:text-ink">
+          Abbrechen
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const INPUT = "w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted";
+
+function SmallButton({
+  onClick,
+  disabled = false,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  label?: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="rounded-full border border-edge px-3 py-1 text-xs font-semibold text-muted transition-colors hover:border-gold/60 hover:text-ink disabled:opacity-40"
+    >
+      {children}
+    </button>
+  );
+}
+
+function bioSportLabel(key?: string): string {
+  const s = BIO_SPORTS.find((x) => x.key === key);
+  return s ? `${s.icon} ${s.label}` : "";
+}
+
+// Erfolge: Liste mit Löschen (mit Rückfrage) und Formular "Erfolg speichern".
+// Der Verein kommt aus der eigenen Laufbahn (kein neuer Freitext).
+function HonorsEditor({
+  honors,
+  clubs,
+  leagues,
+  onChange,
+}: {
+  honors: Honor[];
+  clubs: string[];
+  leagues: string[];
+  onChange: (honors: Honor[]) => Promise<boolean>;
+}) {
+  const [t, setT] = useState(HONOR_TYPES[0].t);
+  const [league, setLeague] = useState("");
+  const [club, setClub] = useState("");
+  const [year, setYear] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const [confirmIdx, setConfirmIdx] = useState<number | null>(null);
+  const list = sortedHonors({ honors });
+
+  async function add() {
+    if (year && !validYear(year)) {
+      setErr(`Jahr bitte vierstellig zwischen 1930 und ${THIS_YEAR}.`);
+      return;
+    }
+    setErr(null);
+    const h: Honor = { t };
+    if (league) h.league = league;
+    if (club) h.club = club;
+    if (year) h.year = year;
+    if (await onChange([...honors, h])) {
+      setLeague("");
+      setYear("");
+    }
+  }
+
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      {list.map((h) => {
+        const idx = honors.indexOf(h);
+        return (
+          <div key={idx} className="flex flex-col gap-2 rounded-lg border border-edge bg-pitch px-3 py-2 sm:flex-row sm:items-center">
+            <p className="min-w-0 flex-1 text-sm text-ink">
+              {honorIcon(h.t)} <b>{h.t}</b>
+              {h.league ? ` · ${h.league}` : ""}
+              <span className="text-muted">{[h.club, h.year].filter(Boolean).length ? ` · ${[h.club, h.year].filter(Boolean).join(" · ")}` : ""}</span>
+            </p>
+            {confirmIdx === idx ? (
+              <span className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
+                <span className="text-muted">Wirklich löschen?</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (await onChange(honors.filter((_, j) => j !== idx))) setConfirmIdx(null);
+                  }}
+                  className="rounded-full bg-red-500/90 px-3 py-1 font-semibold text-white hover:bg-red-500"
+                >
+                  Ja, löschen
+                </button>
+                <button type="button" onClick={() => setConfirmIdx(null)} className="rounded-full border border-edge px-3 py-1 text-muted hover:text-ink">
+                  Nein
+                </button>
+              </span>
+            ) : (
+              <SmallButton onClick={() => setConfirmIdx(idx)}>🗑️ Löschen</SmallButton>
+            )}
+          </div>
+        );
+      })}
+      {honors.length < MAX_HONORS && (
+        <div className="flex flex-col gap-2 rounded-lg border border-dashed border-edge p-3">
+          <p className="text-xs font-semibold text-muted">Neuer Erfolg</p>
+          <div className="grid gap-2 sm:grid-cols-4">
+            <select value={t} onChange={(e) => setT(e.target.value)} aria-label="Art des Erfolgs" className={INPUT}>
+              {HONOR_TYPES.map((h) => (
+                <option key={h.t} value={h.t}>
+                  {h.icon} {h.t}
+                </option>
+              ))}
+            </select>
+            <select value={league} onChange={(e) => setLeague(e.target.value)} aria-label="Liga" className={INPUT}>
+              <option value="">Liga (optional)</option>
+              {leagues.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+            <select value={club} onChange={(e) => setClub(e.target.value)} aria-label="Verein" className={INPUT}>
+              <option value="">{clubs.length ? "Mit welchem Verein?" : "Verein (erst in Laufbahn eintragen)"}</option>
+              {clubs.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <input
+              value={year}
+              maxLength={4}
+              inputMode="numeric"
+              placeholder="Jahr"
+              onChange={(e) => setYear(e.target.value.replace(/\D/g, ""))}
+              className={INPUT}
+            />
+          </div>
+          {err && <p className="text-xs text-red-400">{err}</p>}
+          <button
+            type="button"
+            onClick={add}
+            className="self-start rounded-full bg-action px-5 py-2 font-display text-sm font-semibold text-pitch hover:bg-action-hover"
+          >
+            Erfolg speichern
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Lieblingsverein/-sportler zu einem Interesse, mit eigenem Speichern-Knopf.
+function FavRow({ label, value, onSave }: { label: string; value: string; onSave: (fav: string) => Promise<boolean> }) {
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value]);
+  const dirty = text.trim() !== value;
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-edge bg-pitch px-3 py-2 sm:flex-row sm:items-center">
+      <span className="shrink-0 text-sm text-ink sm:w-36">{label}</span>
+      <input
+        value={text}
+        maxLength={FAV_MAX}
+        list="sport-bio-clubs"
+        placeholder="Lieblingsverein oder Sportler (optional)"
+        onChange={(e) => setText(e.target.value)}
+        className={`${INPUT} min-w-0 flex-1`}
+      />
+      <button
+        type="button"
+        disabled={!dirty}
+        onClick={() => onSave(text.trim())}
+        className="shrink-0 rounded-full bg-action px-4 py-1.5 text-xs font-semibold text-pitch hover:bg-action-hover disabled:cursor-default disabled:bg-transparent disabled:text-muted disabled:ring-1 disabled:ring-edge"
+      >
+        Speichern
+      </button>
     </div>
   );
 }
@@ -513,10 +881,13 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Card({ title, text, children }: { title: string; text: string; children: ReactNode }) {
+function Card({ title, text, saved = false, children }: { title: string; text: string; saved?: boolean; children: ReactNode }) {
   return (
     <div className="mt-3 rounded-card border border-edge bg-surface p-4">
-      <p className="text-sm font-semibold text-ink">{title}</p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-semibold text-ink">{title}</p>
+        <SavedHint saved={saved} />
+      </div>
       <p className="text-xs text-muted">{text}</p>
       {children}
     </div>
