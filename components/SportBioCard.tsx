@@ -542,7 +542,7 @@ export function SportCard({
             (Sportart bzw. alle bei Unsterblich). */}
         {own && (
           <span
-            title="Kaufen kann man die Karte später ab 500 getippten Spielen, nur mit klar erkennbarem eigenem Gesicht, nach Antrag und Freigabe. Die Statistik zählt vom ersten Tipp bis zum Kauf."
+            title="Kaufen kann man die Karte später ab 500 getippten Spielen, nur mit klar erkennbarem eigenem Gesicht, nach Antrag und Freigabe. Die Karte wird gedruckt und dir nach Hause geschickt, die Statistik zählt vom ersten Tipp bis zum Kauf."
             className="inline-flex cursor-default items-center gap-1.5 rounded-full border border-dashed border-gold/40 px-3 py-1.5 font-display text-xs font-semibold text-gold/80"
           >
             🛒{" "}

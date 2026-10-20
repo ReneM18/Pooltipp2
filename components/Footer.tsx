@@ -76,8 +76,9 @@ export default function Footer() {
             pro Sportart, mit deinem Foto, deiner Laufbahn (z. B. Ex-Vereinsspieler oder Trainer), deinen Erfolgen, deinem
             Rang-Abzeichen und deiner Tipp-Statistik dieser Sportart. Wer in allen Sportarten GOAT ist, bekommt die
             Unsterblich-Karte mit allen Sportarten. Bald kannst du deine Karte auch kaufen: frühestens ab 500 getippten Spielen
-            in dieser Sportart und nur mit einem klar erkennbaren eigenen Gesicht, nach Antrag und Freigabe. Die Statistik
-            auf der gekauften Karte zählt von deinem ersten Tipp bis zum Kauf.
+            in dieser Sportart und nur mit einem klar erkennbaren eigenen Gesicht, nach Antrag und Freigabe. Die gekaufte
+            Karte wird echt gedruckt und dir nach Hause geschickt. Die Statistik darauf zählt von deinem ersten Tipp bis
+            zum Kauf.
           </p>
           <p>
             Dazu gibt's echte Live-Ergebnisse und Tabellen im Matchcenter, einen Saison-Pass mit
