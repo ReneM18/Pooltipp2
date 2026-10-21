@@ -67,7 +67,7 @@ export default function SportBioCard({
   points?: number | null;
   // Nur im eigenen Profil: öffnet den Baukasten unter Einstellungen.
   onEdit?: () => void;
-  // Kleiner, rechts oben im Profil am PC.
+  // Kleiner, links oben im Profil am PC.
   compact?: boolean;
   className?: string;
 }) {
