@@ -270,10 +270,26 @@ function ProfilInhalt() {
         <WelcomeBanner userId={authUserId} name={displayName} />
       )}
 
-      {/* Am PC steht die Sportlerkarte rechts oben neben Kopf und Reitern
-          (Rene, 20.10.2026: "rechts oben wo Platz ist"), am Handy in der Übersicht. */}
-      <div className="lg:flex lg:items-start lg:gap-8">
-        <div className="min-w-0 flex-1">
+      {/* Am PC steht links nur die Sportlerkarte, Name, Abzeichen und Reiter
+          rechts daneben; das runde Profilbild fällt weg, weil das Foto schon
+          in der Karte steckt (Rene, 21.10.2026). Am Handy Karte in der Übersicht. */}
+      <div className="lg:flex lg:items-start lg:gap-10">
+        {hasSportCard && (
+          <div className="hidden w-[250px] shrink-0 lg:mb-10 lg:block">
+            <SportBioCard
+              userId={authUserId}
+              compact
+              bio={sportBio.bio}
+              name={displayName}
+              photo={photos[0]}
+              rankIcon={activeRankIcon}
+              place={currentRank}
+              points={totalRangPunkte}
+              onEdit={openSportBioEditor}
+            />
+          </div>
+        )}
+        <div className={`min-w-0 flex-1 ${hasSportCard ? "lg:pt-2" : ""}`}>
         {/* Level 8 Premium: Profil-Hintergrundbanner in den Saison-Farben
             (SEASON_THEME) – nur ein Farbverlauf, kein neues Bild pro Saison nötig. */}
         <div
@@ -287,7 +303,7 @@ function ProfilInhalt() {
               : undefined
           }
         >
-          <div className="relative h-16 w-16 shrink-0">
+          <div className={`relative h-16 w-16 shrink-0 ${hasSportCard ? "lg:hidden" : ""}`}>
             {/* Das Foto wird in einem eigenen, rund abgeschnittenen Kreis
                 dargestellt – die Rang-Badge sitzt außerhalb davon, sonst
                 schneidet "overflow-hidden" sie zu einem hässlichen Eck ab. */}
@@ -321,9 +337,15 @@ function ProfilInhalt() {
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-ink">
+            <h1 className={`flex items-center gap-2 font-display text-2xl font-bold text-ink ${hasSportCard ? "lg:text-4xl" : ""}`}>
               {/* Lange Einzelwort-Namen schrumpfen statt rechts abgeschnitten zu werden. */}
               <FitText text={displayName} minPx={14} />
+              {/* Kronen-Icon (Level 8 Premium) sonst am runden Profilbild, das am PC neben der Karte fehlt. */}
+              {hasSportCard && hasLevelPremium(8) && (
+                <span className="hidden text-2xl lg:inline" title="Kronen-Icon (Level 8 Premium)">
+                  👑
+                </span>
+              )}
               {/* Level 3 Premium: Saison-Icon neben dem Namen */}
               {hasLevelPremium(3) && passDisplay.nameIcon !== false && (
                 <span className="text-lg" title={`Saison-Icon (${SEASON_THEME.name})`}>
@@ -375,21 +397,6 @@ function ProfilInhalt() {
           ))}
         </div>
         </div>
-        {hasSportCard && (
-          <div className="hidden w-[250px] shrink-0 lg:mb-10 lg:block">
-            <SportBioCard
-              userId={authUserId}
-              compact
-              bio={sportBio.bio}
-              name={displayName}
-              photo={photos[0]}
-              rankIcon={activeRankIcon}
-              place={currentRank}
-              points={totalRangPunkte}
-              onEdit={openSportBioEditor}
-            />
-          </div>
-        )}
       </div>
 
       {profileTab === "Rang" && (
