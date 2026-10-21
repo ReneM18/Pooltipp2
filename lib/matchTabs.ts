@@ -65,14 +65,17 @@ export function splitHomeTabs<T extends TabMatch & { id: string }>(
  * offene Tipps → Tippen, sonst neue Ergebnisse seit dem letzten Besuch →
  * Beendet, sonst Tippen (die eigenen Tipps mit "Alles getippt"). Vorher ging
  * es nach dem letzten Tipp immer zu Beendet, auch ohne neue Ergebnisse.
+ * Gibt es gar keine tippbaren Spiele (auch keine schon getippten), gleich
+ * Beendet statt eines leeren Reiters Tipps (Rene, 21.10.2026).
  */
 export function autoHomeTab(
-  split: { offen: unknown[]; laeuft: unknown[]; geradeBeendet: unknown[] },
+  split: { offen: unknown[]; getippt?: unknown[]; laeuft: unknown[]; geradeBeendet: unknown[]; beendet?: unknown[] },
   hasNewResults = false
 ): HomeTab {
   if (split.laeuft.length + split.geradeBeendet.length > 0) return "live";
   if (split.offen.length > 0) return "tippen";
   if (hasNewResults) return "beendet";
+  if ((split.getippt?.length ?? 0) === 0 && (split.beendet?.length ?? 0) > 0) return "beendet";
   return "tippen";
 }
 
