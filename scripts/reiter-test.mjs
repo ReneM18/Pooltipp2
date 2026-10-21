@@ -64,16 +64,13 @@ assert.deepEqual(ids(sortiert.offen), ["a", "b"]);
 // Automatische Reiterwahl: Live vor Tippen vor Beendet.
 assert.equal(autoHomeTab(home), "live");
 assert.equal(autoHomeTab(splitHomeTabs([M("x", "upcoming", 3)], now, () => false, () => false)), "tippen");
-// Alles getippt: ohne neue Ergebnisse Tippen, mit neuen Ergebnissen Beendet (Rene, 20.10.2026).
+// Renes Regel (21.10.2026): Live vor Tipps (auch schon getippt) vor Beendet.
 assert.equal(autoHomeTab(splitHomeTabs([M("x", "upcoming", 3)], now, () => true, () => false)), "tippen");
-assert.equal(autoHomeTab(splitHomeTabs([M("x", "upcoming", 3)], now, () => true, () => false), true), "beendet");
-assert.equal(autoHomeTab(gleich), "tippen");
-assert.equal(autoHomeTab(gleich, true), "beendet");
-// Nichts zu tippen (keine Spiele angelegt), aber Ergebnisse da: Beendet statt leerem Reiter Tipps (Rene, 21.10.2026).
-const nurBeendet = splitHomeTabs([M("alt", "finished", -20)], now, () => true, () => false);
-assert.equal(autoHomeTab(nurBeendet), "beendet");
-// Getippte Spiele vor Tippschluss bleiben im Reiter Tipps, auch wenn es Ergebnisse gibt.
 assert.equal(autoHomeTab(splitHomeTabs([M("x", "upcoming", 3), M("alt", "finished", -20)], now, () => true, () => false)), "tippen");
+assert.equal(autoHomeTab(splitHomeTabs([M("alt", "finished", -20)], now, () => true, () => false)), "beendet");
+assert.equal(autoHomeTab(splitHomeTabs([M("alt", "finished", -20), M("laeuft", "live", -1)], now, () => true, () => false)), "live");
+assert.equal(autoHomeTab(splitHomeTabs([], now, () => false, () => false)), "tippen");
+assert.equal(autoHomeTab(gleich), "tippen");
 assert.equal(homeTabOf(home, "bald"), "tippen");
 assert.equal(homeTabOf(home, "laeuft"), "live");
 assert.equal(homeTabOf(home, "beendet"), "beendet");
@@ -82,4 +79,4 @@ assert.equal(deadlineText(Date.parse("2026-10-04T19:30:00Z"), now), "21:30");
 assert.equal(deadlineText(Date.parse("2026-10-10T13:30:00Z"), now), "Sa. 15:30");
 assert.equal(deadlineText(Date.parse("2026-10-24T13:30:00Z"), now), "Sa. 24.10. 15:30");
 
-console.log("✓ Reiter-Test: 28 Prüfungen bestanden");
+console.log("✓ Reiter-Test: 30 Prüfungen bestanden");
