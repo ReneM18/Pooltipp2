@@ -61,59 +61,23 @@ export function splitHomeTabs<T extends TabMatch & { id: string }>(
 }
 
 /**
- * Reiter beim Öffnen (Renes Regel, 20.10.2026): läuft etwas → Live, sonst
- * offene Tipps → Tippen, sonst neue Ergebnisse seit dem letzten Besuch →
- * Beendet, sonst Tippen (die eigenen Tipps mit "Alles getippt"). Vorher ging
- * es nach dem letzten Tipp immer zu Beendet, auch ohne neue Ergebnisse.
- * Gibt es gar keine tippbaren Spiele (auch keine schon getippten), gleich
- * Beendet statt eines leeren Reiters Tipps (Rene, 21.10.2026).
+ * Reiter beim Öffnen (Renes Regel, 21.10.2026): läuft etwas → Live, sonst
+ * gibt es tippbare Spiele (offen oder schon getippt) → Tipps, sonst
+ * beendete Spiele → Beendet. Ganz ohne Spiele bleibt es bei Tipps (Hinweis
+ * "Alles getippt" mit Link zum Matchcenter). Vorher (20.10.) sprang es bei
+ * neuen Ergebnissen zu Beendet, auch wenn noch getippte Spiele anstanden.
  */
-export function autoHomeTab(
-  split: { offen: unknown[]; getippt?: unknown[]; laeuft: unknown[]; geradeBeendet: unknown[]; beendet?: unknown[] },
-  hasNewResults = false
-): HomeTab {
+export function autoHomeTab(split: {
+  offen: unknown[];
+  getippt: unknown[];
+  laeuft: unknown[];
+  geradeBeendet: unknown[];
+  beendet: unknown[];
+}): HomeTab {
   if (split.laeuft.length + split.geradeBeendet.length > 0) return "live";
-  if (split.offen.length > 0) return "tippen";
-  if (hasNewResults) return "beendet";
-  if ((split.getippt?.length ?? 0) === 0 && (split.beendet?.length ?? 0) > 0) return "beendet";
+  if (split.offen.length + split.getippt.length > 0) return "tippen";
+  if (split.beendet.length > 0) return "beendet";
   return "tippen";
-}
-
-// Neue Ergebnisse = beendete Spiele, die man im Reiter Beendet noch nicht
-// gesehen hat. Gemerkt wird pro Gerät (localStorage), welche Spiele man dort
-// schon gesehen hat. Nur Spiele der letzten 3 Tage zählen als "neu".
-const SEEN_KEY = "pooltipp.seenResults";
-const NEW_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
-
-function readSeen(): Set<string> | null {
-  try {
-    const raw = window.localStorage.getItem(SEEN_KEY);
-    return raw ? new Set(JSON.parse(raw) as string[]) : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Gibt es beendete Spiele (letzte 3 Tage), die noch nicht gesehen wurden? */
-export function hasUnseenResults(beendet: { id: string; kickoff: string }[], now: number): boolean {
-  const seen = readSeen();
-  // Erster Besuch mit dieser Regel: nichts als "neu" zählen, nur merken.
-  if (!seen) {
-    markResultsSeen(beendet);
-    return false;
-  }
-  return beendet.some((m) => now - Date.parse(m.kickoff) < NEW_WINDOW_MS && !seen.has(m.id));
-}
-
-/** Beendete Spiele als gesehen merken (die neuesten 300 reichen). */
-export function markResultsSeen(beendet: { id: string }[]) {
-  try {
-    const seen = readSeen() ?? new Set<string>();
-    for (const m of beendet) seen.add(m.id);
-    window.localStorage.setItem(SEEN_KEY, JSON.stringify(Array.from(seen).slice(-300)));
-  } catch {
-    // Speicher nicht verfügbar (privates Fenster): dann gibt es eben kein "neu".
-  }
 }
 
 /** Reiter, in dem ein Spiel steht (für /?spiel=… vom Start-Erlebnis). */

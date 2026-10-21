@@ -20,7 +20,7 @@ import { useFeedback } from "@/lib/FeedbackContext";
 import { BOOSTER_STAKE } from "@/lib/poolScore";
 import { Match, isSportActive } from "@/lib/types";
 import { DayGroup, deadlineText, groupMatchesByDay } from "@/lib/dayGroups";
-import { HomeTab, autoHomeTab, hasUnseenResults, homeTabOf, markResultsSeen, splitHomeTabs } from "@/lib/matchTabs";
+import { HomeTab, autoHomeTab, homeTabOf, splitHomeTabs } from "@/lib/matchTabs";
 import { displayOrder } from "@/lib/teamOrder";
 import { useStreak } from "@/lib/streak";
 import { readPendingInvite } from "@/lib/leagueInvite";
@@ -171,22 +171,12 @@ export default function DashboardPage() {
   }, []);
   const ready = contentLoaded && now !== null && (tipsWaitOver || (sessionChecked && (!authUserId || myTipsLoaded)));
   // Vom Start-Erlebnis vorgeschlagenes Spiel: dessen Reiter zuerst.
-  // Neue Ergebnisse seit dem letzten Besuch: einmal beim Öffnen prüfen (lib/matchTabs.ts).
-  const [newResults, setNewResults] = useState<boolean | null>(null);
-  useEffect(() => {
-    if (ready && newResults === null && now !== null) setNewResults(hasUnseenResults(split.beendet, now));
-  }, [ready, newResults, now, split.beendet]);
   const autoTab =
-    highlightId && shownMatches.some((m) => m.id === highlightId) ? homeTabOf(split, highlightId) : autoHomeTab(split, !!newResults);
+    highlightId && shownMatches.some((m) => m.id === highlightId) ? homeTabOf(split, highlightId) : autoHomeTab(split);
   useEffect(() => {
-    if (ready && newResults !== null && chosenTab === null) setTab(autoTab);
-  }, [ready, newResults, chosenTab, autoTab]);
+    if (ready && chosenTab === null) setTab(autoTab);
+  }, [ready, chosenTab, autoTab]);
   const tab: HomeTab = chosenTab ?? autoTab;
-  // Reiter Beendet angesehen: diese Ergebnisse sind nicht mehr "neu".
-  const beendetKey = split.beendet.map((m) => m.id).join(",");
-  useEffect(() => {
-    if (tab === "beendet" && ready && beendetKey) markResultsSeen(beendetKey.split(",").map((id) => ({ id })));
-  }, [tab, ready, beendetKey]);
   // Karte erst suchen, wenn der Reiter steht (sonst ist sie noch nicht da).
   useEffect(() => {
     if (!highlightId || !ready || scrolledRef.current) return;
