@@ -56,7 +56,8 @@ export default function SpielerProfilPage() {
   const honors = isSelf ? shownPassHonors : otherHonors;
   // Profilbild (eigenes bzw. das des Spielers, wenn er es zeigen lässt).
   const avatarPhoto = usePlayerPhoto(isSelf ? authUserId : playerId);
-  // Sport-Steckbrief: die Datenbank prüft, ob man ihn sehen darf (alle/Freunde/niemand).
+  // Sport-Steckbrief: nur für Freunde, das prüft die Datenbank
+  // (supabase/sportlerkarte-nur-freunde.sql).
   const sportBio = useSportBio(isSelf ? authUserId : playerId);
 
   // Platz in der Gesamt-Rangliste (gleiche Rechnung wie dort: Summe der
@@ -204,10 +205,10 @@ export default function SpielerProfilPage() {
             </p>
             <p className="text-xs text-muted">
               {isFriend
-                ? "Ihr könnt gegenseitig eure privaten Fotos sehen."
+                ? "Ihr könnt gegenseitig eure Sportlerkarten und privaten Fotos sehen."
                 : isPending
                 ? "Wartet auf Bestätigung durch die andere Person."
-                : "Freundschaftsanfrage senden, um private Fotos freizuschalten."}
+                : "Freundschaftsanfrage senden, um Sportlerkarte und private Fotos freizuschalten."}
             </p>
           </div>
           {!isFriend && !isPending && (

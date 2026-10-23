@@ -11,8 +11,9 @@
 -- - "✓ bestätigt" kann nur der Admin setzen.
 -- - Vereinsnamen: Vereine, die es in der App schon gibt (Tabelle teams),
 --   werden sofort gezeigt; eingetippte erst, wenn der Admin sie freigibt.
--- - Wer den Steckbrief sehen darf, wählt jeder selbst: alle, nur Freunde,
---   niemand. Andere lesen ihn nur über die Funktion sport_bio_of, die das
+-- - Wer den Steckbrief sehen darf: seit 23.10.2026 nur Freunde (fest, siehe
+--   sportlerkarte-nur-freunde.sql; vorher wählbar: alle, nur Freunde,
+--   niemand). Andere lesen ihn nur über die Funktion sport_bio_of, die das
 --   prüft und nicht freigegebene Vereine weglässt.
 --
 -- Ausführen: Supabase-Dashboard -> SQL Editor -> New query -> dieses
