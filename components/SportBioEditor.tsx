@@ -67,7 +67,8 @@ export default function SportBioEditor({
   const { teams } = useAppData();
   const { hasPremiumPass, photos } = useUser();
   const [data, setData] = useState<BioData>(bio?.data ?? {});
-  const [visibility, setVisibility] = useState<BioVisibility>(bio?.visibility ?? "friends");
+  // Die Karte sehen immer genau deine Freunde (Rene, 23.10.2026), keine Auswahl mehr.
+  const visibility: BioVisibility = "friends";
   const [saved, setSaved] = useState(false);
   const [savedWhere, setSavedWhere] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +83,6 @@ export default function SportBioEditor({
     if (!bio) return;
     if (!touched.current) {
       setData(bio.data);
-      setVisibility(bio.visibility);
       return;
     }
     setData((cur) => ({
@@ -99,13 +99,12 @@ export default function SportBioEditor({
 
   // where: welcher Bereich gespeichert hat – dort erscheint "✓ Gespeichert"
   // (Rene, 20.10.2026: man soll sehen, was übernommen wurde).
-  async function commit(nextData: BioData, nextVis: BioVisibility = visibility, where = "") {
+  async function commit(nextData: BioData, where = "") {
     touched.current = true;
     setData(nextData);
-    setVisibility(nextVis);
     setSaved(false);
     setSavedWhere(where);
-    const err = await saveSportBio(userId, nextData, nextVis);
+    const err = await saveSportBio(userId, nextData, visibility);
     setError(err);
     if (err) return false;
     setSaved(true);
@@ -124,7 +123,7 @@ export default function SportBioEditor({
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   function setStations(next: Station[], where = "laufbahn") {
-    return commit({ ...data, stations: next }, visibility, where);
+    return commit({ ...data, stations: next }, where);
   }
   function patchDraft(p: Partial<Station>) {
     setEditing((e) => (e ? { ...e, draft: { ...e.draft, ...p } } : e));
@@ -314,7 +313,7 @@ export default function SportBioEditor({
           honors={data.honors ?? []}
           clubs={Array.from(new Set(stations.map((st) => st.club).filter((c): c is string => !!c)))}
           leagues={leaguesFor(stations[0]?.sport, stations[0]?.land)}
-          onChange={(honors) => commit({ ...data, honors }, visibility, "erfolge")}
+          onChange={(honors) => commit({ ...data, honors }, "erfolge")}
         />
       </Card>
 
@@ -339,7 +338,6 @@ export default function SportBioEditor({
                       ...data,
                       interests: on ? (data.interests ?? []).filter((i) => i.k !== sp.key) : [...(data.interests ?? []), { k: sp.key }],
                     },
-                    visibility,
                     "interessen"
                   )
                 }
@@ -360,7 +358,6 @@ export default function SportBioEditor({
                 onSave={(fav) =>
                   commit(
                     { ...data, interests: (data.interests ?? []).map((i) => (i.k === it.k ? { ...i, fav: fav || undefined } : i)) },
-                    visibility,
                     "interessen"
                   )
                 }
@@ -378,8 +375,8 @@ export default function SportBioEditor({
         <CardPhotoEditor
           current={data.photo}
           profilePhotos={photos.filter((p): p is string => !!p && p.startsWith("data:image"))}
-          onSave={(url) => commit({ ...data, photo: url }, visibility, "foto")}
-          onReset={() => commit({ ...data, photo: undefined }, visibility, "foto")}
+          onSave={(url) => commit({ ...data, photo: url }, "foto")}
+          onReset={() => commit({ ...data, photo: undefined }, "foto")}
         />
         {/* Nur Hinweis, noch nicht kaufbar (Rene, 20.10.2026). */}
         <div className="mt-4 flex items-start gap-3 rounded-lg border border-dashed border-gold/40 bg-gold/[0.06] p-3">
@@ -409,7 +406,7 @@ export default function SportBioEditor({
               maxLength={2}
               numeric
               placeholder="z. B. 10"
-              onCommit={(v) => v !== (data.nr ?? "") && commit({ ...data, nr: v || undefined }, visibility, "karte")}
+              onCommit={(v) => v !== (data.nr ?? "") && commit({ ...data, nr: v || undefined }, "karte")}
             />
           </Field>
         </div>
@@ -426,7 +423,7 @@ export default function SportBioEditor({
                 🔒 {c.label}
               </Link>
             ) : (
-              <Chip key={c.key} small active={style === c.key} onClick={() => commit({ ...data, cardStyle: c.key as CardStyle }, visibility, "karte")}>
+              <Chip key={c.key} small active={style === c.key} onClick={() => commit({ ...data, cardStyle: c.key as CardStyle }, "karte")}>
                 {c.label}
               </Chip>
             );
@@ -435,21 +432,7 @@ export default function SportBioEditor({
         {!hasPremiumPass && <p className="mt-2 text-[11px] text-muted">Holo, Gold- und Saison-Edition gibt es mit dem Premium-Pass.</p>}
       </Card>
 
-      <Card title="Wer sieht deine Karte?" text="Du siehst sie immer. Antippen speichert sofort." saved={savedAt("sicht")}>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {(
-            [
-              ["public", "👁️ Alle"],
-              ["friends", "👥 Nur Freunde"],
-              ["private", "🔒 Niemand"],
-            ] as [BioVisibility, string][]
-          ).map(([v, l]) => (
-            <Chip key={v} active={visibility === v} onClick={() => commit(data, v, "sicht")}>
-              {l}
-            </Chip>
-          ))}
-        </div>
-      </Card>
+      <Card title="Wer sieht deine Karte?" text="Du und deine Freunde. Wer nicht mit dir befreundet ist, sieht sie nicht." />
     </section>
   );
 }
@@ -813,7 +796,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Card({ title, text, saved = false, children }: { title: string; text: string; saved?: boolean; children: ReactNode }) {
+function Card({ title, text, saved = false, children }: { title: string; text: string; saved?: boolean; children?: ReactNode }) {
   return (
     <div className="mt-3 rounded-card border border-edge bg-surface p-4">
       <div className="flex items-start justify-between gap-3">

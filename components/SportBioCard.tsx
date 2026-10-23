@@ -104,7 +104,7 @@ export default function SportBioCard({
         <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted">
           <>
             <span>
-              {bio.visibility === "public" ? "👁️ Sehen alle" : bio.visibility === "friends" ? "👥 Sehen deine Freunde" : "🔒 Für andere ausgeblendet"}
+              👥 Sehen deine Freunde
             </span>
             <button type="button" onClick={onEdit} className="font-semibold text-gold hover:underline">
               Bearbeiten
