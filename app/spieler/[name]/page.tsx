@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useUser } from "@/lib/UserContext";
 import { supabase } from "@/lib/supabaseClient";
 import SportBioCard, { SportBioTag } from "@/components/SportBioCard";
-import { useSportBio } from "@/lib/sportBio";
+import { isBioEmpty, useSportBio } from "@/lib/sportBio";
 import { ProfileRow, loadProfiles, sumPoints, toPointsBySport } from "@/lib/globalLeaderboard";
 import { RivalCompare as Compare, compareRival } from "@/lib/rivals";
 import { CompareTable } from "@/components/RivalCompare";
@@ -59,6 +59,8 @@ export default function SpielerProfilPage() {
   // Sport-Steckbrief: nur für Freunde, das prüft die Datenbank
   // (supabase/sportlerkarte-nur-freunde.sql).
   const sportBio = useSportBio(isSelf ? authUserId : playerId);
+  // Freunde sehen immer eine Karte, ohne Angaben eben leer mit Name und Bild.
+  const hasCard = sportBio.status === "ready" && (isFriend || !isBioEmpty(sportBio.bio?.data));
 
   // Platz in der Gesamt-Rangliste (gleiche Rechnung wie dort: Summe der
   // Rangpunkte, gleiche Punkte = gleicher Platz, nur Spieler mit Punkten).
@@ -128,8 +130,18 @@ export default function SpielerProfilPage() {
         ← Zurück
       </button>
 
+      {/* Aufbau wie im eigenen Profil (Rene, 23.10.2026: "überall gleich"):
+          am PC links nur die Karte, rechts Name und Freundschaft; das runde
+          Profilbild fällt dort weg, weil es schon in der Karte steckt. */}
+      <div className="lg:flex lg:items-start lg:gap-10">
+        {hasCard && (
+          <div className="hidden w-[250px] shrink-0 lg:mb-10 lg:block">
+            <SportBioCard compact bio={sportBio.bio} showEmpty={isFriend && sportBio.status === "ready"} userId={isSelf ? authUserId : playerId} name={name} photo={avatarPhoto} rankIcon={rankIcon} place={place} points={rows === null ? null : total} />
+          </div>
+        )}
+        <div className={`min-w-0 flex-1 ${hasCard ? "lg:pt-2" : ""}`}>
       <div className="mb-6 flex items-center gap-6">
-        <div className="relative flex h-16 w-16 shrink-0 items-center justify-center">
+        <div className={`relative flex h-16 w-16 shrink-0 items-center justify-center ${hasCard ? "lg:hidden" : ""}`}>
           {/* Eigener Rahmen wie im Profil, bei anderen ihr gewählter Rahmen
               (gleich groß wie der Kreis, damit nichts verrutscht). */}
           {isSelf ? (
@@ -174,7 +186,7 @@ export default function SpielerProfilPage() {
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-ink">
+          <h1 className={`flex items-center gap-2 font-display text-2xl font-bold text-ink ${hasCard ? "lg:text-4xl" : ""}`}>
             {/* Lange Einzelwort-Namen schrumpfen statt rechts abgeschnitten zu werden. */}
             <FitText text={name} minPx={14} />
             {isSelf && <span className="shrink-0 text-sm font-medium text-muted">(Du)</span>}
@@ -195,7 +207,7 @@ export default function SpielerProfilPage() {
         </div>
       </div>
 
-      <SportBioCard bio={sportBio.bio} userId={isSelf ? authUserId : playerId} name={name} photo={avatarPhoto} rankIcon={rankIcon} place={place} points={rows === null ? null : total} />
+      <SportBioCard className="lg:hidden" bio={sportBio.bio} showEmpty={isFriend && sportBio.status === "ready"} userId={isSelf ? authUserId : playerId} name={name} photo={avatarPhoto} rankIcon={rankIcon} place={place} points={rows === null ? null : total} />
 
       {!isSelf && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
@@ -243,6 +255,8 @@ export default function SpielerProfilPage() {
           )}
         </div>
       )}
+        </div>
+      </div>
 
       {authUserId && (
         <section className="mb-8">
