@@ -41,7 +41,7 @@ import TippTypCard from "@/components/TippTyp";
 import BeginnerShieldHint from "@/components/BeginnerShieldHint";
 import SportBioCard, { SportBioTag } from "@/components/SportBioCard";
 import SportBioEditor from "@/components/SportBioEditor";
-import { isBioEmpty, useSportBio } from "@/lib/sportBio";
+import { useSportBio } from "@/lib/sportBio";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -145,7 +145,8 @@ function ProfilInhalt() {
   }, []);
   // Sport-Steckbrief (lib/sportBio.ts): oben in der Übersicht, bearbeiten unter Einstellungen.
   const sportBio = useSportBio(isRegistered ? authUserId : null);
-  const hasSportCard = sportBio.status === "ready" && !isBioEmpty(sportBio.bio?.data);
+  // Die eigene Karte steht immer da, ohne Angaben eben leer (Rene, 23.10.2026).
+  const hasSportCard = sportBio.status === "ready";
   function openSportBioEditor() {
     chooseProfileTab("Einstellungen");
     for (const ms of [100, 700]) {

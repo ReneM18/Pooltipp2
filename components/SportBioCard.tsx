@@ -46,6 +46,8 @@ export function useCardColors(stations: Station[] | undefined, rankIcon?: RankIc
   }, [stations, rankIcon, teams]);
 }
 
+const EMPTY_BIO: SportBio = { data: {}, verified: false, visibility: "friends" };
+
 export default function SportBioCard({
   bio,
   userId,
@@ -55,6 +57,7 @@ export default function SportBioCard({
   place,
   points,
   onEdit,
+  showEmpty = false,
   compact = false,
   className = "",
 }: {
@@ -67,49 +70,29 @@ export default function SportBioCard({
   points?: number | null;
   // Nur im eigenen Profil: öffnet den Baukasten unter Einstellungen.
   onEdit?: () => void;
+  // Bei Freunden: ohne ausgefüllte Karte trotzdem die leere Karte zeigen.
+  showEmpty?: boolean;
   // Kleiner, links oben im Profil am PC.
   compact?: boolean;
   className?: string;
 }) {
   const own = !!onEdit;
-  if (!bio || isBioEmpty(bio.data)) {
-    if (!own) return null;
-    return (
-      <button
-        type="button"
-        onClick={onEdit}
-        className={`group relative mb-8 block w-full overflow-hidden rounded-card ${className} border border-gold/50 bg-gradient-to-br from-gold/20 via-surface to-surface p-5 text-left transition-colors hover:border-gold`}
-      >
-        <span aria-hidden className="pointer-events-none absolute -right-2 -top-3 select-none text-7xl opacity-20">
-          🃏
-        </span>
-        <p className="font-display text-xs font-bold uppercase tracking-wider text-gold">Neu · Deine Sportlerkarte</p>
-        <p className="mt-1 font-display text-lg font-bold text-ink">Zeig, was du mit Sport zu tun hast</p>
-        <p className="mt-1 max-w-md text-sm text-muted">
-          Ex-Vereinsspieler, Jugendtrainer, Schiri oder Fan seit 1998? Deine Laufbahn als Sammelkarte in den Farben deines Vereins.
-        </p>
-        <span className="mt-3 inline-block rounded-full bg-gold px-4 py-1.5 font-display text-sm font-semibold text-pitch transition-opacity group-hover:opacity-90">
-          Karte gestalten
-        </span>
-      </button>
-    );
-  }
+  const empty = !bio || isBioEmpty(bio.data);
+  // Ohne Angaben: eigene Karte und die von Freunden leer mit Name und Bild,
+  // sonst gar nicht (Rene, 23.10.2026: "soll ja überall gleich aussehen").
+  if (empty && !own && !showEmpty) return null;
   return (
     <section aria-label="Sportlerkarte" className={`${compact ? "" : "mb-8"} ${className}`}>
       {/* Klein: ganze Karte verkleinert, damit Schrift und Abstände stimmen. */}
       <div style={compact ? { zoom: 0.78 } : undefined}>
-        <SportCard bio={bio} own={own} userId={userId} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} />
+        <SportCard bio={bio ?? EMPTY_BIO} own={own} userId={userId} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} />
       </div>
       {own && (
         <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted">
-          <>
-            <span>
-              👥 Sehen deine Freunde
-            </span>
-            <button type="button" onClick={onEdit} className="font-semibold text-gold hover:underline">
-              Bearbeiten
-            </button>
-          </>
+          <span>👥 Sehen deine Freunde</span>
+          <button type="button" onClick={onEdit} className="font-semibold text-gold hover:underline">
+            {empty ? "Karte gestalten" : "Bearbeiten"}
+          </button>
         </div>
       )}
     </section>
