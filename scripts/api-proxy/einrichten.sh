@@ -78,12 +78,27 @@ ${routes}
 CADDY
 
 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+# Vorinstallierte Webserver belegen sonst Port 80/443 (Alfahosting-Ubuntu
+# hat z. B. Apache an), und Caddy startet nicht ("address already in use").
+for s in apache2 nginx lighttpd httpd; do
+  if systemctl is-enabled --quiet "$s" 2>/dev/null || systemctl is-active --quiet "$s" 2>/dev/null; then
+    echo "Schalte ${s} ab (belegt sonst Port 80/443)."
+    systemctl disable --now "$s" || true
+  fi
+done
 if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
   ufw allow 80/tcp
   ufw allow 443/tcp
 fi
 systemctl enable caddy >/dev/null 2>&1 || true
 systemctl restart caddy
+sleep 3
+if ! systemctl is-active --quiet caddy; then
+  echo "Caddy läuft nicht. Letzte Meldungen:" >&2
+  journalctl -u caddy -n 15 --no-pager >&2
+  exit 1
+fi
 
 echo
 echo "Fertig. Diese zwei Werte bei Vercel eintragen"
