@@ -138,20 +138,40 @@ function readApiError(data: Raw): string | null {
 }
 
 // Eigener Server mit fester IP (Rene, 26.10.2026): API-Sports sperrt die
-// geteilten IPs von Vercel. Sind API_SPORTS_PROXY_URL (z. B.
-// "https://1-2-3-4.sslip.io") und API_SPORTS_PROXY_TOKEN gesetzt, geht jede
-// Abfrage über diesen Server: https://v3.football.api-sports.io/fixtures?…
-// wird zu <Proxy>/football/fixtures?… (Einrichtung: scripts/api-proxy/).
-// Ohne die beiden Variablen wie bisher direkt. Cache-Schlüssel und Quote je
-// Host bleiben bei der Original-URL.
+// geteilten IPs von Vercel. Jede Abfrage geht über diesen Server:
+// https://v3.football.api-sports.io/fixtures?… wird zu
+// <API_SPORTS_PROXY_URL>/football/fixtures?… (Einrichtung: scripts/api-proxy/).
+// (Rene, 26.10.2026: "schau immer, dass wir nicht wieder gesperrt werden")
+// Fehlt API_SPORTS_PROXY_URL oder API_SPORTS_PROXY_TOKEN, wird GAR NICHT
+// abgefragt – nie direkt von Vercel, auch nicht als Rückfall. Cache-Schlüssel
+// und Quote je Host bleiben bei der Original-URL.
+function proxyConfigError(): string | null {
+  if (!process.env.API_SPORTS_PROXY_URL?.trim() || !process.env.API_SPORTS_PROXY_TOKEN?.trim()) {
+    return "Kein eigener Server eingetragen (API_SPORTS_PROXY_URL/API_SPORTS_PROXY_TOKEN)";
+  }
+  return null;
+}
+
 function proxied(url: string): { url: string; headers: Record<string, string> } {
-  const base = process.env.API_SPORTS_PROXY_URL?.trim().replace(/\/+$/, "");
-  const token = process.env.API_SPORTS_PROXY_TOKEN?.trim();
-  if (!base || !token) return { url, headers: {} };
+  const base = process.env.API_SPORTS_PROXY_URL!.trim().replace(/\/+$/, "");
+  const token = process.env.API_SPORTS_PROXY_TOKEN!.trim();
   const u = new URL(url);
   // "v3.football.api-sports.io" → "football"
   const sport = u.host.split(".")[1];
   return { url: `${base}/${sport}${u.pathname}${u.search}`, headers: { "x-proxy-token": token } };
+}
+
+// Tageslimit nie ausreizen (Rene, 26.10.2026): Zeigt die letzte Antwort
+// dieses Hosts heute (API-Sports zählt nach UTC-Tag) nur noch BUDGET_RESERVE
+// oder weniger freie Abfragen, wird bis Mitternacht (UTC) nicht mehr gefragt.
+// Die Reserve bleibt für den Admin und für andere Server-Instanzen.
+const BUDGET_RESERVE = 5;
+
+function budgetExhausted(url: string): boolean {
+  const quota = QUOTA_BY_HOST.get(hostOf(url));
+  if (!quota) return false;
+  const sameUtcDay = new Date(quota.at ?? 0).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
+  return sameUtcDay && quota.limit - quota.used <= BUDGET_RESERVE;
 }
 
 // Eine echte Abfrage bei API-Sports (ohne Next.js Data Cache).
@@ -161,6 +181,9 @@ async function apiGet(url: string, key: string): Promise<LoadResult<Raw[]>> {
     diag.lastErrorAt = Date.now();
     return { ok: false, error };
   };
+  const proxyError = proxyConfigError();
+  if (proxyError) return fail(proxyError);
+  if (budgetExhausted(url)) return fail("Tageslimit fast erreicht – Pause bis Mitternacht (UTC)");
   let res: Response;
   try {
     const target = proxied(url);
@@ -617,7 +640,7 @@ export const apiSportsProvider: LiveProvider = {
   name: "API-Sports",
   url: "https://www.api-football.com/",
   configError() {
-    return process.env.API_SPORTS_KEY ? null : "Kein API_SPORTS_KEY gesetzt";
+    return process.env.API_SPORTS_KEY ? proxyConfigError() : "Kein API_SPORTS_KEY gesetzt";
   },
   async getDay({ sport, date, league }: LiveProviderRequest): Promise<LiveProviderResult> {
     const key = process.env.API_SPORTS_KEY;
