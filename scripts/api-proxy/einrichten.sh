@@ -17,6 +17,13 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+# Grundwerkzeuge (minimale Server-Images haben oft nicht einmal curl).
+export DEBIAN_FRONTEND=noninteractive
+if ! command -v curl >/dev/null 2>&1 || ! command -v gpg >/dev/null 2>&1; then
+  apt-get update < /dev/null
+  apt-get install -y curl gnupg ca-certificates < /dev/null
+fi
+
 # Feste IPv4 des Servers → Adresse über sslip.io (1.2.3.4 → 1-2-3-4.sslip.io),
 # damit HTTPS ohne eigene Domain klappt.
 IP="$(curl -4 -fsS https://api.ipify.org)"
@@ -31,14 +38,12 @@ fi
 TOKEN="$(cat "$TOKEN_FILE")"
 
 if ! command -v caddy >/dev/null 2>&1; then
-  apt-get update
-  apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl gnupg
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
     | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' \
     > /etc/apt/sources.list.d/caddy-stable.list
-  apt-get update
-  apt-get install -y caddy
+  apt-get update < /dev/null
+  apt-get install -y caddy < /dev/null
 fi
 
 # Pfad → API-Sports-Host (wie in lib/live/providers/apiSports.ts).
