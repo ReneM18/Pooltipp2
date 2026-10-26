@@ -252,13 +252,21 @@ function rememberEvents(games: LiveGame[], at: number) {
 // neuer ist als die Tagesliste.
 let lastLive: { list: Raw[]; at: number } | null = null;
 
-// Liga-Filter über Name UND Land (Rene, 16.10.2026): Fußball hat
-// league.country, Eishockey country.name. Strikt – ohne passendes Land kein
-// Treffer (z. B. brasilianische "Serie A").
+// Land eines Spiels: Fußball league.country (Text), Eishockey/Basketball
+// country.name, American Football league.country.name (Rene, 26.10.2026).
+function rawCountry(g: Raw): string | null {
+  if (typeof g?.league?.country === "string") return g.league.country;
+  if (typeof g?.league?.country?.name === "string") return g.league.country.name;
+  if (typeof g?.country?.name === "string") return g.country.name;
+  return null;
+}
+
+// Liga-Filter über Name UND Land (Rene, 16.10.2026). Strikt – ohne
+// passendes Land kein Treffer (z. B. brasilianische "Serie A").
 function leagueFilter(sport: Sport, league: string | null) {
   return (g: Raw) => {
     const name = typeof g?.league?.name === "string" ? g.league.name : null;
-    const country = typeof g?.league?.country === "string" ? g.league.country : typeof g?.country?.name === "string" ? g.country.name : null;
+    const country = rawCountry(g);
     return isLiveLeagueEnabled(sport, name, country, true) && (!league || (!!name && sameLeague(league, name)));
   };
 }
@@ -569,7 +577,7 @@ function normalize(sport: Sport, g: Raw): LiveGame | null {
     statusText: text,
     elapsed,
     ...(hockey?.progress !== undefined ? { progress: hockey.progress } : {}),
-    league: [g?.league?.name, g?.league?.country ?? g?.country?.name].filter((x) => typeof x === "string" && x).join(" · "),
+    league: [g?.league?.name, rawCountry(g)].filter((x) => typeof x === "string" && x).join(" · "),
     ...(isFootball && Array.isArray(g?.events) ? { events: normalizeEvents(g, homeScore, awayScore) } : {}),
   };
 }
