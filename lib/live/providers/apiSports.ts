@@ -137,6 +137,23 @@ function readApiError(data: Raw): string | null {
   return null;
 }
 
+// Eigener Server mit fester IP (Rene, 26.10.2026): API-Sports sperrt die
+// geteilten IPs von Vercel. Sind API_SPORTS_PROXY_URL (z. B.
+// "https://1-2-3-4.sslip.io") und API_SPORTS_PROXY_TOKEN gesetzt, geht jede
+// Abfrage über diesen Server: https://v3.football.api-sports.io/fixtures?…
+// wird zu <Proxy>/football/fixtures?… (Einrichtung: scripts/api-proxy/).
+// Ohne die beiden Variablen wie bisher direkt. Cache-Schlüssel und Quote je
+// Host bleiben bei der Original-URL.
+function proxied(url: string): { url: string; headers: Record<string, string> } {
+  const base = process.env.API_SPORTS_PROXY_URL?.trim().replace(/\/+$/, "");
+  const token = process.env.API_SPORTS_PROXY_TOKEN?.trim();
+  if (!base || !token) return { url, headers: {} };
+  const u = new URL(url);
+  // "v3.football.api-sports.io" → "football"
+  const sport = u.host.split(".")[1];
+  return { url: `${base}/${sport}${u.pathname}${u.search}`, headers: { "x-proxy-token": token } };
+}
+
 // Eine echte Abfrage bei API-Sports (ohne Next.js Data Cache).
 async function apiGet(url: string, key: string): Promise<LoadResult<Raw[]>> {
   const fail = (error: string): LoadResult<Raw[]> => {
@@ -146,8 +163,9 @@ async function apiGet(url: string, key: string): Promise<LoadResult<Raw[]>> {
   };
   let res: Response;
   try {
-    res = await fetch(url, {
-      headers: { "x-apisports-key": key },
+    const target = proxied(url);
+    res = await fetch(target.url, {
+      headers: { ...target.headers, "x-apisports-key": key },
       cache: "no-store",
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
