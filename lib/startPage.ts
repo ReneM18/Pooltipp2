@@ -18,9 +18,10 @@
  *  behält sie so oder so. */
 export const MATCHCENTER_FIRST = true;
 
+// Reihenfolge wie im Menü (Rene, 27.10.2026: Spiele zuerst, dann Tipps).
 export const START_PAGES = [
+  { href: "/matchcenter", label: "Spiele", icon: "⚽" },
   { href: "/", label: "Tipps", icon: "🎯" },
-  { href: "/matchcenter", label: "Matchcenter", icon: "⚽" },
   { href: "/fortschritt", label: "Saison-Pass", icon: "🎟️" },
   { href: "/rangliste", label: "Rangliste", icon: "🏆" },
 ] as const;

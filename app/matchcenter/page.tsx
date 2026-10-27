@@ -103,8 +103,10 @@ export default function MatchcenterPage() {
   }, [league, view, retryCount]);
 
   return (
-    <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
-      <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Matchcenter</h1>
+    // Am Handy kompakt (Rene, 27.10.2026): Spiele sollen gleich oben stehen,
+    // darum ohne große Überschrift und mit wenig Abstand.
+    <main className="mx-auto max-w-3xl lg:max-w-6xl px-4 pt-3 pb-8 sm:px-5 sm:py-8">
+      <h1 className="sr-only font-display text-xl font-bold text-ink sm:not-sr-only sm:mb-4 sm:block sm:text-2xl">Matchcenter</h1>
 
       <TodayTipsBox />
 
@@ -389,18 +391,22 @@ function TodayTipsBox() {
   return (
     <Link
       href="/"
-      className="mb-4 flex items-center gap-3 rounded-card border border-gold/40 bg-gold/5 px-3 py-2.5 transition-colors hover:border-gold sm:px-4"
+      className="mb-3 flex items-center gap-2.5 rounded-card border border-gold/40 bg-gold/5 px-3 py-1.5 transition-colors hover:border-gold sm:mb-4 sm:gap-3 sm:px-4 sm:py-2.5"
     >
-      <span className="flex shrink-0 gap-0.5 text-lg" aria-hidden>
+      <span className="flex shrink-0 gap-0.5 text-base sm:text-lg" aria-hidden>
         {sports.map((s) => (
           <Emoji key={s} e={SPORT_ICONS[s]} />
         ))}
       </span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-display text-sm font-bold text-ink">
+      {/* Am Handy eine Zeile: "Heute 7 Tippspiele · 5 offen". */}
+      <span className="min-w-0 flex-1 truncate sm:whitespace-normal">
+        <span className="font-display text-sm font-bold text-ink sm:block">
           Heute {list.length === 1 ? "1 Tippspiel" : `${list.length} Tippspiele`}
         </span>
-        <span className="block text-xs text-muted">
+        {open > 0 && (
+          <span className="text-xs font-semibold text-gold sm:hidden"> · {open} offen</span>
+        )}
+        <span className="hidden text-xs text-muted sm:block">
           {open > 0 ? (
             <>
               <span className="font-semibold text-gold">{open} noch offen</span> · hier geht&apos;s zu den Tipps
@@ -637,10 +643,10 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   const runningCount = todayDay.games?.filter((g) => isLiveRunning(g.status)).length ?? 0;
 
   return (
-    <section className="mb-6 rounded-card border border-edge bg-surface px-3 pt-3 pb-4 sm:px-4">
+    <section className="mb-6 sm:rounded-card sm:border sm:border-edge sm:bg-surface sm:px-4 sm:pt-3 sm:pb-4">
       {/* Eine Reihe (Rene, 27.10.2026): Reiter links, Sportart rechts, ohne
           eigene Überschrift. */}
-      <div className="mb-4 flex items-center gap-3 border-b border-edge sm:gap-4">
+      <div className="mb-3 flex items-center gap-3 border-b border-edge sm:mb-4 sm:gap-4">
         <SubTab
           label="Heute"
           active={view === "live" && !onlyLive}
@@ -1084,7 +1090,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       type="button"
       onClick={() => onSelect(game.id)}
       aria-pressed={selected}
-      className={`relative w-full overflow-hidden rounded-card border bg-surface pl-3 pr-3 pb-2.5 pt-3 text-left transition-colors sm:pl-4 ${
+      className={`relative w-full overflow-hidden rounded-card border bg-surface px-3 py-2 text-left transition-colors sm:pl-4 sm:pb-2.5 sm:pt-3 ${
         moved ? "motion-safe:animate-lc-row-in" : ""
       } ${
         selected ? "border-gold" : "border-muted/25 hover:border-muted/50"
