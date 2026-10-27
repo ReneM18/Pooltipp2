@@ -13,6 +13,7 @@ import {
 } from "@/lib/sportsApi";
 import AdBanner from "@/components/AdBanner";
 import FitText from "@/components/FitText";
+import { TvIcon } from "@/components/Icons";
 import {
   appSideEvents,
   findLiveGame,
@@ -1100,6 +1101,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   // Tippkarte), sonst der eigene Vereinsname zum API-Namen.
   const homeName = link ? (link.result.swapped ? link.away.name : link.home.name) : teamName(game.home);
   const awayName = link ? (link.result.swapped ? link.home.name : link.away.name) : teamName(game.away);
+  // Sender gibt es nur bei Tippspielen (vom Admin eingetragen).
+  const tv = link?.match.tvChannel?.trim() || null;
 
   const status = rowStatus(sport, game, clock?.text ?? null);
   // Eishockey: Fortschritt über 60 Min. vom Anbieter (Rene, 16.10.2026).
@@ -1117,7 +1120,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
         selected ? "border-gold" : tippable ? "border-gold/45 hover:border-gold/70" : "border-muted/25 hover:border-muted/50"
       }`}
     >
-      <div className="grid grid-cols-[4.75rem_minmax(0,1fr)_auto] items-center gap-x-2.5 text-sm">
+      <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] items-center gap-x-2.5 text-sm">
         {/* "Getippt" steht klein unter dem Status statt absolut über der
             Tor-Spalte – dort überlappte es die obere Tor-Zahl (Rene, 15.10.2026). */}
         {/* Feste Breite, nichts läuft in die Namen (Rene, 16.10.2026):
@@ -1138,22 +1141,39 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             <span className="tip-shine w-fit rounded-full bg-gold px-1.5 text-[10px] font-bold leading-[1.4] text-pitch">Tippen</span>
           )}
         </span>
-        <span className="flex min-w-0 flex-col gap-0.5">
-          <FitText text={homeName} maxLines={2} minPx={12} className="leading-tight text-ink" />
-          <FitText text={awayName} maxLines={2} minPx={12} className="leading-tight text-ink" />
+        {/* Namen und Tore in einem Raster (Rene, 27.10.2026): jede Tor-Zahl
+            steht genau neben ihrem Verein, auch wenn ein Name zwei Zeilen
+            braucht. Die Tore stehen mittig in einer festen Spalte, so liegen
+            "1" und "0" sauber untereinander (Poppins hat schmale Einsen).
+            Im freien Platz davor der Sender des Tippspiels. */}
+        <span
+          className={`grid min-w-0 grid-rows-[auto_auto] items-center gap-x-2 gap-y-0.5 ${
+            tv ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"
+          }`}
+        >
+          <FitText text={homeName} maxLines={2} minPx={12} className="col-start-1 row-start-1 leading-tight text-ink" />
+          <FitText text={awayName} maxLines={2} minPx={12} className="col-start-1 row-start-2 leading-tight text-ink" />
+          {tv ? (
+            <span className="col-start-2 row-span-2 row-start-1 flex max-w-[5.5rem] items-center gap-1 rounded-full border border-edge bg-pitch px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-muted">
+              <TvIcon className="h-3 w-3 shrink-0" />
+              <span className="truncate">{tv}</span>
+            </span>
+          ) : null}
+          {open && link ? (
+            <span className={`${tv ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 justify-self-end`}>
+              <TipCountdown deadline={link.match.tipDeadline} />
+            </span>
+          ) : (
+            <span
+              className={`${tv ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
+                flash ? "bg-gold/15 text-gold" : hasScore ? "text-ink" : "text-muted"
+              }`}
+            >
+              <span className="w-7 text-center">{hasScore ? game.homeScore : "–"}</span>
+              <span className="w-7 text-center">{hasScore ? game.awayScore : "–"}</span>
+            </span>
+          )}
         </span>
-        {open && link ? (
-          <TipCountdown deadline={link.match.tipDeadline} />
-        ) : (
-          <span
-            className={`flex min-w-[1.75rem] flex-col items-end gap-0.5 rounded-md px-1 font-display font-bold leading-tight tabular-nums transition-colors duration-700 ${
-              flash ? "bg-gold/15 text-gold" : hasScore ? "text-ink" : "text-muted"
-            }`}
-          >
-            <span>{hasScore ? game.homeScore : "–"}</span>
-            <span>{hasScore ? game.awayScore : "–"}</span>
-          </span>
-        )}
       </div>
       {progress !== null && <ProgressBar progress={progress} className="absolute inset-x-0 bottom-0" />}
     </button>
