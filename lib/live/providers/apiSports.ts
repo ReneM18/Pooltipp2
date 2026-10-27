@@ -716,7 +716,7 @@ export async function footballStandings(leagueId: number, season: number): Promi
 // gemerkt), die Statistik läuft im Spiel mit (2 Min.).
 
 export type MatchInfoResult =
-  | { ok: true; lineups: LineupTeam[]; stats: StatTeam[]; expiresAt: number }
+  | { ok: true; lineups: LineupTeam[]; stats: StatTeam[]; lineupsError?: string; statsError?: string; expiresAt: number }
   | { ok: false; error: string; expiresAt: number };
 
 const LINEUPS_URL = "https://v3.football.api-sports.io/fixtures/lineups";
@@ -780,6 +780,8 @@ export async function footballMatchInfo(fixtureId: number): Promise<MatchInfoRes
     ok: true,
     lineups: lineups.ok ? lineups.hit.value.map(toLineup).filter((x): x is LineupTeam => x !== null) : [],
     stats: stats.ok ? stats.hit.value.map(toStats).filter((x): x is StatTeam => x !== null) : [],
+    ...(lineups.ok ? {} : { lineupsError: lineups.error }),
+    ...(stats.ok ? {} : { statsError: stats.error }),
     expiresAt: Math.min(lineups.ok ? lineups.hit.expiresAt : lineups.expiresAt, stats.ok ? stats.hit.expiresAt : stats.expiresAt),
   };
 }

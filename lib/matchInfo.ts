@@ -35,4 +35,7 @@ export interface MatchInfoResponse {
   lineups: LineupTeam[];
   stats: StatTeam[];
   error?: string;
+  // Fehler nur eines Teils (Rene, 27.10.2026: Fehlersuche), sonst fehlt der Grund.
+  lineupsError?: string;
+  statsError?: string;
 }

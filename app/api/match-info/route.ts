@@ -22,5 +22,14 @@ export async function GET(request: Request) {
   const result = await footballMatchInfo(fixture);
   const maxAge = (result.expiresAt - Date.now()) / 1000;
   if (!result.ok) return json({ fixture, lineups: [], stats: [], error: result.error }, maxAge);
-  return json({ fixture, lineups: result.lineups, stats: result.stats }, maxAge);
+  return json(
+    {
+      fixture,
+      lineups: result.lineups,
+      stats: result.stats,
+      ...(result.lineupsError ? { lineupsError: result.lineupsError } : {}),
+      ...(result.statsError ? { statsError: result.statsError } : {}),
+    },
+    maxAge,
+  );
 }
