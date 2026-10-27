@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { useUser } from "@/lib/UserContext";
 import { HALLOWEEN_2026, eventPhase, passClaimKey } from "@/lib/seasons";
 import type { EventPhase } from "@/lib/seasons";
-import { seasonPeriodText } from "@/lib/seasons/schedule";
 import { useEventStatus } from "@/lib/eventProgress";
 import { EmoteSticker } from "@/components/Emotes";
 
-// Reiter "🎃 Halloween" auf der Seite Fortschritt (Rene, 12.10.2026).
-// Kürbisse: supabase/halloween-event.sql, Stufen: lib/seasons/halloween2026.ts.
+// Abschnitt "Halloween-Extras" auf der Seite Fortschritt, unter dem Saison-Pass
+// (Rene, 12.10.2026; seit 27.10.2026 kein eigener Reiter mehr).
+// Kürbisse: supabase/halloween-event.sql, je Kürbis +50 Pass-XP:
+// supabase/halloween-kuerbis-xp.sql. Stufen: lib/seasons/halloween2026.ts.
 const EVENT = HALLOWEEN_2026;
 
 /** Phase heute (erst im Browser, damit sie nicht vom Bau-Tag stammt). */
@@ -19,6 +20,11 @@ export function useHalloweenPhase(): EventPhase | null {
     setPhase(eventPhase(EVENT, new Date()));
   }, []);
   return phase;
+}
+
+function endText(): string {
+  const [, m, d] = EVENT.endsOn.split("-").map(Number);
+  return `${d}.${m}.`;
 }
 
 function daysLeft(): number {
@@ -41,9 +47,9 @@ export default function HalloweenEvent({ phase }: { phase: EventPhase }) {
   const left = phase === "laeuft" ? daysLeft() : 0;
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-6 lg:max-w-6xl">
+    <section id="halloween" className="mb-8 scroll-mt-20">
       <div
-        className="relative mb-6 overflow-hidden rounded-card p-5 sm:p-6"
+        className="relative mb-4 overflow-hidden rounded-card p-5 sm:p-6"
         style={{ background: `linear-gradient(135deg, ${EVENT.design!.heroFrom}, ${EVENT.design!.heroTo})` }}
       >
         <span className="pointer-events-none absolute right-4 top-3 text-2xl opacity-60" aria-hidden>
@@ -53,7 +59,7 @@ export default function HalloweenEvent({ phase }: { phase: EventPhase }) {
           🦇
         </span>
         <p className="text-xs font-semibold uppercase tracking-wide text-[#FFB347]">
-          {EVENT.theme.icon} Event · {seasonPeriodText(EVENT)}
+          {EVENT.theme.icon} Bis {endText()}
           {phase === "laeuft" && (
             <span className="text-[#D9CBE6]">
               {" · "}
@@ -61,10 +67,10 @@ export default function HalloweenEvent({ phase }: { phase: EventPhase }) {
             </span>
           )}
         </p>
-        <h1 className="mt-1 font-display text-3xl font-bold text-white">Halloween-Event</h1>
+        <h2 className="mt-1 font-display text-2xl font-bold text-white">Halloween-Extras</h2>
         <p className="mt-1 max-w-xl text-sm text-[#D9CBE6]">
-          Sammle Kürbisse und schalte gruselige Belohnungen frei. Läuft zusätzlich zum Saison-Pass – nur Optik
-          und Ehre, keine Coins.
+          Jeder Kürbis gibt +50 Pass-XP für deinen Saison-Pass und bringt dich den gruseligen Extras näher. Nur
+          Optik und Ehre, keine Coins.
         </p>
 
         {phase === "vorher" && (
@@ -108,24 +114,24 @@ export default function HalloweenEvent({ phase }: { phase: EventPhase }) {
         </p>
       )}
 
-      <section className="mb-6 rounded-card border border-edge bg-surface p-4">
+      <div className="mb-4 rounded-card border border-edge bg-surface p-4">
         <p className="font-display text-sm font-semibold text-ink">So sammelst du Kürbisse</p>
         <ul className="mt-2 flex flex-col gap-1.5 text-sm text-muted">
           <li className="flex items-start gap-2">
             <span aria-hidden>🎃</span>
-            <span className="flex-1">+1 an jedem Tag, an dem du in die App kommst</span>
+            <span className="flex-1">+1 (und +50 Pass-XP) an jedem Tag, an dem du in die App kommst</span>
             {phase === "laeuft" && status?.loginToday && <span className="shrink-0 text-action">✓ heute</span>}
           </li>
           <li className="flex items-start gap-2">
             <span aria-hidden>🎃</span>
-            <span className="flex-1">+1 an jedem Tag, an dem du mindestens einen Tipp abgibst</span>
+            <span className="flex-1">+1 (und +50 Pass-XP) an jedem Tag, an dem du mindestens einen Tipp abgibst</span>
             {phase === "laeuft" && status?.tippToday && <span className="shrink-0 text-action">✓ heute</span>}
           </li>
         </ul>
         {!isRegistered && <p className="mt-2 text-xs text-muted">Zum Mitmachen bitte einloggen.</p>}
-      </section>
+      </div>
 
-      <h2 className="mb-3 font-display text-lg font-semibold text-ink">Belohnungen</h2>
+      <h3 className="mb-3 font-display text-base font-semibold text-ink">Halloween-Belohnungen (nach Kürbissen)</h3>
       <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
         {levels.map((l) => {
           const ok = reached(l.level);
@@ -172,6 +178,6 @@ export default function HalloweenEvent({ phase }: { phase: EventPhase }) {
         tippst. Sticker, Rahmen, Titel und Abzeichen behältst du nach dem Event, nur das Halloween-Design endet am
         1.11.
       </p>
-    </main>
+    </section>
   );
 }
