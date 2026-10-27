@@ -606,8 +606,9 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
             setOnlyLive(true);
           }}
         />
-        {hasPlan && <SubTab label="Spielplan" active={view === "spielplan"} onClick={() => setView("spielplan")} />}
+        {/* Ergebnisse vor Spielplan (Rene, 27.10.2026). */}
         <SubTab label="Ergebnisse" active={view === "ergebnisse"} onClick={() => setView("ergebnisse")} />
+        {hasPlan && <SubTab label="Spielplan" active={view === "spielplan"} onClick={() => setView("spielplan")} />}
         <SubTab label="Tabelle" active={view === "tabelle"} onClick={() => setView("tabelle")} />
       </div>
 
