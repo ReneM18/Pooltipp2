@@ -149,17 +149,19 @@ export function LineupView({
   onRetry,
   firstApiName,
   teamName,
+  started,
 }: {
   info: MatchInfoResponse | null;
   failed: boolean;
   onRetry: () => void;
   firstApiName: string;
   teamName: (apiName: string) => string;
+  started: boolean;
 }) {
   if (failed || info?.error)
     return (
       <Note>
-        Aufstellung gerade nicht abrufbar.{" "}
+        Aufstellung gerade nicht abrufbar{info?.error ? ` (${info.error})` : ""}.{" "}
         <button type="button" onClick={onRetry} className="font-semibold text-ink underline">
           Nochmal
         </button>
@@ -168,7 +170,13 @@ export function LineupView({
   if (!info) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
   const [a, b] = orderByTeam(info.lineups, firstApiName);
   if (!a || !b || (a.startXI.length === 0 && b.startXI.length === 0))
-    return <Note>Die Aufstellungen kommen meist 20 bis 40 Minuten vor Anpfiff.</Note>;
+    // Läuft das Spiel schon, kommt auch keine mehr: manche Bewerbe (z. B.
+    // ÖFB-Cup) deckt der Anbieter ohne Aufstellung ab (Rene, 27.10.2026).
+    return started ? (
+      <Note>Für dieses Spiel liefert unser Datenanbieter keine Aufstellung. Bei den großen Ligen ist sie meist dabei.</Note>
+    ) : (
+      <Note>Die Aufstellungen kommen meist 20 bis 40 Minuten vor Anpfiff.</Note>
+    );
 
   const withGrid = a.startXI.every((p) => p.row !== null) && b.startXI.every((p) => p.row !== null);
   return (
@@ -261,7 +269,7 @@ export function StatsView({
   if (failed || info?.error)
     return (
       <Note>
-        Statistik gerade nicht abrufbar.{" "}
+        Statistik gerade nicht abrufbar{info?.error ? ` (${info.error})` : ""}.{" "}
         <button type="button" onClick={onRetry} className="font-semibold text-ink underline">
           Nochmal
         </button>
@@ -269,7 +277,7 @@ export function StatsView({
     );
   if (!info) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
   const [a, b] = orderByTeam<StatTeam>(info.stats, firstApiName);
-  if (!a || !b || (a.stats.length === 0 && b.stats.length === 0)) return <Note>Für dieses Spiel gibt es noch keine Statistik.</Note>;
+  if (!a || !b || (a.stats.length === 0 && b.stats.length === 0)) return <Note>Für dieses Spiel liefert unser Datenanbieter keine Statistik. Bei den großen Ligen ist sie meist dabei.</Note>;
   const value = (t: StatTeam, type: string) => t.stats.find((s) => s.type === type)?.value;
   const rows = STAT_LABELS.filter(([type]) => value(a, type) !== undefined || value(b, type) !== undefined);
   return (
