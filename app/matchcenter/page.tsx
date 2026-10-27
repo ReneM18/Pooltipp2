@@ -394,6 +394,21 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   // Reiter "Live" (Rene, 27.10.2026): nur laufende Spiele. "Heute" zeigt
   // alle von heute (laufend, später, beendet). Beides ist die Ansicht "live".
   const [onlyLive, setOnlyLive] = useState(false);
+  // Logo oder "Spiele" im Menü (Rene, 27.10.2026): zurück auf "Heute" und
+  // nach oben, auch wenn das Matchcenter schon offen ist (z. B. auf "Tabelle").
+  useEffect(() => {
+    function backToToday() {
+      setView("live");
+      setOnlyLive(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    window.addEventListener("pooltipp:logo", backToToday);
+    window.addEventListener("pooltipp:spiele", backToToday);
+    return () => {
+      window.removeEventListener("pooltipp:logo", backToToday);
+      window.removeEventListener("pooltipp:spiele", backToToday);
+    };
+  }, []);
   const [today, setToday] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
