@@ -35,7 +35,7 @@ export function useMatchInfo(fixture: string | null, live: boolean) {
       .then((res) => res.json() as Promise<MatchInfoResponse>)
       .then((body) => {
         if (cancelled) return;
-        if (!body.error) cache.set(fixture, { body, at: Date.now() });
+        if (!body.error && !body.lineupsError && !body.statsError) cache.set(fixture, { body, at: Date.now() });
         setData(body);
       })
       .catch(() => {
@@ -158,10 +158,11 @@ export function LineupView({
   teamName: (apiName: string) => string;
   started: boolean;
 }) {
-  if (failed || info?.error)
+  const lineupError = info?.error ?? info?.lineupsError;
+  if (failed || lineupError)
     return (
       <Note>
-        Aufstellung gerade nicht abrufbar{info?.error ? ` (${info.error})` : ""}.{" "}
+        Aufstellung gerade nicht abrufbar{lineupError ? ` (${lineupError})` : ""}.{" "}
         <button type="button" onClick={onRetry} className="font-semibold text-ink underline">
           Nochmal
         </button>
@@ -266,10 +267,11 @@ export function StatsView({
   started: boolean;
 }) {
   if (!started) return <Note>Die Statistik gibt es ab Anpfiff.</Note>;
-  if (failed || info?.error)
+  const statError = info?.error ?? info?.statsError;
+  if (failed || statError)
     return (
       <Note>
-        Statistik gerade nicht abrufbar{info?.error ? ` (${info.error})` : ""}.{" "}
+        Statistik gerade nicht abrufbar{statError ? ` (${statError})` : ""}.{" "}
         <button type="button" onClick={onRetry} className="font-semibold text-ink underline">
           Nochmal
         </button>
