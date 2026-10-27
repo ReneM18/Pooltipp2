@@ -12,8 +12,10 @@ import { TIPPRUNDEN_ENABLED } from "@/lib/types";
 const tabs = [
   { href: "/", label: "Tipps" },
   { href: "/matchcenter", label: "Matchcenter" },
-  { href: "/fortschritt", label: "Saison-Pass" },
+  // Reihenfolge wie unten am Handy (BottomNav): erst Rangliste, dann Pass
+  // (Rene, 27.10.2026).
   { href: "/rangliste", label: "Rangliste" },
+  { href: "/fortschritt", label: "Saison-Pass" },
   { href: "/feed", label: "Feed" },
   { href: "/freunde", label: "Freunde" },
 ];
