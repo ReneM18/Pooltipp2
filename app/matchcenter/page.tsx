@@ -214,13 +214,6 @@ export default function MatchcenterPage() {
           ))}
         </div>
       )}
-
-      <p className="mt-6 text-center text-xs text-muted">
-        Daten von{" "}
-        <a href="https://www.thesportsdb.com/" className="underline" target="_blank" rel="noreferrer">
-          TheSportsDB
-        </a>
-      </p>
     </main>
   );
 }
@@ -765,14 +758,12 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
         </div>
       )}
 
-      <p className="mt-4 text-center text-[11px] text-muted">
-        {/* Anbieter aus der Antwort (Rene, 16.10.2026: austauschbar). */}
-        Daten von{" "}
-        <a href={todayDay.providerUrl ?? "https://www.api-football.com/"} className="underline" target="_blank" rel="noreferrer">
-          {todayDay.providerName ?? "API-Sports"}
-        </a>
-        {polling && ` · aktualisiert sich alle ${Math.round(liveIntervalSeconds(sport) / 60)} Minuten`}
-      </p>
+      {/* Kein Hinweis "Daten von ..." mehr (Rene, 27.10.2026). */}
+      {polling && (
+        <p className="mt-4 text-center text-[11px] text-muted">
+          aktualisiert sich alle {Math.round(liveIntervalSeconds(sport) / 60)} Minuten
+        </p>
+      )}
     </section>
   );
 }
