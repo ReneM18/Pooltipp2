@@ -12,6 +12,8 @@
 --     Statistik, Rene: "von wann bis wann") – NUR wenn der Betrachter die Statistik
 --     sehen darf (Einstellung "Wer sieht meine Statistik", stats_visible aus
 --     supabase/rivalen.sql), sonst leer.
+--   Spiele ohne eingetragene Sportart zählen als Fußball (wie in der
+--   Auswertung, supabase/auswertung-server.sql).
 --
 -- Die Funktion gibt es neu; wurde sie schon mit anderen Spalten angelegt,
 -- muss sie vorher gelöscht werden (darum das drop).
@@ -57,7 +59,9 @@ begin
     where p.id = p_user and jsonb_typeof(e.v) = 'number'
   ),
   ts as (
-    select m.data ->> 'sport' as s,
+    -- Spiele ohne Sportart sind Fußball, wie überall sonst in der
+    -- Auswertung (Rene, 27.10.2026: sonst fehlten ältere Fußball-Tipps).
+    select coalesce(nullif(m.data ->> 'sport', ''), 'Fußball') as s,
            count(*)::int as n_tips,
            count(*) filter (where t.evaluated and t.result_tier is not null)::int as n_eval,
            count(*) filter (where t.evaluated and t.result_tier = 'exakt')::int as n_exakt,
@@ -104,4 +108,8 @@ revoke all on function public.sport_card_stats(uuid) from public, anon;
 grant execute on function public.sport_card_stats(uuid) to authenticated;
 
 -- Kontrolle: eigene Werte pro Sportart (im SQL Editor ohne Login leer).
-select 'sport_card_stats angelegt' as status;
+-- Zeigt außerdem, wie viele Spiele keine Sportart haben (die zählen jetzt
+-- als Fußball).
+select 'sport_card_stats angelegt' as status,
+       (select count(*) from public.matches m
+        where coalesce(m.data ->> 'sport', '') = '') as spiele_ohne_sportart;
