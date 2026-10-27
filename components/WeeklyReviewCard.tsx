@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
-import { computeWeeklyReview, getPreviousWeekWindow, weekKey, weekRangeText } from "@/lib/weeklyReview";
+import { computeWeeklyReview, getPreviousWeekWindow, weekKey } from "@/lib/weeklyReview";
 import { useMyWeeklyWin } from "@/lib/weeklyWinner";
 
 // Karte "Deine letzte Woche" oben auf der Tipps-Seite: erscheint ab
@@ -33,32 +33,22 @@ export default function WeeklyReviewCard() {
     router.push("/rueckblick");
   }
 
+  // Schmale Zeile statt großer Karte, damit die Spiele weiter oben anfangen
+  // (Rene, 27.10.2026). Den ganzen Rückblick gibt es mit "Ansehen".
   return (
-    <div className="mb-5 flex items-center gap-1 rounded-card border border-gold/40 bg-gold/10 pr-2">
+    <div className="mb-4 flex items-center gap-1 rounded-card border border-gold/40 bg-gold/10 pr-1">
       <button
         type="button"
         onClick={open}
-        className="flex min-w-0 flex-1 items-center gap-3 rounded-card p-3 text-left sm:p-4"
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-card px-3 py-2 text-left"
       >
-        <span className="text-2xl" aria-hidden>
-          {weeklyWin ? "🥇" : "📊"}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block font-display text-sm font-semibold text-ink">
-            Deine Woche <span className="whitespace-nowrap font-body text-xs font-normal text-muted">{weekRangeText(weekWin)}</span>
-          </span>
-          <span className="block text-xs text-muted">
-            <span className="whitespace-nowrap">
-              {review.tips} {review.tips === 1 ? "Tipp" : "Tipps"} · {review.exakt} exakt
-            </span>{" "}
-            ·{" "}
-            <span className={`whitespace-nowrap font-semibold ${review.points > 0 ? "text-action" : "text-ink"}`}>
-              {points} Punkte
-            </span>
-          </span>
-          {weeklyWin && (
-            <span className="block text-xs font-semibold text-gold">Erster der Woche · +{weeklyWin.xp} Pass-XP</span>
-          )}
+        <span aria-hidden>{weeklyWin ? "🥇" : "📊"}</span>
+        <span className="min-w-0 flex-1 truncate text-xs text-muted">
+          <span className="font-display text-sm font-semibold text-ink">
+            {weeklyWin ? "Erster der Woche!" : "Deine Woche"}
+          </span>{" "}
+          ·{" "}
+          <span className={`font-semibold ${review.points > 0 ? "text-action" : "text-ink"}`}>{points} Punkte</span>
         </span>
         <span className="shrink-0 whitespace-nowrap font-display text-sm font-semibold text-gold">Ansehen ›</span>
       </button>
@@ -66,7 +56,7 @@ export default function WeeklyReviewCard() {
         type="button"
         onClick={() => markReviewSeen(key)}
         aria-label="Wochenrückblick ausblenden"
-        className="shrink-0 p-2 text-lg leading-none text-muted transition-colors hover:text-ink"
+        className="shrink-0 p-2 leading-none text-muted transition-colors hover:text-ink"
       >
         ✕
       </button>
