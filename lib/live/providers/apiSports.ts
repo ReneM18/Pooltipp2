@@ -820,20 +820,32 @@ export type LiveHeatResult = { ok: true; stats: HeatStats[]; expiresAt: number }
 const HEAT_TTL = 120;
 export const HEAT_MAX_IDS = 20;
 
-function statNumber(list: Raw[], type: string): number {
+function statValue(list: Raw[], type: string): number | null {
   const v = list.find((x: Raw) => x?.type === type)?.value;
   const n = typeof v === "number" ? v : typeof v === "string" ? parseFloat(v) : NaN;
-  return Number.isFinite(n) ? n : 0;
+  return Number.isFinite(n) ? n : null;
 }
 
 function heatSide(t: Raw): HeatSide {
   const list: Raw[] = Array.isArray(t?.statistics) ? t.statistics : [];
+  const n = (type: string) => statValue(list, type) ?? 0;
   return {
-    shots: statNumber(list, "Total Shots"),
-    onTarget: statNumber(list, "Shots on Goal"),
-    corners: statNumber(list, "Corner Kicks"),
-    cards: statNumber(list, "Yellow Cards") + statNumber(list, "Red Cards"),
+    shots: n("Total Shots"),
+    onTarget: n("Shots on Goal"),
+    insideBox: n("Shots insidebox"),
+    saves: n("Goalkeeper Saves"),
+    corners: n("Corner Kicks"),
+    cards: n("Yellow Cards") + n("Red Cards"),
+    possession: statValue(list, "Ball Possession"),
+    xg: statValue(list, "expected_goals"),
   };
+}
+
+// Videobeweise der letzten 15 Minuten (Ereignis-Typ "Var").
+function recentVar(f: Raw): number {
+  const now = toNumber(f?.fixture?.status?.elapsed) ?? 0;
+  const events: Raw[] = Array.isArray(f?.events) ? f.events : [];
+  return events.filter((e) => e?.type === "Var" && now - (toNumber(e?.time?.elapsed) ?? -99) <= 15).length;
 }
 
 export async function footballLiveHeat(ids: number[]): Promise<LiveHeatResult> {
@@ -850,7 +862,7 @@ export async function footballLiveHeat(ids: number[]): Promise<LiveHeatResult> {
       const homeId = f?.teams?.home?.id;
       const home = teams.find((t) => t?.team?.id === homeId) ?? teams[0];
       const away = teams.find((t) => t !== home) ?? teams[1];
-      return { id: String(id), home: heatSide(home), away: heatSide(away) };
+      return { id: String(id), home: heatSide(home), away: heatSide(away), recentVar: recentVar(f) };
     })
     .filter((x: HeatStats | null): x is HeatStats => x !== null);
   return { ok: true, stats, expiresAt: res.hit.expiresAt };
