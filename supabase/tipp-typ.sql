@@ -5,10 +5,19 @@
 --
 -- Zeigt im Profil und auf der Spielerseite, was für ein Tipper jemand ist
 -- (z. B. "🎯 Exakt-Künstler", "🦁 Mutiger Außenseiter"). Gerechnet wird nur
--- hier in der Datenbank aus den schon ausgewerteten Tipps (ab Neustart der
--- Rangpunkte, wie bei "Deine Statistik"). Erst ab 15 ausgewerteten Tipps.
+-- hier in der Datenbank aus den schon ausgewerteten Tipps. Erst ab 15
+-- ausgewerteten Tipps.
 -- Andere sehen den Tipp-Typ nur, wenn man seine Statistik freigibt.
 -- Es zählen nur Spiele nach Tippschluss, offene Tipps verrät das nie.
+--
+-- Seit 27.10.2026 (Rene: "Tipptyp ist ohne Statistik"): gerechnet wird aus
+-- der dauerhaften Tipp-Statistik tip_stats statt aus tips + matches. Vorher
+-- fielen alle Tipps zu gelöschten Spielen heraus und der Tipp-Typ kam nicht
+-- mehr auf 15 Tipps. Braucht vorher supabase/sportlerkarte-statistik.sql
+-- (Stand 27.10.2026, mit Spielstand, Tippmodus und Tippschluss in tip_stats).
+-- Wie die Sportlerkarte zählen jetzt alle Tipps seit dem ersten. Bei schon
+-- gelöschten Spielen fehlen Tippschluss und Vereine; diese Tipps zählen für
+-- Last-Minute/Früh-Planer und Vereinsbrille einfach nicht mit.
 -- Nichts wird gespeichert oder verändert (keine Tipps, Punkte oder Coins).
 
 create or replace function public.tipp_typ_internal(p_user uuid)
@@ -32,32 +41,23 @@ begin
   -- Alle Kennzahlen in einem Durchgang (pro Spiel zählt der letzte Tipp).
   with mine as (
     select distinct on (t.match_id)
-           t.match_id, t.predicted_home_score as ph, t.predicted_away_score as pa,
-           t.result_tier as tier, t.submitted_at
-    from public.tips t
+           t.match_id, t.predicted_home as ph, t.predicted_away as pa,
+           t.result_tier as tier, t.submitted_at,
+           t.sport, coalesce(t.tip_mode, 'score') as mode,
+           t.home_id, t.away_id, t.deadline
+    from public.tip_stats t
     where t.user_id = p_user
       and t.evaluated and t.result_tier is not null
-      and t.refunded_at is null
-      and not coalesce(t.ranking_legacy, false)
-    order by t.match_id, t.submitted_at desc, t.id desc
-  ),
-  m as (
-    select mi.*,
-           x.data ->> 'sport' as sport,
-           coalesce(x.data ->> 'tipMode', 'score') as mode,
-           x.data ->> 'homeTeamId' as home_id,
-           x.data ->> 'awayTeamId' as away_id,
-           coalesce(public.try_timestamptz(x.data ->> 'tipDeadline'), public.try_timestamptz(x.data ->> 'kickoff')) as deadline
-    from mine mi
-    join public.matches x on x.id = mi.match_id
+      and t.predicted_home is not null and t.predicted_away is not null
+    order by t.match_id, t.submitted_at desc, t.tip_id desc
   ),
   others as (
     select distinct on (t.user_id, t.match_id)
-           t.match_id, sign(t.predicted_home_score - t.predicted_away_score) as tend
-    from public.tips t
+           t.match_id, sign(t.predicted_home - t.predicted_away) as tend
+    from public.tip_stats t
     where t.match_id in (select match_id from mine)
-      and t.refunded_at is null
-    order by t.user_id, t.match_id, t.submitted_at desc, t.id desc
+      and t.predicted_home is not null and t.predicted_away is not null
+    order by t.user_id, t.match_id, t.submitted_at desc, t.tip_id desc
   ),
   crowd as (
     select match_id, count(*) as total,
@@ -91,7 +91,7 @@ begin
     count(cf.team_id)::int as club_n,
     count(*) filter (where (cf.team_id = m.home_id and m.ph > m.pa) or (cf.team_id = m.away_id and m.pa > m.ph))::int as club_win
   into s
-  from m
+  from mine m
   left join majority mj on mj.match_id = m.match_id
   left join public.club_fans cf
          on cf.user_id = p_user and cf.sport = m.sport and cf.team_id is not null
@@ -104,11 +104,9 @@ begin
   -- Schnitt aller Spieler: wie oft ist ein Ergebnis-Tipp exakt?
   select coalesce(avg(case when t.result_tier = 'exakt' then 1.0 else 0.0 end), 0)
   into v_global
-  from public.tips t
-  join public.matches x on x.id = t.match_id
-  where t.evaluated and t.result_tier is not null and t.refunded_at is null
-    and not coalesce(t.ranking_legacy, false)
-    and coalesce(x.data ->> 'tipMode', 'score') <> '1x2';
+  from public.tip_stats t
+  where t.evaluated and t.result_tier is not null
+    and coalesce(t.tip_mode, 'score') <> '1x2';
 
   -- Jede Eigenschaft bekommt eine "Stärke" (ab 1 = trifft zu). Die stärkste
   -- wird groß als Tipp-Typ gezeigt, die nächsten als Eigenschaften.
@@ -188,18 +186,18 @@ begin
   -- (mindestens 8 Tipps dort und 8 Tipps in den anderen zusammen).
   select sport, rate, cnt into v_best_sport, v_best_rate, v_best_n
   from (
-    select x.data ->> 'sport' as sport,
+    select t.sport,
            avg(case when t.result_tier in ('exakt', 'differenz', 'tendenz') then 1.0 else 0.0 end) as rate,
            count(*)::int as cnt
     from (
-      select distinct on (t.match_id) t.match_id, t.result_tier
-      from public.tips t
+      select distinct on (t.match_id) t.match_id, t.result_tier, t.sport
+      from public.tip_stats t
       where t.user_id = p_user and t.evaluated and t.result_tier is not null
-        and t.refunded_at is null and not coalesce(t.ranking_legacy, false)
-      order by t.match_id, t.submitted_at desc, t.id desc
+        and t.predicted_home is not null and t.predicted_away is not null
+      order by t.match_id, t.submitted_at desc, t.tip_id desc
     ) t
-    join public.matches x on x.id = t.match_id
-    group by x.data ->> 'sport'
+    where t.sport is not null
+    group by t.sport
     having count(*) >= 8
   ) z
   order by rate desc, cnt desc

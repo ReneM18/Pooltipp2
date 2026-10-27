@@ -40,6 +40,7 @@ import Emoji from "@/components/Emoji";
 import TippTypCard from "@/components/TippTyp";
 import BeginnerShieldHint from "@/components/BeginnerShieldHint";
 import HitRateBySport from "@/components/HitRateBySport";
+import { useSportCardStats } from "@/lib/sportBio";
 import SportBioCard, { SportBioTag } from "@/components/SportBioCard";
 import SportBioEditor from "@/components/SportBioEditor";
 import { useSportBio } from "@/lib/sportBio";
@@ -105,6 +106,14 @@ function ProfilInhalt() {
   }
   const { orderFor, matches, getTeam, myTips, countingTips, tipsBySport, rankingResetAt } = useAppData();
   const resetDate = resetDateText(rankingResetAt);
+  // Tipps und Trefferquote pro Sportart aus der dauerhaften Tipp-Statistik
+  // (tip_stats): zählt alle Tipps seit dem ersten, auch zu gelöschten
+  // Spielen (Rene, 27.10.2026). Ohne (Gast, lädt noch) wie bisher aus den
+  // Tipps im Speicher.
+  const cardStats = useSportCardStats(isRegistered ? authUserId : null);
+  const tipsPerSport: Partial<Record<Sport, number>> = cardStats
+    ? Object.fromEntries(cardStats.map((st) => [st.sport, st.tips ?? 0]))
+    : tipsBySport;
   // Tipp-Historie: nur Tipps, die im aktuellen Punktesystem zählen (die
   // alten bleiben in der Datenbank), neueste Abgabe oben.
   const historyTips = [...countingTips].sort(
@@ -553,7 +562,7 @@ function ProfilInhalt() {
           <StatCard label="Pass-XP" value={passXP.toLocaleString("de-DE")} accent="action" />
           <StatCard label="Abgegebene Tipps" value={tipsSubmitted.toLocaleString("de-DE")} accent="ink" />
         </div>
-        <HitRateBySport />
+        <HitRateBySport stats={cardStats} />
         {isRegistered && (
           <div className="mt-3 rounded-card border border-edge bg-surface p-4 text-xs text-muted">
             <p>
@@ -583,13 +592,17 @@ function ProfilInhalt() {
           {SPORTS.map((sport) => (
             <div key={sport} className="rounded-card border border-edge bg-surface px-2 py-3 text-center">
               <div className="mb-1 text-xl"><Emoji e={sportIcon[sport]} /></div>
-              <p className="font-display text-lg font-bold text-ink">{(tipsBySport[sport] ?? 0).toLocaleString("de-DE")}</p>
+              <p className="font-display text-lg font-bold text-ink">{(tipsPerSport[sport] ?? 0).toLocaleString("de-DE")}</p>
               <p className="text-xs text-muted">{sportLabel(sport)}</p>
             </div>
           ))}
         </div>
-        {resetDate && (
-          <p className="mt-3 text-xs text-muted">Gezählt werden deine Tipps seit dem Neustart der Punkte am {resetDate}.</p>
+        {cardStats ? (
+          <p className="mt-3 text-xs text-muted">Gezählt werden alle deine Tipps seit dem ersten.</p>
+        ) : (
+          resetDate && (
+            <p className="mt-3 text-xs text-muted">Gezählt werden deine Tipps seit dem Neustart der Punkte am {resetDate}.</p>
+          )
         )}
         </details>
         {isRegistered && (

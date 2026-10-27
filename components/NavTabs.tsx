@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { useDuels } from "@/lib/DuelsContext";
 import { TIPPRUNDEN_ENABLED } from "@/lib/types";
 import { MATCHCENTER_FIRST } from "@/lib/startPage";
-import { isFriendsArea } from "@/components/FriendsTabs";
 
 // Logisch gruppiert: erst die eigene Spiel-Schleife (Tippen, Spiele,
 // Fortschritt), danach alles Community-Bezogene (Rangliste, Feed, Freunde).
@@ -18,8 +17,8 @@ const allTabs = [
   // (Rene, 27.10.2026).
   { href: "/rangliste", label: "Rangliste" },
   { href: "/fortschritt", label: "Saison-Pass" },
-  // Feed und Duelle sind Reiter im Bereich Freunde (FriendsTabs, Rene,
-  // 27.10.2026), darum hier nur noch ein Punkt.
+  // Feed ist ein Reiter im Bereich Freunde (FriendsTabs, Rene, 27.10.2026).
+  // Duelle hat rechts wieder einen eigenen Knopf.
   { href: "/freunde", label: "Freunde" },
 ];
 
@@ -50,7 +49,8 @@ export default function NavTabs() {
           Abstand zwischen den Punkten statt der mobil-engen Reiter. */}
       <div className="mx-auto flex max-w-3xl lg:max-w-6xl items-stretch gap-0.5 overflow-x-auto overflow-y-hidden px-2 touch-pan-x overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-x-visible lg:gap-1 lg:px-6">
         {tabs.map((tab) => {
-          const isActive = tab.href === "/freunde" ? isFriendsArea(pathname ?? "") : pathname === tab.href;
+          const isActive =
+            tab.href === "/freunde" ? pathname === "/freunde" || pathname === "/feed" : pathname === tab.href;
           return (
             <Link
               key={tab.href}
@@ -60,15 +60,6 @@ export default function NavTabs() {
               }`}
             >
               {tab.label}
-              {/* Offene Duell-Einladungen jetzt am Punkt Freunde (dort ist der Reiter Duelle). */}
-              {tab.href === "/freunde" && invitesForMe.length > 0 && (
-                <span
-                  className="ml-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold leading-none text-white"
-                  aria-label={`${invitesForMe.length} offene Duell-Einladungen`}
-                >
-                  {invitesForMe.length}
-                </span>
-              )}
               {isActive && (
                 <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-gold" />
               )}
@@ -82,6 +73,21 @@ export default function NavTabs() {
             falls ein Fenster doch mal knapper ist; normalerweise passt ab
             lg: alles in eine Zeile. */}
         <div className="my-2 ml-auto flex shrink-0 items-center gap-1.5 lg:gap-2">
+          {/* Duelle wieder als eigener Knopf (Rene, 27.10.2026: "die Duelle sind weg"). */}
+          <Link
+            href="/duelle"
+            className="relative flex shrink-0 items-center gap-1 rounded-full border border-gold/45 bg-surface px-2.5 py-1 font-display text-xs font-semibold text-ink transition-colors hover:border-gold hover:bg-gold/10 lg:px-3 lg:py-1.5 lg:text-sm"
+          >
+            <span aria-hidden>⚔️</span> Duelle
+            {invitesForMe.length > 0 && (
+              <span
+                className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white lg:h-5 lg:min-w-5 lg:text-xs"
+                aria-label={`${invitesForMe.length} offene Duell-Einladungen`}
+              >
+                {invitesForMe.length}
+              </span>
+            )}
+          </Link>
           {TIPPRUNDEN_ENABLED && (
             <Link
               href="/teams"
