@@ -37,7 +37,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { classifyRankingTip, RANKING_POINTS } from "@/lib/poolScore";
 import { competitionFlag } from "@/lib/competitionFlag";
 import { displayOrder, scoreText, type TeamOrder } from "@/lib/teamOrder";
-import { SPORT_ICONS, sportLabel, type Match, type Sport, type Team } from "@/lib/types";
+import { SPORT_ICONS, isSportActive, sportLabel, type Match, type Sport, type Team } from "@/lib/types";
 import TeamBadge, { matchJerseyProps } from "@/components/TeamBadge";
 import CommentThread from "@/components/CommentThread";
 import Emoji from "@/components/Emoji";
@@ -56,6 +56,8 @@ import {
 } from "@/components/LiveMatch";
 import { liveTipLabel } from "@/lib/liveTipText";
 import { appTeamName } from "@/lib/teamApiNames";
+import { isMatchTippable, tipCardHref } from "@/lib/matchcenterLink";
+import Link from "next/link";
 
 // Eigene Vereinsnamen statt API-Namen (Rene, 27.10.2026, lib/teamApiNames.ts).
 function useApiTeamName(sport: Sport | undefined): (apiName: string) => string {
@@ -100,6 +102,8 @@ export default function MatchcenterPage() {
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Matchcenter</h1>
+
+      <TodayTipsBox />
 
       {/* Live-Bereich mit Detail (Rene, 15.10.2026: Spieltag-Umbau), nur die
           in lib/liveConfig.ts eingeschalteten Ligen (zum Testen Europa League). */}
@@ -293,10 +297,79 @@ function liveLeagueFlag(sport: Sport, g: LiveGame, competitions: Parameters<type
   return country ? flagEmoji(country) : null;
 }
 
+// Oben: "Heute N Tippspiele" mit Sprung zur Tipps-Seite (Rene, 27.10.2026).
+// Alle Sportarten, nur Spiele mit Anstoß heute (Wiener Zeit). Ohne
+// Tippspiele heute kein Kasten.
+function TodayTipsBox() {
+  const { matches, getTeam, myTips, contentLoaded } = useAppData();
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  // Erst mit den echten Spielen (vorher stehen Demo-Spiele im Speicher).
+  if (now === null || !contentLoaded) return null;
+  const today = viennaDate(now);
+  const list = matches.filter(
+    (m) =>
+      !m.draft &&
+      m.status !== "cancelled" &&
+      isSportActive(m.sport) &&
+      viennaDate(m.kickoff) === today &&
+      !!getTeam(m.homeTeamId) &&
+      !!getTeam(m.awayTeamId),
+  );
+  if (list.length === 0) return null;
+  const tipped = new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId));
+  const open = list.filter((m) => !tipped.has(m.id) && isMatchTippable(m, now)).length;
+  const sports = Array.from(new Set(list.map((m) => m.sport)));
+  return (
+    <Link
+      href="/"
+      className="mb-4 flex items-center gap-3 rounded-card border border-gold/40 bg-gold/5 px-3 py-2.5 transition-colors hover:border-gold sm:px-4"
+    >
+      <span className="flex shrink-0 gap-0.5 text-lg" aria-hidden>
+        {sports.map((s) => (
+          <Emoji key={s} e={SPORT_ICONS[s]} />
+        ))}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-display text-sm font-bold text-ink">
+          Heute {list.length === 1 ? "1 Tippspiel" : `${list.length} Tippspiele`}
+        </span>
+        <span className="block text-xs text-muted">
+          {open > 0 ? (
+            <>
+              <span className="font-semibold text-gold">{open} noch offen</span> · hier geht&apos;s zu den Tipps
+            </>
+          ) : (
+            "Hier geht's zu deinen Tipps"
+          )}
+        </span>
+      </span>
+      <span className="shrink-0 font-display text-lg font-bold text-gold" aria-hidden>
+        ›
+      </span>
+    </Link>
+  );
+}
+
 // Mehrere Sportarten (Rene, 16.10.2026): Umschalter ⚽/🏒 über dem
 // Live-Bereich; je Sportart eigener Bereich (key → Auswahl beginnt neu).
 function LiveCenter() {
   const [sport, setSport] = useState<Sport>(LIVE_SPORT ?? "Fußball");
+  // Von der Tippkarte (/matchcenter?spiel=<App-Spiel>, Rene, 27.10.2026):
+  // Sportart des Spiels wählen und das Spiel öffnen.
+  const { matches } = useAppData();
+  const [targetId, setTargetId] = useState<string | null>(null);
+  useEffect(() => {
+    setTargetId(new URLSearchParams(window.location.search).get("spiel"));
+  }, []);
+  const target = targetId ? matches.find((m) => m.id === targetId) ?? null : null;
+  useEffect(() => {
+    if (target && LIVE_SPORTS.includes(target.sport)) setSport(target.sport);
+  }, [target]);
   const switcher =
     LIVE_SPORTS.length > 1 ? (
       <div className="flex gap-1.5" role="tablist" aria-label="Sportart">
@@ -306,7 +379,10 @@ function LiveCenter() {
             type="button"
             role="tab"
             aria-selected={sport === s}
-            onClick={() => setSport(s)}
+            onClick={() => {
+              setTargetId(null);
+              setSport(s);
+            }}
             className={`rounded-full border px-2.5 py-0.5 text-[12px] font-semibold transition-colors ${
               sport === s ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
             }`}
@@ -316,7 +392,9 @@ function LiveCenter() {
         ))}
       </div>
     ) : null;
-  return <LiveCenterSection key={sport} sport={sport} switcher={switcher} />;
+  return (
+    <LiveCenterSection key={sport} sport={sport} switcher={switcher} target={target?.sport === sport ? target : null} />
+  );
 }
 
 // Läuft das Spiel (oder müsste es laut Anstoß gleich/gerade laufen)?
@@ -330,7 +408,7 @@ function needsPolling(g: LiveGame, now: number): boolean {
 const byKickoff = (a: LiveGame, b: LiveGame) =>
   new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime() || a.home.localeCompare(b.home);
 
-function LiveCenterSection({ sport, switcher }: { sport: Sport; switcher?: React.ReactNode }) {
+function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher?: React.ReactNode; target: Match | null }) {
   const [view, setView] = useState<LcView>("live");
   const [today, setToday] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
@@ -396,10 +474,36 @@ function LiveCenterSection({ sport, switcher }: { sport: Sport; switcher?: React
     const link = links.get(g.id);
     return !!link && tippedMatchIds.has(link.match.id);
   };
+  // Tippspiel, das man noch tippen kann (Rene, 27.10.2026: "Tippen").
+  const canTip = (g: LiveGame) => {
+    const link = links.get(g.id);
+    return !!link && now !== null && isMatchTippable(link.match, now);
+  };
+
+  // Von der Tippkarte: Spiel von gestern steht unter "Ergebnisse".
+  const targetDay = target ? viennaDate(target.kickoff) : null;
+  useEffect(() => {
+    if (targetDay && yesterday && targetDay === yesterday) setView("ergebnisse");
+  }, [targetDay, yesterday]);
+  // ... und sobald es zugeordnet ist, auswählen.
+  const targetDoneRef = useRef(false);
+  const targetGameId = useMemo(
+    () => (target ? Array.from(links).find(([, link]) => link.match.id === target.id)?.[0] ?? null : null),
+    [links, target],
+  );
+  useEffect(() => {
+    if (!targetGameId || targetDoneRef.current) return;
+    targetDoneRef.current = true;
+    select(targetGameId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetGameId]);
+  // Daten da, aber das Spiel ist nicht dabei (anderer Tag, andere Liga).
+  const targetMissing =
+    !!target && !targetGameId && !!todayDay.games && (targetDay !== yesterday || !!yesterdayDay.games);
 
   // Standard: erstes getipptes laufendes Spiel.
   useEffect(() => {
-    if (pickedRef.current || selectedId || !todayDay.games) return;
+    if (pickedRef.current || selectedId || !todayDay.games || target) return;
     const first = todayDay.games
       .filter((g) => isLiveRunning(g.status))
       .sort(byKickoff)
@@ -418,7 +522,7 @@ function LiveCenterSection({ sport, switcher }: { sport: Sport; switcher?: React
   }
 
   const selected = selectedId ? allGames.find((g) => g.id === selectedId) ?? null : null;
-  const listProps = { sport, links, isTipped, selectedId, onSelect: select };
+  const listProps = { sport, links, isTipped, canTip, selectedId, onSelect: select };
 
   // Freunde-Live (Rene, 16.10.2026: Freunde-Live): am PC rechts ein Reiter
   // "Freunde" neben dem Spiel-Detail, am Handy eine Zeile im Detail, die
@@ -513,7 +617,12 @@ function LiveCenterSection({ sport, switcher }: { sport: Sport; switcher?: React
                   link={selectedLink}
                   dataAt={todayDay.games?.some((g) => g.id === selected.id) ? todayDay.dataAt : 0}
                   friendsRow={friendsRow}
+                  now={now}
                 />
+              ) : targetMissing ? (
+                <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
+                  Dieses Spiel ist (noch) nicht in den Live-Daten. Das Matchcenter zeigt Spiele von heute und gestern.
+                </p>
               ) : (
                 <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
                   Spiel antippen, um Spielverlauf, Tipps und Kommentare zu sehen.
@@ -540,6 +649,7 @@ interface ListProps {
   sport: Sport;
   links: Map<string, AppLink>;
   isTipped: (g: LiveGame) => boolean;
+  canTip: (g: LiveGame) => boolean;
   selectedId: string | null;
   onSelect: (id: string) => void;
 }
@@ -860,12 +970,13 @@ function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowS
 // untereinander, rechts die Tore untereinander, unten ein dünner Balken
 // (Minute/90). "Getippt" klein in Gold unter dem Status, gewählte Zeile mit Gold-Rand.
 // Rahmen eine Spur heller als border-edge, neutral für alle Zustände.
-function GameRow({ sport, game, dataAt = 0, links, isTipped, selectedId, onSelect }: ListProps & { game: LiveGame; dataAt?: number }) {
+function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId, onSelect }: ListProps & { game: LiveGame; dataAt?: number }) {
   const clock = useLiveClock(sport, game.statusShort, game.elapsed, dataAt);
   const running = isLiveRunning(game.status);
   const hasScore = game.homeScore !== null && game.awayScore !== null && game.status !== "NS";
   const flash = useGoalFlash(game.id, hasScore ? `${game.homeScore}:${game.awayScore}` : null);
   const tipped = isTipped(game);
+  const tippable = !tipped && canTip(game);
   const selected = selectedId === game.id;
   const link = links.get(game.id);
   const teamName = useApiTeamName(sport);
@@ -902,6 +1013,10 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, selectedId, onSelec
           </span>
           {status.sub && <span className="truncate text-[10px] leading-tight text-muted">{status.sub}</span>}
           {tipped && <span className="truncate text-[10px] font-semibold leading-tight text-gold">Getippt</span>}
+          {/* Tippspiel, noch nicht getippt (Rene, 27.10.2026). */}
+          {tippable && (
+            <span className="w-fit rounded-full bg-gold/15 px-1.5 text-[10px] font-bold leading-[1.4] text-gold">Tippen</span>
+          )}
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
           <FitText text={homeName} maxLines={2} minPx={12} className="leading-tight text-ink" />
@@ -929,12 +1044,14 @@ function LcDetail({
   link,
   dataAt,
   friendsRow,
+  now,
 }: {
   sport: Sport;
   game: LiveGame;
   link: AppLink | null;
   dataAt: number;
   friendsRow?: React.ReactNode;
+  now: number | null;
 }) {
   const { myTips, orderFor, tipTendencies, competitions } = useAppData();
   const shieldLeft = useBeginnerShieldLeft();
@@ -972,6 +1089,7 @@ function LcDetail({
     };
   };
 
+  const tippable = !!match && now !== null && isMatchTippable(match, now);
   const appFinal = !!match && match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null;
   const pending = !!tip && !tip.evaluated && started && homeScore !== null && awayScore !== null;
   const isOneXTwo = match?.tipMode === "1x2";
@@ -1047,9 +1165,25 @@ function LcDetail({
           )}
         </p>
       )}
+      {/* Direkt zur Tippkarte, solange getippt werden kann (Rene, 27.10.2026). */}
+      {match && !tip && tippable && (
+        <Link
+          href={tipCardHref(match.id)}
+          className="flex items-center justify-center gap-1.5 rounded-full bg-action-hover py-2.5 text-center font-display text-sm font-semibold tracking-wide text-pitch transition-all hover:brightness-110"
+        >
+          🎯 Jetzt tippen
+        </Link>
+      )}
       {tip && !tip.evaluated && !started && (
-        <p className="rounded-lg border border-gold/40 bg-gold/5 px-3 py-2 text-[13px] text-muted">
-          Dein Tipp: <span className="font-semibold text-gold">{tipText}</span>
+        <p className="flex items-center justify-between gap-2 rounded-lg border border-gold/40 bg-gold/5 px-3 py-2 text-[13px] text-muted">
+          <span>
+            Dein Tipp: <span className="font-semibold text-gold">{tipText}</span>
+          </span>
+          {match && tippable && (
+            <Link href={tipCardHref(match.id)} className="shrink-0 font-semibold text-ink underline-offset-2 hover:underline">
+              Ändern ›
+            </Link>
+          )}
         </p>
       )}
 

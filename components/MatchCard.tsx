@@ -37,6 +37,8 @@ import { EventTimeline, LivePill, LiveTipLine, Scoreboard, forecastPlain, signed
 import { showGoalToast } from "./GoalToast";
 import { FriendsLiveRow, FriendsLiveSheet } from "./FriendsLive";
 import { friendsRowTable, moveText, useFriendsLive } from "@/lib/friendsLive";
+import { isLiveLeagueEnabled } from "@/lib/liveConfig";
+import { inMatchcenterDays, matchcenterHref } from "@/lib/matchcenterLink";
 
 const sportIcon: Record<string, string> = SPORT_ICONS;
 
@@ -251,6 +253,19 @@ export default function MatchCard({
 
   const deadlineDate = new Date(match.tipDeadline);
   const deadlineClock = `${String(deadlineDate.getHours()).padStart(2, "0")}:${String(deadlineDate.getMinutes()).padStart(2, "0")}`;
+  // "Matchcenter" an der Karte (Rene, 27.10.2026): nur wenn das Matchcenter
+  // das Spiel zeigen kann (Live-Liga, heute oder gestern). Uhr erst im
+  // Browser (sonst Hydration-Fehler), jede Minute neu.
+  const mcLeague = !isCancelled && isLiveLeagueEnabled(match.sport, match.competition);
+  const [inMcDays, setInMcDays] = useState(false);
+  useEffect(() => {
+    if (!mcLeague) return;
+    const check = () => setInMcDays(inMatchcenterDays(match.kickoff, Date.now()));
+    check();
+    const t = window.setInterval(check, 60_000);
+    return () => window.clearInterval(t);
+  }, [mcLeague, match.kickoff]);
+  const showMcLink = mcLeague && inMcDays;
   const kickoffLabel = new Date(match.kickoff).toLocaleString("de-DE", {
     weekday: "short",
     day: "2-digit",
@@ -985,6 +1000,15 @@ export default function MatchCard({
               <TvIcon className="h-4 w-4 shrink-0 text-ink" />
               {match.tvChannel}
             </span>
+          )}
+          {showMcLink && (
+            <Link
+              href={matchcenterHref(match.id)}
+              className="flex items-center gap-1 rounded-full border border-edge bg-pitch py-0.5 pl-2 pr-2.5 text-[13px] font-semibold text-ink transition-colors hover:border-muted/50"
+            >
+              <span aria-hidden>📊</span>
+              Matchcenter
+            </Link>
           )}
         </div>
 
