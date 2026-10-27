@@ -1231,6 +1231,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const tv = link?.match.tvChannel?.trim() || null;
 
   const status = rowStatus(sport, game, clock?.text ?? null);
+  const sub = status.sub && status.sub !== "heute" ? status.sub : null;
+  const badge = tipped || tippable;
   // Läuft: leuchtender Rand links statt roter Zeitlinie unten (Rene,
   // 27.10.2026, Variante C): rot = läuft, gelb = Pause.
   const glow = running ? (status.dot === "pause" ? "pause" : "live") : null;
@@ -1273,12 +1275,14 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
         <span className="flex w-[4.75rem] min-w-0 flex-col gap-0.5 overflow-hidden tabular-nums">
           <span className={`flex min-w-0 items-center gap-1 text-[13px] font-semibold leading-tight ${status.muted ? "text-muted" : "text-ink"}`}>
             {status.dot && <StateDot state={status.dot} />}
-            <span className="min-w-0 truncate">{status.main}</span>
+            <span className={`min-w-0 ${sub && badge ? "shrink-0" : "truncate"}`}>{status.main}</span>
+            {/* Mit "Getippt"/"Tippen" darunter steht der Zusatz in derselben
+                Zeile ("Verl. 122'"), damit jede Zeile höchstens zwei Zeilen
+                hoch ist (Rene, 27.10.2026: "die Spalte ist höher"). */}
+            {sub && badge && <span className="min-w-0 truncate text-[10px] font-normal text-muted">{sub}</span>}
           </span>
           {/* "heute" steht schon im Reiter, nur "morgen"/"gestern" zeigen (Rene, 27.10.2026: flachere Zeilen). */}
-          {status.sub && status.sub !== "heute" && (
-            <span className="truncate text-[10px] leading-tight text-muted">{status.sub}</span>
-          )}
+          {sub && !badge && <span className="truncate text-[10px] leading-tight text-muted">{sub}</span>}
           {tipped && <span className="truncate text-[10px] font-semibold leading-tight text-gold">Getippt</span>}
           {/* Tippspiel, noch nicht getippt: goldenes Schild mit Glanz
               (Rene, 27.10.2026, Variante C; Glanz in globals.css). */}
