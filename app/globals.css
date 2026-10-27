@@ -549,3 +549,30 @@ html[data-season-design] .match-card-rand.match-card-zu {
     animation: none;
   }
 }
+
+/* Matchcenter: goldenes "Tippen"-Schild bei offenen Tippspielen, ab und zu
+   huscht ein Glanz drüber (Rene, 27.10.2026, Variante C). Bei "Bewegung
+   reduzieren" bleibt es ein ruhiges Gold-Schild. */
+.tip-shine {
+  position: relative;
+  overflow: hidden;
+}
+.tip-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.7) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: tip-shine 3.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes tip-shine {
+  0%, 60% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tip-shine::after {
+    animation: none;
+    display: none;
+  }
+}
