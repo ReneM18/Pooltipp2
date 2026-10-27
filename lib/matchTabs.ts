@@ -27,15 +27,18 @@ export function splitMatchesByTab<T extends TabMatch>(matches: T[], _now: number
   return { offen, geschlossen };
 }
 
-// Reiter der Startseite (Rene, 18.10.2026: Tippen/Live/Beendet). Jedes Spiel
-// steht in genau einer Gruppe:
-// - Tippen: Tippschluss in der Zukunft, noch nicht angepfiffen. "offen" ohne
-//   eigenen Tipp, "getippt" mit (bis Tippschluss änderbar). Nach Tippschluss sortiert.
-// - Live: "laeuft" (Live-Daten LIVE/Pause, oder ohne Live-Daten: Anpfiff
-//   vorbei und kein Endstand), "gleich" (Tippschluss vorbei, noch nicht
-//   angepfiffen), "geradeBeendet" (laut Live-Daten abgepfiffen, Endstand fehlt).
+// Reiter der Startseite. Seit 27.10.2026 nur noch Tipps/Beendet (Rene: den
+// Reiter Live braucht es nicht mehr, laufende Spiele zeigt das Matchcenter).
+// Jedes Spiel steht in genau einer Gruppe:
+// - Tipps, tippbar: Tippschluss in der Zukunft, noch nicht angepfiffen.
+//   "offen" ohne eigenen Tipp, "getippt" mit (bis Tippschluss änderbar).
+//   Nach Tippschluss sortiert.
+// - Tipps, ab Tippschluss: "laeuft" (Live-Daten LIVE/Pause, oder ohne
+//   Live-Daten: Anpfiff vorbei und kein Endstand), "gleich" (Tippschluss
+//   vorbei, noch nicht angepfiffen), "geradeBeendet" (laut Live-Daten
+//   abgepfiffen, Endstand fehlt).
 // - Beendet: Endstand eingetragen oder abgesagt (wie bisher "geschlossen").
-export type HomeTab = "tippen" | "live" | "beendet";
+export type HomeTab = "tippen" | "beendet";
 
 export function splitHomeTabs<T extends TabMatch & { id: string }>(
   matches: T[],
@@ -61,28 +64,26 @@ export function splitHomeTabs<T extends TabMatch & { id: string }>(
 }
 
 /**
- * Reiter beim Öffnen (Renes Regel, 21.10.2026): läuft etwas → Live, sonst
- * gibt es tippbare Spiele (offen oder schon getippt) → Tipps, sonst
- * beendete Spiele → Beendet. Ganz ohne Spiele bleibt es bei Tipps (Hinweis
- * "Alles getippt" mit Link zum Matchcenter). Vorher (20.10.) sprang es bei
- * neuen Ergebnissen zu Beendet, auch wenn noch getippte Spiele anstanden.
+ * Reiter beim Öffnen (Rene, 27.10.2026): gibt es noch nicht beendete Spiele
+ * (tippbar, getippt oder laufend) → Tipps, sonst beendete Spiele → Beendet.
+ * Ganz ohne Spiele bleibt es bei Tipps (Hinweis "Alles getippt" mit Link zum
+ * Matchcenter). Vorher (21.10.) sprang es bei laufenden Spielen zu Live.
  */
 export function autoHomeTab(split: {
   offen: unknown[];
   getippt: unknown[];
   laeuft: unknown[];
+  gleich: unknown[];
   geradeBeendet: unknown[];
   beendet: unknown[];
 }): HomeTab {
-  if (split.laeuft.length + split.geradeBeendet.length > 0) return "live";
-  if (split.offen.length + split.getippt.length > 0) return "tippen";
+  const notClosed = split.offen.length + split.getippt.length + split.laeuft.length + split.gleich.length + split.geradeBeendet.length;
+  if (notClosed > 0) return "tippen";
   if (split.beendet.length > 0) return "beendet";
   return "tippen";
 }
 
 /** Reiter, in dem ein Spiel steht (für /?spiel=… vom Start-Erlebnis). */
-export function homeTabOf(split: { beendet: { id: string }[]; laeuft: { id: string }[]; gleich: { id: string }[]; geradeBeendet: { id: string }[] }, id: string): HomeTab {
-  if (split.beendet.some((m) => m.id === id)) return "beendet";
-  if ([...split.laeuft, ...split.gleich, ...split.geradeBeendet].some((m) => m.id === id)) return "live";
-  return "tippen";
+export function homeTabOf(split: { beendet: { id: string }[] }, id: string): HomeTab {
+  return split.beendet.some((m) => m.id === id) ? "beendet" : "tippen";
 }

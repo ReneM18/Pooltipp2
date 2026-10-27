@@ -3,11 +3,11 @@
 import Link from "next/link";
 import type { HomeTab } from "@/lib/matchTabs";
 
-// Hinweis-Leiste unter der Begrüßung (Rene, 18.10.2026: Tippen/Live/Beendet).
+// Hinweis-Leiste unter der Begrüßung (Rene, 18.10.2026; Reiter seit 27.10. Tipps/Beendet).
 // Ersetzt "X Spiele warten auf deinen Tipp" aus der Begrüßung:
 // - Gäste: freundlich "Zum Tippen einloggen"
 // - eingeloggt (Rene, 18.10.2026): schmale Zeile über den Reitern, nur auf
-//   Live/Beendet bei offenen Tipps → Reiter Tippen
+//   Beendet bei offenen Tipps → Reiter Tipps
 export default function HomeTipBar({
   guest,
   toTip,
@@ -37,7 +37,7 @@ export default function HomeTipBar({
     );
   }
 
-  // Eingeloggt: nur auf den Reitern Live/Beendet und nur bei offenen Tipps –
+  // Eingeloggt: nur auf dem Reiter Beendet und nur bei offenen Tipps –
   // auf Tippen stehen Zahl und Tippschluss schon im Reiter und in der
   // Überschrift, "Alles getippt" zeigt dort der Leerzustand (Rene, 18.10.2026).
   if (tab === "tippen" || toTip === 0) return null;
