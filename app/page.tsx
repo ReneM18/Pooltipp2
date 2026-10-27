@@ -10,6 +10,7 @@ import AdBanner from "@/components/AdBanner";
 import WeeklyReviewCard from "@/components/WeeklyReviewCard";
 import HomeGreeting from "@/components/HomeGreeting";
 import LiveStrip from "@/components/LiveStrip";
+import { matchcenterHref } from "@/lib/matchcenterLink";
 import HomeTipBar from "@/components/HomeTipBar";
 import { useUser } from "@/lib/UserContext";
 import { useJokers } from "@/lib/JokerContext";
@@ -288,18 +289,22 @@ export default function DashboardPage() {
   // (Spielstand kommt live mit), laut Live-Daten schon abgepfiffene nicht
   // mehr (Rene, 15.10.2026). Im Reiter Live stehen sie als Karten mit
   // Anzeigetafel, dort kein Streifen (Rene, 18.10.2026: Tippen/Live/Beendet).
-  const liveItems = tab === "live" ? [] : split.laeuft
-    .filter((m) => m.status === "live")
-    .map((m) => {
-      const tip = findTipForMatch(m.id);
-      const [l, r] = tip ? displayOrder(orderFor(m), tip.predictedHomeScore, tip.predictedAwayScore) : [0, 0];
-      return {
-        match: m,
-        home: getTeam(m.homeTeamId)!,
-        away: getTeam(m.awayTeamId)!,
-        myTip: tip ? (m.tipMode === "1x2" ? "✓" : `${l} : ${r}`) : null,
-      };
-    });
+  function toLiveItem(m: Match) {
+    const tip = findTipForMatch(m.id);
+    const [l, r] = tip ? displayOrder(orderFor(m), tip.predictedHomeScore, tip.predictedAwayScore) : [0, 0];
+    return {
+      match: m,
+      home: getTeam(m.homeTeamId)!,
+      away: getTeam(m.awayTeamId)!,
+      myTip: tip ? (m.tipMode === "1x2" ? "✓" : `${l} : ${r}`) : null,
+    };
+  }
+  const liveItems = tab === "live" ? [] : split.laeuft.filter((m) => m.status === "live").map(toLiveItem);
+  // Im Reiter Live: Spiele, auf die man nicht getippt hat, nur als schmale
+  // Zeile mit Spielstand statt großer Karte; groß nur, wo man mitfiebert.
+  // Antippen öffnet das Spiel im Matchcenter (Rene, 27.10.2026).
+  const slimLive = (sectionKey: string, m: Match) =>
+    tab === "live" && sectionKey === "laeuft" && !findTipForMatch(m.id) && !!getTeam(m.homeTeamId) && !!getTeam(m.awayTeamId);
 
   function renderCard(match: Match, stage = false) {
     const homeTeam = getTeam(match.homeTeamId);
@@ -489,7 +494,19 @@ export default function DashboardPage() {
                 {/* Am PC wieder drei Karten nebeneinander: Seit die Vereine
                     untereinander stehen (Variante B), passen die Namen auch in
                     schmalere Karten (Rene, 15.10.2026). */}
-                <div className="flex flex-col gap-5 lg:grid lg:grid-cols-3 lg:gap-5">{day.matches.map((m) => renderCard(m))}</div>
+                {day.matches.some((m) => !slimLive(section.key, m)) && (
+                  <div className="flex flex-col gap-5 lg:grid lg:grid-cols-3 lg:gap-5">
+                    {day.matches.filter((m) => !slimLive(section.key, m)).map((m) => renderCard(m))}
+                  </div>
+                )}
+                {day.matches.some((m) => slimLive(section.key, m)) && (
+                  <div className={day.matches.some((m) => !slimLive(section.key, m)) ? "mt-5" : ""}>
+                    <LiveStrip
+                      items={day.matches.filter((m) => slimLive(section.key, m)).map(toLiveItem)}
+                      onSelect={(id) => router.push(matchcenterHref(id))}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </section>
