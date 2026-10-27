@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
@@ -12,8 +11,6 @@ import {
   BIO_SPORTS,
   BioData,
   BioVisibility,
-  CARD_STYLES,
-  CardStyle,
   CLUB_MAX,
   COUNTRIES,
   FAV_MAX,
@@ -65,7 +62,7 @@ export default function SportBioEditor({
   onSaved: () => void;
 }) {
   const { teams } = useAppData();
-  const { hasPremiumPass, photos } = useUser();
+  const { photos } = useUser();
   const [data, setData] = useState<BioData>(bio?.data ?? {});
   // Die Karte sehen immer genau deine Freunde (Rene, 23.10.2026), keine Auswahl mehr.
   const visibility: BioVisibility = "friends";
@@ -155,7 +152,6 @@ export default function SportBioEditor({
     : stations;
   const preview: SportBio = { data: { ...data, stations: previewStations }, verified: bio?.verified ?? false, visibility };
   const hasKnownClub = stations.some((st) => knownClub(st.club));
-  const style = data.cardStyle ?? "standard";
 
   return (
     <section id="steckbrief" className="mb-8 scroll-mt-48">
@@ -396,7 +392,7 @@ export default function SportBioEditor({
 
       <Card
         title="Karte"
-        text="Rückennummer und Edition. Die Kartenfarben kommen von deinem Verein oder von deinem Rang (Rene, 20.10.2026: Farben muss man sich verdienen)."
+        text="Rückennummer. Die Kartenfarben kommen von deinem Verein oder von deinem Rang, der Rahmen immer von deinem Rang (Rene, 20.10. und 27.10.2026: Farben muss man sich verdienen)."
         saved={savedAt("karte")}
       >
         <div className="mt-3 max-w-[12rem]">
@@ -410,26 +406,6 @@ export default function SportBioEditor({
             />
           </Field>
         </div>
-        <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted">Edition</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {CARD_STYLES.map((c) => {
-            const locked = c.premium && !hasPremiumPass;
-            return locked ? (
-              <Link
-                key={c.key}
-                href="/fortschritt"
-                className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-edge bg-pitch px-3 py-1 font-display text-xs font-semibold text-muted opacity-70 hover:opacity-100"
-              >
-                🔒 {c.label}
-              </Link>
-            ) : (
-              <Chip key={c.key} small active={style === c.key} onClick={() => commit({ ...data, cardStyle: c.key as CardStyle }, "karte")}>
-                {c.label}
-              </Chip>
-            );
-          })}
-        </div>
-        {!hasPremiumPass && <p className="mt-2 text-[11px] text-muted">Holo, Gold- und Saison-Edition gibt es mit dem Premium-Pass.</p>}
       </Card>
 
       <Card title="Wer sieht deine Karte?" text="Du und deine Freunde. Wer nicht mit dir befreundet ist, sieht sie nicht." />

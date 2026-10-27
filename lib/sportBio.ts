@@ -252,15 +252,9 @@ export const PALETTES: [string, string, string][] = [
   ["Orange-Schwarz", "#f27a1a", "#111111"],
 ];
 
-// Karten-Editionen: "standard" für alle, der Rest mit dem Premium-Pass
-// (Rene, 20.10.2026: "über den Premium-Pass anpassen lassen").
+// Karten-Editionen gibt es nicht mehr: der Rahmen hat immer die Rangfarbe
+// (Rene, 27.10.2026). Alte Werte bleiben gespeichert, werden aber ignoriert.
 export type CardStyle = "standard" | "holo" | "gold" | "saison";
-export const CARD_STYLES: { key: CardStyle; label: string; premium: boolean }[] = [
-  { key: "standard", label: "Standard", premium: false },
-  { key: "holo", label: "✨ Holo", premium: true },
-  { key: "gold", label: "👑 Gold-Edition", premium: true },
-  { key: "saison", label: "🎨 Saison-Edition", premium: true },
-];
 
 export const CLUB_MAX = 30;
 
