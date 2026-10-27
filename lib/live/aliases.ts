@@ -17,7 +17,12 @@ const ALIAS_GROUPS: readonly (readonly string[])[] = [
   ["Rapid", "Rapid Wien", "SK Rapid", "SK Rapid Wien"],
   ["Hartberg", "TSV Hartberg"],
   ["Köln", "1. FC Köln", "FC Köln", "FC Koln", "1. FC Koeln", "FC Cologne"],
-  ["Frankfurt", "Eintracht Frankfurt"],
+  ["Frankfurt", "Eintracht Frankfurt", "SGE"],
+  // Kurznamen deutscher Vereine (Rene, 27.10.2026: HSV – Frankfurt ohne Zuordnung)
+  ["HSV", "Hamburger SV", "Hamburg"],
+  ["BVB", "Borussia Dortmund", "Dortmund"],
+  ["S04", "Schalke 04", "FC Schalke 04", "Schalke"],
+  ["Gladbach", "Borussia Mönchengladbach", "Mönchengladbach", "BMG"],
   ["Sassuolo", "US Sassuolo"],
   ["Frosinone", "Frosinone Calcio"],
   // Eishockey – NHL
