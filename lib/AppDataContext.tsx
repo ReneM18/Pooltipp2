@@ -2,6 +2,7 @@
 
 import { AppSettingsRow, DEFAULT_TICKER_SPEED, SETTINGS_ROW_ID, TickerSpeed, readTickerSpeed } from "./appSettings";
 import { GROUPS_ROW_ID, setTeamGroupDefs, TeamGroupDef, TeamGroupsRow } from "./teamGroups";
+import { API_NAMES_ROW_ID, applyApiNameAliases, type ApiNameLink, type ApiNamesRow } from "./teamApiNames";
 import { createContext, useContext, useState, useEffect, useMemo, useRef, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { coinText } from "@/lib/coinText";
@@ -441,6 +442,9 @@ interface AppDataContextValue {
   removeTeam: (id: string) => Promise<SaveResult>;
   teamGroupDefs: TeamGroupDef[];
   saveTeamGroupDefs: (list: TeamGroupDef[]) => void;
+  // Eigene Vereinsnamen statt API-Namen (lib/teamApiNames.ts).
+  apiNameLinks: ApiNameLink[];
+  saveApiNameLinks: (list: ApiNameLink[]) => void;
   // Fehlgeschlagenes Speichern von Spielen/News/Wettbewerben (Admin-Meldung).
   saveProblem: SaveProblem | null;
   clearSaveProblem: () => void;
@@ -562,6 +566,9 @@ interface AppDataContextValue {
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
+// Zeilen der Tabelle "teams", die keine Teams sind (Einstellungen, Listen).
+const META_ROW_IDS = new Set([COMPETITIONS_ROW_ID, SETTINGS_ROW_ID, GROUPS_ROW_ID, API_NAMES_ROW_ID]);
+
 // Beim Aktualisieren nur dann neu zeichnen, wenn sich wirklich etwas geändert
 // hat – sonst würde jede Minute die ganze App neu rendern.
 function sameJson(a: unknown, b: unknown) {
@@ -573,6 +580,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [teamGroupDefs, setTeamGroupDefsState] = useState<TeamGroupDef[]>([]);
   // Für groupTeams() überall in der App (lib/teamGroups.ts).
   setTeamGroupDefs(teamGroupDefs);
+  const [apiNameLinks, setApiNameLinksState] = useState<ApiNameLink[]>([]);
+  // Für die Live-Zuordnung der Tippspiele (lib/live/aliases.ts), nur neu
+  // bei Änderungen.
+  useMemo(() => applyApiNameAliases(teams, apiNameLinks), [teams, apiNameLinks]);
   const [matches, setMatches] = useState<Match[]>(initialMatches);
   const [competitions, setCompetitions] = useState<Competition[]>(() =>
     buildStartCompetitions(initialMatches)
@@ -709,12 +720,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setTickerSpeed(loadedSpeed);
         setTickerSpeedSaved(loadedSpeed);
         const loadedTeams = teamsRes.data
-          .filter((row) => row.id !== COMPETITIONS_ROW_ID && row.id !== SETTINGS_ROW_ID && row.id !== GROUPS_ROW_ID)
+          .filter((row) => !META_ROW_IDS.has(row.id))
           .map((row) => row.data as Team);
         syncedTeamsRef.current = new Map(loadedTeams.map((t) => [t.id, t]));
         setTeams(loadedTeams);
         const groupsList = (teamsRes.data.find((row) => row.id === GROUPS_ROW_ID)?.data as TeamGroupsRow | undefined)?.list;
         if (Array.isArray(groupsList)) setTeamGroupDefsState(groupsList);
+        const apiNamesList = (teamsRes.data.find((row) => row.id === API_NAMES_ROW_ID)?.data as ApiNamesRow | undefined)?.list;
+        if (Array.isArray(apiNamesList)) setApiNameLinksState(apiNamesList);
         const savedList = (compRow?.data as CompetitionsRow | undefined)?.list;
         if (Array.isArray(savedList)) {
           setCompetitions(savedList);
@@ -783,7 +796,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setTickerSpeed(nextSpeed);
       }
       const nextTeams = teamsRes.data
-        .filter((row) => row.id !== COMPETITIONS_ROW_ID && row.id !== SETTINGS_ROW_ID && row.id !== GROUPS_ROW_ID)
+        .filter((row) => !META_ROW_IDS.has(row.id))
         .map((row) => row.data as Team);
       setTeams((current) => {
         if (sameJson(current, nextTeams)) return current;
@@ -795,6 +808,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (Array.isArray(savedList)) setCompetitions((current) => (sameJson(current, savedList) ? current : savedList));
       const groupsList = (teamsRes.data.find((row) => row.id === GROUPS_ROW_ID)?.data as TeamGroupsRow | undefined)?.list;
       if (Array.isArray(groupsList)) setTeamGroupDefsState((current) => (sameJson(current, groupsList) ? current : groupsList));
+      const apiNamesList = (teamsRes.data.find((row) => row.id === API_NAMES_ROW_ID)?.data as ApiNamesRow | undefined)?.list;
+      if (Array.isArray(apiNamesList)) setApiNameLinksState((current) => (sameJson(current, apiNamesList) ? current : apiNamesList));
     }
     if (!matchesRes.error && matchesRes.data) {
       const nextMatches = matchesRes.data.map((row) => row.data as Match);
@@ -1124,6 +1139,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     adminWriteAtRef.current = Date.now();
     void upsertConfirmed("teams", [{ id: GROUPS_ROW_ID, data: row, updated_at: new Date().toISOString() }]).then((result) => {
       if (!result.ok) reportSaveProblem("Untergruppen", result.error);
+    });
+  }
+
+  // Vereinsnamen (lib/teamApiNames.ts) als eine Zeile speichern.
+  function saveApiNameLinks(list: ApiNameLink[]) {
+    setApiNameLinksState(list);
+    if (!loadedFromDb.teams) return;
+    const row: ApiNamesRow = { kind: "apiNames", list };
+    adminWriteAtRef.current = Date.now();
+    void upsertConfirmed("teams", [{ id: API_NAMES_ROW_ID, data: row, updated_at: new Date().toISOString() }]).then((result) => {
+      if (!result.ok) reportSaveProblem("Vereinsnamen", result.error);
     });
   }
 
@@ -1812,6 +1838,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         removeNews,
         moveNews,
         teamGroupDefs,
+        apiNameLinks,
+        saveApiNameLinks,
         saveTeamGroupDefs,
         comments,
         getCommentsForMatch,

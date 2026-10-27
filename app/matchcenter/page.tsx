@@ -5,7 +5,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchRecentResults,
   fetchStandings,
+  getCurrentSeason,
   LEAGUE_IDS,
+  LEAGUE_SPORTS,
   ResultRow,
   StandingRow,
 } from "@/lib/sportsApi";
@@ -53,19 +55,20 @@ import {
   type BoardSide,
 } from "@/components/LiveMatch";
 import { liveTipLabel } from "@/lib/liveTipText";
+import { appTeamName } from "@/lib/teamApiNames";
+
+// Eigene Vereinsnamen statt API-Namen (Rene, 27.10.2026, lib/teamApiNames.ts).
+function useApiTeamName(sport: Sport | undefined): (apiName: string) => string {
+  const { teams, apiNameLinks } = useAppData();
+  return useMemo(
+    () => (apiName: string) => (sport ? appTeamName(teams, apiNameLinks, sport, apiName) : apiName),
+    [teams, apiNameLinks, sport],
+  );
+}
 
 const LEAGUES = Object.keys(LEAGUE_IDS);
 
-// Berechnet die aktuelle Saison automatisch aus dem heutigen Datum, statt sie
-// fest zu codieren (europäische Fußball-Saisons laufen Sommer bis Sommer:
-// ab Juli zählt das laufende Jahr als Start-Jahr der neuen Saison).
-function getCurrentSeason(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1; // 1–12
-  const startYear = month >= 7 ? year : year - 1;
-  return `${startYear}-${startYear + 1}`;
-}
+// Saison automatisch aus dem heutigen Datum (lib/sportsApi.ts).
 const CURRENT_SEASON = getCurrentSeason();
 
 export default function MatchcenterPage() {
@@ -76,6 +79,7 @@ export default function MatchcenterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const teamName = useApiTeamName(LEAGUE_SPORTS[league]);
 
   useEffect(() => {
     const leagueId = LEAGUE_IDS[league];
@@ -163,7 +167,7 @@ export default function MatchcenterPage() {
               className={`${TABLE_GRID} items-center border-b border-edge py-2.5 text-sm last:border-0`}
             >
               <span className="text-muted">{row.rank}</span>
-              <FitText text={row.teamName} className="leading-tight text-ink" />
+              <FitText text={teamName(row.teamName)} className="leading-tight text-ink" />
               <span className="text-center text-muted">{row.played}</span>
               <span className="whitespace-nowrap text-center text-xs text-muted sm:hidden">
                 {row.win}-{row.draw}-{row.loss}
@@ -191,9 +195,9 @@ export default function MatchcenterPage() {
             <div key={r.id} className="rounded-card border border-edge bg-surface px-4 py-3">
               <p className="mb-1.5 text-xs text-muted">{formatDate(r.date)}</p>
               <div className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 text-sm">
-                <FitText text={r.homeTeam} className="leading-tight text-ink" />
+                <FitText text={teamName(r.homeTeam)} className="leading-tight text-ink" />
                 <span className="font-display font-semibold text-ink">{r.homeScore}</span>
-                <FitText text={r.awayTeam} className="leading-tight text-ink" />
+                <FitText text={teamName(r.awayTeam)} className="leading-tight text-ink" />
                 <span className="font-display font-semibold text-ink">{r.awayScore}</span>
               </div>
             </div>
@@ -334,7 +338,7 @@ function LiveCenterSection({ sport, switcher }: { sport: Sport; switcher?: React
   // Hat der Spieler selbst gewählt? Dann nichts mehr automatisch wählen.
   const pickedRef = useRef(false);
   const detailRef = useRef<HTMLDivElement>(null);
-  const { matches, getTeam, myTips } = useAppData();
+  const { matches, getTeam, myTips, apiNameLinks } = useAppData();
 
   // Datum und Uhr erst im Browser (sonst Hydration-Fehler), Uhr alle 30 s.
   useEffect(() => {
@@ -381,7 +385,9 @@ function LiveCenterSection({ sport, switcher }: { sport: Sport; switcher?: React
       if (result && !map.has(result.game.id)) map.set(result.game.id, { match: m, home, away, result });
     }
     return map;
-  }, [allGames, matches, getTeam, sport, today, yesterday]);
+    // apiNameLinks: verknüpfte Vereinsnamen zählen bei findLiveGame mit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allGames, matches, getTeam, sport, today, yesterday, apiNameLinks]);
   const tippedMatchIds = useMemo(
     () => new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId)),
     [myTips],
@@ -862,9 +868,11 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, selectedId, onSelec
   const tipped = isTipped(game);
   const selected = selectedId === game.id;
   const link = links.get(game.id);
-  // Mit App-Spiel: Namen wie in der App (gleiche Schreibweise wie auf der Tippkarte).
-  const homeName = link ? (link.result.swapped ? link.away.name : link.home.name) : game.home;
-  const awayName = link ? (link.result.swapped ? link.home.name : link.away.name) : game.away;
+  const teamName = useApiTeamName(sport);
+  // Mit App-Spiel: Namen wie in der App (gleiche Schreibweise wie auf der
+  // Tippkarte), sonst der eigene Vereinsname zum API-Namen.
+  const homeName = link ? (link.result.swapped ? link.away.name : link.home.name) : teamName(game.home);
+  const awayName = link ? (link.result.swapped ? link.home.name : link.away.name) : teamName(game.away);
 
   const status = rowStatus(sport, game, clock?.text ?? null);
   // Eishockey: Fortschritt über 60 Min. vom Anbieter (Rene, 16.10.2026).
@@ -939,8 +947,9 @@ function LcDetail({
   const awayFirst = !!order.awayFirst;
 
   // Alles in App-Heim/-Gast (Seiten der API ggf. gedreht).
-  const appHome = link ? link.home.name : game.home;
-  const appAway = link ? link.away.name : game.away;
+  const teamName = useApiTeamName(sport);
+  const appHome = link ? link.home.name : teamName(game.home);
+  const appAway = link ? link.away.name : teamName(game.away);
   const homeScore = link ? link.result.homeScore : game.homeScore;
   const awayScore = link ? link.result.awayScore : game.awayScore;
   const events = link ? appSideEvents(link.result) : game.events ?? [];

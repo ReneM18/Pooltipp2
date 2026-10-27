@@ -2,6 +2,8 @@
 // Schlüssel "3"). Gut geeignet zum Prototypen; für den echten Live-Betrieb
 // später einen eigenen, verlässlicheren Zugang (eigener Key/Anbieter) nutzen.
 
+import type { Sport } from "./types";
+
 const BASE_URL = "https://www.thesportsdb.com/api/v1/json/3";
 
 // Liga-IDs bei TheSportsDB
@@ -12,6 +14,25 @@ export const LEAGUE_IDS: Record<string, string> = {
   "NFL": "4391",
   "NHL": "4380",
 };
+
+// Sportart je Liga (für die eigenen Vereinsnamen, lib/teamApiNames.ts).
+export const LEAGUE_SPORTS: Record<string, Sport> = {
+  Bundesliga: "Fußball",
+  "Premier League": "Fußball",
+  NBA: "NBA",
+  NFL: "NFL",
+  NHL: "NHL",
+};
+
+// Aktuelle Saison aus dem heutigen Datum (europäische Fußball-Saisons laufen
+// Sommer bis Sommer: ab Juli zählt das laufende Jahr als Start-Jahr).
+export function getCurrentSeason(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1–12
+  const startYear = month >= 7 ? year : year - 1;
+  return `${startYear}-${startYear + 1}`;
+}
 
 export interface StandingRow {
   rank: string;

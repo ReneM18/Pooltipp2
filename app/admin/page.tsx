@@ -32,6 +32,7 @@ import { useJokers } from "@/lib/JokerContext";
 import { DuelReport } from "@/components/DuelReport";
 import { GrowthReport } from "@/components/GrowthReport";
 import { SportBioAdmin } from "@/components/SportBioAdmin";
+import { ApiTeamNamesAdmin } from "@/components/ApiTeamNamesAdmin";
 import Emoji from "@/components/Emoji";
 import { peekLiveDays, peekLiveSportDiagnostics, refreshLiveDays, useLiveStoreVersion } from "@/lib/useLiveScores";
 import type { LiveDiagnostics, LiveGame, LiveSource } from "@/lib/live/types";
@@ -39,7 +40,7 @@ import { findLiveLeague, liveGameLeague } from "@/lib/liveConfig";
 import { findLiveGame, viennaDate } from "@/lib/liveScores";
 import { competitionCountry } from "@/lib/competitionFlag";
 
-type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news" | "wachstum" | "steckbriefe";
+type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news" | "wachstum" | "steckbriefe" | "vereinsnamen";
 
 // Zugang nur für den eingeloggten Admin-Account – geprüft über die
 // Datenbank-Funktion is_admin() (siehe isAdmin in lib/UserContext.tsx).
@@ -70,6 +71,8 @@ export default function AdminPage() {
     { id: "spiele", label: "Spiele", icon: "⚽", count: matches.length },
     { id: "wettbewerbe", label: "Wettbewerbe", icon: "🏅", count: competitions.length },
     { id: "teams", label: "Teams", icon: "🛡️", count: teams.length },
+    // Eigene Namen statt API-Namen (Rene, 27.10.2026).
+    { id: "vereinsnamen", label: "Vereinsnamen", icon: "🏷️" },
     { id: "turniere", label: "Turniere", icon: "🏆", count: tournaments.length },
     { id: "news", label: "News", icon: "📰", count: newsItems.length },
     // Ohne Zahl: die Werte stehen im Reiter selbst (Rene, 14.10.2026).
@@ -154,6 +157,7 @@ export default function AdminPage() {
         {tab === "news" && <NewsManager />}
         {tab === "wachstum" && <GrowthReport />}
         {tab === "steckbriefe" && <SportBioAdmin />}
+        {tab === "vereinsnamen" && <ApiTeamNamesAdmin />}
       </div>
     </main>
   );

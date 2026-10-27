@@ -47,8 +47,21 @@ function aliasKey(name: string): string {
 const GROUP_OF = new Map<string, number>();
 ALIAS_GROUPS.forEach((group, i) => group.forEach((n) => GROUP_OF.set(aliasKey(n), i)));
 
-// true = beide Namen stehen in derselben Alias-Gruppe.
+// Im Admin unter "Vereinsnamen" verknüpfte Namen (Rene, 27.10.2026): API-Name
+// → Name des eigenen Teams, z. B. "Rapid Vienna" → "Rapid Wien". Setzt
+// AppDataContext über lib/teamApiNames.ts; zählen wie ein Alias.
+let manualPairs = new Set<string>();
+
+export function setManualAliases(pairs: readonly (readonly [string, string])[]) {
+  manualPairs = new Set(pairs.map(([a, b]) => `${aliasKey(a)}|${aliasKey(b)}`));
+}
+
+// true = beide Namen stehen in derselben Alias-Gruppe oder sind im Admin
+// verknüpft (Reihenfolge egal).
 export function isTeamAlias(a: string, b: string): boolean {
-  const ga = GROUP_OF.get(aliasKey(a));
-  return ga !== undefined && ga === GROUP_OF.get(aliasKey(b));
+  const ka = aliasKey(a);
+  const kb = aliasKey(b);
+  if (manualPairs.has(`${ka}|${kb}`) || manualPairs.has(`${kb}|${ka}`)) return true;
+  const ga = GROUP_OF.get(ka);
+  return ga !== undefined && ga === GROUP_OF.get(kb);
 }
