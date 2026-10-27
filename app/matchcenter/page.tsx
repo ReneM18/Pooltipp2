@@ -1242,6 +1242,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const awayWins = done && game.awayScore! > game.homeScore!;
   const nameTone = (wins: boolean) => (!done ? "text-ink" : wins ? "font-semibold text-ink" : "text-muted");
   const scoreTone = (wins: boolean) => (done && !wins ? "text-muted" : "");
+  // Laufend (Rene, 27.10.2026): Spielstand rot.
+  const scoreColor = hasScore ? (running ? "text-red-500" : "text-ink") : "text-muted";
 
   return (
     <button
@@ -1309,7 +1311,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           ) : (
             <span
               className={`${tv ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
-                flash ? "bg-gold/15 text-gold" : hasScore ? "text-ink" : "text-muted"
+                flash ? "bg-gold/15 text-gold" : scoreColor
               }`}
             >
               <span className={`w-7 text-center ${scoreTone(homeWins)}`}>{hasScore ? game.homeScore : "–"}</span>
@@ -1327,7 +1329,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           <FitText text={homeName} maxLines={2} minPx={12} className={`text-right text-[15px] leading-tight ${nameTone(homeWins)}`} />
           <span
             className={`flex items-center justify-center rounded-md border border-edge bg-pitch px-2 py-1 font-display text-lg font-bold leading-none tabular-nums transition-colors duration-700 ${
-              flash ? "border-gold/50 bg-gold/15 text-gold" : hasScore ? "text-ink" : "text-muted"
+              flash ? "border-gold/50 bg-gold/15 text-gold" : scoreColor
             }`}
           >
             <span className={`w-6 text-center ${scoreTone(homeWins)}`}>{hasScore ? game.homeScore : "–"}</span>
