@@ -1682,7 +1682,7 @@ function LcDetail({
         </div>
       )}
       {tab === "aufstellung" && (
-        <LineupView info={info.data} failed={info.failed} onRetry={info.retry} firstApiName={firstApiName} teamName={teamName} />
+        <LineupView info={info.data} failed={info.failed} onRetry={info.retry} firstApiName={firstApiName} teamName={teamName} started={started} />
       )}
       {tab === "statistik" && (
         <StatsView info={info.data} failed={info.failed} onRetry={info.retry} firstApiName={firstApiName} started={started} />
