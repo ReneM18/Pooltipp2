@@ -48,7 +48,6 @@ import {
   EventTimeline,
   LivePill,
   LiveTipLine,
-  ProgressBar,
   Scoreboard,
   StateDot,
   signedPoints,
@@ -1096,8 +1095,9 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const tv = link?.match.tvChannel?.trim() || null;
 
   const status = rowStatus(sport, game, clock?.text ?? null);
-  // Eishockey: Fortschritt über 60 Min. vom Anbieter (Rene, 16.10.2026).
-  const progress = running ? (clock?.progress ?? (game.status === "HT" ? 0.5 : game.progress ?? null)) : null;
+  // Läuft: leuchtender Rand links statt roter Zeitlinie unten (Rene,
+  // 27.10.2026, Variante C): rot = läuft, gelb = Pause.
+  const glow = running ? (status.dot === "pause" ? "pause" : "live") : null;
   const moved = useSectionMove(game.id, running ? "live" : game.status === "NS" ? "ns" : "done");
 
   return (
@@ -1105,7 +1105,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       type="button"
       onClick={() => onSelect(game.id)}
       aria-pressed={selected}
-      className={`relative w-full overflow-hidden rounded-card border bg-surface px-3 py-2 text-left transition-colors sm:pl-4 ${
+      style={glow ? { boxShadow: GLOW[glow] } : undefined}
+      className={`relative w-full overflow-hidden rounded-card border bg-surface px-3 py-2 text-left transition-[color,background-color,border-color,box-shadow] sm:pl-4 ${
         moved ? "motion-safe:animate-lc-row-in" : ""
       } ${
         selected ? "border-gold" : tippable ? "border-gold/45 hover:border-gold/70" : "border-muted/25 hover:border-muted/50"
@@ -1167,11 +1168,12 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
         </span>
         {/* Am PC eine Zeile wie eine Anzeigetafel (Rene, 27.10.2026: "Handy
             und Web nicht gleich bauen"): Heim rechtsbündig, Ergebnis in der
-            Mitte, Gast links, Sender und Countdown ganz rechts. Die rechte
-            Spalte hat feste Breite, so steht das Ergebnis in jeder Zeile
-            an derselben Stelle. */}
-        <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_10rem] items-center gap-x-4 lg:grid">
-          <span className="truncate text-right text-[15px] text-ink" title={homeName}>{homeName}</span>
+            Mitte, Gast links. Lange Namen brechen um oder werden kleiner
+            statt abgeschnitten. Rechts eine schmale feste Spalte: Sender
+            klein und ohne Rahmen, darunter der Countdown. Feste Breite, damit
+            das Ergebnis in jeder Zeile an derselben Stelle steht. */}
+        <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_6.5rem] items-center gap-x-4 lg:grid">
+          <FitText text={homeName} maxLines={2} minPx={12} className="text-right text-[15px] leading-tight text-ink" />
           <span
             className={`flex items-center justify-center rounded-md border border-edge bg-pitch px-2 py-1 font-display text-lg font-bold leading-none tabular-nums transition-colors duration-700 ${
               flash ? "border-gold/50 bg-gold/15 text-gold" : hasScore ? "text-ink" : "text-muted"
@@ -1181,10 +1183,10 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             <span className="text-muted">:</span>
             <span className="w-6 text-center">{hasScore ? game.awayScore : "–"}</span>
           </span>
-          <span className="truncate text-[15px] text-ink" title={awayName}>{awayName}</span>
-          <span className="flex min-w-0 items-center justify-end gap-2">
+          <FitText text={awayName} maxLines={2} minPx={12} className="text-[15px] leading-tight text-ink" />
+          <span className="flex min-w-0 flex-col items-end gap-0.5">
             {tv && (
-              <span className="flex min-w-0 items-center gap-1 rounded-full border border-edge bg-pitch px-2 py-0.5 text-[11px] font-semibold leading-tight text-muted">
+              <span className="flex max-w-full items-center gap-1 text-[11px] font-medium leading-tight text-muted" title={tv}>
                 <TvIcon className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">{tv}</span>
               </span>
@@ -1193,10 +1195,15 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           </span>
         </span>
       </div>
-      {progress !== null && <ProgressBar progress={progress} className="absolute inset-x-0 bottom-0" />}
     </button>
   );
 }
+
+// Leuchtrand links für laufende Spiele (innen 3 px, außen ein leichter Schein).
+const GLOW = {
+  live: "inset 3px 0 0 rgb(239 68 68), 0 0 14px -6px rgb(239 68 68)",
+  pause: "inset 3px 0 0 rgb(250 204 21)",
+} as const;
 
 // Tippspiel vor Tippschluss: rechts statt der Striche ein laufender
 // Countdown bis Tippschluss, auch wenn schon getippt (Rene, 27.10.2026).
