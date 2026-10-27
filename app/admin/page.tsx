@@ -3433,6 +3433,13 @@ function LiveScoreEditor({
           Nur Zwischenstand speichern
         </button>
       )}
+      {/* Pokal: gewertet wird der Stand nach 90 Minuten, Verlängerung und
+          Elfmeterschießen zählen nicht (Rene, 27.10.2026). */}
+      {(match.sport === "Fußball" || match.sport === "Handball") && (
+        <p className="basis-full text-xs text-muted">
+          ⏱️ Ergebnis {match.sport === "Handball" ? "nach der regulären Spielzeit" : "nach 90 Minuten"} eintragen, ohne Verlängerung und {match.sport === "Handball" ? "Siebenmeterwerfen" : "Elfmeterschießen"}.
+        </p>
+      )}
     </div>
   );
 }

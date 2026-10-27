@@ -51,6 +51,8 @@ export default function Footer() {
             PoolTipp ist das kostenlose Social-Tippspiel für echte Sportfans: Tippe vor jedem Spiel
             deiner Lieblingssportarten (Fußball, American Football, Basketball, Eishockey) das Ergebnis. Jeder Tipp ist gratis und
             bringt Rangpunkte: exakt +10, richtige Tordifferenz +7, richtige Tendenz +5, falsch −3.
+            Im Fußball zählt das Ergebnis nach 90 Minuten, auch im Pokal: Verlängerung und
+            Elfmeterschießen zählen nicht.
             Deine ersten 10 Tipps je Sportart kosten keine Punkte.
             Dazu kommt ein Bonus gegen alle, die dasselbe Spiel getippt haben: Bessere zu schlagen
             bringt doppelt, gegen Schwächere zu verlieren kostet doppelt. Wer zwei Wochen lang gar
