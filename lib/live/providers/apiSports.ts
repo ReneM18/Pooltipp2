@@ -4,6 +4,7 @@ import { isLiveFinished, liveIntervalSeconds, liveMaxIntervalSeconds, viennaDate
 import { cachedLoad, type LoadResult } from "../cache";
 import type { StandingGroup, StandingTeamRow } from "../../standings";
 import type { LineupPlayer, LineupTeam, StatTeam } from "../../matchInfo";
+import type { HeatSide, HeatStats } from "../../liveHeat";
 import type {
   LiveDayStatus,
   LiveDiagnostics,
@@ -807,3 +808,48 @@ export const apiSportsProvider: LiveProvider = {
     return { provider: "api-sports", providerName: "API-Sports", ...diag, days: Array.from(LAST_DAYS.values()) };
   },
 };
+
+// ---------------------------------------------------------------------------
+// Spannung der TV-Spiele (Rene, 27.10.2026): Statistik mehrerer laufender
+// Spiele in EINER Abfrage (fixtures?ids=a-b-c, höchstens 20), 2 Min. gemerkt.
+
+export type LiveHeatResult = { ok: true; stats: HeatStats[]; expiresAt: number } | { ok: false; error: string; expiresAt: number };
+
+const HEAT_TTL = 120;
+export const HEAT_MAX_IDS = 20;
+
+function statNumber(list: Raw[], type: string): number {
+  const v = list.find((x: Raw) => x?.type === type)?.value;
+  const n = typeof v === "number" ? v : typeof v === "string" ? parseFloat(v) : NaN;
+  return Number.isFinite(n) ? n : 0;
+}
+
+function heatSide(t: Raw): HeatSide {
+  const list: Raw[] = Array.isArray(t?.statistics) ? t.statistics : [];
+  return {
+    shots: statNumber(list, "Total Shots"),
+    onTarget: statNumber(list, "Shots on Goal"),
+    corners: statNumber(list, "Corner Kicks"),
+    cards: statNumber(list, "Yellow Cards") + statNumber(list, "Red Cards"),
+  };
+}
+
+export async function footballLiveHeat(ids: number[]): Promise<LiveHeatResult> {
+  const key = process.env.API_SPORTS_KEY;
+  if (!key) return { ok: false, error: "Kein API_SPORTS_KEY gesetzt", expiresAt: Date.now() + 300 * 1000 };
+  const list = Array.from(new Set(ids)).sort((a, b) => a - b).slice(0, HEAT_MAX_IDS);
+  const res = await load(`${ENDPOINTS["Fußball"]}?ids=${list.join("-")}`, key, HEAT_TTL);
+  if (!res.ok) return { ok: false, error: res.error, expiresAt: res.expiresAt };
+  const stats = res.hit.value
+    .map((f: Raw): HeatStats | null => {
+      const id = f?.fixture?.id;
+      const teams: Raw[] = Array.isArray(f?.statistics) ? f.statistics : [];
+      if (id == null || teams.length < 2) return null;
+      const homeId = f?.teams?.home?.id;
+      const home = teams.find((t) => t?.team?.id === homeId) ?? teams[0];
+      const away = teams.find((t) => t !== home) ?? teams[1];
+      return { id: String(id), home: heatSide(home), away: heatSide(away) };
+    })
+    .filter((x: HeatStats | null): x is HeatStats => x !== null);
+  return { ok: true, stats, expiresAt: res.hit.expiresAt };
+}

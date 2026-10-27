@@ -43,6 +43,7 @@ import TeamBadge, { matchJerseyProps } from "@/components/TeamBadge";
 import CommentThread from "@/components/CommentThread";
 import { LineupView, StatsView, useMatchInfo } from "@/components/MatchInfo";
 import Emoji from "@/components/Emoji";
+import LiveTvHeat, { type TvGame } from "@/components/LiveTvHeat";
 import { CommunityTrend } from "@/components/MatchCard";
 import { useBeginnerShieldLeft } from "@/components/BeginnerShieldHint";
 import {
@@ -700,6 +701,17 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     ) : null;
 
   const runningCount = todayDay.games?.filter((g) => isLiveRunning(g.status)).length ?? 0;
+  // "Live im TV" unter dem Detail (Rene, 27.10.2026): laufende Fußball-
+  // Tippspiele mit TV-Sender. Ob die Statistik da ist, prüft die Karte.
+  const tvGames = useMemo((): TvGame[] => {
+    if (sport !== "Fußball" || view !== "live") return [];
+    return (todayDay.games ?? []).flatMap((g) => {
+      const link = links.get(g.id);
+      const tv = link?.match.tvChannel?.trim();
+      if (!link || !tv || !isLiveRunning(g.status) || link.result.homeScore === null || link.result.awayScore === null) return [];
+      return [{ game: g, tv, home: link.home.name, away: link.away.name, homeScore: link.result.homeScore, awayScore: link.result.awayScore }];
+    });
+  }, [sport, view, todayDay.games, links]);
 
   return (
     <section className="mb-6 sm:rounded-card sm:border sm:border-edge sm:bg-surface sm:px-4 sm:pt-3 sm:pb-4">
@@ -807,6 +819,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
                   Spiel antippen, um Spielverlauf, Tipps und Kommentare zu sehen.
                 </p>
               )}
+              <LiveTvHeat games={tvGames} selectedId={selectedId} onSelect={select} />
             </div>
           </div>
         </div>
