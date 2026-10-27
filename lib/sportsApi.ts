@@ -24,6 +24,16 @@ export const LEAGUE_SPORTS: Record<string, Sport> = {
   NHL: "NHL",
 };
 
+// Aktuelle Saison aus dem heutigen Datum (europäische Fußball-Saisons laufen
+// Sommer bis Sommer: ab Juli zählt das laufende Jahr als Start-Jahr).
+export function getCurrentSeason(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1–12
+  const startYear = month >= 7 ? year : year - 1;
+  return `${startYear}-${startYear + 1}`;
+}
+
 export interface StandingRow {
   rank: string;
   teamName: string;

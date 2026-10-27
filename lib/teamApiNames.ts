@@ -66,8 +66,10 @@ export function appTeamForApiName(
   apiName: string,
 ): Team | undefined {
   const link = findApiNameLink(links, sport, apiName);
-  if (link) return link.teamId ? teams.find((t) => t.id === link.teamId) : undefined;
-  return autoTeamForApiName(teams, sport, apiName);
+  if (link && !link.teamId) return undefined;
+  // Verknüpftes Team gelöscht: wie ohne Verknüpfung.
+  const linked = link ? teams.find((t) => t.id === link.teamId) : undefined;
+  return linked ?? autoTeamForApiName(teams, sport, apiName);
 }
 
 // Anzeigename: Name des eigenen Teams, sonst der API-Name.

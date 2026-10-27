@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchRecentResults,
   fetchStandings,
+  getCurrentSeason,
   LEAGUE_IDS,
   LEAGUE_SPORTS,
   ResultRow,
@@ -67,16 +68,7 @@ function useApiTeamName(sport: Sport | undefined): (apiName: string) => string {
 
 const LEAGUES = Object.keys(LEAGUE_IDS);
 
-// Berechnet die aktuelle Saison automatisch aus dem heutigen Datum, statt sie
-// fest zu codieren (europäische Fußball-Saisons laufen Sommer bis Sommer:
-// ab Juli zählt das laufende Jahr als Start-Jahr der neuen Saison).
-function getCurrentSeason(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1; // 1–12
-  const startYear = month >= 7 ? year : year - 1;
-  return `${startYear}-${startYear + 1}`;
-}
+// Saison automatisch aus dem heutigen Datum (lib/sportsApi.ts).
 const CURRENT_SEASON = getCurrentSeason();
 
 export default function MatchcenterPage() {
@@ -346,7 +338,7 @@ function LiveCenterSection({ sport, switcher }: { sport: Sport; switcher?: React
   // Hat der Spieler selbst gewählt? Dann nichts mehr automatisch wählen.
   const pickedRef = useRef(false);
   const detailRef = useRef<HTMLDivElement>(null);
-  const { matches, getTeam, myTips } = useAppData();
+  const { matches, getTeam, myTips, apiNameLinks } = useAppData();
 
   // Datum und Uhr erst im Browser (sonst Hydration-Fehler), Uhr alle 30 s.
   useEffect(() => {
@@ -393,7 +385,9 @@ function LiveCenterSection({ sport, switcher }: { sport: Sport; switcher?: React
       if (result && !map.has(result.game.id)) map.set(result.game.id, { match: m, home, away, result });
     }
     return map;
-  }, [allGames, matches, getTeam, sport, today, yesterday]);
+    // apiNameLinks: verknüpfte Vereinsnamen zählen bei findLiveGame mit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allGames, matches, getTeam, sport, today, yesterday, apiNameLinks]);
   const tippedMatchIds = useMemo(
     () => new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId)),
     [myTips],

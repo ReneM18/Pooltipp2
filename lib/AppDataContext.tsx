@@ -581,8 +581,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // Für groupTeams() überall in der App (lib/teamGroups.ts).
   setTeamGroupDefs(teamGroupDefs);
   const [apiNameLinks, setApiNameLinksState] = useState<ApiNameLink[]>([]);
-  // Für die Live-Zuordnung der Tippspiele (lib/live/aliases.ts).
-  applyApiNameAliases(teams, apiNameLinks);
+  // Für die Live-Zuordnung der Tippspiele (lib/live/aliases.ts), nur neu
+  // bei Änderungen.
+  useMemo(() => applyApiNameAliases(teams, apiNameLinks), [teams, apiNameLinks]);
   const [matches, setMatches] = useState<Match[]>(initialMatches);
   const [competitions, setCompetitions] = useState<Competition[]>(() =>
     buildStartCompetitions(initialMatches)

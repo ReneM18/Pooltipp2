@@ -5,7 +5,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { LIVE_SPORTS } from "@/lib/liveConfig";
 import { viennaDate } from "@/lib/liveScores";
 import { peekLiveDays, refreshLiveDays } from "@/lib/useLiveScores";
-import { fetchStandings, LEAGUE_IDS, LEAGUE_SPORTS } from "@/lib/sportsApi";
+import { fetchStandings, getCurrentSeason, LEAGUE_IDS, LEAGUE_SPORTS } from "@/lib/sportsApi";
 import { autoTeamForApiName, findApiNameLink, type ApiNameLink } from "@/lib/teamApiNames";
 import { groupTeams } from "@/lib/teamGroups";
 import { normalizeTeamName } from "@/lib/teamName";
@@ -17,13 +17,6 @@ import { ALL_SPORTS, sportLabel, type Sport } from "@/lib/types";
 // automatisch erkannt; hier nur die Abweichungen festlegen.
 
 const KEEP = "__keep__";
-
-// Saison wie im Matchcenter (Juli bis Juni).
-function currentSeason(): string {
-  const now = new Date();
-  const start = now.getMonth() + 1 >= 7 ? now.getFullYear() : now.getFullYear() - 1;
-  return `${start}-${start + 1}`;
-}
 
 interface ApiName {
   sport: Sport;
@@ -43,17 +36,22 @@ export function ApiTeamNamesAdmin() {
   const [newName, setNewName] = useState("");
   const [newSport, setNewSport] = useState<Sport>("Fußball");
 
-  // API-Namen sammeln: Live-Spiele von gestern und heute (gleicher Speicher und
-  // Cache wie das Matchcenter, keine Extra-Abfragen) und die Tabellen.
+  // API-Namen sammeln: Live-Spiele von gestern und heute (gleicher Speicher wie
+  // das Matchcenter; nur Tage laden, die dieser Browser noch nicht hat) und
+  // die Tabellen.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const now = Date.now();
       const dates = [viennaDate(now - 24 * 60 * 60 * 1000), viennaDate(now)];
-      const live = refreshLiveDays(LIVE_SPORTS.flatMap((sport) => dates.map((date) => ({ sport, date }))));
+      const have = new Set(peekLiveDays().map((d) => `${d.sport}|${d.date}`));
+      const missing = LIVE_SPORTS.flatMap((sport) => dates.map((date) => ({ sport, date }))).filter(
+        (d) => !have.has(`${d.sport}|${d.date}`),
+      );
+      const live = refreshLiveDays(missing);
       const tables = Promise.all(
         Object.entries(LEAGUE_IDS).map(([league, id]) =>
-          fetchStandings(id, currentSeason())
+          fetchStandings(id, getCurrentSeason())
             .then((rows) => rows.map((r) => ({ sport: LEAGUE_SPORTS[league], apiName: r.teamName })))
             .catch(() => [] as ApiName[]),
         ),
@@ -81,20 +79,31 @@ export function ApiTeamNamesAdmin() {
     );
   }, [seen, apiNameLinks]);
 
+  // Team-Auswahl je Sportart einmal gruppiert.
+  const groupsBySport = useMemo(() => {
+    const map = new Map<Sport, ReturnType<typeof groupTeams>>();
+    for (const s of ALL_SPORTS) map.set(s, groupTeams(teams.filter((t) => t.sport === s)));
+    return map;
+  }, [teams]);
+
   const rows = names.map((n) => {
-    const link = findApiNameLink(apiNameLinks, n.sport, n.apiName);
+    const found = findApiNameLink(apiNameLinks, n.sport, n.apiName);
+    const linkedTeam = found?.teamId ? teams.find((t) => t.id === found.teamId) : undefined;
+    // Verknüpftes Team gelöscht: wie ohne Verknüpfung.
+    const link = found && (!found.teamId || linkedTeam) ? found : undefined;
     const auto = autoTeamForApiName(teams, n.sport, n.apiName);
-    const linkedTeam = link?.teamId ? teams.find((t) => t.id === link.teamId) : undefined;
     // Offen = es steht noch der API-Name (weder verknüpft noch automatisch).
     const open = !link && !auto;
     return { ...n, link, auto, linkedTeam, open };
   });
   const sports = ALL_SPORTS.filter((s) => names.some((n) => n.sport === s));
-  const visible = rows.filter((r) => (sportFilter === "alle" || r.sport === sportFilter) && (!onlyOpen || r.open));
-  const openCount = rows.filter((r) => r.open).length;
+  const inSport = rows.filter((r) => sportFilter === "alle" || r.sport === sportFilter);
+  const visible = inSport.filter((r) => !onlyOpen || r.open);
+  const openCount = inSport.filter((r) => r.open).length;
 
   function setLink(sport: Sport, apiName: string, value: string) {
-    const rest = apiNameLinks.filter((l) => !(l.sport === sport && normalizeTeamName(l.apiName) === normalizeTeamName(apiName)));
+    const old = findApiNameLink(apiNameLinks, sport, apiName);
+    const rest = apiNameLinks.filter((l) => l !== old);
     const next: ApiNameLink[] =
       value === "" ? rest : [...rest, { sport, apiName, teamId: value === KEEP ? null : value }];
     saveApiNameLinks(next);
@@ -146,7 +155,7 @@ export function ApiTeamNamesAdmin() {
         <ul className="flex flex-col divide-y divide-edge rounded-card border border-edge bg-surface">
           {visible.map((r) => {
             const value = r.link ? (r.link.teamId ?? KEEP) : "";
-            const groups = groupTeams(teams.filter((t) => t.sport === r.sport));
+            const groups = groupsBySport.get(r.sport) ?? [];
             return (
               <li
                 key={nameKey(r.sport, r.apiName)}
