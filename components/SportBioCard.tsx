@@ -3,7 +3,7 @@
 import { CSSProperties, ReactNode, useMemo, useState } from "react";
 import { useAppData } from "@/lib/AppDataContext";
 import RankBadge from "@/components/RankBadge";
-import { getSportRankIcon, isUnsterblich, PrestigeBySport, RankIconOption, unsterblichIcon } from "@/lib/rankTiers";
+import { getSportRankIcon, isUnsterblich, PrestigeBySport, RANK_COLORS, RankIconOption, unsterblichIcon } from "@/lib/rankTiers";
 import { SEASON_THEME } from "@/lib/seasonTheme";
 import { Sport, SPORT_ICONS, sportLabel, SPORTS } from "@/lib/types";
 import {
@@ -28,7 +28,7 @@ import {
 // Sportlerkarte im Panini-Stil (Rene, 20.10.2026: Prototyp v4 "weltklasse").
 // Vorderseite in den Vereinsfarben mit Rang-Icon, Platz, Hauptrolle und
 // Zahlen; antippen dreht sie um und zeigt die Laufbahn mit Erfolgen.
-// Editionen (Holo, Gold, Saison) gibt es mit dem Premium-Pass.
+// Der Rahmen hat immer die Farbe des Rangs (Rene, 27.10.2026).
 // Daten und Regeln: lib/sportBio.ts.
 
 /** Kartenfarben: Verein aus der App (Teamfarben), sonst die Farben des
@@ -171,16 +171,12 @@ export function SportCard({
     : stat?.tips ?? null;
   const cardPoints = showImmortal ? (all ?? []).reduce((n, x) => n + x.points, 0) : stat ? stat.points : points;
   const [c1, c2] = useCardColors(sportStations, cardRank);
-  // Unsterblich-Karte immer in der Gold-Edition mit Glanz.
-  const style = showImmortal ? "gold" : data.cardStyle ?? "standard";
-
-  const frame =
-    style === "gold"
-      ? "linear-gradient(135deg,#8a6a1f,#f5d77a 30%,#b8892c 55%,#ffe9a8 75%,#8a6a1f)"
-      : style === "saison"
-        ? `linear-gradient(135deg,${SEASON_THEME.colorFrom},${SEASON_THEME.colorTo})`
-        : c1;
-  const foil = style === "holo" || style === "gold" || style === "saison";
+  // Rahmen immer in der Farbe des Rangs dieser Karte, nicht mehr wählbar
+  // (Rene, 27.10.2026). Ohne Rang (noch keine Punkte) wie Bronze, den
+  // Startrang. Unsterblich bekommt dazu den Glanz.
+  const frameColors = cardRank ? { from: cardRank.colorFrom, to: cardRank.colorTo } : RANK_COLORS.Bronze;
+  const frame = `linear-gradient(135deg,${frameColors.from},${frameColors.to} 50%,${frameColors.from})`;
+  const foil = showImmortal;
   const flag = main?.land ? COUNTRIES[main.land]?.flag ?? "" : "";
   const sportShort = showImmortal ? "Alle Sportarten" : sport ? sportLabel(sport) : bioSport(main?.sport)?.label ?? "";
   const ribbon = showImmortal
@@ -397,7 +393,7 @@ export function SportCard({
         <div
           className="absolute inset-0 flex flex-col gap-2.5 overflow-hidden rounded-[18px] border-[3px] bg-surface p-3.5 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.7)] [backface-visibility:hidden] [transform:rotateY(180deg)]"
           style={{
-            borderColor: style === "gold" ? "#d4a943" : style === "saison" ? SEASON_THEME.colorFrom : c1,
+            borderColor: frameColors.from,
             visibility: flipped ? "visible" : "hidden",
             transition: "visibility 0s linear 0.35s",
           }}
