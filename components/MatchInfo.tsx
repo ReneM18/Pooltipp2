@@ -77,19 +77,26 @@ function shortName(name: string): string {
   return parts.length > 1 ? parts[parts.length - 1] : name;
 }
 
+// Spieler als kleines Trikot mit Nummer (Rene, 27.10.2026, Variante B
+// "TV-Grafik"), Torhüter in Torwartfarbe, darunter der Nachname.
 function PlayerDot({ p, team, x, y }: { p: LineupPlayer; team: LineupTeam; x: number; y: number }) {
   const keeper = p.pos === "G";
   const bg = (keeper ? team.keeperColor : team.color) ?? (keeper ? "e8b34c" : "2d3a35");
   const fg = team.numberColor && !keeper ? team.numberColor : "ffffff";
   return (
-    <span className="absolute flex w-16 -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5" style={{ left: `${x}%`, top: `${y}%` }}>
-      <span
-        className="grid h-6 w-6 place-items-center rounded-full border border-white/70 font-display text-[10px] font-bold leading-none shadow"
-        style={{ background: `#${bg}`, color: `#${fg}` }}
-      >
-        {p.number ?? ""}
-      </span>
-      <span className="max-w-full truncate rounded bg-black/35 px-1 text-[10px] font-medium leading-tight text-white">{shortName(p.name)}</span>
+    <span className="absolute flex w-16 -translate-x-1/2 -translate-y-1/2 flex-col items-center" style={{ left: `${x}%`, top: `${y}%` }}>
+      <svg viewBox="0 0 40 36" className="h-[26px] w-[29px] drop-shadow" aria-hidden>
+        <path
+          d="M13 2 L5 6 L1 15 L7 18 L9 13 L9 34 L31 34 L31 13 L33 18 L39 15 L35 6 L27 2 Q20 8 13 2Z"
+          fill={`#${bg}`}
+          stroke="rgba(255,255,255,0.6)"
+          strokeWidth="1.3"
+        />
+        <text x="20" y="26" textAnchor="middle" fontFamily="var(--font-poppins), sans-serif" fontWeight="700" fontSize="12" fill={`#${fg}`}>
+          {p.number ?? ""}
+        </text>
+      </svg>
+      <span className="max-w-full truncate rounded bg-black/45 px-1 text-[10px] font-semibold leading-tight text-white">{shortName(p.name)}</span>
     </span>
   );
 }
@@ -184,12 +191,16 @@ export function LineupView({
     <div className="flex flex-col gap-3">
       <TeamHead team={a} name={teamName(a.team)} />
       {withGrid ? (
-        <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg border border-white/10 bg-gradient-to-b from-[#1f6b3a] via-[#237a42] to-[#1f6b3a]">
-          {/* Linien: Mittellinie, Mittelkreis, Strafräume */}
-          <span aria-hidden className="absolute inset-x-0 top-1/2 h-px bg-white/30" />
-          <span aria-hidden className="absolute left-1/2 top-1/2 h-[22%] w-[30%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/30" />
-          <span aria-hidden className="absolute left-1/2 top-0 h-[13%] w-[48%] -translate-x-1/2 border border-t-0 border-white/30" />
-          <span aria-hidden className="absolute bottom-0 left-1/2 h-[13%] w-[48%] -translate-x-1/2 border border-b-0 border-white/30" />
+        <div
+          className="relative aspect-[3/4] w-full overflow-hidden rounded-xl shadow-[inset_0_0_40px_rgba(0,0,0,0.35)]"
+          style={{ background: "repeating-linear-gradient(180deg, #2f8a4c 0 10%, #2a7d45 10% 20%)" }}
+        >
+          {/* Linien: Rand, Mittellinie, Mittelkreis, Strafräume */}
+          <span aria-hidden className="absolute inset-[4%] rounded-sm border-2 border-white/45" />
+          <span aria-hidden className="absolute inset-x-[4%] top-1/2 h-0.5 -translate-y-1/2 bg-white/45" />
+          <span aria-hidden className="absolute left-1/2 top-1/2 aspect-square w-[26%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/45" />
+          <span aria-hidden className="absolute inset-x-[28%] top-[4%] h-[12%] border-2 border-t-0 border-white/45" />
+          <span aria-hidden className="absolute inset-x-[28%] bottom-[4%] h-[12%] border-2 border-b-0 border-white/45" />
           {placed(a, true).map(({ p, x, y }, i) => (
             <PlayerDot key={`a-${i}`} p={p} team={a} x={x} y={y} />
           ))}
