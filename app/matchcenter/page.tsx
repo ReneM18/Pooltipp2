@@ -274,6 +274,9 @@ type LcView = "live" | "spielplan" | "ergebnisse" | "tabelle";
 
 // Spielplan (Rene, 27.10.2026: Pro-Plan): so viele Tage ab morgen.
 const UPCOMING_DAYS = 7;
+// Ab so vielen Abfragen pro Tag gilt der Pro-Plan (wie FAST_PLAN_LIMIT in
+// lib/live/providers/apiSports.ts).
+const PRO_PLAN_LIMIT = 1000;
 const NO_DATES: readonly string[] = [];
 
 // API-Spiel ↔ App-Spiel (für "GETIPPT", "Dein Tipp", Community, Kommentare).
@@ -569,17 +572,18 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   // Heute immer, gestern erst mit "Ergebnisse" (1 h Cache auf dem Server).
   const todayDay = useLiveDay(sport, today);
   const yesterdayDay = useLiveDay(sport, view === "ergebnisse" ? yesterday : null);
-  // Spielplan nur für Fußball (Pro-Plan); die anderen Sportarten haben
-  // weiter 100 Abfragen pro Tag.
-  const hasPlan = sport === "Fußball";
+  // Spielplan nur für Fußball und nur mit Pro-Plan (Tageskontingent laut
+  // API-Sports ab PRO_PLAN_LIMIT); der Gratis-Plan kennt nur gestern bis
+  // morgen und hat 100 Abfragen pro Tag.
+  const hasPlan = sport === "Fußball" && (todayDay.quota?.limit ?? 0) >= PRO_PLAN_LIMIT;
   const upcomingDates = useMemo(
     () => (today && hasPlan && view === "spielplan" ? Array.from({ length: UPCOMING_DAYS }, (_, i) => addDays(today, i + 1)) : NO_DATES),
     [today, hasPlan, view],
   );
   const upcomingDays = useLiveDays(sport, upcomingDates);
   useEffect(() => {
-    if (!hasPlan && view === "spielplan") setView("live");
-  }, [hasPlan, view]);
+    if (!hasPlan && view === "spielplan" && todayDay.games !== null) setView("live");
+  }, [hasPlan, view, todayDay.games]);
 
   // Automatisch aktualisieren – nur solange ein Spiel läuft, im 180-s-Takt
   // (gemeinsam mit den Tippkarten, pausiert im Hintergrund).
@@ -594,7 +598,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
 
   // App-Spiele den API-Spielen zuordnen (gleiche Zuordnung wie die Tippkarten).
   const upcomingGames = upcomingDays.flatMap((d) => d.games ?? []);
-  const upcomingKey = upcomingGames.map((g) => g.id).join(",");
+  const upcomingKey = upcomingGames.map((g) => `${g.id}|${g.kickoff}|${g.statusShort}`).join(",");
   const allGames = useMemo(
     () => [...(todayDay.games ?? []), ...(yesterdayDay.games ?? []), ...upcomingGames],
     // upcomingKey: neue Liste nur, wenn sich die Spiele ändern.
@@ -632,11 +636,13 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     return !!link && now !== null && isMatchTippable(link.match, now);
   };
 
-  // Von der Tippkarte: Spiel von gestern steht unter "Ergebnisse".
+  // Von der Tippkarte: Spiel von gestern steht unter "Ergebnisse", eines
+  // ab morgen unter "Spielplan" (Rene, 27.10.2026).
   const targetDay = target ? viennaDate(target.kickoff) : null;
   useEffect(() => {
     if (targetDay && yesterday && targetDay === yesterday) setView("ergebnisse");
-  }, [targetDay, yesterday]);
+    else if (targetDay && today && hasPlan && targetDay > today) setView("spielplan");
+  }, [targetDay, yesterday, today, hasPlan]);
   // ... und sobald es zugeordnet ist, auswählen.
   const targetDoneRef = useRef(false);
   const targetGameId = useMemo(
@@ -651,7 +657,11 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   }, [targetGameId]);
   // Daten da, aber das Spiel ist nicht dabei (anderer Tag, andere Liga).
   const targetMissing =
-    !!target && !targetGameId && !!todayDay.games && (targetDay !== yesterday || !!yesterdayDay.games);
+    !!target &&
+    !targetGameId &&
+    !!todayDay.games &&
+    (targetDay !== yesterday || !!yesterdayDay.games) &&
+    !(targetDay && today && targetDay > today && hasPlan && upcomingDays.some((d) => d.games === null));
 
   // Standard: erstes getipptes laufendes Spiel.
   useEffect(() => {
@@ -796,7 +806,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
                 />
               ) : targetMissing ? (
                 <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
-                  Dieses Spiel ist (noch) nicht in den Live-Daten. Das Matchcenter zeigt Spiele von heute und gestern.
+                  Dieses Spiel ist (noch) nicht in den Live-Daten. {hasPlan ? `Das Matchcenter zeigt Spiele von gestern bis in ${UPCOMING_DAYS} Tagen.` : "Das Matchcenter zeigt Spiele von heute und gestern."}
                 </p>
               ) : (
                 <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
@@ -1055,9 +1065,9 @@ function LcUpcoming({
   }
   return (
     <div className="flex flex-col gap-4">
-      {withGames.map((day, i) => (
+      {withGames.map((day) => (
         <div key={day.date}>
-          <p className="mb-2 text-xs font-semibold text-muted">{i === 0 && day.date === dates[0] ? "Morgen" : dayLabel(day.date)}</p>
+          <p className="mb-2 text-xs font-semibold text-muted">{day.date === dates[0] ? "Morgen" : dayLabel(day.date)}</p>
           <div className="flex flex-col gap-3">
             {groupByLeague(day.games).map((group) => (
               <div key={`${day.date}-${group.league}`}>
@@ -1076,9 +1086,15 @@ function LcUpcoming({
   );
 }
 
-// Fußball-Tabellen (Rene, 27.10.2026: Pro-Plan) über /api/standings. Gemerkt
-// je Liga für diesen Seitenbesuch.
-const standingsCache = new Map<number, StandingsResponse>();
+// Fußball-Tabellen (Rene, 27.10.2026: Pro-Plan) über /api/standings. Im
+// Browser je Liga 30 Min. gemerkt (so lange wie auf dem Server).
+const STANDINGS_KEEP_MS = 30 * 60 * 1000;
+const standingsCache = new Map<number, { body: StandingsResponse; at: number }>();
+
+function cachedStandings(leagueId: number): StandingsResponse | null {
+  const hit = standingsCache.get(leagueId);
+  return hit && Date.now() - hit.at < STANDINGS_KEEP_MS ? hit.body : null;
+}
 
 // Farbstreifen am Rang aus der Beschreibung der API ("Promotion - Champions
 // League …", "Relegation …").
@@ -1098,22 +1114,22 @@ const STANDINGS_GRID =
 
 function LcTable() {
   const [leagueId, setLeagueId] = useState(TABLE_LEAGUES[0].id);
-  const [data, setData] = useState<StandingsResponse | null>(() => standingsCache.get(TABLE_LEAGUES[0].id) ?? null);
+  const [data, setData] = useState<StandingsResponse | null>(() => cachedStandings(TABLE_LEAGUES[0].id));
   const [failed, setFailed] = useState(false);
   const [retry, setRetry] = useState(0);
   const teamName = useApiTeamName("Fußball");
 
   useEffect(() => {
-    const cached = standingsCache.get(leagueId);
-    setData(cached ?? null);
+    const cached = cachedStandings(leagueId);
+    setData(cached);
     setFailed(false);
-    if (cached && !cached.error) return;
+    if (cached) return;
     let cancelled = false;
     fetch(`/api/standings?league=${leagueId}`)
       .then((res) => res.json() as Promise<StandingsResponse>)
       .then((body) => {
         if (cancelled) return;
-        if (!body.error) standingsCache.set(leagueId, body);
+        if (!body.error) standingsCache.set(leagueId, { body, at: Date.now() });
         setData(body);
       })
       .catch(() => {

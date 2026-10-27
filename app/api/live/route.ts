@@ -74,7 +74,7 @@ export async function GET(request: Request) {
   const now = Date.now();
   let maxAge = (result.expiresAt - now) / 1000;
   // Heute höchstens ein Live-Takt im CDN (Anpfiff soll nicht hängen bleiben).
-  if (date >= viennaDate(now)) maxAge = Math.min(maxAge, liveIntervalSeconds(sport));
+  if (date === viennaDate(now)) maxAge = Math.min(maxAge, liveIntervalSeconds(sport));
   if (!result.ok) {
     return json(
       { sport, date, games: [], error: result.error, liveError: result.error, ...who, ...(result.quota ? { quota: result.quota } : {}) },

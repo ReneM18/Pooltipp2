@@ -9,6 +9,7 @@ import {
   isLiveFinished,
   isLiveRunning,
   liveIntervalSeconds,
+  liveMaxIntervalSeconds,
   viennaDate,
 } from "./liveScores";
 import type { LiveEvent, LiveGame, LiveQuota, LiveResponse, LiveSource, LiveStatus } from "./live/types";
@@ -178,7 +179,9 @@ function schedule(entry: Entry) {
   if (entry.pollers.size === 0 || hidden() || entry.loading) return;
   const interval = intervalMs(entry);
   let wait = entry.loadedAt + interval - Date.now();
-  const stale = entry.dataAt > 0 && entry.loadedAt - entry.dataAt > interval;
+  // Alt = älter als der längste Server-Takt (Gratis-Plan 180 s), sonst
+  // fragt der 60-s-Takt im Gratis-Plan jedes Mal doppelt nach.
+  const stale = entry.dataAt > 0 && entry.loadedAt - entry.dataAt > liveMaxIntervalSeconds(entry.sport) * 1000;
   if (stale && !entry.staleRetried) {
     entry.staleRetried = true;
     wait = Math.min(wait, entry.loadedAt + STALE_RETRY_MS - Date.now());
@@ -247,6 +250,8 @@ export interface LiveDay {
   liveError: string | null;
   providerName: string | null;
   providerUrl: string | null;
+  // Abfragen heute laut Anbieter (Rene, 27.10.2026: Spielplan nur mit Pro-Plan).
+  quota: LiveQuota | null;
 }
 
 // Alle Live-Spiele eines Tages aus dem gemeinsamen Speicher (fürs
@@ -259,7 +264,7 @@ export function useLiveDay(sport: Sport, date: string | null): LiveDay {
     if (!entry || entry.loading) return;
     if (Date.now() - entry.loadedAt >= intervalMs(entry)) void load(entry);
   }, [entry]);
-  if (!entry) return { games: null, error: null, loading: false, loadedAt: 0, dataAt: 0, source: null, liveError: null, providerName: null, providerUrl: null };
+  if (!entry) return { games: null, error: null, loading: false, loadedAt: 0, dataAt: 0, source: null, liveError: null, providerName: null, providerUrl: null, quota: null };
   return {
     games: entry.games,
     error: entry.error,
@@ -270,6 +275,7 @@ export function useLiveDay(sport: Sport, date: string | null): LiveDay {
     liveError: entry.liveError,
     providerName: entry.providerName,
     providerUrl: entry.providerUrl,
+    quota: entry.quota,
   };
 }
 
@@ -297,6 +303,7 @@ export function useLiveDays(sport: Sport, dates: readonly string[]): LiveDay[] {
       liveError: entry.liveError,
       providerName: entry.providerName,
       providerUrl: entry.providerUrl,
+      quota: entry.quota,
     };
   });
 }
