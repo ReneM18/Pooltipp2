@@ -8,8 +8,6 @@ import MatchCard from "@/components/MatchCard";
 import { SPORT_BADGE } from "@/lib/cardStyle";
 import AdBanner from "@/components/AdBanner";
 import WeeklyReviewCard from "@/components/WeeklyReviewCard";
-import { StreakHint } from "@/components/StreakChip";
-import BeginnerShieldHint from "@/components/BeginnerShieldHint";
 import HomeGreeting from "@/components/HomeGreeting";
 import LiveStrip from "@/components/LiveStrip";
 import HomeTipBar from "@/components/HomeTipBar";
@@ -365,18 +363,15 @@ export default function DashboardPage() {
           – spart eine ganze Zeile Höhe, bevor die eigentlichen Spiele
           kommen. Am Handy (zu schmal für eine Zeile) fällt sie automatisch
           darunter. */}
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <HomeGreeting streak={streak} />
 
         <AdBanner />
       </div>
-      {streak.status !== "none" && (
-        <div className="-mt-3 mb-5">
-          <StreakHint streak={streak} />
-        </div>
-      )}
-      {/* Anfänger-Schutz: noch X von 10 Tipps insgesamt ohne Punktabzug (Rene, 15.10.2026) */}
-      <BeginnerShieldHint className="-mt-3 mb-5" />
+      {/* Serien-Satz und Anfänger-Schutz stehen nicht mehr als eigene Zeilen
+          hier, damit die Spiele weiter oben anfangen (Rene, 27.10.2026). Die
+          Serie zeigt der Knopf oben, den Anfänger-Schutz die Tippkarte und
+          das Profil. */}
 
       {/* Gäste: Hinweis "Zum Tippen einloggen". Erst wenn alles geladen ist. */}
       {ready && sessionChecked && !authUserId && (

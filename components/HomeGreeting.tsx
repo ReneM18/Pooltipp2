@@ -7,6 +7,9 @@ import { daysLabel, StreakState } from "@/lib/streak";
 import { SPORTS, sportLabel } from "@/lib/types";
 import { getNextTier, getTierForPoints, RANK_COLORS, tierLabel } from "@/lib/rankTiers";
 import RankEmblem from "./RankEmblem";
+import { useBeginnerShieldLeft } from "./BeginnerShieldHint";
+import { useAppData } from "@/lib/AppDataContext";
+import { BEGINNER_SHIELD_TIPS } from "@/lib/poolScore";
 
 // Begrüßung oben auf der Tipps-Seite: Name und drei
 // Kurzinfos (Serie, Rang, Tagesbonus). Alles kommt aus dem Konto (UserContext,
@@ -27,7 +30,9 @@ function greetingFor(date: Date): string {
 }
 
 export default function HomeGreeting({ streak }: { streak: StreakState }) {
-  const { displayName, isRegistered, sessionChecked, profileLoaded, rangPunkte, prestige, canClaimDailyBonus } = useUser();
+  const { displayName, isRegistered, sessionChecked, profileLoaded, rangPunkte, prestige, canClaimDailyBonus, authUserId } = useUser();
+  const { myTipsLoaded } = useAppData();
+  const shieldLeft = useBeginnerShieldLeft();
   // Tageszeit erst im Browser (Server und Browser haben nicht dieselbe Uhr).
   const [hello, setHello] = useState("Hallo");
   // Jede Minute neu, damit die Begrüßung auch bei lange offener App stimmt.
@@ -56,7 +61,7 @@ export default function HomeGreeting({ streak }: { streak: StreakState }) {
         {name ? `, ${name}` : ""} <span aria-hidden>👋</span>
       </h1>
       {sessionChecked && (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-wrap gap-2">
           <span
             title="Aufeinanderfolgende Tage mit mindestens einem Tipp"
             className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 font-display text-xs font-semibold ${
@@ -91,6 +96,16 @@ export default function HomeGreeting({ streak }: { streak: StreakState }) {
                 />
               </span>
             </Link>
+          )}
+          {/* Anfänger-Schutz als kleiner Knopf statt eigener Zeile darunter
+              (Rene, 27.10.2026: Spiele sollen weiter oben anfangen). */}
+          {authUserId && myTipsLoaded && shieldLeft > 0 && (
+            <span
+              title={`Anfänger-Schutz: noch ${shieldLeft} von ${BEGINNER_SHIELD_TIPS} Tipps ohne Punktabzug`}
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-edge bg-surface/80 px-3 py-1.5 font-display text-xs font-semibold text-muted"
+            >
+              <span aria-hidden>🐣</span> Noch {shieldLeft} Tipps ohne Minus
+            </span>
           )}
           {isRegistered && profileLoaded && canClaimDailyBonus && (
             <Link
