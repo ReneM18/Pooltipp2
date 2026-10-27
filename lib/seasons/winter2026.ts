@@ -96,9 +96,6 @@ export const WINTER_2026: SeasonData = {
       reward: "Profil-Rahmen „Saison-Gold“",
       rewardWhere: "um dein Profilbild (ersetzt Silber)",
       icon: "🥇",
-      premiumReward: "Tiefen-Statistik: deine Trefferquote vs. Community",
-      premiumIcon: "📊",
-      premiumNote: "Community-Wert ist noch ein Beispielwert",
     },
     {
       level: 8,

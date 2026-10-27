@@ -39,6 +39,7 @@ import { daysDative, daysLabel, useStreak } from "@/lib/streak";
 import Emoji from "@/components/Emoji";
 import TippTypCard from "@/components/TippTyp";
 import BeginnerShieldHint from "@/components/BeginnerShieldHint";
+import HitRateBySport from "@/components/HitRateBySport";
 import SportBioCard, { SportBioTag } from "@/components/SportBioCard";
 import SportBioEditor from "@/components/SportBioEditor";
 import { useSportBio } from "@/lib/sportBio";
@@ -552,6 +553,7 @@ function ProfilInhalt() {
           <StatCard label="Pass-XP" value={passXP.toLocaleString("de-DE")} accent="action" />
           <StatCard label="Abgegebene Tipps" value={tipsSubmitted.toLocaleString("de-DE")} accent="ink" />
         </div>
+        <HitRateBySport />
         {isRegistered && (
           <div className="mt-3 rounded-card border border-edge bg-surface p-4 text-xs text-muted">
             <p>

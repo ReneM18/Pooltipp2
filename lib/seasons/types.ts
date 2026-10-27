@@ -43,9 +43,9 @@ export interface PassLevel {
   rewardWhere: string;
   /** Bei kind "title"/"badge": der Text, der im Profil/Chat erscheint. */
   label?: string;
-  // Premium-Spur: zusätzliche Belohnung auf demselben Level.
-  premiumReward: string;
-  premiumIcon: string;
+  // Premium-Spur: zusätzliche Belohnung auf demselben Level (nicht auf jedem).
+  premiumReward?: string;
+  premiumIcon?: string;
   /** true = in der Premium-Spur noch nicht echt (z. B. Beispielwerte). */
   premiumNote?: string;
 }
