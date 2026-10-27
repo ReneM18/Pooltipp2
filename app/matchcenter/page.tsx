@@ -1161,7 +1161,7 @@ function LcDetail({
         <p className="rounded-lg border border-edge bg-pitch px-3 py-2 text-[13px] text-muted">
           Dein Tipp: <span className="font-semibold text-ink">{tipText}</span>
           {tip.rangDelta !== undefined && (
-            <span className={tip.rangDelta > 0 ? "text-gold" : ""}> · {signedPoints(tip.rangDelta)} Rangpunkte</span>
+            <span className={tip.rangDelta > 0 ? "text-gold" : ""}> · {signedPoints(tip.rangDelta)} Punkte</span>
           )}
         </p>
       )}

@@ -209,7 +209,7 @@ export default function AccountSettings() {
               <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-ink">
                 <p className="font-semibold text-red-200">Das kann nicht rückgängig gemacht werden.</p>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
-                  <li>Gelöscht werden dein Profil, deine Coins, Rangpunkte und Pass-XP, deine Tipps, Freundschaften und Vereine.</li>
+                  <li>Gelöscht werden dein Profil, deine Coins, Punkte und Pass-XP, deine Tipps, Freundschaften und Vereine.</li>
                   <li>Du verschwindest aus Rangliste, Vereinswertung{TIPPRUNDEN_ENABLED ? " und deinen Tipprunden" : ""}.</li>
                   <li>Offene Duelle werden abgebrochen, deine Gegner bekommen ihren Einsatz zurück.</li>
                   {TIPPRUNDEN_ENABLED && <li>Tipprunden, die du gegründet hast, übernimmt das Mitglied, das am längsten dabei ist.</li>}

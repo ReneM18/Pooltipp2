@@ -195,8 +195,8 @@ export default function SpielerProfilPage() {
             {rows === null
               ? "\u00a0"
               : place
-                ? `Platz ${place} von ${totals.length} in der Gesamt-Rangliste · ${total.toLocaleString("de-DE")} Rangpunkte`
-                : "Noch keine Rangpunkte"}
+                ? `Platz ${place} von ${totals.length} in der Gesamt-Rangliste · ${total.toLocaleString("de-DE")} Punkte`
+                : "Noch keine Punkte"}
           </p>
           <SportBioTag bio={sportBio.bio} />
           {honors && (honors.title || honors.badges.length > 0) && (

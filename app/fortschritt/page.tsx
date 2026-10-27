@@ -258,7 +258,7 @@ function SeasonPassView() {
             diesen Pass.
           </li>
           <li>
-            <span className="font-semibold text-ink">Rangpunkte</span> zeigen, wie gut du tippst (Rangliste) und
+            <span className="font-semibold text-ink">Punkte</span> zeigen, wie gut du tippst (Rangliste) und
             haben mit dem Pass nichts zu tun.
           </li>
           <li>

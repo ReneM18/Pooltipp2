@@ -506,7 +506,7 @@ function ProfilInhalt() {
       )}
 
       {/* Übersicht neu sortiert (Rene, 19.10.2026): Zahlen oben (ohne doppelte
-          Rangpunkte), dann Tipp-Historie mit Rangpunkten je Tipp, Tipp-Typ,
+          Punkte), dann Tipp-Historie mit Punkten je Tipp, Tipp-Typ,
           Rückblick und zuletzt kleine Fotos. "Werbefrei" steht jetzt unter
           Einstellungen → App. */}
       {profileTab === "Übersicht" && (
@@ -530,7 +530,7 @@ function ProfilInhalt() {
           {isRegistered && <RivalCompareButton />}
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-          <StatCard label="Rangpunkte" value={totalRangPunkte.toLocaleString("de-DE")} accent="action" />
+          <StatCard label="Punkte" value={totalRangPunkte.toLocaleString("de-DE")} accent="action" />
           <StatCard label="Diese Woche" value={signedPoints(weekPoints)} accent={weekPoints >= 0 ? "action" : "ink"} />
           <StatCard label="Coins" value={freeStars.toLocaleString("de-DE")} accent="gold" />
           <StatCard label="Tipp-Serie" value={`🔥 ${streakCount.toLocaleString("de-DE")}`} accent="gold" />
@@ -587,7 +587,7 @@ function ProfilInhalt() {
           ))}
         </div>
         {resetDate && (
-          <p className="mt-3 text-xs text-muted">Gezählt werden deine Tipps seit dem Neustart der Rangpunkte am {resetDate}.</p>
+          <p className="mt-3 text-xs text-muted">Gezählt werden deine Tipps seit dem Neustart der Punkte am {resetDate}.</p>
         )}
         </details>
         {isRegistered && (
@@ -639,7 +639,7 @@ function ProfilInhalt() {
             <EmptyState
               emoji="🎯"
               title="Noch keine Tipps"
-              text={myTips.length === 0 ? "Hier siehst du später alle deine Tipps mit Punkten." : "Seit dem Neustart der Rangpunkte hast du noch nichts getippt."}
+              text={myTips.length === 0 ? "Hier siehst du später alle deine Tipps mit Punkten." : "Seit dem Neustart der Punkte hast du noch nichts getippt."}
               action={{ href: "/", label: "Jetzt tippen" }}
             />
           )}

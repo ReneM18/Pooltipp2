@@ -30,7 +30,7 @@ export const mockShopItems: ShopItem[] = [
     joker: "schutz",
     category: "In-Game",
     name: "Schutz-Joker",
-    description: "Ein Spiel deiner Wahl kostet dich keine Rangpunkte: Liegst du daneben, zählt der Tipp 0 statt Minus.",
+    description: "Ein Spiel deiner Wahl kostet dich keine Punkte: Liegst du daneben, zählt der Tipp 0 statt Minus.",
     cost: 120,
   },
   {
@@ -39,7 +39,7 @@ export const mockShopItems: ShopItem[] = [
     category: "In-Game",
     name: "Pause-Joker",
     description:
-      "Wer 2 Wochen gar nicht tippt, verliert ab der 3. Woche 5 Rangpunkte pro Woche in jeder Sportart. Der Pause-Joker schützt dich automatisch eine Woche lang.",
+      "Wer 2 Wochen gar nicht tippt, verliert ab der 3. Woche 5 Punkte pro Woche in jeder Sportart. Der Pause-Joker schützt dich automatisch eine Woche lang.",
     cost: 100,
   },
   {
@@ -55,7 +55,7 @@ export const mockShopItems: ShopItem[] = [
     joker: "toleranz",
     category: "In-Game",
     name: "Toleranz-Joker",
-    description: "Liegst du bei einem Spiel nur 1 Tor daneben, kostet dich der Tipp keine Rangpunkte: 0 statt Minus.",
+    description: "Liegst du bei einem Spiel nur 1 Tor daneben, kostet dich der Tipp keine Punkte: 0 statt Minus.",
     cost: 150,
   },
   {

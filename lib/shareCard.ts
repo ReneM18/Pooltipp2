@@ -166,7 +166,7 @@ export async function drawShareCard(d: ShareCardData): Promise<Blob | null> {
   if (d.rangDelta > 0) {
     ctx.font = `700 54px ${poppins}`;
     ctx.fillStyle = GOLD;
-    ctx.fillText(`+${d.rangDelta} Rangpunkte`, cx, 990);
+    ctx.fillText(`+${d.rangDelta} Punkte`, cx, 990);
   }
 
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));

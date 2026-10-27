@@ -86,7 +86,7 @@ export default function Navbar() {
       : myRank.status === "none" && myRank.reason === "guest"
         ? "Einloggen, um in die Rangliste zu kommen"
         : myRank.status === "none" && myRank.reason === "noPoints"
-          ? "Noch kein Platz: Sammle mit deinem ersten richtigen Tipp Rangpunkte"
+          ? "Noch kein Platz: Sammle mit deinem ersten richtigen Tipp Punkte"
           : "Zur Rangliste";
 
   return (

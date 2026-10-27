@@ -369,7 +369,7 @@ export function SportCard({
                 <div className="mt-1.5 flex items-baseline justify-center gap-1.5 border-t border-white/10 pt-1.5">
                   <b className="font-display text-[13px] text-gold">{cardPoints.toLocaleString("de-DE")}</b>
                   <i className="text-[8.5px] uppercase not-italic tracking-wider text-[#aab8b1]">
-                    Rangpunkte{showImmortal ? " gesamt" : sport ? ` ${sportLabel(sport)}` : ""} bei PoolTipp
+                    Punkte{showImmortal ? " gesamt" : sport ? ` ${sportLabel(sport)}` : ""} bei PoolTipp
                   </i>
                 </div>
               )}
@@ -543,7 +543,7 @@ export function SportCard({
           <ul className="flex flex-col gap-1.5">
             <li>
               <b className="text-ink">Pro Sportart eine Karte:</b> Oben wechselst du die Sportart. Jede Karte zeigt deinen Rang, Platz
-              und deine Rangpunkte in dieser Sportart.
+              und deine Punkte in dieser Sportart.
             </li>
             <li>
               <b className="text-ink">Rückseite:</b> deine Tipp-Statistik dieser Sportart (Treffer, exakt, Tipps) vom ersten Tipp bis
