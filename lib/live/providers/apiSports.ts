@@ -3,6 +3,7 @@ import { isLiveLeagueEnabled, sameLeague } from "../../liveConfig";
 import { isLiveFinished, liveIntervalSeconds, liveMaxIntervalSeconds, viennaDate } from "../../liveScores";
 import { cachedLoad, type LoadResult } from "../cache";
 import type { StandingGroup, StandingTeamRow } from "../../standings";
+import type { LineupPlayer, LineupTeam, StatTeam } from "../../matchInfo";
 import type {
   LiveDayStatus,
   LiveDiagnostics,
@@ -706,6 +707,81 @@ export async function footballStandings(leagueId: number, season: number): Promi
     })
     .filter((g) => g.rows.length > 0);
   return { ok: true, groups, fetchedAt: res.hit.at, expiresAt: res.hit.expiresAt };
+}
+
+// ---------------------------------------------------------------------------
+// Aufstellungen und Statistik eines Fußballspiels (Rene, 27.10.2026: Pro-Plan).
+// fixtures/lineups und fixtures/statistics – je eine Abfrage pro Spiel.
+// Aufstellungen ändern sich nach der Bekanntgabe nicht mehr (10 Min.
+// gemerkt), die Statistik läuft im Spiel mit (2 Min.).
+
+export type MatchInfoResult =
+  | { ok: true; lineups: LineupTeam[]; stats: StatTeam[]; expiresAt: number }
+  | { ok: false; error: string; expiresAt: number };
+
+const LINEUPS_URL = "https://v3.football.api-sports.io/fixtures/lineups";
+const STATISTICS_URL = "https://v3.football.api-sports.io/fixtures/statistics";
+const LINEUPS_TTL = 600;
+const STATISTICS_TTL = 120;
+
+function hexColor(value: unknown): string | null {
+  return typeof value === "string" && /^[0-9a-fA-F]{6}$/.test(value) ? value : null;
+}
+
+function toPlayer(p: Raw): LineupPlayer | null {
+  const player = p?.player;
+  if (typeof player?.name !== "string") return null;
+  const grid = typeof player.grid === "string" ? /^(\d+):(\d+)$/.exec(player.grid) : null;
+  return {
+    name: player.name,
+    number: toNumber(player.number),
+    pos: typeof player.pos === "string" ? player.pos : null,
+    row: grid ? Number(grid[1]) : null,
+    col: grid ? Number(grid[2]) : null,
+  };
+}
+
+function toLineup(l: Raw): LineupTeam | null {
+  if (typeof l?.team?.name !== "string") return null;
+  const players = (list: unknown) => (Array.isArray(list) ? list : []).map(toPlayer).filter((x): x is LineupPlayer => x !== null);
+  return {
+    team: l.team.name,
+    logo: typeof l.team.logo === "string" ? l.team.logo : null,
+    formation: typeof l.formation === "string" ? l.formation : null,
+    coach: typeof l.coach?.name === "string" ? l.coach.name : null,
+    color: hexColor(l.team.colors?.player?.primary),
+    numberColor: hexColor(l.team.colors?.player?.number),
+    keeperColor: hexColor(l.team.colors?.goalkeeper?.primary),
+    startXI: players(l.startXI),
+    substitutes: players(l.substitutes),
+  };
+}
+
+function toStats(t: Raw): StatTeam | null {
+  if (typeof t?.team?.name !== "string") return null;
+  const stats = (Array.isArray(t.statistics) ? t.statistics : [])
+    .filter((x: Raw) => typeof x?.type === "string")
+    .map((x: Raw) => ({
+      type: x.type as string,
+      value: typeof x.value === "number" || typeof x.value === "string" ? x.value : null,
+    }));
+  return { team: t.team.name, stats };
+}
+
+export async function footballMatchInfo(fixtureId: number): Promise<MatchInfoResult> {
+  const key = process.env.API_SPORTS_KEY;
+  if (!key) return { ok: false, error: "Kein API_SPORTS_KEY gesetzt", expiresAt: Date.now() + 300 * 1000 };
+  const [lineups, stats] = await Promise.all([
+    load(`${LINEUPS_URL}?fixture=${fixtureId}`, key, LINEUPS_TTL),
+    load(`${STATISTICS_URL}?fixture=${fixtureId}`, key, STATISTICS_TTL),
+  ]);
+  if (!lineups.ok && !stats.ok) return { ok: false, error: lineups.error, expiresAt: Math.min(lineups.expiresAt, stats.expiresAt) };
+  return {
+    ok: true,
+    lineups: lineups.ok ? lineups.hit.value.map(toLineup).filter((x): x is LineupTeam => x !== null) : [],
+    stats: stats.ok ? stats.hit.value.map(toStats).filter((x): x is StatTeam => x !== null) : [],
+    expiresAt: Math.min(lineups.ok ? lineups.hit.expiresAt : lineups.expiresAt, stats.ok ? stats.hit.expiresAt : stats.expiresAt),
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -41,6 +41,7 @@ import { displayOrder, scoreText, type TeamOrder } from "@/lib/teamOrder";
 import { SPORT_ICONS, isSportActive, sportLabel, type Match, type Sport, type Team } from "@/lib/types";
 import TeamBadge, { matchJerseyProps } from "@/components/TeamBadge";
 import CommentThread from "@/components/CommentThread";
+import { LineupView, StatsView, useMatchInfo } from "@/components/MatchInfo";
 import Emoji from "@/components/Emoji";
 import { CommunityTrend } from "@/components/MatchCard";
 import { useBeginnerShieldLeft } from "@/components/BeginnerShieldHint";
@@ -253,7 +254,7 @@ function SubTab({ label, active, onClick }: { label: React.ReactNode; active: bo
 // "Spielplan" (nächste 7 Tage) und "Tabelle" (API-Sports, /api/standings);
 // bei den anderen Sportarten steht unter "Tabelle" ein Hinweis.
 //
-// Am PC zweispaltig: links die Liste, rechts (~360 px) das Detail des
+// Am PC zweispaltig: links die Liste, rechts (400–460 px) das Detail des
 // gewählten Spiels. Am Handy steht das Detail unter der Liste, beim
 // Antippen wird dorthin gescrollt. Standardmäßig ist das erste getippte
 // laufende Spiel gewählt.
@@ -745,7 +746,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
           />
         )
       ) : (
-        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start xl:grid-cols-[minmax(0,1fr)_460px]">
           <div className="min-w-0">
             {view === "spielplan" ? (
               <LcUpcoming dates={upcomingDates} days={upcomingDays} onRetry={retry} {...listProps} />
@@ -1566,6 +1567,13 @@ function LcDetail({
   const tendency = match ? tipTendencies[match.id] : undefined;
   const flag = liveLeagueFlag(sport, game, competitions);
   const [leftKick, rightKick] = displayOrder(order, appHome, appAway);
+  // Reiter Spiel / Aufstellung / Statistik (Rene, 27.10.2026: Pro-Plan),
+  // nur Fußball. Daten erst laden, wenn ein Reiter offen ist.
+  const [tab, setTab] = useState<"spiel" | "aufstellung" | "statistik">("spiel");
+  const hasInfo = sport === "Fußball";
+  const info = useMatchInfo(hasInfo && tab !== "spiel" ? game.id : null, isLiveRunning(game.status));
+  const swapped = !!link?.result.swapped;
+  const firstApiName = (leftSide === "home") !== swapped ? game.home : game.away;
 
   return (
     <div className="flex flex-col gap-4 rounded-card border border-muted/25 bg-pitch/40 p-3 sm:p-4">
@@ -1643,32 +1651,67 @@ function LcDetail({
         </p>
       )}
 
-      {/* Ohne Ereignisse vom Anbieter (Eishockey) kein Spielverlauf (Rene, 16.10.2026). */}
-      {liveLike && game.events !== undefined && (
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Spielverlauf</p>
-          {/* Immer sichtbar, daher kein Pulsknopf: neues Tor erkennt der
-              Spielverlauf selbst und hinterlegt es ~3 s golden (Rene, 15.10.2026). */}
-          <EventTimeline events={events} leftSide={leftSide} />
+      {hasInfo && (
+        <div className="flex gap-1 rounded-full border border-edge bg-pitch/60 p-1" role="tablist">
+          {(
+            [
+              ["spiel", "Spiel"],
+              ["aufstellung", "Aufstellung"],
+              ["statistik", "Statistik"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={`flex-1 rounded-full py-1.5 text-[13px] font-semibold transition-colors ${
+                tab === id ? "bg-gold text-pitch" : "text-muted hover:text-ink"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       )}
-
-      {match && tendency && started && (
-        <CommunityTrend
-          tendency={tendency}
-          sport={match.sport}
-          order={order}
-          homeName={link!.home.name}
-          awayName={link!.away.name}
-          finalScore={appFinal ? { home: match.liveHomeScore!, away: match.liveAwayScore! } : null}
-          myTip={tip ? { home: tip.predictedHomeScore, away: tip.predictedAwayScore } : null}
-        />
+      {tab === "aufstellung" && (
+        <LineupView info={info.data} failed={info.failed} onRetry={info.retry} firstApiName={firstApiName} teamName={teamName} />
+      )}
+      {tab === "statistik" && (
+        <StatsView info={info.data} failed={info.failed} onRetry={info.retry} firstApiName={firstApiName} started={started} />
       )}
 
-      {match && (
-        <div className="border-t border-edge pt-3">
-          <CommentThread threadId={match.id} />
-        </div>
+      {tab === "spiel" && (
+        <>
+          {/* Ohne Ereignisse vom Anbieter (Eishockey) kein Spielverlauf (Rene, 16.10.2026). */}
+          {liveLike && game.events !== undefined && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Spielverlauf</p>
+              {/* Immer sichtbar, daher kein Pulsknopf: neues Tor erkennt der
+                  Spielverlauf selbst und hinterlegt es ~3 s golden (Rene, 15.10.2026). */}
+              <EventTimeline events={events} leftSide={leftSide} />
+            </div>
+          )}
+
+          {match && tendency && started && (
+            <CommunityTrend
+              tendency={tendency}
+              sport={match.sport}
+              order={order}
+              homeName={link!.home.name}
+              awayName={link!.away.name}
+              finalScore={appFinal ? { home: match.liveHomeScore!, away: match.liveAwayScore! } : null}
+              myTip={tip ? { home: tip.predictedHomeScore, away: tip.predictedAwayScore } : null}
+            />
+          )}
+
+          {match && (
+            <div className="border-t border-edge pt-3">
+              <CommentThread threadId={match.id} />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
