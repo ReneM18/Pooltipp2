@@ -7,6 +7,8 @@ import { useDuels } from "@/lib/DuelsContext";
 import { TIPPRUNDEN_ENABLED } from "@/lib/types";
 
 // Feste Leiste unten am Handy/Tablet (bis lg:), wie in Sport-Apps üblich.
+// Namen und Reihenfolge wie in der Menüleiste am PC (NavTabs), damit man
+// sich auf beiden Geräten gleich zurechtfindet (Rene, 27.10.2026).
 // Die vier wichtigsten Seiten haben einen eigenen Knopf, alles Weitere
 // steckt hinter "Mehr" (Fenster von unten). Ab lg: übernimmt die
 // Menüleiste oben (NavTabs) – dort ist genug Platz für alles.
@@ -21,7 +23,7 @@ const MAIN: Item[] = [
   },
   {
     href: "/matchcenter",
-    label: "Center",
+    label: "Matchcenter",
     icon: (
       <>
         <circle cx="12" cy="12" r="8" />
@@ -36,7 +38,7 @@ const MAIN: Item[] = [
   },
   {
     href: "/fortschritt",
-    label: "Pass",
+    label: "Saison-Pass",
     icon: <path d="M4 7h16v10H4z M8 7v10 M14 10l.9 1.8 2 .3-1.45 1.4.35 2-1.8-1-1.8 1 .35-2-1.45-1.4 2-.3z" />,
   },
 ];
@@ -200,7 +202,7 @@ export default function BottomNav() {
                 key={it.href}
                 href={it.href}
                 aria-current={active ? "page" : undefined}
-                className={`relative flex h-16 flex-1 flex-col items-center justify-center gap-1 font-display text-[11px] font-semibold transition-colors ${
+                className={`relative flex h-16 flex-1 flex-col items-center justify-center gap-1 whitespace-nowrap font-display text-[10px] font-semibold min-[360px]:text-[11px] transition-colors ${
                   active ? "text-gold" : "text-muted hover:text-ink"
                 }`}
               >
@@ -216,7 +218,7 @@ export default function BottomNav() {
             type="button"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
-            className={`relative flex h-16 flex-1 flex-col items-center justify-center gap-1 font-display text-[11px] font-semibold transition-colors ${
+            className={`relative flex h-16 flex-1 flex-col items-center justify-center gap-1 whitespace-nowrap font-display text-[10px] font-semibold min-[360px]:text-[11px] transition-colors ${
               open || moreActive ? "text-gold" : "text-muted hover:text-ink"
             }`}
           >

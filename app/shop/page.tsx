@@ -14,7 +14,7 @@ import { useTaschen } from "@/lib/TaschenContext";
 // Shop freigegeben hat; der Admin kann vorher schon testen. Ohne Login oder
 // solange das SQL fehlt, zeigt die Seite nur die Vorschau.
 export default function ShopPage() {
-  const { freeStars, isAdmin } = useUser();
+  const { freeStars, isAdmin, isRegistered, profileLoaded } = useUser();
   const { ready, shopOpen, canBuy, stock, buyJoker } = useJokers();
   const { showToast, celebrate } = useFeedback();
   const { gutscheine } = useTaschen();
@@ -42,7 +42,21 @@ export default function ShopPage() {
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
       <div className="mb-4">
-        <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Prämien-Shop</h1>
+        {/* Coin-Stand gleich neben der Überschrift (Rene, 27.10.2026): oben in
+            der Kopfzeile führt der Warenkorb mit den Coins hierher. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h1 className="font-display text-xl font-bold text-ink sm:text-2xl">Prämien-Shop</h1>
+          {isRegistered && (
+            <span
+              className="flex items-center gap-1.5 rounded-full border border-gold/50 bg-gold/10 px-2.5 py-0.5 font-display text-base font-semibold text-ink sm:text-lg"
+              aria-label={profileLoaded ? `${freeStars.toLocaleString("de-DE")} Coins` : "Coins werden geladen"}
+            >
+              <CoinIcon className="h-5 w-5" />
+              {/* Wie oben im Warenkorb: bis das Konto geladen ist "…" statt einer falschen Zahl. */}
+              {profileLoaded ? freeStars.toLocaleString("de-DE") : "…"}
+            </span>
+          )}
+        </div>
         <p className="mt-0.5 text-xs text-muted">Coins gegen Joker und Taschen – kein Echtgeld nötig.</p>
       </div>
 
