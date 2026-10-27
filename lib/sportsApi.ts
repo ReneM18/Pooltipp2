@@ -2,6 +2,8 @@
 // Schlüssel "3"). Gut geeignet zum Prototypen; für den echten Live-Betrieb
 // später einen eigenen, verlässlicheren Zugang (eigener Key/Anbieter) nutzen.
 
+import type { Sport } from "./types";
+
 const BASE_URL = "https://www.thesportsdb.com/api/v1/json/3";
 
 // Liga-IDs bei TheSportsDB
@@ -11,6 +13,15 @@ export const LEAGUE_IDS: Record<string, string> = {
   "NBA": "4387",
   "NFL": "4391",
   "NHL": "4380",
+};
+
+// Sportart je Liga (für die eigenen Vereinsnamen, lib/teamApiNames.ts).
+export const LEAGUE_SPORTS: Record<string, Sport> = {
+  Bundesliga: "Fußball",
+  "Premier League": "Fußball",
+  NBA: "NBA",
+  NFL: "NFL",
+  NHL: "NHL",
 };
 
 export interface StandingRow {
