@@ -1138,7 +1138,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             "1" und "0" sauber untereinander (Poppins hat schmale Einsen).
             Im freien Platz davor der Sender des Tippspiels. */}
         <span
-          className={`grid min-w-0 grid-rows-[auto_auto] items-center gap-x-2 gap-y-0.5 ${
+          className={`grid min-w-0 grid-rows-[auto_auto] items-center gap-x-2 gap-y-0.5 lg:hidden ${
             tv ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"
           }`}
         >
@@ -1164,6 +1164,33 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
               <span className="w-7 text-center">{hasScore ? game.awayScore : "–"}</span>
             </span>
           )}
+        </span>
+        {/* Am PC eine Zeile wie eine Anzeigetafel (Rene, 27.10.2026: "Handy
+            und Web nicht gleich bauen"): Heim rechtsbündig, Ergebnis in der
+            Mitte, Gast links, Sender und Countdown ganz rechts. Die rechte
+            Spalte hat feste Breite, so steht das Ergebnis in jeder Zeile
+            an derselben Stelle. */}
+        <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_10rem] items-center gap-x-4 lg:grid">
+          <span className="truncate text-right text-[15px] text-ink" title={homeName}>{homeName}</span>
+          <span
+            className={`flex items-center justify-center rounded-md border border-edge bg-pitch px-2 py-1 font-display text-lg font-bold leading-none tabular-nums transition-colors duration-700 ${
+              flash ? "border-gold/50 bg-gold/15 text-gold" : hasScore ? "text-ink" : "text-muted"
+            }`}
+          >
+            <span className="w-6 text-center">{hasScore ? game.homeScore : "–"}</span>
+            <span className="text-muted">:</span>
+            <span className="w-6 text-center">{hasScore ? game.awayScore : "–"}</span>
+          </span>
+          <span className="truncate text-[15px] text-ink" title={awayName}>{awayName}</span>
+          <span className="flex min-w-0 items-center justify-end gap-2">
+            {tv && (
+              <span className="flex min-w-0 items-center gap-1 rounded-full border border-edge bg-pitch px-2 py-0.5 text-[11px] font-semibold leading-tight text-muted">
+                <TvIcon className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{tv}</span>
+              </span>
+            )}
+            {open && link && <TipCountdown deadline={link.match.tipDeadline} />}
+          </span>
         </span>
       </div>
       {progress !== null && <ProgressBar progress={progress} className="absolute inset-x-0 bottom-0" />}
