@@ -1111,7 +1111,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       className={`relative w-full overflow-hidden rounded-card border bg-surface px-3 py-2 text-left transition-colors sm:pl-4 ${
         moved ? "motion-safe:animate-lc-row-in" : ""
       } ${
-        selected ? "border-gold" : "border-muted/25 hover:border-muted/50"
+        selected ? "border-gold" : tippable ? "border-gold/45 hover:border-gold/70" : "border-muted/25 hover:border-muted/50"
       }`}
     >
       <div className="grid grid-cols-[4.75rem_minmax(0,1fr)_auto] items-center gap-x-2.5 text-sm">
@@ -1129,9 +1129,10 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             <span className="truncate text-[10px] leading-tight text-muted">{status.sub}</span>
           )}
           {tipped && <span className="truncate text-[10px] font-semibold leading-tight text-gold">Getippt</span>}
-          {/* Tippspiel, noch nicht getippt (Rene, 27.10.2026). */}
+          {/* Tippspiel, noch nicht getippt: goldenes Schild mit Glanz
+              (Rene, 27.10.2026, Variante C; Glanz in globals.css). */}
           {tippable && (
-            <span className="w-fit rounded-full bg-gold/15 px-1.5 text-[10px] font-bold leading-[1.4] text-gold">Tippen</span>
+            <span className="tip-shine w-fit rounded-full bg-gold px-1.5 text-[10px] font-bold leading-[1.4] text-pitch">Tippen</span>
           )}
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
