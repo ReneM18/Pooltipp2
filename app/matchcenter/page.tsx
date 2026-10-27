@@ -1139,17 +1139,51 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           <FitText text={homeName} maxLines={2} minPx={12} className="leading-tight text-ink" />
           <FitText text={awayName} maxLines={2} minPx={12} className="leading-tight text-ink" />
         </span>
-        <span
-          className={`flex min-w-[1.75rem] flex-col items-end gap-0.5 rounded-md px-1 font-display font-bold leading-tight tabular-nums transition-colors duration-700 ${
-            flash ? "bg-gold/15 text-gold" : hasScore ? "text-ink" : "text-muted"
-          }`}
-        >
-          <span>{hasScore ? game.homeScore : "–"}</span>
-          <span>{hasScore ? game.awayScore : "–"}</span>
-        </span>
+        {tippable && link ? (
+          <TipCountdown deadline={link.match.tipDeadline} />
+        ) : (
+          <span
+            className={`flex min-w-[1.75rem] flex-col items-end gap-0.5 rounded-md px-1 font-display font-bold leading-tight tabular-nums transition-colors duration-700 ${
+              flash ? "bg-gold/15 text-gold" : hasScore ? "text-ink" : "text-muted"
+            }`}
+          >
+            <span>{hasScore ? game.homeScore : "–"}</span>
+            <span>{hasScore ? game.awayScore : "–"}</span>
+          </span>
+        )}
       </div>
       {progress !== null && <ProgressBar progress={progress} className="absolute inset-x-0 bottom-0" />}
     </button>
+  );
+}
+
+// Offenes Tippspiel: rechts statt der Striche ein laufender Countdown bis
+// Tippschluss (Rene, 27.10.2026). Letzte 30 Min. orange mit ⏰.
+function TipCountdown({ deadline }: { deadline: string }) {
+  const target = Date.parse(deadline);
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (now === null) return <span className="min-w-[1.75rem]" />;
+  const left = Math.max(0, Math.floor((target - now) / 1000));
+  const h = Math.floor(left / 3600);
+  const m = Math.floor((left % 3600) / 60);
+  const sec = left % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const text = h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
+  const soon = left <= 30 * 60;
+  return (
+    <span
+      className={`flex flex-col items-end leading-tight tabular-nums ${soon ? "text-[#FF9B5C]" : "text-gold"}`}
+      role="timer"
+      aria-label={`Noch ${h > 0 ? `${h} Std. ` : ""}${m} Min. bis Tippschluss`}
+    >
+      <span className="text-[10px] font-semibold opacity-80">{soon ? "⏰ noch" : "noch"}</span>
+      <span className="font-display text-[13px] font-bold">{text}</span>
+    </span>
   );
 }
 
