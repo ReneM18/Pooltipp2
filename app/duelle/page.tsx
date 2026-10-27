@@ -1,5 +1,6 @@
 "use client";
 
+import FriendsTabs from "@/components/FriendsTabs";
 import EmptyState from "@/components/EmptyState";
 import { useEffect, useRef, useState, ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -51,7 +52,7 @@ export default function DuellePage() {
   if (!authUserId) {
     return (
       <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
-        <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Duelle</h1>
+        <FriendsTabs active="duelle" />
         <p className="rounded-card border border-dashed border-edge bg-surface p-6 text-center text-sm text-muted">
           Melde dich an, um andere Spieler zu einem Duell einzuladen.
         </p>
@@ -74,7 +75,7 @@ export default function DuellePage() {
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
-      <h1 className="mb-1 font-display text-xl font-bold text-ink sm:text-2xl">Duelle</h1>
+      <FriendsTabs active="duelle" className="mb-3" />
       <p className="mb-2 text-sm text-muted">
         Lade bis zu 4 Mitspieler ein und wählt gemeinsam Spiele aus. Jeder setzt gleich viele Coins, wer über alle
         Spiele die meisten Punkte hat, gewinnt.

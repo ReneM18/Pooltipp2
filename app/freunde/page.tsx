@@ -1,5 +1,6 @@
 "use client";
 
+import FriendsTabs from "@/components/FriendsTabs";
 import EmptyState from "@/components/EmptyState";
 import PlayerAvatar from "@/components/PlayerAvatar";
 import OnlineDot from "@/components/OnlineDot";
@@ -179,7 +180,7 @@ export default function FreundePage() {
   if (!isRegistered) {
     return (
       <main className="mx-auto max-w-3xl px-5 py-8 lg:max-w-4xl">
-        <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Freunde</h1>
+        <FriendsTabs active="freunde" />
         <div className="rounded-card border border-edge bg-surface p-5 text-center">
           <p className="text-sm text-ink">Für Freunde brauchst du ein Konto.</p>
           <p className="mt-1 text-xs text-muted">
@@ -220,7 +221,7 @@ export default function FreundePage() {
 
   return (
     <main className="mx-auto max-w-3xl px-5 py-8 lg:max-w-4xl">
-      <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Freunde</h1>
+      <FriendsTabs active="freunde" />
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-gold/40 bg-surface p-4">
         <div className="min-w-0">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, CSSProperties } from "react";
+import { useEffect, useState, CSSProperties, ReactNode } from "react";
 import { useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { PASS_LEVELS, PREMIUM_PASS_PRICE } from "@/lib/passLevels";
@@ -48,45 +48,24 @@ function communityHitRateForSport(sport: string): number {
 // Rahmen, den das jeweilige Gratis-Level bringt (lib/seasonPass.ts).
 const FRAME_OF_LEVEL: Record<number, string> = { 3: "bronze", 5: "silber", 7: "gold", 9: "diamant", 10: "meister" };
 
-// Seite Fortschritt: Saison-Pass und – während eines Events – ein zweiter
-// Reiter "🎃 Halloween" (components/HalloweenEvent.tsx). Vor dem Start sieht
-// den Reiter nur der Admin (Vorschau), nach dem Ende noch ein paar Tage alle.
+// Seite Fortschritt: der Saison-Pass. Während eines Events steht darunter ein
+// Abschnitt "Halloween-Extras" (components/HalloweenEvent.tsx), kein eigener
+// Reiter mehr (Rene, 27.10.2026: ein Fortschritt statt zwei). Jeder Kürbis
+// gibt auch Pass-XP (supabase/halloween-kuerbis-xp.sql). Vor dem Start sieht
+// den Abschnitt nur der Admin (Vorschau), nach dem Ende noch ein paar Tage alle.
 export default function FortschrittPage() {
   const { isAdmin } = useUser();
   const phase = useHalloweenPhase();
   const showEvent = phase === "laeuft" || phase === "beendet" || (phase === "vorher" && isAdmin);
-  const [tab, setTab] = useState<"saison" | "event" | null>(null);
-  // Läuft das Event, öffnet die Seite gleich im Halloween-Reiter (oder mit #halloween).
+  // Alte Links auf /fortschritt#halloween springen zum Abschnitt.
   useEffect(() => {
-    if (phase === null || tab !== null) return;
-    const wantsEvent = typeof window !== "undefined" && window.location.hash === "#halloween";
-    setTab(showEvent && (phase === "laeuft" || wantsEvent) ? "event" : "saison");
-  }, [phase, showEvent, tab]);
-
-  if (!showEvent) return <SeasonPassView />;
-  const active = tab ?? "saison";
-  const tabClass = (on: boolean) =>
-    `flex-1 whitespace-nowrap rounded-full px-4 py-2 font-display text-sm font-semibold transition-colors sm:flex-none ${
-      on ? "bg-action text-pitch" : "text-muted hover:text-ink"
-    }`;
-  return (
-    <>
-      <div className="mx-auto max-w-3xl px-5 pt-6 lg:max-w-6xl">
-        <div className="flex gap-1 rounded-full border border-edge bg-surface p-1 sm:inline-flex">
-          <button type="button" onClick={() => setTab("saison")} className={tabClass(active === "saison")}>
-            {SEASON_THEME.icon} Saison-Pass
-          </button>
-          <button type="button" onClick={() => setTab("event")} className={tabClass(active === "event")}>
-            🎃 Halloween
-          </button>
-        </div>
-      </div>
-      {active === "event" && phase ? <HalloweenEvent phase={phase} /> : <SeasonPassView />}
-    </>
-  );
+    if (!showEvent || window.location.hash !== "#halloween") return;
+    document.getElementById("halloween")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [showEvent]);
+  return <SeasonPassView event={showEvent && phase ? <HalloweenEvent phase={phase} /> : null} />;
 }
 
-function SeasonPassView() {
+function SeasonPassView({ event }: { event: ReactNode }) {
   const {
     passXP,
     hasPremiumPass,
@@ -226,8 +205,8 @@ function SeasonPassView() {
         </div>
       </section>
 
-      {/* Täglicher Bonus – der EINZIGE Weg, wie der Saison-Pass steigt.
-          Tipp-Ergebnisse wirken sich nur auf Rangliste-Punkte und Sterne aus. */}
+      {/* Täglicher Bonus. Tipp-Ergebnisse wirken sich nur auf Rangliste-Punkte
+          und Sterne aus, nicht auf den Pass. */}
       <section className="mb-8">
         <div className="flex flex-col items-start gap-3 rounded-card border border-edge bg-gradient-to-br from-surface to-surface-hover p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -235,8 +214,8 @@ function SeasonPassView() {
               <span className="text-lg">🎁</span> Täglicher Bonus
             </p>
             <p className="mt-0.5 text-xs text-muted">
-              Einmal pro Tag: +8 Coins (bis 500 auf dem Konto) und +100 Pass-XP. Der
-              Saison-Pass klettert nur so – nicht durch Tipp-Ergebnisse.
+              Einmal pro Tag: +8 Coins (bis 500 auf dem Konto) und +100 Pass-XP. Tipp-Ergebnisse
+              zählen nicht für den Pass.
             </p>
           </div>
           <button
@@ -248,6 +227,8 @@ function SeasonPassView() {
           </button>
         </div>
       </section>
+
+      {event}
 
       {/* Feste Rollen der drei Zähler – damit Tester gleich verstehen, was wofür ist. */}
       <section className="mb-8 rounded-card border border-edge bg-surface p-4">
