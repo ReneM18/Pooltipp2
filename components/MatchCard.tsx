@@ -1683,7 +1683,7 @@ function BoosterRankRow({ isOneXTwo, compactOnPhone = false }: { isOneXTwo: bool
     return (
       <>
         <p className="mt-2.5 text-center text-xs text-muted sm:hidden">
-          🏆 Dazu wie immer Rangpunkte: <b className="text-[#4FC181]">{line}</b> + Platz-Bonus
+          🏆 Dazu wie immer Punkte: <b className="text-[#4FC181]">{line}</b> + Platz-Bonus
         </p>
         <div className="hidden sm:block">
           <BoosterRankRow isOneXTwo={isOneXTwo} />
@@ -1693,7 +1693,7 @@ function BoosterRankRow({ isOneXTwo, compactOnPhone = false }: { isOneXTwo: bool
   }
   return (
     <>
-      <p className="mt-2.5 text-[11px] uppercase tracking-wide text-muted">🏆 Dazu wie immer: Rangpunkte</p>
+      <p className="mt-2.5 text-[11px] uppercase tracking-wide text-muted">🏆 Dazu wie immer: Punkte</p>
       <PointsGrid items={rankingPointsTable(isOneXTwo)} />
       <p className="mt-1.5 text-center text-xs text-muted">+ Platz-Bonus wie bei jedem Tipp</p>
     </>
@@ -1919,7 +1919,7 @@ function EvaluatedBox({
     .filter(Boolean)
     .join(" · ");
   const notes: string[] = [];
-  if (myTip.rankingLegacy) notes.push("Vor dem Neustart der Rangpunkte gewertet, zählt nicht mehr.");
+  if (myTip.rankingLegacy) notes.push("Vor dem Neustart der Punkte gewertet, zählt nicht mehr.");
   if ((breakdown && breakdown.opponents === 0) || (!breakdown && comparison?.total === 0)) {
     notes.push("Außer dir hat niemand getippt, darum kein Bonus.");
   }
@@ -1933,7 +1933,7 @@ function EvaluatedBox({
   if (myTip.beginnerShielded) notes.push(`🐣 Anfänger-Schutz: kein Minus (deine ersten ${BEGINNER_SHIELD_TIPS} Tipps).`);
   if (calculated !== rangDelta) {
     notes.push(
-      `Gerechnet ${signedPoints(calculated)}. Rangpunkte fallen nie unter 0, darum ${
+      `Gerechnet ${signedPoints(calculated)}. Punkte fallen nie unter 0, darum ${
         rangDelta === 0 ? "wurde nichts abgezogen" : `nur ${-rangDelta} abgezogen`
       }.`
     );
@@ -1959,7 +1959,7 @@ function EvaluatedBox({
           }`}
         >
           <span className="text-[26px]">{signedPoints(rangDelta)}</span>
-          <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide">Rangpunkte</span>
+          <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide">Punkte</span>
         </span>
       </div>
       {hasStake && (

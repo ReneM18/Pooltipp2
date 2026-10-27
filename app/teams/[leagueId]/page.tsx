@@ -228,7 +228,7 @@ export default function LeagueDetailPage() {
         <div className="flex flex-col gap-4">
           {/* Bewusst "Liga-Pkt" statt nur "Pkt": diese Punkte sind ein
               eigenes System nur innerhalb dieser Tipprunde und haben nichts
-              mit den PoolScore-Rangpunkten der globalen Rangliste zu tun –
+              mit den PoolScore-Punkten der globalen Rangliste zu tun –
               sonst denken User, es sei dasselbe. */}
           {leaderboard.length > 0 && (
             <ShareResultCard

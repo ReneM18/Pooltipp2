@@ -146,7 +146,7 @@ export function CompareTable({ data }: { data: Compare }) {
   const { me, other, h2h } = data;
   // higher = besser; null = nicht vergleichbar
   const rows: { label: string; hint?: string; a: number | null; b: number | null; show: (n: number | null) => string }[] = [
-    { label: "Rangpunkte", a: me.rang ?? 0, b: other.rang ?? 0, show: (n) => (n ?? 0).toLocaleString("de-DE") },
+    { label: "Punkte", a: me.rang ?? 0, b: other.rang ?? 0, show: (n) => (n ?? 0).toLocaleString("de-DE") },
     { label: "Abgegebene Tipps", a: me.tips ?? 0, b: other.tips ?? 0, show: (n) => (n ?? 0).toLocaleString("de-DE") },
     {
       label: "Exakt getroffen",

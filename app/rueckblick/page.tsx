@@ -134,7 +134,7 @@ export default function RueckblickPage() {
 
           {weeklyWin && (
             <p className="mt-4 rounded-lg border border-gold/50 bg-gold/10 px-3 py-2 font-display text-sm font-semibold text-gold">
-              🥇 Erster der Woche · +{weeklyWin.xp} Pass-XP
+              🥇 Erster der Woche · +{weeklyWin.xp} XP für den Saison-Pass
             </p>
           )}
 

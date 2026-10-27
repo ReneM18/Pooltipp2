@@ -7,7 +7,6 @@ import RankBadge from "@/components/RankBadge";
 import SeasonFrame from "@/components/SeasonFrame";
 import SeasonDeco from "@/components/SeasonDeco";
 import { useMyOverallRank } from "@/lib/myOverallRank";
-import { CoinIcon } from "@/components/CoinIcon";
 import CountUp from "@/components/CountUp";
 import { TrophyIcon, GearIcon, CartIcon } from "@/components/Icons";
 import { useStartHref } from "@/lib/useStartHref";
@@ -42,7 +41,8 @@ export default function Navbar() {
   const showCache = cache !== null && (!sessionChecked || cache.userId === authUserId);
   const loggedIn = sessionChecked ? isRegistered : showCache;
   const coins = profileLoaded ? freeStars : showCache ? cache.coins ?? null : null;
-  const lowOnCoins = profileLoaded ? isLowOnStars : coins !== null && coins <= LOW_STARS_THRESHOLD;
+  // Rote Warnung nur für Eingeloggte: Gäste haben gar kein Guthaben.
+  const lowOnCoins = loggedIn && (profileLoaded ? isLowOnStars : coins !== null && coins <= LOW_STARS_THRESHOLD);
   const name = profileLoaded ? displayName : showCache ? cache.name ?? "" : "";
   const photo = extrasLoaded ? photos[0] : showCache ? cache.photo ?? null : null;
   const badge =
@@ -86,7 +86,7 @@ export default function Navbar() {
       : myRank.status === "none" && myRank.reason === "guest"
         ? "Einloggen, um in die Rangliste zu kommen"
         : myRank.status === "none" && myRank.reason === "noPoints"
-          ? "Noch kein Platz: Sammle mit deinem ersten richtigen Tipp Rangpunkte"
+          ? "Noch kein Platz: Sammle mit deinem ersten richtigen Tipp Punkte"
           : "Zur Rangliste";
 
   return (
@@ -104,19 +104,29 @@ export default function Navbar() {
           Pool<span className="text-gold">Tipp</span>
         </Link>
 
-        {/* Reihenfolge von links nach rechts: Warenkorb (nur am PC), Einstellungen,
-            Registrieren (nur solange man nicht registriert ist), Sterne,
-            Ranglisten-Punkte, Profil – die beiden "Punkte"-Anzeigen (Sterne
-            und Ranglisten-Punkte) stehen jetzt bewusst zusammen direkt vorm
-            Profilbild, statt durch den Warenkorb getrennt zu sein. */}
-        <div className="flex items-center gap-1 sm:gap-3">
+        {/* Drei Knöpfe mit Abstand dazwischen, damit man am Handy sicher
+            trifft, und jeder führt irgendwo hin, statt nur eine Zahl zu
+            zeigen (Rene, 27.10.2026): Warenkorb mit Coins → Shop, Pokal mit
+            Platz → Rangliste, Profilbild → Profil. Dazwischen nur noch der
+            Admin-Knopf, den sowieso nur der Admin sieht. */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Warenkorb mit Coin-Stand: am Handy genauso wie am PC. So sieht
+              man sein Guthaben und kann es an derselben Stelle einsetzen. */}
           <Link
             href="/shop"
-            title="Prämien-Shop"
-            // Am Handy steckt der Shop unten im Mehr-Fenster, oben nur ab lg:.
-            className="hidden h-8 w-8 lg:flex shrink-0 items-center justify-center rounded-full border border-gold/60 bg-surface text-gold transition-colors hover:border-gold hover:bg-gold/10 sm:h-9 sm:w-9"
+            title={loggedIn ? (lowOnCoins ? "Deine Coins werden knapp – zum Shop" : "Deine Coins – zum Shop") : "Prämien-Shop"}
+            className={`flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-1 transition-colors sm:gap-2 sm:px-3 sm:py-1.5 ${
+              lowOnCoins ? "border-red-400/60 bg-red-400/10" : "border-gold/60 bg-surface hover:border-gold hover:bg-gold/10"
+            }`}
           >
-            <CartIcon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
+            <CartIcon className="h-4 w-4 shrink-0 text-gold sm:h-[18px] sm:w-[18px]" />
+            {loggedIn && (
+              <span className={`font-display text-base font-semibold sm:text-lg ${lowOnCoins ? "text-red-400" : "text-ink"}`}>
+                {/* Noch nichts bekannt (erstes Öffnen): kurz "…" statt einer
+                    falschen Zahl. */}
+                {coins === null ? "…" : <CountUp value={coins} />}
+              </span>
+            )}
           </Link>
 
           {/* Admin-Knopf nur für den Admin-Account (Prüfung über die
@@ -131,35 +141,11 @@ export default function Navbar() {
             </Link>
           )}
 
-          {/* Coins nur für Eingeloggte: Gäste haben kein Konto, eine
-              Demo-Zahl würde nur verwirren. */}
-          {loggedIn && (
-          <div
-            className={`flex items-center gap-1 rounded-full px-0.5 py-1 sm:gap-2 sm:border sm:px-3 sm:py-1.5 ${
-              lowOnCoins
-                ? "sm:border-red-400/60 sm:bg-red-400/10"
-                : "sm:border-edge sm:bg-surface"
-            }`}
-            title={lowOnCoins ? "Deine Coins werden knapp" : "Deine PoolTipp Coins"}
-          >
-            <CoinIcon className="h-5 w-5 sm:h-[22px] sm:w-[22px]" />
-            <span
-              className={`font-display text-base font-semibold sm:text-lg ${
-                lowOnCoins ? "text-red-400" : "text-ink"
-              }`}
-            >
-              {/* Noch nichts bekannt (erstes Öffnen): kurz "…" statt einer
-                  falschen Zahl. */}
-              {coins === null ? "…" : <CountUp value={coins} />}
-            </span>
-          </div>
-          )}
-
-          {/* Gesamtplatz in der Rangliste (Summe aller Rangpunkte). Die
+          {/* Gesamtplatz in der Rangliste (Summe aller Punkte). Die
               Saison-Pass-XP stehen nur noch im Saison-Pass. */}
           <Link
             href="/rangliste"
-            className="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full px-0.5 py-1 transition-colors sm:gap-2 sm:border sm:border-edge sm:bg-surface sm:px-3 sm:py-1.5 sm:hover:border-action"
+            className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-edge bg-surface px-2 py-1 transition-colors hover:border-action sm:gap-2 sm:px-3 sm:py-1.5"
             title={rankTitle}
           >
             <TrophyIcon className="h-4 w-4 text-action sm:h-[18px] sm:w-[18px]" />

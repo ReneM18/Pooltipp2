@@ -210,7 +210,7 @@ export default function RanglistePage() {
           {/* Spaltenkopf, damit klar ist, was die Zahl rechts ist (Rene, 14.10.2026). */}
           <div className="mb-1.5 flex justify-between px-3 text-[11px] font-semibold uppercase tracking-wider text-muted sm:px-5">
             <span>Spieler</span>
-            <span>{tab === "Woche" ? "Wochenpunkte" : "Rangpunkte"}</span>
+            <span>{tab === "Woche" ? "Wochenpunkte" : "Punkte"}</span>
           </div>
           <div className="overflow-hidden rounded-card border border-edge bg-surface">
             {entries.map((entry, index) => (
@@ -460,7 +460,8 @@ function WeekRulesBox() {
     [
       "🥇",
       <>
-        Der Erste der Woche bekommt <span className="whitespace-nowrap font-semibold text-gold">+{xp} Pass-XP</span>
+        Der Erste der Woche bekommt <span className="whitespace-nowrap font-semibold text-gold">+{xp} XP</span> für
+        den Saison-Pass
         {minPlayers > 1 && ` (ab ${minPlayers} Spielern)`}.
       </>,
     ],
