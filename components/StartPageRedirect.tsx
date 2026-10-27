@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useUser } from "@/lib/UserContext";
-import { DEFAULT_START_PAGE } from "@/lib/startPage";
 
 // Gewählte Startseite, wenn das Skript im <head> sie noch nicht kannte
 // (erstes Öffnen auf einem neuen Gerät bzw. nach dem Einloggen): sobald das
@@ -33,7 +32,7 @@ export default function StartPageRedirect() {
     }
     if (startPage === null) return;
     doneRef.current = true;
-    if (startPage !== DEFAULT_START_PAGE && performance.now() < MAX_WAIT_MS) router.replace(startPage);
+    if (startPage !== "/" && performance.now() < MAX_WAIT_MS) router.replace(startPage);
   }, [pathname, sessionChecked, authUserId, startPage, router]);
 
   return null;

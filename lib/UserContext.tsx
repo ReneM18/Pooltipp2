@@ -998,10 +998,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setReviewSeenReady(true);
     }
     if (hasStartPage) {
-      // Noch nie gewählt = Tipps. Die Wahl eines früheren Kontos in diesem
-      // Browser wird bewusst nicht übernommen.
+      // Noch nie gewählt = DEFAULT_START_PAGE. Die Wahl eines früheren
+      // Kontos in diesem Browser wird bewusst nicht übernommen.
       const page = isStartPage(data?.start_page) ? data.start_page : DEFAULT_START_PAGE;
-      // Als abgeglichen merken (auch "noch nie gewählt" = Tipps), damit
+      // Als abgeglichen merken (auch "noch nie gewählt"), damit
       // erst eine echte Änderung auf diesem Gerät gespeichert wird.
       synced.start_page = JSON.stringify(page);
       setStartPageState(page);

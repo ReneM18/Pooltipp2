@@ -4,13 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useDuels } from "@/lib/DuelsContext";
 import { TIPPRUNDEN_ENABLED } from "@/lib/types";
+import { MATCHCENTER_FIRST } from "@/lib/startPage";
 import { isFriendsArea } from "@/components/FriendsTabs";
 
 // Logisch gruppiert: erst die eigene Spiel-Schleife (Tippen, Spiele,
 // Fortschritt), danach alles Community-Bezogene (Rangliste, Feed, Freunde).
 // Der Prämien-Shop hat jetzt sein eigenes Icon oben in der Navbar, direkt
 // bei der Sterne-Anzeige – daher hier nicht mehr als Tab.
-const tabs = [
+const allTabs = [
   { href: "/", label: "Tipps" },
   { href: "/matchcenter", label: "Matchcenter" },
   // Reihenfolge wie unten am Handy (BottomNav): erst Rangliste, dann Pass
@@ -21,6 +22,9 @@ const tabs = [
   // 27.10.2026), darum hier nur noch ein Punkt.
   { href: "/freunde", label: "Freunde" },
 ];
+
+// Matchcenter zuerst, Tipps als zweites (Schalter in lib/startPage.ts).
+const tabs = MATCHCENTER_FIRST ? [allTabs[1], allTabs[0], ...allTabs.slice(2)] : allTabs;
 
 export default function NavTabs() {
   const pathname = usePathname();

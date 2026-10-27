@@ -22,13 +22,13 @@ import { DayGroup, deadlineText, groupMatchesByDay } from "@/lib/dayGroups";
 import { HomeTab, autoHomeTab, homeTabOf, splitHomeTabs } from "@/lib/matchTabs";
 import { displayOrder } from "@/lib/teamOrder";
 import { useStreak } from "@/lib/streak";
-import { readPendingInvite } from "@/lib/leagueInvite";
+import { useStartExperience } from "@/lib/useStartExperience";
 import { useMyClubs } from "@/lib/clubs";
 import { peekLiveScore, useLiveStoreVersion } from "@/lib/useLiveScores";
 import { isLiveFinished } from "@/lib/liveScores";
 
 export default function DashboardPage() {
-  const { placeTip, refreshStars, isRegistered, startDone, authUserId, sessionChecked } = useUser();
+  const { placeTip, refreshStars, authUserId, sessionChecked } = useUser();
   const { reloadJokers } = useJokers();
   const { orderFor, matches, getTeam, tipCounts, withdrawTip, myTips, myTipsLoaded, contentLoaded, matchesLoadFailed } = useAppData();
   const streak = useStreak();
@@ -39,14 +39,8 @@ export default function DashboardPage() {
   const { clubs: myClubs, playForClubs } = useMyClubs(authUserId);
   const router = useRouter();
 
-  // Neu registriert (noch kein Tipp, Start-Erlebnis weder fertig noch
-  // übersprungen): einmal zum Start-Erlebnis. Nicht, wenn man gerade über
-  // einen Tipprunden-Link kommt.
-  useEffect(() => {
-    if (!isRegistered || startDone !== false || !myTipsLoaded || myTips.length > 0) return;
-    if (readPendingInvite()) return;
-    router.replace("/start");
-  }, [isRegistered, startDone, myTipsLoaded, myTips.length, router]);
+  // Neue Spieler: einmal zum Start-Erlebnis.
+  useStartExperience();
 
   // Vom Start-Erlebnis vorgeschlagenes Spiel (/?spiel=…): hinrollen und
   // kurz umranden.

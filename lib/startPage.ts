@@ -10,6 +10,13 @@
 // Klick aufs Logo bzw. "Weiter/Zurück zu PoolTipp" (useStartHref). Der
 // Menüpunkt "Tipps" und direkte Links (z. B. /?spiel=… vom Start-Erlebnis,
 // "Zu den Spielen" oder Tipprunden-Einladungen) führen weiter zu den Tipps.
+// Gäste bleiben immer bei den Tipps.
+
+/** Schalter (Rene, 27.10.2026): Matchcenter ist Startseite und erster
+ *  Menüpunkt, Tipps der zweite. Auf false stellen = alles wie vorher (Tipps
+ *  zuerst und Startseite). Wer im Profil selbst eine Startseite gewählt hat,
+ *  behält sie so oder so. */
+export const MATCHCENTER_FIRST = true;
 
 export const START_PAGES = [
   { href: "/", label: "Tipps", icon: "🎯" },
@@ -20,7 +27,8 @@ export const START_PAGES = [
 
 export type StartPage = (typeof START_PAGES)[number]["href"];
 
-export const DEFAULT_START_PAGE: StartPage = "/";
+/** Startseite für eingeloggte Spieler, die im Profil nichts gewählt haben. */
+export const DEFAULT_START_PAGE: StartPage = MATCHCENTER_FIRST ? "/matchcenter" : "/";
 
 export const START_PAGE_STORAGE_KEY = "pooltipp_startseite";
 
@@ -30,7 +38,8 @@ export function isStartPage(value: unknown): value is StartPage {
 
 // Der Browser merkt sich die Wahl zusammen mit dem Konto ("<user-id>|<seite>"),
 // damit ein anderes Konto oder ein neuer Spieler auf demselben Gerät nie die
-// Wahl eines anderen bekommt. Ohne Wahl gilt immer Tipps.
+// Wahl eines anderen bekommt. Ohne Wahl gilt DEFAULT_START_PAGE; nur eine
+// Wahl, die davon abweicht, wird gemerkt (auch "/" = Tipps).
 export function readLocalStartPage(userId: string): StartPage {
   try {
     const [owner, value] = (localStorage.getItem(START_PAGE_STORAGE_KEY) ?? "").split("|");
@@ -49,13 +58,16 @@ export function writeLocalStartPage(page: StartPage | null, userId: string | nul
   }
 }
 
-/** Läuft im <head> vor allem anderen (siehe app/layout.tsx). Springt nur,
- *  wenn die gemerkte Wahl zum gerade eingeloggten Konto gehört (Supabase
- *  speichert die Sitzung unter "sb-…-auth-token"); Gäste und neue Spieler
- *  bleiben bei den Tipps. */
+/** Läuft im <head> vor allem anderen (siehe app/layout.tsx). Nur für
+ *  eingeloggte Spieler (Supabase speichert die Sitzung unter
+ *  "sb-…-auth-token"): die gemerkte Wahl, wenn sie zu diesem Konto gehört,
+ *  sonst DEFAULT_START_PAGE. Gäste bleiben bei den Tipps. Neue Spieler
+ *  schickt die Zielseite weiter zum Start-Erlebnis (useStartExperience). */
 export function startPageBootScript(): string {
-  const allowed = START_PAGES.map((p) => p.href).filter((h) => h !== DEFAULT_START_PAGE);
-  return `(function(){try{var l=location;if(l.pathname!=="/"||l.search||l.hash)return;var s=(localStorage.getItem(${JSON.stringify(
+  const allowed = START_PAGES.map((p) => p.href);
+  return `(function(){try{var l=location;if(l.pathname!=="/"||l.search||l.hash)return;var u=null;for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)){var t=JSON.parse(localStorage.getItem(k)||"null");u=t&&t.user&&t.user.id;break;}}if(!u)return;var s=(localStorage.getItem(${JSON.stringify(
     START_PAGE_STORAGE_KEY
-  )})||"").split("|");if(s.length!==2||${JSON.stringify(allowed)}.indexOf(s[1])<0)return;var u=null;for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(/^sb-.*-auth-token$/.test(k)){var t=JSON.parse(localStorage.getItem(k)||"null");u=t&&t.user&&t.user.id;break;}}if(u&&u===s[0])l.replace(s[1]);}catch(e){}})();`;
+  )})||"").split("|");var p=s.length===2&&s[0]===u&&${JSON.stringify(allowed)}.indexOf(s[1])>=0?s[1]:${JSON.stringify(
+    DEFAULT_START_PAGE
+  )};if(p!=="/")l.replace(p);}catch(e){}})();`;
 }

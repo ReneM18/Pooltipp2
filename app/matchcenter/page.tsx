@@ -58,6 +58,7 @@ import { liveTipLabel } from "@/lib/liveTipText";
 import { appTeamName } from "@/lib/teamApiNames";
 import { isMatchTippable, tipCardHref } from "@/lib/matchcenterLink";
 import Link from "next/link";
+import { useStartExperience } from "@/lib/useStartExperience";
 
 // Eigene Vereinsnamen statt API-Namen (Rene, 27.10.2026, lib/teamApiNames.ts).
 function useApiTeamName(sport: Sport | undefined): (apiName: string) => string {
@@ -74,6 +75,8 @@ const LEAGUES = Object.keys(LEAGUE_IDS);
 const CURRENT_SEASON = getCurrentSeason();
 
 export default function MatchcenterPage() {
+  // Neue Spieler: einmal zum Start-Erlebnis (das Matchcenter ist Startseite).
+  useStartExperience();
   const [league, setLeague] = useState(LEAGUES[0]);
   const [view, setView] = useState<"ergebnisse" | "tabelle">("tabelle");
   const [standings, setStandings] = useState<StandingRow[] | null>(null);
@@ -299,9 +302,9 @@ function liveLeagueFlag(sport: Sport, g: LiveGame, competitions: Parameters<type
 
 // Oben: "Heute N Tippspiele" mit Sprung zur Tipps-Seite (Rene, 27.10.2026).
 // Alle Sportarten, nur Spiele mit Anstoß heute (Wiener Zeit). Ohne
-// Tippspiele heute kein Kasten.
+// Tippspiele heute stehen die nächsten Tippspiele da (NextTipsBox).
 function TodayTipsBox() {
-  const { matches, getTeam, myTips, contentLoaded } = useAppData();
+  const { matches, getTeam, myTips, contentLoaded, orderFor } = useAppData();
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
     setNow(Date.now());
@@ -320,8 +323,65 @@ function TodayTipsBox() {
       !!getTeam(m.homeTeamId) &&
       !!getTeam(m.awayTeamId),
   );
-  if (list.length === 0) return null;
   const tipped = new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId));
+  if (list.length === 0) {
+    const next = matches
+      .filter(
+        (m) =>
+          !m.draft &&
+          m.status !== "cancelled" &&
+          isSportActive(m.sport) &&
+          isMatchTippable(m, now) &&
+          !!getTeam(m.homeTeamId) &&
+          !!getTeam(m.awayTeamId),
+      )
+      .sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime())
+      .slice(0, 3);
+    if (next.length === 0) return null;
+    return (
+      <section className="mb-4 rounded-card border border-gold/40 bg-gold/5 px-3 py-2.5 sm:px-4">
+        <div className="mb-1.5 flex items-baseline justify-between gap-3">
+          <h2 className="font-display text-sm font-bold text-ink">Deine nächsten Tippspiele</h2>
+          <Link href="/" className="shrink-0 text-xs font-semibold text-gold hover:opacity-80">
+            Alle Tipps ›
+          </Link>
+        </div>
+        <ul className="flex flex-col">
+          {next.map((m) => {
+            const [a, b] = displayOrder(orderFor(m), getTeam(m.homeTeamId)!, getTeam(m.awayTeamId)!);
+            const when = new Date(m.kickoff).toLocaleString("de-AT", {
+              weekday: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+              timeZone: "Europe/Vienna",
+            });
+            const done = tipped.has(m.id);
+            return (
+              <li key={m.id}>
+                <Link
+                  href={tipCardHref(m.id)}
+                  className="flex min-h-11 items-center gap-2.5 border-t border-edge/60 py-1.5 text-sm first:border-t-0"
+                >
+                  <Emoji e={SPORT_ICONS[m.sport]} />
+                  <span className="min-w-0 flex-1 truncate font-semibold text-ink">
+                    {a.name} – {b.name}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted">{when}</span>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                      done ? "bg-action/15 text-action" : "bg-gold/15 text-gold"
+                    }`}
+                  >
+                    {done ? "✓ Getippt" : "Tippen"}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    );
+  }
   const open = list.filter((m) => !tipped.has(m.id) && isMatchTippable(m, now)).length;
   const sports = Array.from(new Set(list.map((m) => m.sport)));
   return (

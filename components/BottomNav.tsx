@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useDuels } from "@/lib/DuelsContext";
 import { TIPPRUNDEN_ENABLED } from "@/lib/types";
+import { MATCHCENTER_FIRST } from "@/lib/startPage";
 import { isFriendsArea } from "@/components/FriendsTabs";
 
 // Feste Leiste unten am Handy/Tablet (bis lg:), wie in Sport-Apps üblich.
@@ -16,7 +17,7 @@ import { isFriendsArea } from "@/components/FriendsTabs";
 
 type Item = { href: string; label: string; icon: React.ReactNode };
 
-const MAIN: Item[] = [
+const ITEMS: Item[] = [
   {
     href: "/",
     label: "Tipps",
@@ -43,6 +44,9 @@ const MAIN: Item[] = [
     icon: <path d="M4 7h16v10H4z M8 7v10 M14 10l.9 1.8 2 .3-1.45 1.4.35 2-1.8-1-1.8 1 .35-2-1.45-1.4 2-.3z" />,
   },
 ];
+
+// Matchcenter zuerst, Tipps als zweites (Schalter in lib/startPage.ts).
+const MAIN: Item[] = MATCHCENTER_FIRST ? [ITEMS[1], ITEMS[0], ...ITEMS.slice(2)] : ITEMS;
 
 // Reihenfolge der Hauptseiten – auch fürs Wischen am Handy (SwipeNav).
 export const MAIN_HREFS = MAIN.map((it) => it.href);
