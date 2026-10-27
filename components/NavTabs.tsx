@@ -55,6 +55,9 @@ export default function NavTabs() {
             <Link
               key={tab.href}
               href={tab.href}
+              // "Spiele" nochmal antippen: Matchcenter zurück auf "Heute"
+              // (Rene, 27.10.2026), siehe app/matchcenter/page.tsx.
+              onClick={tab.href === "/matchcenter" ? () => window.dispatchEvent(new Event("pooltipp:spiele")) : undefined}
               className={`relative flex shrink-0 items-center px-3 py-3.5 font-display text-lg font-semibold tracking-wide transition-colors lg:px-2.5 lg:text-base xl:px-4 xl:text-lg ${
                 isActive ? "text-ink" : "text-muted hover:text-ink"
               }`}

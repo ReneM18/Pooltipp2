@@ -208,6 +208,9 @@ export default function BottomNav() {
               <Link
                 key={it.href}
                 href={it.href}
+                // "Spiele" nochmal antippen: Matchcenter zurück auf "Heute"
+                // (Rene, 27.10.2026), siehe app/matchcenter/page.tsx.
+                onClick={it.href === "/matchcenter" ? () => window.dispatchEvent(new Event("pooltipp:spiele")) : undefined}
                 aria-current={active ? "page" : undefined}
                 className={`relative flex h-16 flex-1 flex-col items-center justify-center gap-1 whitespace-nowrap font-display text-[10px] font-semibold min-[360px]:text-[11px] transition-colors ${
                   active ? "text-gold" : "text-muted hover:text-ink"
