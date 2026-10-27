@@ -103,10 +103,10 @@ export default function MatchcenterPage() {
   }, [league, view, retryCount]);
 
   return (
-    // Am Handy kompakt (Rene, 27.10.2026): Spiele sollen gleich oben stehen,
-    // darum ohne große Überschrift und mit wenig Abstand.
-    <main className="mx-auto max-w-3xl lg:max-w-6xl px-4 pt-3 pb-8 sm:px-5 sm:py-8">
-      <h1 className="sr-only font-display text-xl font-bold text-ink sm:not-sr-only sm:mb-4 sm:block sm:text-2xl">Matchcenter</h1>
+    // Kompakt (Rene, 27.10.2026, Variante C): Spiele sollen gleich oben
+    // stehen, darum ohne sichtbare Überschrift und mit wenig Abstand.
+    <main className="mx-auto max-w-3xl lg:max-w-6xl px-4 pt-3 pb-8 sm:px-5 sm:pt-4">
+      <h1 className="sr-only">Matchcenter</h1>
 
       <TodayTipsBox />
 
@@ -307,15 +307,16 @@ function liveLeagueFlag(sport: Sport, g: LiveGame, competitions: Parameters<type
 // Oben: "Heute N Tippspiele" mit Sprung zur Tipps-Seite (Rene, 27.10.2026).
 // Alle Sportarten, nur Spiele mit Anstoß heute (Wiener Zeit). Ohne
 // Tippspiele heute stehen die nächsten Tippspiele da (NextTipsBox).
-function TodayTipsBox() {
-  const { matches, getTeam, myTips, contentLoaded, orderFor } = useAppData();
+// Tippspiele von heute (Wiener Zeit), null solange die echten Spiele noch
+// nicht geladen sind (vorher stehen Demo-Spiele im Speicher).
+function useTodayTips() {
+  const { matches, getTeam, myTips, contentLoaded } = useAppData();
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
     setNow(Date.now());
     const t = setInterval(() => setNow(Date.now()), 60 * 1000);
     return () => clearInterval(t);
   }, []);
-  // Erst mit den echten Spielen (vorher stehen Demo-Spiele im Speicher).
   if (now === null || !contentLoaded) return null;
   const today = viennaDate(now);
   const list = matches.filter(
@@ -328,6 +329,42 @@ function TodayTipsBox() {
       !!getTeam(m.awayTeamId),
   );
   const tipped = new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId));
+  const open = list.filter((m) => !tipped.has(m.id) && isMatchTippable(m, now)).length;
+  return { now, list, tipped, open };
+}
+
+// Kleines Kästchen "🎯 7 · 5 offen ›" oben in der Reihe der Sportarten
+// (Rene, 27.10.2026: Variante C), führt zu den Tipps.
+function TodayTipsMini() {
+  const today = useTodayTips();
+  if (!today || today.list.length === 0) return null;
+  const { list, open } = today;
+  return (
+    <Link
+      href="/"
+      className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-gold/40 bg-gold/5 px-2.5 py-1 text-xs transition-colors hover:border-gold"
+      aria-label={`Heute ${list.length} Tippspiele, ${open} offen – zu den Tipps`}
+    >
+      <span aria-hidden>🎯</span>
+      <span className="font-display font-bold text-ink">
+        {list.length}
+        <span className="hidden sm:inline"> {list.length === 1 ? "Tippspiel" : "Tippspiele"}</span>
+      </span>
+      {open > 0 && <span className="font-semibold text-gold">· {open} offen</span>}
+      <span className="font-bold text-gold" aria-hidden>
+        ›
+      </span>
+    </Link>
+  );
+}
+
+function TodayTipsBox() {
+  const { getTeam, matches, orderFor } = useAppData();
+  const today = useTodayTips();
+  if (!today) return null;
+  const { now, list, tipped, open } = today;
+  // Mit Live-Bereich steht das Kästchen dort klein oben (TodayTipsMini).
+  if (list.length > 0 && LIVE_SPORT) return null;
   if (list.length === 0) {
     const next = matches
       .filter(
@@ -386,7 +423,6 @@ function TodayTipsBox() {
       </section>
     );
   }
-  const open = list.filter((m) => !tipped.has(m.id) && isMatchTippable(m, now)).length;
   const sports = Array.from(new Set(list.map((m) => m.sport)));
   return (
     <Link
@@ -442,21 +478,21 @@ function LiveCenter() {
     setTargetId(null);
     setSport(s);
   };
-  // Sportart in derselben Reihe wie die Reiter (Rene, 27.10.2026): ab md:
-  // als Knöpfe (Namen ab lg:), am Handy als kleines Auswahlfeld, damit alles
-  // in eine Reihe passt.
-  const switcher =
-    LIVE_SPORTS.length > 1 ? (
-      <>
-        <div className="hidden gap-1.5 md:flex" role="tablist" aria-label="Sportart">
+  // Oben eine Reihe (Rene, 27.10.2026, Variante C): die Sportarten einzeln
+  // (Namen erst ab lg:), rechts das kleine Tippspiel-Kästchen.
+  const switcher = (
+    <div className="mb-2 flex items-center gap-1.5 sm:mb-3">
+      {LIVE_SPORTS.length > 1 && (
+        <div className="flex gap-1.5" role="tablist" aria-label="Sportart">
           {LIVE_SPORTS.map((s) => (
             <button
               key={s}
               type="button"
               role="tab"
               aria-selected={sport === s}
+              aria-label={sportLabel(s)}
               onClick={() => pick(s)}
-              className={`rounded-full border px-2.5 py-0.5 text-[12px] font-semibold transition-colors ${
+              className={`flex min-h-8 items-center gap-1 rounded-full border px-2.5 text-[13px] font-semibold transition-colors ${
                 sport === s ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
               }`}
             >
@@ -464,28 +500,10 @@ function LiveCenter() {
             </button>
           ))}
         </div>
-        {/* Sichtbar nur das Zeichen der Sportart; das unsichtbare
-            Auswahlfeld darüber öffnet die Liste mit Namen. */}
-        <label className="relative flex items-center gap-1 rounded-full border border-gold bg-gold/10 px-2.5 py-1 text-[13px] font-semibold text-gold md:hidden">
-          <Emoji e={SPORT_ICONS[sport]} />
-          <span className="text-[9px]" aria-hidden>
-            ▼
-          </span>
-          <select
-            value={sport}
-            onChange={(e) => pick(e.target.value as Sport)}
-            aria-label="Sportart"
-            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-          >
-            {LIVE_SPORTS.map((s) => (
-              <option key={s} value={s}>
-                {SPORT_ICONS[s]} {sportLabel(s)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </>
-    ) : null;
+      )}
+      <TodayTipsMini />
+    </div>
+  );
   return (
     <LiveCenterSection key={sport} sport={sport} switcher={switcher} target={target?.sport === sport ? target : null} />
   );
@@ -644,8 +662,9 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
 
   return (
     <section className="mb-6 sm:rounded-card sm:border sm:border-edge sm:bg-surface sm:px-4 sm:pt-3 sm:pb-4">
-      {/* Eine Reihe (Rene, 27.10.2026): Reiter links, Sportart rechts, ohne
-          eigene Überschrift. */}
+      {/* Oben Sportarten + Tippspiel-Kästchen, darunter die Reiter, ohne
+          eigene Überschrift (Rene, 27.10.2026, Variante C). */}
+      {switcher}
       <div className="mb-3 flex items-center gap-3 border-b border-edge sm:mb-4 sm:gap-4">
         <SubTab
           label="Heute"
@@ -671,7 +690,6 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
         />
         <SubTab label="Ergebnisse" active={view === "ergebnisse"} onClick={() => setView("ergebnisse")} />
         <SubTab label="Tabelle" active={view === "tabelle"} onClick={() => setView("tabelle")} />
-        {switcher && <div className="ml-auto shrink-0 py-1.5">{switcher}</div>}
       </div>
 
       {view === "tabelle" ? (
@@ -1090,7 +1108,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       type="button"
       onClick={() => onSelect(game.id)}
       aria-pressed={selected}
-      className={`relative w-full overflow-hidden rounded-card border bg-surface px-3 py-2 text-left transition-colors sm:pl-4 sm:pb-2.5 sm:pt-3 ${
+      className={`relative w-full overflow-hidden rounded-card border bg-surface px-3 py-2 text-left transition-colors sm:pl-4 ${
         moved ? "motion-safe:animate-lc-row-in" : ""
       } ${
         selected ? "border-gold" : "border-muted/25 hover:border-muted/50"
@@ -1106,7 +1124,10 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             {status.dot && <StateDot state={status.dot} />}
             <span className="min-w-0 truncate">{status.main}</span>
           </span>
-          {status.sub && <span className="truncate text-[10px] leading-tight text-muted">{status.sub}</span>}
+          {/* "heute" steht schon im Reiter, nur "morgen"/"gestern" zeigen (Rene, 27.10.2026: flachere Zeilen). */}
+          {status.sub && status.sub !== "heute" && (
+            <span className="truncate text-[10px] leading-tight text-muted">{status.sub}</span>
+          )}
           {tipped && <span className="truncate text-[10px] font-semibold leading-tight text-gold">Getippt</span>}
           {/* Tippspiel, noch nicht getippt (Rene, 27.10.2026). */}
           {tippable && (
