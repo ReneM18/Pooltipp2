@@ -3,21 +3,31 @@
 import { useAppData } from "@/lib/AppDataContext";
 import { SPORTS, SPORT_ICONS, sportLabel } from "@/lib/types";
 import Emoji from "@/components/Emoji";
+import type { SportCardStat } from "@/lib/sportBio";
 
 // Trefferquote pro Sportart im Profil (Rene, 27.10.2026: früher Premium-
 // Belohnung im Saison-Pass, jetzt für alle). Anteil exakter Tipps an den
-// ausgewerteten Tipps, aus den eigenen echten Tipps.
-export default function HitRateBySport() {
+// ausgewerteten Tipps. Zahlen aus der dauerhaften Tipp-Statistik
+// (tip_stats über sport_card_stats), damit gelöschte Spiele nicht fehlen
+// (Rene, 27.10.2026: "alles ohne Statistik"). Nur ohne die Zahlen aus der
+// Datenbank (Gast, lädt noch) wird aus den Tipps im Speicher gerechnet.
+export default function HitRateBySport({ stats }: { stats: SportCardStat[] | null }) {
   const { countingTips, matches } = useAppData();
   const bySport: Partial<Record<string, { exakt: number; total: number }>> = {};
-  for (const tip of countingTips) {
-    if (!tip.evaluated || tip.refunded) continue;
-    const sport = matches.find((m) => m.id === tip.matchId)?.sport;
-    if (!sport) continue;
-    const entry = bySport[sport] ?? { exakt: 0, total: 0 };
-    entry.total += 1;
-    if (tip.resultTier === "exakt") entry.exakt += 1;
-    bySport[sport] = entry;
+  if (stats) {
+    for (const st of stats) {
+      if ((st.evaluated ?? 0) > 0) bySport[st.sport] = { exakt: st.exakt ?? 0, total: st.evaluated ?? 0 };
+    }
+  } else {
+    for (const tip of countingTips) {
+      if (!tip.evaluated || tip.refunded) continue;
+      const sport = matches.find((m) => m.id === tip.matchId)?.sport;
+      if (!sport) continue;
+      const entry = bySport[sport] ?? { exakt: 0, total: 0 };
+      entry.total += 1;
+      if (tip.resultTier === "exakt") entry.exakt += 1;
+      bySport[sport] = entry;
+    }
   }
   const sports = SPORTS.filter((s) => (bySport[s]?.total ?? 0) > 0);
 

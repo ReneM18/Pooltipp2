@@ -53,20 +53,25 @@ export const MAIN_HREFS = MAIN.map((it) => it.href);
 
 type MoreItem = { href: string; emoji: string; label: string; hint: string };
 
-// Zwei Spalten im Mehr-Fenster: links alles zum Mitspielen (Freunde mit
-// Feed und Duelle als Reitern, Rene 27.10.2026), rechts der Shop.
+// Zwei Spalten im Mehr-Fenster: links alles zum Mitspielen, rechts Freunde
+// (mit Feed als Reiter) und Shop. Duelle hat wieder einen eigenen Punkt
+// (Rene, 27.10.2026: "die Duelle sind weg"), zusätzlich bleibt der Reiter
+// Duelle im Bereich Freunde.
 const MORE_COLUMNS: { title: string; items: MoreItem[] }[] = [
   {
     title: "Spielen",
     items: [
-      { href: "/freunde", emoji: "👥", label: "Freunde", hint: "Duelle, Feed & Chat" },
+      { href: "/duelle", emoji: "⚔️", label: "Duelle", hint: "Gegen Freunde" },
       { href: "/teams", emoji: "🤝", label: "Tipprunden", hint: "Private Runden" },
       { href: "/turnier", emoji: "🏆", label: "Turniere", hint: "WM, EM & Co." },
     ].filter((m) => TIPPRUNDEN_ENABLED || m.href !== "/teams"),
   },
   {
-    title: "Shop",
-    items: [{ href: "/shop", emoji: "🛒", label: "Shop", hint: "Joker & Taschen" }],
+    title: "Freunde & Shop",
+    items: [
+      { href: "/freunde", emoji: "👥", label: "Freunde", hint: "Feed & Chat" },
+      { href: "/shop", emoji: "🛒", label: "Shop", hint: "Joker & Taschen" },
+    ],
   },
 ];
 const MORE = MORE_COLUMNS.flatMap((c) => c.items);
@@ -158,8 +163,9 @@ export default function BottomNav() {
             <div className="grid auto-rows-fr grid-cols-2 gap-x-3 gap-y-2">
               {Array.from({ length: MORE_ROWS }).flatMap((_, row) => MORE_COLUMNS.map((col) => col.items[row])).map((m, i) => {
                 if (!m) return <div key={`leer-${i}`} aria-hidden />;
-                const active = m.href === "/freunde" ? isFriendsArea(pathname) : pathname.startsWith(m.href);
-                const hasInvites = m.href === "/freunde" && invites > 0;
+                const active =
+                  m.href === "/freunde" ? pathname.startsWith("/freunde") || pathname.startsWith("/feed") : pathname.startsWith(m.href);
+                const hasInvites = m.href === "/duelle" && invites > 0;
                 return (
                   <Link
                     key={m.href}

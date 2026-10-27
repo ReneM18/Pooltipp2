@@ -1089,7 +1089,10 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const hasScore = game.homeScore !== null && game.awayScore !== null && game.status !== "NS";
   const flash = useGoalFlash(game.id, hasScore ? `${game.homeScore}:${game.awayScore}` : null);
   const tipped = isTipped(game);
-  const tippable = !tipped && canTip(game);
+  // Tippschluss noch nicht vorbei: Countdown rechts, getippt oder nicht
+  // (Rene, 27.10.2026: "kein Countdown vor dem Spiel"). "Tippen" nur ungetippt.
+  const open = canTip(game);
+  const tippable = !tipped && open;
   const selected = selectedId === game.id;
   const link = links.get(game.id);
   const teamName = useApiTeamName(sport);
@@ -1139,7 +1142,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           <FitText text={homeName} maxLines={2} minPx={12} className="leading-tight text-ink" />
           <FitText text={awayName} maxLines={2} minPx={12} className="leading-tight text-ink" />
         </span>
-        {tippable && link ? (
+        {open && link ? (
           <TipCountdown deadline={link.match.tipDeadline} />
         ) : (
           <span
@@ -1157,8 +1160,9 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   );
 }
 
-// Offenes Tippspiel: rechts statt der Striche ein laufender Countdown bis
-// Tippschluss (Rene, 27.10.2026). Letzte 30 Min. orange mit ⏰.
+// Tippspiel vor Tippschluss: rechts statt der Striche ein laufender
+// Countdown bis Tippschluss, auch wenn schon getippt (Rene, 27.10.2026).
+// Letzte 30 Min. orange mit ⏰.
 function TipCountdown({ deadline }: { deadline: string }) {
   const target = Date.parse(deadline);
   const [now, setNow] = useState<number | null>(null);

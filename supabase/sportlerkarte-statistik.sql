@@ -14,6 +14,11 @@
 -- zurückgenommener offener Tipp und ein erstatteter Tipp (Spiel abgesagt)
 -- fallen heraus.
 --
+-- Für den Tipp-Typ (supabase/tipp-typ.sql, Rene 27.10.2026: "Tipptyp ohne
+-- Statistik") stehen dazu auch der getippte Spielstand, Tippmodus,
+-- Tippschluss und die beiden Vereine in tip_stats, so rechnet auch der
+-- Tipp-Typ nach dem Löschen von Spielen weiter.
+--
 -- Einmalig werden alle bisherigen Tipps übernommen. Bei Tipps, deren Spiel
 -- schon gelöscht ist, wird die Sportart aus dem Feed-Eintrag "hat beim
 -- Spiel ... getippt" geholt (dessen Symbol ⚽/🏈/🏀/🏒 nennt die Sportart).
@@ -44,6 +49,13 @@ create table if not exists public.tip_stats (
   result_tier text,
   updated_at timestamptz not null default now()
 );
+-- Seit 27.10.2026 (Tipp-Typ): Tipp selbst und Angaben zum Spiel.
+alter table public.tip_stats add column if not exists predicted_home int;
+alter table public.tip_stats add column if not exists predicted_away int;
+alter table public.tip_stats add column if not exists tip_mode text;
+alter table public.tip_stats add column if not exists deadline timestamptz;
+alter table public.tip_stats add column if not exists home_id text;
+alter table public.tip_stats add column if not exists away_id text;
 create index if not exists tip_stats_user_idx on public.tip_stats(user_id, sport);
 create index if not exists tip_stats_match_idx on public.tip_stats(match_id);
 alter table public.tip_stats enable row level security;
@@ -60,6 +72,24 @@ as $$
   select coalesce(nullif(p_data ->> 'sport', ''), 'Fußball');
 $$;
 
+-- Tippmodus und Tippschluss eines Spiels (für den Tipp-Typ). Ohne Spiel
+-- (schon gelöscht) bleibt beides leer.
+create or replace function public.tip_stats_mode_of(p_data jsonb)
+returns text
+language sql
+immutable
+as $$
+  select case when p_data is null then null else coalesce(nullif(p_data ->> 'tipMode', ''), 'score') end;
+$$;
+
+create or replace function public.tip_stats_deadline_of(p_data jsonb)
+returns timestamptz
+language sql
+stable
+as $$
+  select coalesce(public.try_timestamptz(p_data ->> 'tipDeadline'), public.try_timestamptz(p_data ->> 'kickoff'));
+$$;
+
 -- ----------------------------------------------------------------------------
 -- 2) Im Hintergrund nachführen
 -- ----------------------------------------------------------------------------
@@ -70,6 +100,7 @@ security definer set search_path = public
 as $$
 declare
   v_sport text;
+  v_data jsonb;
 begin
   if tg_op = 'DELETE' then
     -- Zurückgenommene offene Tipps fallen raus, ausgewertete bleiben.
@@ -80,17 +111,27 @@ begin
     delete from public.tip_stats where tip_id = new.id;
     return new;
   end if;
-  select public.tip_stats_sport_of(m.data) into v_sport
+  select m.data, public.tip_stats_sport_of(m.data) into v_data, v_sport
   from public.matches m where m.id = new.match_id;
   insert into public.tip_stats as s
-    (tip_id, user_id, match_id, sport, submitted_at, evaluated, result_tier)
+    (tip_id, user_id, match_id, sport, submitted_at, evaluated, result_tier,
+     predicted_home, predicted_away, tip_mode, deadline, home_id, away_id)
   values
-    (new.id, new.user_id, new.match_id, v_sport, new.submitted_at, new.evaluated, new.result_tier)
+    (new.id, new.user_id, new.match_id, v_sport, new.submitted_at, new.evaluated, new.result_tier,
+     new.predicted_home_score, new.predicted_away_score,
+     public.tip_stats_mode_of(v_data), public.tip_stats_deadline_of(v_data),
+     v_data ->> 'homeTeamId', v_data ->> 'awayTeamId')
   on conflict (tip_id) do update set
     sport = coalesce(excluded.sport, s.sport),
     submitted_at = excluded.submitted_at,
     evaluated = excluded.evaluated,
     result_tier = excluded.result_tier,
+    predicted_home = excluded.predicted_home,
+    predicted_away = excluded.predicted_away,
+    tip_mode = coalesce(excluded.tip_mode, s.tip_mode),
+    deadline = coalesce(excluded.deadline, s.deadline),
+    home_id = coalesce(excluded.home_id, s.home_id),
+    away_id = coalesce(excluded.away_id, s.away_id),
     updated_at = now();
   return new;
 end;
@@ -101,15 +142,26 @@ create trigger tip_stats_sync
   after insert or update or delete on public.tips
   for each row execute function public.tip_stats_sync();
 
--- Ändert der Admin die Sportart eines Spiels, zieht die Statistik mit.
+-- Ändert der Admin Sportart, Tippmodus, Tippschluss oder Vereine eines
+-- Spiels, zieht die Statistik mit.
 create or replace function public.tip_stats_match_sport()
 returns trigger
 language plpgsql
 security definer set search_path = public
 as $$
 begin
-  if public.tip_stats_sport_of(new.data) is distinct from public.tip_stats_sport_of(old.data) then
-    update public.tip_stats set sport = public.tip_stats_sport_of(new.data), updated_at = now()
+  if public.tip_stats_sport_of(new.data) is distinct from public.tip_stats_sport_of(old.data)
+     or public.tip_stats_mode_of(new.data) is distinct from public.tip_stats_mode_of(old.data)
+     or public.tip_stats_deadline_of(new.data) is distinct from public.tip_stats_deadline_of(old.data)
+     or (new.data ->> 'homeTeamId') is distinct from (old.data ->> 'homeTeamId')
+     or (new.data ->> 'awayTeamId') is distinct from (old.data ->> 'awayTeamId') then
+    update public.tip_stats
+    set sport = public.tip_stats_sport_of(new.data),
+        tip_mode = public.tip_stats_mode_of(new.data),
+        deadline = public.tip_stats_deadline_of(new.data),
+        home_id = new.data ->> 'homeTeamId',
+        away_id = new.data ->> 'awayTeamId',
+        updated_at = now()
     where match_id = new.id;
   end if;
   return new;
@@ -128,10 +180,14 @@ revoke all on function public.tip_stats_match_sport() from public, anon, authent
 -- 3) Einmalig: alle bisherigen Tipps übernehmen
 -- ----------------------------------------------------------------------------
 insert into public.tip_stats as s
-  (tip_id, user_id, match_id, sport, submitted_at, evaluated, result_tier)
+  (tip_id, user_id, match_id, sport, submitted_at, evaluated, result_tier,
+   predicted_home, predicted_away, tip_mode, deadline, home_id, away_id)
 select t.id, t.user_id, t.match_id,
        case when m.id is not null then public.tip_stats_sport_of(m.data) end,
-       t.submitted_at, t.evaluated, t.result_tier
+       t.submitted_at, t.evaluated, t.result_tier,
+       t.predicted_home_score, t.predicted_away_score,
+       public.tip_stats_mode_of(m.data), public.tip_stats_deadline_of(m.data),
+       m.data ->> 'homeTeamId', m.data ->> 'awayTeamId'
 from public.tips t
 left join public.matches m on m.id = t.match_id
 where t.refunded_at is null
@@ -140,6 +196,12 @@ on conflict (tip_id) do update set
   submitted_at = excluded.submitted_at,
   evaluated = excluded.evaluated,
   result_tier = excluded.result_tier,
+  predicted_home = excluded.predicted_home,
+  predicted_away = excluded.predicted_away,
+  tip_mode = coalesce(excluded.tip_mode, s.tip_mode),
+  deadline = coalesce(excluded.deadline, s.deadline),
+  home_id = coalesce(excluded.home_id, s.home_id),
+  away_id = coalesce(excluded.away_id, s.away_id),
   updated_at = now();
 
 -- Spiel schon gelöscht: Sportart aus dem Feed-Eintrag beim Tippen (gleicher
