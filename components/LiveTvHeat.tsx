@@ -99,8 +99,11 @@ function Gauge({ heat, trend }: { heat: number; trend: HeatTrend }) {
         />
       </svg>
       <span aria-hidden className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-display text-xl font-extrabold leading-none text-ink">{heat}</span>
-        <span className="mt-0.5 text-[9px] font-semibold text-muted">
+        {/* Keine Zahl im Kreis, sonst denkt man an Minuten (Rene, 27.10.2026). */}
+        <span className="text-xl leading-none">
+          <Emoji e={HEAT_LEVELS[level].emoji} />
+        </span>
+        <span className="mt-0.5 text-[10px] font-bold text-ink">
           {HEAT_LEVELS[level].label}
           {trend === "up" && <span className="text-red-400"> ▲</span>}
           {trend === "down" && <span className="text-sky-400"> ▼</span>}
@@ -139,15 +142,18 @@ export default function LiveTvHeat({
 
   const [info, setInfo] = useState(false);
   if (tiles.length === 0) return null;
+  // Empfehlung zum Einschalten am heißesten Spiel (Rene, 27.10.2026,
+  // Variante B), aber nur, wenn dort wirklich etwas los ist.
+  const recommend = tiles[0].heat >= 45;
   return (
-    <section className="mt-4 rounded-card border border-muted/25 bg-pitch/40 p-3 sm:p-4" aria-label="Live im TV">
+    <section className="mt-4 rounded-card border border-muted/25 bg-pitch/40 p-3 sm:p-4" aria-label="Was läuft gerade im TV?">
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <p className="font-display text-sm font-bold text-ink">
-          <Emoji e="📺" /> Live im TV
+          <Emoji e="📺" /> Was läuft gerade im TV?
         </p>
         <span className="flex items-center gap-2">
           <span className="text-[11px] text-muted">
-            {tiles.length} {tiles.length === 1 ? "Spiel" : "Spiele"} · heißestes zuerst
+            heißestes zuerst
           </span>
           {/* Info (Rene, 27.10.2026: "mach ein Info rein") */}
           <button
@@ -165,11 +171,11 @@ export default function LiveTvHeat({
       </div>
       {info && (
         <div className="mb-3 rounded-lg border border-edge bg-pitch/60 px-3 py-2.5 text-[12px] leading-relaxed text-muted">
-          <p className="mb-1.5 font-semibold text-ink">Welches Spiel lohnt sich gerade?</p>
+          <p className="mb-1.5 font-semibold text-ink">Welches Spiel lohnt sich gerade im TV?</p>
           <p>
-            Hier stehen alle laufenden Tippspiele, die im TV kommen. Der Tacho zeigt von 0 bis 100, wie viel gerade los ist:{" "}
-            <span className="text-red-400">Heiß</span> ab 70, <span className="text-amber-400">Spannend</span> ab 45,{" "}
-            <span className="text-yellow-400">Ruhig</span> ab 25, darunter <span className="text-sky-400">Fad</span>. Antippen zeigt das Spiel oben.
+            Hier stehen alle laufenden Tippspiele, die im TV kommen. Je voller der Kreis, desto mehr ist gerade los:{" "}
+            <span className="text-red-400">🔥 Heiß</span>, <span className="text-amber-400">⚡ Spannend</span>,{" "}
+            <span className="text-yellow-400">🙂 Ruhig</span> oder <span className="text-sky-400">😴 Fad</span>. Ist das heißeste Spiel mindestens „Spannend“, bekommt es „Lohnt sich jetzt“: dort einschalten. Antippen zeigt das Spiel oben.
           </p>
           <p className="mt-1.5">
             Gerechnet wird aus den Live-Zahlen: Schüsse (aufs Tor und aus dem Strafraum zählen mehr), Paraden, Ecken, Karten und
@@ -179,8 +185,9 @@ export default function LiveTvHeat({
           <p className="mt-1.5">Unten in jeder Kachel: Schüsse, Ecken und Karten beider Teams zusammen, xG = erwartete Tore. Neu alle 2 Minuten.</p>
         </div>
       )}
-      <div className="grid grid-cols-2 gap-2">
-        {tiles.map((t) => {
+      <div className={`grid grid-cols-2 gap-2 ${recommend ? "pt-2" : ""}`}>
+        {tiles.map((t, i) => {
+          const tip = recommend && i === 0;
           const sum = (k: "shots" | "corners" | "cards") => t.s.home[k] + t.s.away[k];
           const xg = t.s.home.xg !== null && t.s.away.xg !== null ? t.s.home.xg + t.s.away.xg : null;
           const selected = t.game.id === selectedId;
@@ -190,10 +197,19 @@ export default function LiveTvHeat({
               type="button"
               onClick={() => onSelect(t.game.id)}
               aria-pressed={selected}
-              className={`flex min-w-0 flex-col items-center gap-1.5 rounded-xl border p-2.5 text-center transition-colors ${
-                selected ? "border-muted/50 bg-surface-hover" : "border-edge bg-surface hover:bg-surface-hover"
+              className={`relative flex min-w-0 flex-col items-center gap-1.5 rounded-xl border p-2.5 text-center transition-colors ${
+                tip
+                  ? `border-red-500/70 shadow-[0_0_0_1px_rgba(239,68,68,0.25),0_0_18px_-6px_rgba(239,68,68,0.6)] ${selected ? "bg-surface-hover" : "bg-surface hover:bg-surface-hover"}`
+                  : selected
+                    ? "border-muted/50 bg-surface-hover"
+                    : "border-edge bg-surface hover:bg-surface-hover"
               }`}
             >
+              {tip && (
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-extrabold text-white">
+                  <Emoji e="🔥" /> Lohnt sich jetzt
+                </span>
+              )}
               <span className="max-w-full truncate rounded-md border border-edge px-1.5 text-[10px] font-bold text-muted">
                 {t.tv} · {t.game.statusText}
               </span>
@@ -205,6 +221,11 @@ export default function LiveTvHeat({
                 <span className="block truncate">{t.away}</span>
               </span>
               <Gauge heat={t.heat} trend={t.trend} />
+              {tip && (
+                <span className="text-[11px] font-bold leading-tight text-red-300">
+                  <Emoji e="📺" /> Jetzt auf {t.tv} einschalten
+                </span>
+              )}
               {/* Klar beschriftet statt nur Symbole (Rene, 27.10.2026). */}
               <span className="text-[10px] leading-snug text-muted">
                 <span className="block">
