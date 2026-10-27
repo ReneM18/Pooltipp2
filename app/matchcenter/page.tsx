@@ -233,7 +233,7 @@ function formatDate(iso: string): string {
   return y && m && d ? `${d}.${m}.${y}` : iso;
 }
 
-function SubTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function SubTab({ label, active, onClick }: { label: React.ReactNode; active: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -470,6 +470,9 @@ const byKickoff = (a: LiveGame, b: LiveGame) =>
 
 function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher?: React.ReactNode; target: Match | null }) {
   const [view, setView] = useState<LcView>("live");
+  // Reiter "Live" (Rene, 27.10.2026): nur laufende Spiele. "Heute" zeigt
+  // alle von heute (laufend, später, beendet). Beides ist die Ansicht "live".
+  const [onlyLive, setOnlyLive] = useState(false);
   const [today, setToday] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -603,6 +606,8 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
       </div>
     ) : null;
 
+  const runningCount = todayDay.games?.filter((g) => isLiveRunning(g.status)).length ?? 0;
+
   return (
     <section className="mb-6 rounded-card border border-edge bg-surface px-3 pt-3 pb-4 sm:px-4">
       <div className="flex items-center justify-between gap-2">
@@ -616,7 +621,27 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
       </div>
 
       <div className="mb-4 flex gap-4 border-b border-edge">
-        <SubTab label="Live" active={view === "live"} onClick={() => setView("live")} />
+        <SubTab
+          label="Heute"
+          active={view === "live" && !onlyLive}
+          onClick={() => {
+            setView("live");
+            setOnlyLive(false);
+          }}
+        />
+        <SubTab
+          label={
+            <span className="flex items-center gap-1.5">
+              <StateDot state="live" />
+              Live{runningCount > 0 ? ` (${runningCount})` : ""}
+            </span>
+          }
+          active={view === "live" && onlyLive}
+          onClick={() => {
+            setView("live");
+            setOnlyLive(true);
+          }}
+        />
         <SubTab label="Ergebnisse" active={view === "ergebnisse"} onClick={() => setView("ergebnisse")} />
         <SubTab label="Tabelle" active={view === "tabelle"} onClick={() => setView("tabelle")} />
       </div>
@@ -632,7 +657,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
         <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
           <div className="min-w-0">
             {view === "live" ? (
-              <LcLive games={todayDay.games} error={todayDay.error} dataAt={todayDay.dataAt} source={todayDay.source} loading={polling && todayDay.loading} onRetry={retry} {...listProps} />
+              <LcLive onlyLive={onlyLive} games={todayDay.games} error={todayDay.error} dataAt={todayDay.dataAt} source={todayDay.source} loading={polling && todayDay.loading} onRetry={retry} {...listProps} />
             ) : (
               <LcResults
                 today={today}
@@ -760,6 +785,7 @@ function groupByLeague(games: LiveGame[]): { league: string; games: LiveGame[] }
 }
 
 function LcLive({
+  onlyLive = false,
   games,
   error,
   dataAt,
@@ -768,6 +794,7 @@ function LcLive({
   onRetry,
   ...listProps
 }: ListProps & {
+  onlyLive?: boolean;
   games: LiveGame[] | null;
   error: string | null;
   dataAt: number;
@@ -788,24 +815,29 @@ function LcLive({
       />
     );
   }
-  // Reihenfolge (Rene, 15.10.2026): laufende oben (je Liga), darunter nicht
-  // begonnene nach Anstoßzeit ("ab 21:00"), ganz unten beendete unter
-  // "Beendet" (je Liga). Wechselt ein Spiel auf Beendet, wandert es nach
-  // unten; die Auswahl hängt an der Spiel-ID und bleibt daher erhalten.
-  // Sonstige Zustände (verschoben, abgesagt …) stehen ganz am Ende.
+  // Reihenfolge (Rene, 27.10.2026): je Liga zusammen (alle ÖFB-Cup-Spiele,
+  // alle Serie A …). Ligen mit laufenden Spielen zuerst, dann nach dem
+  // nächsten Anstoß. In der Liga: laufende, dann nicht begonnene nach
+  // Anstoßzeit, dann beendete; sonstige Zustände (verschoben, abgesagt …)
+  // am Ende. Die Auswahl hängt an der Spiel-ID und bleibt beim Wandern
+  // erhalten. Reiter "Live" (onlyLive): nur die laufenden.
   const running = games.filter((g) => isLiveRunning(g.status)).sort(byKickoff);
-  const upcoming = games.filter((g) => g.status === "NS").sort(byKickoff);
-  const finished = [
-    ...games.filter((g) => isLiveFinished(g.status)).sort(byKickoff),
-    ...games.filter((g) => g.status !== "NS" && !isLiveRunning(g.status) && !isLiveFinished(g.status)).sort(byKickoff),
-  ];
-  const multiLeague = new Set(games.map((g) => g.league)).size > 1;
-  const upcomingGroups: { time: string; games: LiveGame[] }[] = [];
-  for (const g of upcoming) {
-    const time = viennaTime(g.kickoff);
-    const last = upcomingGroups[upcomingGroups.length - 1];
-    if (last && last.time === time) last.games.push(g);
-    else upcomingGroups.push({ time, games: [g] });
+  const upcoming = onlyLive ? [] : games.filter((g) => g.status === "NS").sort(byKickoff);
+  const finished = onlyLive
+    ? []
+    : [
+        ...games.filter((g) => isLiveFinished(g.status)).sort(byKickoff),
+        ...games.filter((g) => g.status !== "NS" && !isLiveRunning(g.status) && !isLiveFinished(g.status)).sort(byKickoff),
+      ];
+  if (onlyLive && running.length === 0) {
+    return (
+      <EmptyState
+        emoji={SPORT_ICONS[sport]}
+        title="Gerade läuft kein Spiel"
+        text="Unter „Heute“ siehst du, wann die nächsten Spiele beginnen."
+        className="border-none bg-transparent"
+      />
+    );
   }
   const rows = (list: LiveGame[]) => (
     <div className="flex flex-col gap-2">
@@ -818,45 +850,12 @@ function LcLive({
   return (
     <div className="flex flex-col gap-4">
       {running.length > 0 && <LcLiveHeader sport={sport} count={running.length} dataAt={dataAt} source={source} />}
-      {groupByLeague(running).map((group) => (
-        <div key={`live-${group.league}`}>
+      {groupByLeague([...running, ...upcoming, ...finished]).map((group) => (
+        <div key={group.league}>
           <LeagueHeading sport={sport} game={group.games[0]} />
           {rows(group.games)}
         </div>
       ))}
-      {/* Mehrere Ligen zur selben Zeit (Rene, 16.10.2026): unter "ab 19:30"
-          je Liga mit Flagge, damit man sieht, welches Spiel wohin gehört. */}
-      {upcomingGroups.map((group) => {
-        const leagues = groupByLeague(group.games);
-        return (
-          <div key={`ns-${group.time}`}>
-            <p className="mb-2 text-xs font-semibold text-muted">ab {group.time}</p>
-            {!multiLeague ? (
-              rows(group.games)
-            ) : (
-              <div className="flex flex-col gap-3">
-                {leagues.map((l) => (
-                  <div key={`ns-${group.time}-${l.league}`}>
-                    <LeagueHeading sport={sport} game={l.games[0]} />
-                    {rows(l.games)}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-      {finished.length > 0 && (
-        <div className="flex flex-col gap-3 border-t border-edge pt-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">Beendet</p>
-          {groupByLeague(finished).map((group) => (
-            <div key={`ft-${group.league}`}>
-              <LeagueHeading sport={sport} game={group.games[0]} />
-              {rows(group.games)}
-            </div>
-          ))}
-        </div>
-      )}
       {loading && <p className="text-center text-[11px] text-muted">Aktualisiert…</p>}
     </div>
   );
@@ -919,9 +918,17 @@ function LcResults({
       {days.map((day) => (
         <div key={day.label}>
           <p className="mb-2 text-xs font-semibold text-muted">{day.label}</p>
-          <div className="flex flex-col gap-2">
-            {day.games.map((g) => (
-              <GameRow key={g.id} game={g} {...list} />
+          {/* Je Liga zusammen (Rene, 27.10.2026). */}
+          <div className="flex flex-col gap-3">
+            {groupByLeague(day.games).map((group) => (
+              <div key={`${day.label}-${group.league}`}>
+                <LeagueHeading sport={list.sport} game={group.games[0]} />
+                <div className="flex flex-col gap-2">
+                  {group.games.map((g) => (
+                    <GameRow key={g.id} game={g} {...list} />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </div>
