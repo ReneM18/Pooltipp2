@@ -1,5 +1,6 @@
 "use client";
 
+import FriendsTabs from "@/components/FriendsTabs";
 import EmptyState from "@/components/EmptyState";
 import { useAppData, ActivityItem } from "@/lib/AppDataContext";
 import { ActivityIcon } from "@/components/NewsSportIcon";
@@ -63,7 +64,7 @@ export default function FeedPage() {
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
-      <h1 className="mb-4 font-display text-xl font-bold text-ink sm:text-2xl">Feed</h1>
+      <FriendsTabs active="feed" />
 
       {activity.length === 0 && (
         <EmptyState
