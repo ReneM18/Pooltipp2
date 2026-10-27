@@ -13,7 +13,7 @@ import { isFriendsArea } from "@/components/FriendsTabs";
 // bei der Sterne-Anzeige – daher hier nicht mehr als Tab.
 const allTabs = [
   { href: "/", label: "Tipps" },
-  { href: "/matchcenter", label: "Matchcenter" },
+  { href: "/matchcenter", label: "Spiele" },
   // Reihenfolge wie unten am Handy (BottomNav): erst Rangliste, dann Pass
   // (Rene, 27.10.2026).
   { href: "/rangliste", label: "Rangliste" },

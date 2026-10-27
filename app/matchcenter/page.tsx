@@ -26,7 +26,7 @@ import {
   type LiveMatchResult,
 } from "@/lib/liveScores";
 import { reloadLiveDay, useLiveDay, useLivePolling } from "@/lib/useLiveScores";
-import { LIVE_SPORTS, liveGameCountry } from "@/lib/liveConfig";
+import { LIVE_SPORTS, liveGameCountry, liveGameLeague } from "@/lib/liveConfig";
 import { liveIntervalSeconds } from "@/lib/liveScores";
 import { flagEmoji } from "@/lib/flags";
 import { useLiveClock, useMinuteTick } from "@/lib/useLiveMinute";
@@ -237,7 +237,7 @@ function SubTab({ label, active, onClick }: { label: React.ReactNode; active: bo
   return (
     <button
       onClick={onClick}
-      className={`relative py-2.5 font-display text-sm font-semibold transition-colors ${
+      className={`relative whitespace-nowrap py-2.5 font-display text-sm font-semibold transition-colors ${
         active ? "text-ink" : "text-muted hover:text-ink"
       }`}
     >
@@ -287,15 +287,17 @@ function viennaTime(iso: string): string {
 }
 
 // league der Route ist "Name · Land".
-function leagueName(g: LiveGame): string {
-  return g.league.split(" · ")[0] || "Weitere Spiele";
+// Name des Bewerbs: unser Name, wenn die Liga eingestellt ist (z. B. "Cup"
+// aus Österreich → "ÖFB-Cup", Rene, 27.10.2026), sonst der Name der API.
+function leagueName(g: LiveGame, sport: Sport): string {
+  return liveGameLeague(sport, g.league)?.label ?? (g.league.split(" · ")[0] || "Weitere Spiele");
 }
 
 // Flagge einer Live-Liga (Rene, 16.10.2026): aus dem Land der API, damit
 // die österreichische und die deutsche "Bundesliga" auseinanderzuhalten
 // sind ("World" = international, keine Flagge). Ohne Land wie bisher nach Name.
 function liveLeagueFlag(sport: Sport, g: LiveGame, competitions: Parameters<typeof competitionFlag>[2]): string | null {
-  if (!g.league.includes(" · ")) return competitionFlag(sport, leagueName(g), competitions);
+  if (!g.league.includes(" · ")) return competitionFlag(sport, leagueName(g, sport), competitions);
   const country = liveGameCountry(g.league);
   return country ? flagEmoji(country) : null;
 }
@@ -430,27 +432,53 @@ function LiveCenter() {
   useEffect(() => {
     if (target && LIVE_SPORTS.includes(target.sport)) setSport(target.sport);
   }, [target]);
+  const pick = (s: Sport) => {
+    setTargetId(null);
+    setSport(s);
+  };
+  // Sportart in derselben Reihe wie die Reiter (Rene, 27.10.2026): ab md:
+  // als Knöpfe (Namen ab lg:), am Handy als kleines Auswahlfeld, damit alles
+  // in eine Reihe passt.
   const switcher =
     LIVE_SPORTS.length > 1 ? (
-      <div className="flex gap-1.5" role="tablist" aria-label="Sportart">
-        {LIVE_SPORTS.map((s) => (
-          <button
-            key={s}
-            type="button"
-            role="tab"
-            aria-selected={sport === s}
-            onClick={() => {
-              setTargetId(null);
-              setSport(s);
-            }}
-            className={`rounded-full border px-2.5 py-0.5 text-[12px] font-semibold transition-colors ${
-              sport === s ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
-            }`}
+      <>
+        <div className="hidden gap-1.5 md:flex" role="tablist" aria-label="Sportart">
+          {LIVE_SPORTS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              role="tab"
+              aria-selected={sport === s}
+              onClick={() => pick(s)}
+              className={`rounded-full border px-2.5 py-0.5 text-[12px] font-semibold transition-colors ${
+                sport === s ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
+              }`}
+            >
+              <Emoji e={SPORT_ICONS[s]} /> <span className="hidden lg:inline">{sportLabel(s)}</span>
+            </button>
+          ))}
+        </div>
+        {/* Sichtbar nur das Zeichen der Sportart; das unsichtbare
+            Auswahlfeld darüber öffnet die Liste mit Namen. */}
+        <label className="relative flex items-center gap-1 rounded-full border border-gold bg-gold/10 px-2.5 py-1 text-[13px] font-semibold text-gold md:hidden">
+          <Emoji e={SPORT_ICONS[sport]} />
+          <span className="text-[9px]" aria-hidden>
+            ▼
+          </span>
+          <select
+            value={sport}
+            onChange={(e) => pick(e.target.value as Sport)}
+            aria-label="Sportart"
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
           >
-            <Emoji e={SPORT_ICONS[s]} /> <span className="hidden sm:inline">{sportLabel(s)}</span>
-          </button>
-        ))}
-      </div>
+            {LIVE_SPORTS.map((s) => (
+              <option key={s} value={s}>
+                {SPORT_ICONS[s]} {sportLabel(s)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </>
     ) : null;
   return (
     <LiveCenterSection key={sport} sport={sport} switcher={switcher} target={target?.sport === sport ? target : null} />
@@ -610,17 +638,9 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
 
   return (
     <section className="mb-6 rounded-card border border-edge bg-surface px-3 pt-3 pb-4 sm:px-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="font-display text-base font-bold text-ink sm:text-lg">Live-Spiele</h2>
-        <div className="flex shrink-0 items-center gap-2">
-          {switcher}
-          <span className="shrink-0 rounded-full border border-edge px-2 py-0.5 text-[11px] font-semibold text-muted">
-            Test
-          </span>
-        </div>
-      </div>
-
-      <div className="mb-4 flex gap-4 border-b border-edge">
+      {/* Eine Reihe (Rene, 27.10.2026): Reiter links, Sportart rechts, ohne
+          eigene Überschrift. */}
+      <div className="mb-4 flex items-center gap-3 border-b border-edge sm:gap-4">
         <SubTab
           label="Heute"
           active={view === "live" && !onlyLive}
@@ -633,7 +653,8 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
           label={
             <span className="flex items-center gap-1.5">
               <StateDot state="live" />
-              Live{runningCount > 0 ? ` (${runningCount})` : ""}
+              Live
+              {runningCount > 0 && <span className="hidden min-[400px]:inline">({runningCount})</span>}
             </span>
           }
           active={view === "live" && onlyLive}
@@ -644,6 +665,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
         />
         <SubTab label="Ergebnisse" active={view === "ergebnisse"} onClick={() => setView("ergebnisse")} />
         <SubTab label="Tabelle" active={view === "tabelle"} onClick={() => setView("tabelle")} />
+        {switcher && <div className="ml-auto shrink-0 py-1.5">{switcher}</div>}
       </div>
 
       {view === "tabelle" ? (
@@ -760,11 +782,11 @@ function LcError({ error, onRetry }: { error: string; onRetry: () => void }) {
 function LeagueHeading({ sport, game }: { sport: Sport; game: LiveGame }) {
   const { competitions } = useAppData();
   const flag = liveLeagueFlag(sport, game, competitions);
-  const name = leagueName(game);
+  const name = leagueName(game, sport);
   return (
-    <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-muted">
+    <p className="mb-2 flex items-center gap-2 font-display text-sm font-bold text-ink lg:text-base">
       {flag && (
-        <span aria-hidden>
+        <span aria-hidden className="text-base lg:text-lg">
           <Emoji e={flag} />
         </span>
       )}
@@ -1187,7 +1209,7 @@ function LcDetail({
               <Emoji e={flag} />
             </span>
           )}
-          <span className="min-w-0 truncate">{leagueName(game)}</span>
+          <span className="min-w-0 truncate">{leagueName(game, sport)}</span>
         </span>
         {liveLike && (
           <span className="shrink-0 whitespace-nowrap">

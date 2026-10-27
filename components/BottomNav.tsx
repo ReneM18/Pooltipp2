@@ -25,7 +25,7 @@ const ITEMS: Item[] = [
   },
   {
     href: "/matchcenter",
-    label: "Matchcenter",
+    label: "Spiele",
     icon: (
       <>
         <circle cx="12" cy="12" r="8" />
