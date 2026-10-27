@@ -1363,10 +1363,16 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       onClick={() => onSelect(game.id)}
       aria-pressed={selected}
       style={glow ? { boxShadow: GLOW[glow] } : undefined}
-      className={`relative w-full overflow-hidden rounded-card border bg-surface px-3 py-2 text-left transition-[color,background-color,border-color,box-shadow] sm:pl-4 ${
+      // Gewählt: hellerer Hintergrund und weißlicher Rahmen statt Gold, damit
+      // der rote Live-Rand klar bleibt (Rene, 27.10.2026). Gold nur für "Tippen".
+      className={`relative w-full overflow-hidden rounded-card border px-3 py-2 text-left transition-[color,background-color,border-color,box-shadow] sm:pl-4 ${
         moved ? "motion-safe:animate-lc-row-in" : ""
       } ${
-        selected ? "border-gold" : tippable ? "border-gold/45 hover:border-gold/70" : "border-muted/25 hover:border-muted/50"
+        selected
+          ? "border-ink/50 bg-surface-hover"
+          : tippable
+            ? "border-gold/45 bg-surface hover:border-gold/70"
+            : "border-muted/25 bg-surface hover:border-muted/50"
       }`}
     >
       <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] items-center gap-x-2.5 text-sm">
