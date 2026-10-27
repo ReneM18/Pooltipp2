@@ -26,9 +26,9 @@ import {
   type LiveSource,
   type LiveMatchResult,
 } from "@/lib/liveScores";
-import { reloadLiveDay, useLiveDay, useLivePolling } from "@/lib/useLiveScores";
+import { reloadLiveDay, useLiveDay, useLiveDays, useLivePolling, type LiveDay } from "@/lib/useLiveScores";
+import { TABLE_LEAGUES, type StandingGroup, type StandingsResponse } from "@/lib/standings";
 import { LIVE_SPORTS, liveGameCountry, liveGameLeague } from "@/lib/liveConfig";
-import { liveIntervalSeconds } from "@/lib/liveScores";
 import { flagEmoji } from "@/lib/flags";
 import { useLiveClock, useMinuteTick } from "@/lib/useLiveMinute";
 import { useLiveForecast } from "@/lib/liveForecast";
@@ -69,7 +69,9 @@ function useApiTeamName(sport: Sport | undefined): (apiName: string) => string {
   );
 }
 
-const LEAGUES = Object.keys(LEAGUE_IDS);
+// Fußball-Tabellen kommen seit dem Pro-Plan von API-Sports (oben im Reiter
+// "Tabelle", Rene, 27.10.2026). Hier unten bleiben NBA, NFL und NHL.
+const LEAGUES = Object.keys(LEAGUE_IDS).filter((l) => LEAGUE_SPORTS[l] !== "Fußball");
 
 // Saison automatisch aus dem heutigen Datum (lib/sportsApi.ts).
 const CURRENT_SEASON = getCurrentSeason();
@@ -246,9 +248,10 @@ function SubTab({ label, active, onClick }: { label: React.ReactNode; active: bo
 // Live-Bereich (Rene, 15.10.2026: Spieltag-Umbau, vorher nur "UEFA Europa
 // League"). Live-Daten von API-Sports über /api/live, aus demselben Speicher
 // wie die Tippkarten (lib/useLiveScores.ts). Nur eingeschaltete Ligen laut
-// lib/liveConfig.ts (die Route filtert schon). Im Gratis-Plan gibt es nur
-// gestern/heute/morgen und keine Tabellen – "Ergebnisse" deshalb von heute
-// und gestern, bei "Tabelle" nur ein Hinweis ohne Abfrage.
+// lib/liveConfig.ts (die Route filtert schon). "Ergebnisse" von heute und
+// gestern. Seit dem Pro-Plan für Fußball (Rene, 27.10.2026) dazu
+// "Spielplan" (nächste 7 Tage) und "Tabelle" (API-Sports, /api/standings);
+// bei den anderen Sportarten steht unter "Tabelle" ein Hinweis.
 //
 // Am PC zweispaltig: links die Liste, rechts (~360 px) das Detail des
 // gewählten Spiels. Am Handy steht das Detail unter der Liste, beim
@@ -260,7 +263,14 @@ function SubTab({ label, active, onClick }: { label: React.ReactNode; active: bo
 const LIVE_SPORT: Sport | null = LIVE_SPORTS[0] ?? null;
 const MAX_LIVE_MS = 4 * 60 * 60 * 1000;
 
-type LcView = "live" | "ergebnisse" | "tabelle";
+type LcView = "live" | "spielplan" | "ergebnisse" | "tabelle";
+
+// Spielplan (Rene, 27.10.2026: Pro-Plan): so viele Tage ab morgen.
+const UPCOMING_DAYS = 7;
+// Ab so vielen Abfragen pro Tag gilt der Pro-Plan (wie FAST_PLAN_LIMIT in
+// lib/live/providers/apiSports.ts).
+const PRO_PLAN_LIMIT = 1000;
+const NO_DATES: readonly string[] = [];
 
 // API-Spiel ↔ App-Spiel (für "GETIPPT", "Dein Tipp", Community, Kommentare).
 interface AppLink {
@@ -270,11 +280,25 @@ interface AppLink {
   result: LiveMatchResult;
 }
 
-// "2026-10-15" -> "2026-10-14"
-function previousDate(date: string): string {
+// "2026-10-15" -> "2026-10-14" (days = -1), "2026-10-16" (days = 1)
+function addDays(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - 1);
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+function previousDate(date: string): string {
+  return addDays(date, -1);
+}
+
+// "2026-10-30" -> "Do., 30.10."
+function dayLabel(date: string): string {
+  return new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  });
 }
 
 function viennaTime(iso: string): string {
@@ -541,6 +565,18 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   // Heute immer, gestern erst mit "Ergebnisse" (1 h Cache auf dem Server).
   const todayDay = useLiveDay(sport, today);
   const yesterdayDay = useLiveDay(sport, view === "ergebnisse" ? yesterday : null);
+  // Spielplan nur für Fußball und nur mit Pro-Plan (Tageskontingent laut
+  // API-Sports ab PRO_PLAN_LIMIT); der Gratis-Plan kennt nur gestern bis
+  // morgen und hat 100 Abfragen pro Tag.
+  const hasPlan = sport === "Fußball" && (todayDay.quota?.limit ?? 0) >= PRO_PLAN_LIMIT;
+  const upcomingDates = useMemo(
+    () => (today && hasPlan && view === "spielplan" ? Array.from({ length: UPCOMING_DAYS }, (_, i) => addDays(today, i + 1)) : NO_DATES),
+    [today, hasPlan, view],
+  );
+  const upcomingDays = useLiveDays(sport, upcomingDates);
+  useEffect(() => {
+    if (!hasPlan && view === "spielplan" && todayDay.games !== null) setView("live");
+  }, [hasPlan, view, todayDay.games]);
 
   // Automatisch aktualisieren – nur solange ein Spiel läuft, im 180-s-Takt
   // (gemeinsam mit den Tippkarten, pausiert im Hintergrund).
@@ -550,12 +586,17 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   const retry = () => {
     if (today) reloadLiveDay(sport, today);
     if (view === "ergebnisse" && yesterday) reloadLiveDay(sport, yesterday);
+    for (const date of upcomingDates) reloadLiveDay(sport, date);
   };
 
   // App-Spiele den API-Spielen zuordnen (gleiche Zuordnung wie die Tippkarten).
+  const upcomingGames = upcomingDays.flatMap((d) => d.games ?? []);
+  const upcomingKey = upcomingGames.map((g) => `${g.id}|${g.kickoff}|${g.statusShort}`).join(",");
   const allGames = useMemo(
-    () => [...(todayDay.games ?? []), ...(yesterdayDay.games ?? [])],
-    [todayDay.games, yesterdayDay.games],
+    () => [...(todayDay.games ?? []), ...(yesterdayDay.games ?? []), ...upcomingGames],
+    // upcomingKey: neue Liste nur, wenn sich die Spiele ändern.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [todayDay.games, yesterdayDay.games, upcomingKey],
   );
   const links = useMemo(() => {
     const map = new Map<string, AppLink>();
@@ -563,7 +604,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     for (const m of matches) {
       if (m.sport !== sport || m.draft || m.status === "cancelled") continue;
       const day = viennaDate(m.kickoff);
-      if (day !== today && day !== yesterday) continue;
+      if (day !== today && day !== yesterday && !upcomingDates.includes(day)) continue;
       const home = getTeam(m.homeTeamId);
       const away = getTeam(m.awayTeamId);
       if (!home || !away) continue;
@@ -573,7 +614,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     return map;
     // apiNameLinks: verknüpfte Vereinsnamen zählen bei findLiveGame mit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allGames, matches, getTeam, sport, today, yesterday, apiNameLinks]);
+  }, [allGames, matches, getTeam, sport, today, yesterday, upcomingDates, apiNameLinks]);
   const tippedMatchIds = useMemo(
     () => new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId)),
     [myTips],
@@ -588,11 +629,13 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     return !!link && now !== null && isMatchTippable(link.match, now);
   };
 
-  // Von der Tippkarte: Spiel von gestern steht unter "Ergebnisse".
+  // Von der Tippkarte: Spiel von gestern steht unter "Ergebnisse", eines
+  // ab morgen unter "Spielplan" (Rene, 27.10.2026).
   const targetDay = target ? viennaDate(target.kickoff) : null;
   useEffect(() => {
     if (targetDay && yesterday && targetDay === yesterday) setView("ergebnisse");
-  }, [targetDay, yesterday]);
+    else if (targetDay && today && hasPlan && targetDay > today) setView("spielplan");
+  }, [targetDay, yesterday, today, hasPlan]);
   // ... und sobald es zugeordnet ist, auswählen.
   const targetDoneRef = useRef(false);
   const targetGameId = useMemo(
@@ -607,7 +650,11 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   }, [targetGameId]);
   // Daten da, aber das Spiel ist nicht dabei (anderer Tag, andere Liga).
   const targetMissing =
-    !!target && !targetGameId && !!todayDay.games && (targetDay !== yesterday || !!yesterdayDay.games);
+    !!target &&
+    !targetGameId &&
+    !!todayDay.games &&
+    (targetDay !== yesterday || !!yesterdayDay.games) &&
+    !(targetDay && today && targetDay > today && hasPlan && upcomingDays.some((d) => d.games === null));
 
   // Standard: erstes getipptes laufendes Spiel.
   useEffect(() => {
@@ -681,21 +728,28 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
             setOnlyLive(true);
           }}
         />
+        {hasPlan && <SubTab label="Spielplan" active={view === "spielplan"} onClick={() => setView("spielplan")} />}
         <SubTab label="Ergebnisse" active={view === "ergebnisse"} onClick={() => setView("ergebnisse")} />
         <SubTab label="Tabelle" active={view === "tabelle"} onClick={() => setView("tabelle")} />
       </div>
 
       {view === "tabelle" ? (
-        <EmptyState
-          emoji="📊"
-          title="Die Tabelle kommt mit dem größeren Datenpaket."
-          text="Im aktuellen Datenpaket gibt es noch keine Tabelle. Live und Ergebnisse funktionieren schon."
-          className="border-none bg-transparent"
-        />
+        sport === "Fußball" ? (
+          <LcTable />
+        ) : (
+          <EmptyState
+            emoji="📊"
+            title="Tabellen weiter unten"
+            text="Die Tabellen für NBA, NFL und NHL findest du weiter unten auf dieser Seite."
+            className="border-none bg-transparent"
+          />
+        )
       ) : (
         <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
           <div className="min-w-0">
-            {view === "live" ? (
+            {view === "spielplan" ? (
+              <LcUpcoming dates={upcomingDates} days={upcomingDays} onRetry={retry} {...listProps} />
+            ) : view === "live" ? (
               <LcLive onlyLive={onlyLive} games={todayDay.games} error={todayDay.error} dataAt={todayDay.dataAt} source={todayDay.source} loading={polling && todayDay.loading} onRetry={retry} {...listProps} />
             ) : (
               <LcResults
@@ -745,7 +799,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
                 />
               ) : targetMissing ? (
                 <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
-                  Dieses Spiel ist (noch) nicht in den Live-Daten. Das Matchcenter zeigt Spiele von heute und gestern.
+                  Dieses Spiel ist (noch) nicht in den Live-Daten. {hasPlan ? `Das Matchcenter zeigt Spiele von gestern bis in ${UPCOMING_DAYS} Tagen.` : "Das Matchcenter zeigt Spiele von heute und gestern."}
                 </p>
               ) : (
                 <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
@@ -758,11 +812,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
       )}
 
       {/* Kein Hinweis "Daten von ..." mehr (Rene, 27.10.2026). */}
-      {polling && (
-        <p className="mt-4 text-center text-[11px] text-muted">
-          aktualisiert sich alle {Math.round(liveIntervalSeconds(sport) / 60)} Minuten
-        </p>
-      )}
+      {polling && <p className="mt-4 text-center text-[11px] text-muted">aktualisiert sich automatisch</p>}
     </section>
   );
 }
@@ -974,6 +1024,211 @@ function LcResults({
   );
 }
 
+// Spielplan der nächsten Tage (Rene, 27.10.2026: Pro-Plan). Je Tag, darin je
+// Liga, nach Anstoß. Tippspiele mit "Tippen" und Countdown wie unter "Heute".
+function LcUpcoming({
+  dates,
+  days,
+  onRetry,
+  ...list
+}: ListProps & { dates: readonly string[]; days: LiveDay[]; onRetry: () => void }) {
+  if (days.length === 0 || days.every((d) => d.games === null)) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
+  const loaded = days.filter((d) => d.games !== null);
+  const withGames = dates
+    .map((date, i) => ({ date, games: [...(days[i]?.games ?? [])].sort(byKickoff) }))
+    .filter((d) => d.games.length > 0);
+  if (withGames.length === 0) {
+    const error = loaded.find((d) => d.error)?.error;
+    if (error && loaded.length === days.length) return <LcError error={error} onRetry={onRetry} />;
+    if (loaded.length < days.length) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
+    return (
+      <EmptyState
+        emoji={SPORT_ICONS[list.sport]}
+        title="Keine Spiele in den nächsten Tagen"
+        text={`In den nächsten ${UPCOMING_DAYS} Tagen stehen in unseren Bewerben keine Spiele an.`}
+        className="border-none bg-transparent"
+      />
+    );
+  }
+  return (
+    <div className="flex flex-col gap-4">
+      {withGames.map((day) => (
+        <div key={day.date}>
+          <p className="mb-2 text-xs font-semibold text-muted">{day.date === dates[0] ? "Morgen" : dayLabel(day.date)}</p>
+          <div className="flex flex-col gap-3">
+            {groupByLeague(day.games).map((group) => (
+              <div key={`${day.date}-${group.league}`}>
+                <LeagueHeading sport={list.sport} game={group.games[0]} />
+                <div className="flex flex-col gap-2">
+                  {group.games.map((g) => (
+                    <GameRow key={g.id} game={g} {...list} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Fußball-Tabellen (Rene, 27.10.2026: Pro-Plan) über /api/standings. Im
+// Browser je Liga 30 Min. gemerkt (so lange wie auf dem Server).
+const STANDINGS_KEEP_MS = 30 * 60 * 1000;
+const standingsCache = new Map<number, { body: StandingsResponse; at: number }>();
+
+function cachedStandings(leagueId: number): StandingsResponse | null {
+  const hit = standingsCache.get(leagueId);
+  return hit && Date.now() - hit.at < STANDINGS_KEEP_MS ? hit.body : null;
+}
+
+// Farbstreifen am Rang aus der Beschreibung der API ("Promotion - Champions
+// League …", "Relegation …").
+function rankColor(description: string | null): string | null {
+  if (!description) return null;
+  const d = description.toLowerCase();
+  if (d.includes("relegation")) return d.includes("promotion") ? "bg-orange-400" : "bg-red-500";
+  if (d.includes("champions league")) return "bg-sky-500";
+  if (d.includes("europa league")) return "bg-orange-400";
+  if (d.includes("conference league")) return "bg-emerald-500";
+  if (d.includes("promotion") || d.includes("qualification") || d.includes("round of 16") || d.includes("1/8")) return "bg-emerald-500";
+  return null;
+}
+
+const STANDINGS_GRID =
+  "grid grid-cols-[1.5rem_minmax(0,1fr)_1.5rem_3.25rem_2rem_1.75rem] gap-2 px-3 sm:grid-cols-[2rem_minmax(0,1fr)_2.5rem_2rem_2rem_2rem_3.5rem_2.5rem_3rem] sm:px-4";
+
+function LcTable() {
+  const [leagueId, setLeagueId] = useState(TABLE_LEAGUES[0].id);
+  const [data, setData] = useState<StandingsResponse | null>(() => cachedStandings(TABLE_LEAGUES[0].id));
+  const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const teamName = useApiTeamName("Fußball");
+
+  useEffect(() => {
+    const cached = cachedStandings(leagueId);
+    setData(cached);
+    setFailed(false);
+    if (cached) return;
+    let cancelled = false;
+    fetch(`/api/standings?league=${leagueId}`)
+      .then((res) => res.json() as Promise<StandingsResponse>)
+      .then((body) => {
+        if (cancelled) return;
+        if (!body.error) standingsCache.set(leagueId, { body, at: Date.now() });
+        setData(body);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [leagueId, retry]);
+
+  const error = failed || !!data?.error;
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap gap-2">
+        {TABLE_LEAGUES.map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            onClick={() => setLeagueId(l.id)}
+            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+              leagueId === l.id ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
+            }`}
+          >
+            {l.country && (
+              <span aria-hidden>
+                <Emoji e={flagEmoji(l.country)} />
+              </span>
+            )}
+            {l.label}
+          </button>
+        ))}
+      </div>
+      {error ? (
+        <LcError error={data?.error ?? ""} onRetry={() => setRetry((r) => r + 1)} />
+      ) : !data ? (
+        <p className="py-6 text-center text-sm text-muted">Lädt…</p>
+      ) : data.groups.length === 0 ? (
+        <EmptyState
+          emoji="📊"
+          title="Noch keine Tabelle"
+          text="Für diesen Bewerb gibt es gerade keine Tabelle. Schau später nochmal vorbei."
+          className="border-none bg-transparent"
+        />
+      ) : (
+        <div className="flex flex-col gap-4">
+          {data.groups.map((group, i) => (
+            <StandingsGroupTable key={`${group.name}-${i}`} group={group} showName={data.groups.length > 1} teamName={teamName} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StandingsGroupTable({
+  group,
+  showName,
+  teamName,
+}: {
+  group: StandingGroup;
+  showName: boolean;
+  teamName: (apiName: string) => string;
+}) {
+  return (
+    <div>
+      {showName && group.name && <p className="mb-2 font-display text-sm font-bold text-ink">{group.name}</p>}
+      <div className="overflow-hidden rounded-card border border-edge bg-surface">
+        <div className={`${STANDINGS_GRID} border-b border-edge py-2 text-xs text-muted`}>
+          <span>#</span>
+          <span>Team</span>
+          <span className="text-center">Sp</span>
+          <span className="text-center sm:hidden">S-U-N</span>
+          <span className="hidden text-center sm:block">S</span>
+          <span className="hidden text-center sm:block">U</span>
+          <span className="hidden text-center sm:block">N</span>
+          <span className="hidden text-center sm:block">Tore</span>
+          <span className="text-center">TD</span>
+          <span className="text-right">Pkt</span>
+        </div>
+        {group.rows.map((row) => {
+          const color = rankColor(row.description);
+          return (
+            <div key={`${row.rank}-${row.team}`} className={`${STANDINGS_GRID} relative items-center border-b border-edge py-2 text-sm last:border-0`}>
+              {color && <span aria-hidden className={`absolute inset-y-1 left-0 w-1 rounded-r ${color}`} />}
+              <span className="text-muted tabular-nums">{row.rank}</span>
+              <span className="flex min-w-0 items-center gap-2">
+                {row.logo && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={row.logo} alt="" width={18} height={18} loading="lazy" className="h-[18px] w-[18px] shrink-0 object-contain" />
+                )}
+                <FitText text={teamName(row.team)} className="leading-tight text-ink" />
+              </span>
+              <span className="text-center text-muted tabular-nums">{row.played}</span>
+              <span className="whitespace-nowrap text-center text-xs text-muted tabular-nums sm:hidden">
+                {row.win}-{row.draw}-{row.loss}
+              </span>
+              <span className="hidden text-center text-muted tabular-nums sm:block">{row.win}</span>
+              <span className="hidden text-center text-muted tabular-nums sm:block">{row.draw}</span>
+              <span className="hidden text-center text-muted tabular-nums sm:block">{row.loss}</span>
+              <span className="hidden whitespace-nowrap text-center text-muted tabular-nums sm:block">
+                {row.goalsFor}:{row.goalsAgainst}
+              </span>
+              <span className="text-center text-muted tabular-nums">{row.goalDiff > 0 ? `+${row.goalDiff}` : row.goalDiff}</span>
+              <span className="text-right font-semibold text-ink tabular-nums">{row.points}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const OTHER_STATUS: Record<string, string> = {
   PST: "Verschoben",
   POST: "Verschoben",
@@ -1040,7 +1295,8 @@ function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowS
   if (game.status === "NS") {
     const today = viennaDate(Date.now());
     const day = viennaDate(game.kickoff);
-    return { main: viennaTime(game.kickoff), sub: day === today ? "heute" : day < today ? "gestern" : "morgen", muted: true };
+    const sub = day === today ? "heute" : day < today ? "gestern" : day === addDays(today, 1) ? "morgen" : dayLabel(day).split(",")[0];
+    return { main: viennaTime(game.kickoff), sub, muted: true };
   }
   if (isLiveFinished(game.status)) {
     const sub =

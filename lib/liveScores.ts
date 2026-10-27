@@ -55,14 +55,24 @@ export function scorerLine(events: LiveEvent[] | undefined, side: "home" | "away
   return Array.from(byPlayer, ([name, minutes]) => `${name} ${minutes.join(", ")}`).join(" · ");
 }
 
-// Server-Cache und Abfrage-Takt in Sekunden: Fußball 180 s, sonst 300 s
-// (Gratis-Plan: 100 Abfragen pro Tag und Sport-API).
+// Abfrage-Takt in Sekunden: Fußball 60 s, sonst 300 s. So oft fragt der
+// Browser nach (und so lange teilt das CDN eine Antwort). Wie oft der Server
+// wirklich bei API-Sports nachfragt, entscheidet er selbst nach dem
+// Tageskontingent (Rene, 27.10.2026: Pro-Plan mit 7.500 Abfragen → 60 s,
+// Gratis-Plan mit 100 → weiter 180 s, siehe liveMaxIntervalSeconds).
 export function liveIntervalSeconds(sport: Sport): number {
+  return sport === "Fußball" ? 60 : 300;
+}
+
+// Längster Takt des Servers (Gratis-Plan: 100 Abfragen pro Tag und
+// Sport-API → Fußball 180 s). Danach richten sich "verzögert" und die
+// mitlaufende Minute, damit der Gratis-Plan nicht als Störung gilt.
+export function liveMaxIntervalSeconds(sport: Sport): number {
   return sport === "Fußball" ? 180 : 300;
 }
 
 // Live-Daten verzögert? (Rene, 16.10.2026: ehrliche Aktualität) Ja, wenn
-// Spiele laufen und die Daten älter als 2× Takt sind oder nicht aus dem
+// Spiele laufen und die Daten älter als 2× (längster) Takt sind oder nicht aus dem
 // Live-Abruf stammen (source "day"/"stale"). Ohne laufendes Spiel nie.
 export function isLiveDelayed(
   sport: Sport,
@@ -73,7 +83,7 @@ export function isLiveDelayed(
 ): boolean {
   if (!running || !dataAt) return false;
   if (source !== null && source !== "live") return true;
-  return now - dataAt > 2 * liveIntervalSeconds(sport) * 1000;
+  return now - dataAt > 2 * liveMaxIntervalSeconds(sport) * 1000;
 }
 
 export function isLiveFinished(status: LiveStatus): boolean {
@@ -230,7 +240,7 @@ export function liveClock(
   if ((s !== "1H" && s !== "2H") || elapsed === null || !dataAt) return null;
   const end = s === "1H" ? 45 : 90;
   const start = s === "1H" ? 1 : 46;
-  const until = Math.min(now, dataAt + liveIntervalSeconds(sport) * 1000);
+  const until = Math.min(now, dataAt + liveMaxIntervalSeconds(sport) * 1000);
   const minute = Math.max(start, elapsed + Math.max(0, Math.floor((until - dataAt) / 60000)));
   if (minute > end) return { text: `${end}+`, progress: end / 90 };
   return { text: `${minute}'`, progress: minute / 90 };

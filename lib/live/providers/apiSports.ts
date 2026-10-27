@@ -1,7 +1,8 @@
 import type { Sport } from "../../types";
 import { isLiveLeagueEnabled, sameLeague } from "../../liveConfig";
-import { isLiveFinished, liveIntervalSeconds, viennaDate } from "../../liveScores";
+import { isLiveFinished, liveIntervalSeconds, liveMaxIntervalSeconds, viennaDate } from "../../liveScores";
 import { cachedLoad, type LoadResult } from "../cache";
+import type { StandingGroup, StandingTeamRow } from "../../standings";
 import type {
   LiveDayStatus,
   LiveDiagnostics,
@@ -30,7 +31,7 @@ import type {
 // (fixtures?date=…) 3–4 Min. hinter fixtures?live=all herhinkt:
 //  (a) Tagesliste, Ablauf 900 s (vergangene Tage 3600 s) – Anstoßzeiten,
 //      nicht begonnene und beendete Spiele.
-//  (b) live=all, Ablauf 180 s – nur abgerufen, wenn laut Tagesliste ein Spiel
+//  (b) live=all, Ablauf 60 s (Pro-Plan) bzw. 180 s – nur abgerufen, wenn laut Tagesliste ein Spiel
 //      im Fenster Anpfiff −5 Min. bis Anpfiff +150 Min. liegt und noch nicht
 //      beendet ist. Spiele aus (b) überschreiben die aus (a) (über die
 //      fixture.id); ist ein Spiel laut Tagesliste schon beendet, gilt (a).
@@ -69,9 +70,14 @@ const ENDPOINTS: Record<Sport, string> = {
 type Raw = any;
 
 // Ablaufzeiten in Sekunden (Rene, 16.10.2026). Live = Takt der Sportart
-// (Fußball 180 s, sonst 300 s, siehe liveIntervalSeconds).
+// (Fußball 60 s mit Pro-Plan, 180 s im Gratis-Plan, sonst 300 s, siehe
+// liveTtl).
 const DAY_TTL = 900;
 const PAST_TTL = 3600;
+// Spielplan der nächsten Tage (Rene, 27.10.2026): ändert sich selten.
+const FUTURE_TTL = 3 * 3600;
+// Tabellen (Rene, 27.10.2026): nach Abpfiff reicht eine halbe Stunde.
+const STANDINGS_TTL = 1800;
 // Fehler nur kurz merken, danach erneut versuchen.
 const ERROR_TTL = 30;
 // Abbruch, wenn API-Sports nicht antwortet.
@@ -166,6 +172,16 @@ function proxied(url: string): { url: string; headers: Record<string, string> } 
 // oder weniger freie Abfragen, wird bis Mitternacht (UTC) nicht mehr gefragt.
 // Die Reserve bleibt für den Admin und für andere Server-Instanzen.
 const BUDGET_RESERVE = 5;
+
+// Pro-Plan (Rene, 27.10.2026: Fußball Pro mit 7.500 Abfragen pro Tag): ab
+// FAST_PLAN_LIMIT Abfragen pro Tag (laut Antwort-Header) im kurzen Takt,
+// sonst im langen. Läuft der Pro-Plan aus, geht es von selbst zurück.
+const FAST_PLAN_LIMIT = 1000;
+
+function liveTtl(sport: Sport): number {
+  const quota = quotaFor(sport);
+  return quota && quota.limit >= FAST_PLAN_LIMIT ? liveIntervalSeconds(sport) : liveMaxIntervalSeconds(sport);
+}
 
 function budgetExhausted(url: string): boolean {
   const quota = QUOTA_BY_HOST.get(hostOf(url));
@@ -309,8 +325,10 @@ function snapshotResult(
 // Fußball: Tagesliste + Live-Liste kombiniert (Rene, 15.10./16.10.2026).
 async function football(date: string, league: string | null, key: string): Promise<LiveProviderResult> {
   const sport = "Fußball" as const;
-  const isPast = date < viennaDate(Date.now());
-  const day = await load(`${ENDPOINTS[sport]}?date=${date}&timezone=Europe/Vienna`, key, isPast ? PAST_TTL : DAY_TTL);
+  const today = viennaDate(Date.now());
+  const isPast = date < today;
+  const ttl = isPast ? PAST_TTL : date > today ? FUTURE_TTL : DAY_TTL;
+  const day = await load(`${ENDPOINTS[sport]}?date=${date}&timezone=Europe/Vienna`, key, ttl);
   if (!day.ok) return { ok: false, error: day.error, expiresAt: day.expiresAt };
   const games = normalizeAll(sport, day.hit.value, league);
 
@@ -329,7 +347,7 @@ async function football(date: string, league: string | null, key: string): Promi
   let liveError: string | undefined;
   let liveList: Raw[] | null = null;
   if (needLive) {
-    const live = await load(`${ENDPOINTS[sport]}?live=all&timezone=Europe/Vienna`, key, liveIntervalSeconds(sport));
+    const live = await load(`${ENDPOINTS[sport]}?live=all&timezone=Europe/Vienna`, key, liveTtl(sport));
     expiresAt = Math.min(expiresAt, live.ok ? live.hit.expiresAt : live.expiresAt);
     if (live.ok) {
       if (!lastLive || live.hit.at >= lastLive.at) lastLive = { list: live.hit.value, at: live.hit.at };
@@ -416,7 +434,7 @@ async function otherSport(sport: Sport, date: string, league: string | null, key
       return snapshotResult(games, held.at, "live", held.until);
     }
   }
-  const day = await load(url, key, isPast ? PAST_TTL : liveIntervalSeconds(sport));
+  const day = await load(url, key, isPast ? PAST_TTL : liveTtl(sport));
   if (!day.ok) return { ok: false, error: day.error, expiresAt: day.expiresAt };
   const games = normalizeAll(sport, day.hit.value, league);
   let expiresAt = day.hit.expiresAt;
@@ -639,6 +657,55 @@ function normalizeEvents(g: Raw, homeScore: number | null, awayScore: number | n
   return list.map(({ ownTeam, ...e }) =>
     e.type === "owngoal" ? { ...e, side: ownGoalForOther ? (ownTeam === "home" ? "away" : "home") : ownTeam } : e,
   );
+}
+
+// ---------------------------------------------------------------------------
+// Fußball-Tabellen (Rene, 27.10.2026: Pro-Plan, laufende Saison freigeschaltet).
+// standings?league=…&season=… – eine Abfrage je Liga, 30 Min. gemerkt.
+// Mehrere Gruppen (z. B. Meister-/Qualifikationsgruppe in Österreich,
+// Gruppen der Ligaphase) kommen als eigene Listen.
+
+export type StandingsResult =
+  | { ok: true; groups: StandingGroup[]; fetchedAt: number; expiresAt: number }
+  | { ok: false; error: string; expiresAt: number };
+
+const STANDINGS_URL = "https://v3.football.api-sports.io/standings";
+
+function toRow(r: Raw): StandingTeamRow | null {
+  const team = typeof r?.team?.name === "string" ? r.team.name : null;
+  const rank = toNumber(r?.rank);
+  if (!team || rank === null) return null;
+  const n = (v: unknown) => toNumber(v) ?? 0;
+  return {
+    rank,
+    team,
+    logo: typeof r?.team?.logo === "string" ? r.team.logo : null,
+    played: n(r?.all?.played),
+    win: n(r?.all?.win),
+    draw: n(r?.all?.draw),
+    loss: n(r?.all?.lose),
+    goalsFor: n(r?.all?.goals?.for),
+    goalsAgainst: n(r?.all?.goals?.against),
+    goalDiff: n(r?.goalsDiff),
+    points: n(r?.points),
+    description: typeof r?.description === "string" && r.description.trim() ? r.description : null,
+  };
+}
+
+export async function footballStandings(leagueId: number, season: number): Promise<StandingsResult> {
+  const key = process.env.API_SPORTS_KEY;
+  if (!key) return { ok: false, error: "Kein API_SPORTS_KEY gesetzt", expiresAt: Date.now() + 300 * 1000 };
+  const res = await load(`${STANDINGS_URL}?league=${leagueId}&season=${season}`, key, STANDINGS_TTL);
+  if (!res.ok) return { ok: false, error: res.error, expiresAt: res.expiresAt };
+  const lists: Raw[] = res.hit.value[0]?.league?.standings ?? [];
+  const groups = (Array.isArray(lists) ? lists : [])
+    .map((list: Raw): StandingGroup => {
+      const rows = (Array.isArray(list) ? list : []).map(toRow).filter((r): r is StandingTeamRow => r !== null);
+      const name = Array.isArray(list) && typeof list[0]?.group === "string" ? list[0].group : "";
+      return { name, rows };
+    })
+    .filter((g) => g.rows.length > 0);
+  return { ok: true, groups, fetchedAt: res.hit.at, expiresAt: res.hit.expiresAt };
 }
 
 // ---------------------------------------------------------------------------
