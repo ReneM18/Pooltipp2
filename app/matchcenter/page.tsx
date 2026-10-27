@@ -1181,7 +1181,7 @@ function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowS
   if (isLiveFinished(game.status)) {
     const sub =
       game.status === "AET" ? "n. V." : game.status === "PEN" ? (sport === "Fußball" ? "i. E." : sport === "NHL" ? "n. P." : game.statusText) : undefined;
-    return { main: "Beendet", sub, muted: true };
+    return { main: "Endstand", sub, muted: true };
   }
   if (sport === "NHL") {
     if (game.status === "BREAK") {
@@ -1235,6 +1235,13 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   // 27.10.2026, Variante C): rot = läuft, gelb = Pause.
   const glow = running ? (status.dot === "pause" ? "pause" : "live") : null;
   const moved = useSectionMove(game.id, running ? "live" : game.status === "NS" ? "ns" : "done");
+  // Beendet (Rene, 27.10.2026: "müssen anders aussehen"): Zeile blasser,
+  // "Endstand", Sieger und seine Tore hell und fett, der Rest gedämpft.
+  const done = isLiveFinished(game.status) && hasScore;
+  const homeWins = done && game.homeScore! > game.awayScore!;
+  const awayWins = done && game.awayScore! > game.homeScore!;
+  const nameTone = (wins: boolean) => (!done ? "text-ink" : wins ? "font-semibold text-ink" : "text-muted");
+  const scoreTone = (wins: boolean) => (done && !wins ? "text-muted" : "");
 
   return (
     <button
@@ -1251,7 +1258,9 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           ? "border-ink/50 bg-surface-hover"
           : tippable
             ? "border-gold/45 bg-surface hover:border-gold/70"
-            : "border-muted/25 bg-surface hover:border-muted/50"
+            : done
+              ? "border-muted/15 bg-surface/50 hover:border-muted/40"
+              : "border-muted/25 bg-surface hover:border-muted/50"
       }`}
     >
       <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] items-center gap-x-2.5 text-sm">
@@ -1285,8 +1294,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             tv ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"
           }`}
         >
-          <FitText text={homeName} maxLines={2} minPx={12} className="col-start-1 row-start-1 leading-tight text-ink" />
-          <FitText text={awayName} maxLines={2} minPx={12} className="col-start-1 row-start-2 leading-tight text-ink" />
+          <FitText text={homeName} maxLines={2} minPx={12} className={`col-start-1 row-start-1 leading-tight ${nameTone(homeWins)}`} />
+          <FitText text={awayName} maxLines={2} minPx={12} className={`col-start-1 row-start-2 leading-tight ${nameTone(awayWins)}`} />
           {tv ? (
             <span className="col-start-2 row-span-2 row-start-1 flex max-w-[5.5rem] items-center gap-1 rounded-full border border-edge bg-pitch px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-muted">
               <TvIcon className="h-3 w-3 shrink-0" />
@@ -1303,8 +1312,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
                 flash ? "bg-gold/15 text-gold" : hasScore ? "text-ink" : "text-muted"
               }`}
             >
-              <span className="w-7 text-center">{hasScore ? game.homeScore : "–"}</span>
-              <span className="w-7 text-center">{hasScore ? game.awayScore : "–"}</span>
+              <span className={`w-7 text-center ${scoreTone(homeWins)}`}>{hasScore ? game.homeScore : "–"}</span>
+              <span className={`w-7 text-center ${scoreTone(awayWins)}`}>{hasScore ? game.awayScore : "–"}</span>
             </span>
           )}
         </span>
@@ -1315,17 +1324,17 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             klein und ohne Rahmen, darunter der Countdown. Feste Breite, damit
             das Ergebnis in jeder Zeile an derselben Stelle steht. */}
         <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_6.5rem] items-center gap-x-4 lg:grid">
-          <FitText text={homeName} maxLines={2} minPx={12} className="text-right text-[15px] leading-tight text-ink" />
+          <FitText text={homeName} maxLines={2} minPx={12} className={`text-right text-[15px] leading-tight ${nameTone(homeWins)}`} />
           <span
             className={`flex items-center justify-center rounded-md border border-edge bg-pitch px-2 py-1 font-display text-lg font-bold leading-none tabular-nums transition-colors duration-700 ${
               flash ? "border-gold/50 bg-gold/15 text-gold" : hasScore ? "text-ink" : "text-muted"
             }`}
           >
-            <span className="w-6 text-center">{hasScore ? game.homeScore : "–"}</span>
+            <span className={`w-6 text-center ${scoreTone(homeWins)}`}>{hasScore ? game.homeScore : "–"}</span>
             <span className="text-muted">:</span>
-            <span className="w-6 text-center">{hasScore ? game.awayScore : "–"}</span>
+            <span className={`w-6 text-center ${scoreTone(awayWins)}`}>{hasScore ? game.awayScore : "–"}</span>
           </span>
-          <FitText text={awayName} maxLines={2} minPx={12} className="text-[15px] leading-tight text-ink" />
+          <FitText text={awayName} maxLines={2} minPx={12} className={`text-[15px] leading-tight ${nameTone(awayWins)}`} />
           <span className="flex min-w-0 flex-col items-end gap-0.5">
             {tv && (
               <span className="flex max-w-full items-center gap-1 text-[11px] font-medium leading-tight text-muted" title={tv}>
