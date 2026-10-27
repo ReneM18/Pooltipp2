@@ -24,7 +24,7 @@ import { isLiveLeagueEnabled } from "./liveConfig";
 // (Rene, 15.10.2026: Tippkarte und Matchcenter synchron) Dieser Speicher ist
 // die EINE Datenquelle für Tippkarten UND Matchcenter: gleiche URL
 // (/api/live?sport=…&date=…, ohne league – gefiltert wird im Browser),
-// gleicher Stand, gleiche Minute. Takt 180 s (Fußball), solange jemand
+// gleicher Stand, gleiche Minute. Takt 60 s (Fußball, siehe liveIntervalSeconds), solange jemand
 // abfragen will; im Hintergrund (Tab nicht sichtbar) Pause, beim
 // Zurückkommen sofort neu holen.
 
@@ -271,6 +271,34 @@ export function useLiveDay(sport: Sport, date: string | null): LiveDay {
     providerName: entry.providerName,
     providerUrl: entry.providerUrl,
   };
+}
+
+// Mehrere Tage auf einmal (Rene, 27.10.2026: Spielplan der nächsten Tage im
+// Matchcenter). Lädt jeden Tag einmal, wenn noch nichts (oder nur
+// Veraltetes) da ist; kein regelmäßiges Neuladen. Leere Liste: nichts.
+export function useLiveDays(sport: Sport, dates: readonly string[]): LiveDay[] {
+  useLiveStoreVersion(dates.length > 0);
+  const key = dates.join(",");
+  useEffect(() => {
+    for (const date of key ? key.split(",") : []) {
+      const entry = entryFor(sport, date);
+      if (!entry.loading && Date.now() - entry.loadedAt >= intervalMs(entry)) void load(entry);
+    }
+  }, [sport, key]);
+  return dates.map((date) => {
+    const entry = entryFor(sport, date);
+    return {
+      games: entry.games,
+      error: entry.error,
+      loading: entry.loading,
+      loadedAt: entry.loadedAt,
+      dataAt: entry.dataAt,
+      source: entry.source,
+      liveError: entry.liveError,
+      providerName: entry.providerName,
+      providerUrl: entry.providerUrl,
+    };
+  });
 }
 
 // Im Takt neu laden, solange active (z. B. ein Spiel läuft).
