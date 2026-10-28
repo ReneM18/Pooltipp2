@@ -96,23 +96,22 @@ export default function MatchcenterPage() {
   );
 }
 
-// Am Handy große Knöpfe wie bei den Sportarten (40 px hoch, Variante A),
-// alle in einer Reihe ohne Wischen, damit man nicht zwei Reiter auf einmal
-// trifft (Rene, 28.10.2026). Ab sm: wie bisher Text mit goldenem Strich.
+// Große Knöpfe wie bei den Sportarten (Variante A), damit man nicht zwei
+// Reiter auf einmal trifft (Rene, 28.10.2026). Am Handy 40 px hoch, alle in
+// einer Reihe ohne Wischen; ab sm genauso, nur etwas größer.
 function SubTab({ label, active, onClick }: { label: React.ReactNode; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`relative flex h-10 min-w-0 flex-auto items-center justify-center whitespace-nowrap rounded-full border px-1 font-display text-[12.5px] font-semibold transition-colors min-[400px]:text-[13px] sm:h-auto sm:flex-none sm:rounded-none sm:border-0 sm:px-0 sm:py-2.5 sm:text-sm ${
+      className={`flex h-10 min-w-0 flex-auto items-center justify-center whitespace-nowrap rounded-full border px-1 font-display text-[12.5px] font-semibold transition-colors min-[400px]:text-[13px] sm:h-11 sm:flex-none sm:px-5 sm:text-[15px] ${
         active
-          ? "border-gold bg-gold text-pitch sm:bg-transparent sm:text-ink"
+          ? "border-gold bg-gold text-pitch"
           : "border-edge text-muted hover:text-ink"
       }`}
     >
       {label}
-      {active && <span className="absolute inset-x-0 -bottom-px hidden h-0.5 rounded-full bg-gold sm:block" />}
     </button>
   );
 }
@@ -671,7 +670,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
       {/* Oben Sportarten + Tippspiel-Kästchen, darunter die Reiter, ohne
           eigene Überschrift (Rene, 27.10.2026, Variante C). */}
       {switcher}
-      <div className="mb-3 flex gap-1.5 sm:mb-4 sm:items-center sm:gap-4 sm:border-b sm:border-edge">
+      <div className="mb-3 flex gap-1.5 sm:mb-4 sm:gap-2.5">
         <SubTab
           label="Heute"
           active={view === "live" && !onlyLive}
@@ -683,7 +682,8 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
         <SubTab
           label={
             <span className="flex items-center gap-1.5">
-              <StateDot state="live" />
+              {/* Roter Punkt nur, wenn gerade ein Spiel läuft (Rene, 28.10.2026). */}
+              {runningCount > 0 && <StateDot state="live" />}
               Live
               {runningCount > 0 && <span className="hidden min-[400px]:inline">({runningCount})</span>}
             </span>
