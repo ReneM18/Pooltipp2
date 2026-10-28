@@ -74,13 +74,17 @@ function Note({ children }: { children: React.ReactNode }) {
 // Trikots, Tor unten. Namen nie abgeschnitten, sie dürfen umbrechen. Ohne
 // Feldpositionen von der API als Liste.
 
-// Anzeigename: Initialen weg ("N. Hauptmann" → "Hauptmann", "V. van Dijk" →
-// "van Dijk"), sehr lange Namen auf den letzten Teil gekürzt.
+// Anzeigename einheitlich nur der Nachname (Rene, 28.10.2026): "N. Hauptmann"
+// und "Vitalie Becker" → "Becker", Namenszusätze bleiben ("V. van Dijk" →
+// "van Dijk").
+const NAME_PARTICLES = new Set(["van", "von", "de", "der", "den", "da", "di", "do", "dos", "das", "del", "della", "le", "la", "ter", "ten", "zu"]);
+
 export function playerLabel(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const rest = parts.filter((w) => !/^\p{L}{1,2}\.$/u.test(w));
-  const label = (rest.length > 0 ? rest : parts).join(" ");
-  return label.length > 16 && rest.length > 1 ? rest[rest.length - 1] : label;
+  const parts = name.trim().split(/\s+/).filter((w) => !/^\p{L}{1,2}\.$/u.test(w));
+  if (parts.length === 0) return name.trim();
+  let i = parts.length - 1;
+  while (i > 0 && NAME_PARTICLES.has(parts[i - 1].toLowerCase())) i--;
+  return parts.slice(i).join(" ");
 }
 
 function luminance(hex: string): number {
@@ -163,7 +167,7 @@ function HalfPitch({ team, index }: { team: LineupTeam; index: number }) {
             style={{ left: `${x}%`, top: `${y}%`, width: `min(96px, calc(${100 / perRow}% - 4px))` }}
           >
             <Shirt color={keeper ? kit.keeper : kit.shirt} numberColor={keeper ? kit.keeperNumber : kit.number} number={p.number} />
-            <span className="max-w-full break-words rounded bg-black/45 px-1 text-[12px] font-semibold leading-tight text-white">
+            <span className="line-clamp-2 max-w-full text-[12px] font-semibold leading-tight text-white [overflow-wrap:anywhere] [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_0_6px_rgba(0,0,0,0.6)]">
               {playerLabel(p.name)}
             </span>
           </span>
