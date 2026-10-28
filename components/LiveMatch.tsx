@@ -26,14 +26,28 @@ export interface BoardClock {
 // Zustand + Text unter dem Spielstand, Minute zählt im Browser mit.
 export function useBoardClock(
   sport: Sport,
-  live: { status: LiveStatus; statusText: string; statusShort: string; elapsed: number | null; dataAt: number; progress?: number } | null,
+  live: {
+    status: LiveStatus;
+    statusText: string;
+    statusShort: string;
+    elapsed: number | null;
+    dataAt: number;
+    progress?: number;
+    // Elfmeterschießen, Heim/Gast wie auf der Tafel (links Heim, nur Fußball).
+    penaltyHome?: number;
+    penaltyAway?: number;
+  } | null,
 ): BoardClock {
   const clock = useLiveClock(sport, live?.statusShort ?? "", live?.elapsed ?? null, live?.dataAt ?? 0);
   if (!live) return { state: "finished", text: "Beendet", progress: null };
   const { status } = live;
   if (status === "FT") return { state: "finished", text: "Beendet", progress: null };
   if (status === "AET") return { state: "finished", text: live.statusText || "n. V.", progress: null };
-  if (status === "PEN") return { state: "finished", text: sport === "Fußball" ? "i. E." : live.statusText, progress: null };
+  // Ergebnis vom Elfmeterschießen dazu, sonst weiß man nicht, wer weiter ist.
+  if (status === "PEN") {
+    const shootout = live.penaltyHome !== undefined && live.penaltyAway !== undefined ? ` ${live.penaltyHome}:${live.penaltyAway}` : "";
+    return { state: "finished", text: sport === "Fußball" ? `i. E.${shootout}` : live.statusText, progress: null };
+  }
   if (status === "HT") return { state: "pause", text: "Halbzeit", progress: 0.5 };
   // Drittelpause: Balken bleibt am Ende des Drittels stehen (Rene, 16.10.2026).
   if (status === "BREAK") return { state: "pause", text: live.statusText || "Pause", progress: live.progress ?? null };

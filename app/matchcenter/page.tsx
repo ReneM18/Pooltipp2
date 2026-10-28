@@ -7,6 +7,7 @@ import FitText from "@/components/FitText";
 import { TvIcon } from "@/components/Icons";
 import {
   appSideEvents,
+  appSidePenalties,
   findLiveGame,
   isLiveFinished,
   isLiveRunning,
@@ -1293,8 +1294,12 @@ function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowS
     return { main: viennaTime(game.kickoff), sub, muted: true };
   }
   if (isLiveFinished(game.status)) {
+    // Elfmeterschießen mit Ergebnis ("i. E. 5:4"), Heim zuerst wie die Zeile
+    // (im Fußball steht nie der Gast zuerst).
+    const shootout =
+      sport === "Fußball" && game.penaltyHome !== undefined && game.penaltyAway !== undefined ? ` ${game.penaltyHome}:${game.penaltyAway}` : "";
     const sub =
-      game.status === "AET" ? "n. V." : game.status === "PEN" ? (sport === "Fußball" ? "i. E." : sport === "NHL" ? "n. P." : game.statusText) : undefined;
+      game.status === "AET" ? "n. V." : game.status === "PEN" ? (sport === "Fußball" ? `i. E.${shootout}` : sport === "NHL" ? "n. P." : game.statusText) : undefined;
     return { main: "Endstand", sub, muted: true };
   }
   if (sport === "NHL") {
@@ -1360,8 +1365,10 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   // Beendet (Rene, 27.10.2026: "müssen anders aussehen"): Zeile blasser,
   // "Endstand", Sieger und seine Tore hell und fett, der Rest gedämpft.
   const done = isLiveFinished(game.status) && hasScore;
-  const homeWins = done && game.homeScore! > game.awayScore!;
-  const awayWins = done && game.awayScore! > game.homeScore!;
+  // Bei Gleichstand nach Elfmeterschießen gewinnt, wer mehr Elfmeter traf.
+  const shootout = game.status === "PEN" && game.penaltyHome !== undefined && game.penaltyAway !== undefined && game.homeScore === game.awayScore;
+  const homeWins = done && (shootout ? game.penaltyHome! > game.penaltyAway! : game.homeScore! > game.awayScore!);
+  const awayWins = done && (shootout ? game.penaltyAway! > game.penaltyHome! : game.awayScore! > game.homeScore!);
   // US-Ligen "Gast @ Heim": Gast zuerst (oben bzw. links), Heim danach, wie
   // auf der Tippkarte (Rene, 28.10.2026).
   const awayFirst = link ? orderFor(link.match).awayFirst : liveAwayFirst(sport, game);
@@ -1412,9 +1419,13 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           {/* Sender unter der Uhrzeit (Rene, 28.10.2026), rechts stehen
               "Tippen" und der Countdown. */}
           {tv && (
-            <span className="flex min-w-0 items-center gap-1 text-[10px] font-medium leading-tight text-muted" title={tv}>
+            <span className="flex min-w-0 items-center gap-1 text-[10px] font-medium leading-tight text-muted lg:items-start" title={tv}>
               <TvIcon className="h-3 w-3 shrink-0" />
-              <span className="truncate">{tv}</span>
+              {/* Am PC darf der Sender zweizeilig stehen ("Sky Sport /
+                  Austria 1" statt "Sky Sport ..."), die Zeile hat dort mit
+                  zweizeiligen Namen ohnehin die Höhe. Breiter machen ging
+                  nicht: dann werden lange Vereinsnamen abgeschnitten. */}
+              <span className="truncate lg:line-clamp-2 lg:whitespace-normal">{tv}</span>
             </span>
           )}
           {/* Vor Tippschluss steht "Getippt" rechts über dem Countdown. */}
@@ -1584,7 +1595,7 @@ function LcDetail({
   const shieldLeft = useBeginnerShieldLeft();
   const started = game.status !== "NS" && game.homeScore !== null && game.awayScore !== null;
   const liveLike = started && (isLiveRunning(game.status) || isLiveFinished(game.status));
-  const clock = useBoardClock(sport, liveLike ? { ...game, dataAt } : null);
+  const clock = useBoardClock(sport, liveLike ? { ...game, dataAt, ...(link ? appSidePenalties(link.result) : {}) } : null);
   const match = link?.match ?? null;
   const tip = match ? myTips.find((t) => t.matchId === match.id && !t.refunded) ?? null : null;
   const order: TeamOrder = match ? orderFor(match) : { sport, awayFirst: liveAwayFirst(sport, game) };

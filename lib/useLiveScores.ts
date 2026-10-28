@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Match, Sport } from "./types";
 import {
   appSideEvents,
+  appSidePenalties,
   findLiveGame,
   isLiveDelayed,
   isLiveFinished,
@@ -341,6 +342,9 @@ export interface LiveScore {
   events: LiveEvent[] | null;
   // Fortschritt 0..1 vom Anbieter (Eishockey über 60 Min.), sonst undefined.
   progress?: number;
+  // Elfmeterschießen, Heim/Gast wie in der App (nur Fußball, nur wenn es eines gab).
+  penaltyHome?: number;
+  penaltyAway?: number;
   // Live-Daten verzögert (Rene, 16.10.2026), siehe isLiveDelayed.
   delayed: boolean;
 }
@@ -388,6 +392,7 @@ export function useLiveScore(match: Match, homeName: string, awayName: string): 
     dataAt: entry?.dataAt ?? 0,
     events: found.game.events ? appSideEvents(found) : null,
     ...(found.game.progress !== undefined ? { progress: found.game.progress } : {}),
+    ...appSidePenalties(found),
     delayed: isLiveDelayed(match.sport, entry?.dataAt ?? 0, entry?.source ?? null, isLiveRunning(status), now ?? Date.now()),
   };
 }
