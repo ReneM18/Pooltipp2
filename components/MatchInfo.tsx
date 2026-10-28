@@ -424,7 +424,7 @@ export function useMatchPreview(fixture: string | null) {
 
 const RESULT_STYLE: Record<"S" | "U" | "N", string> = {
   S: "bg-[#2fa45a] text-white",
-  U: "bg-[#6b7770] text-white",
+  U: "bg-[#707070] text-white",
   N: "bg-[#d64545] text-white",
 };
 
@@ -577,7 +577,7 @@ export function PreviewView({
                 </span>
               )}
               {draws > 0 && (
-                <span className="flex items-center justify-center bg-[#5b6a63] text-white" style={{ flex: draws }}>
+                <span className="flex items-center justify-center bg-[#606060] text-white" style={{ flex: draws }}>
                   {draws}
                 </span>
               )}

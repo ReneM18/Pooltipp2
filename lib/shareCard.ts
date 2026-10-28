@@ -20,7 +20,7 @@ export interface ShareCardData {
 const SIZE = 1080;
 const GOLD = "#EDB94A";
 const INK = "#F3F1EA";
-const MUTED = "#8B9890";
+const MUTED = "#949494";
 
 // Emoji-Schrift wie in der App (app/globals.css --emoji-stack): auf
 // Apple-Geräten leer (dort zeichnet das System), sonst Google "Noto".

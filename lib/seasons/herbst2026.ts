@@ -32,16 +32,16 @@ export const HERBST_2026: SeasonData = {
     // (dieselben Werte wie in app/globals.css :root); herbstlich sind nur
     // Knöpfe, Nachrichtenstreifen, Blätter und der Kopf des Saison-Passes.
     colors: {
-      pitch: "#0D1512",
-      surface: "#172420",
-      surfaceHover: "#1E2F29",
-      edge: "#24332C",
+      pitch: "#0D0D0D",
+      surface: "#1A1A1A",
+      surfaceHover: "#222222",
+      edge: "#2A2A2A",
       gold: "#E8B34C",
       goldDim: "#4A3D22",
       action: "#E2793A",
       actionHover: "#F0904F",
       ink: "#F3F1EA",
-      muted: "#8B9890",
+      muted: "#949494",
       ticker: "#E2793A",
     },
     glow: ["rgba(232, 179, 76, 0.06)", "rgba(226, 121, 58, 0.07)"],

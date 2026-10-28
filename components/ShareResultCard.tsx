@@ -27,8 +27,8 @@ export default function ShareResultCard({ leagueName, leaderboard, currentUser }
 
     // Hintergrund
     const bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0, "#172420");
-    bg.addColorStop(1, "#0D1512");
+    bg.addColorStop(0, "#1A1A1A");
+    bg.addColorStop(1, "#0D0D0D");
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);
 
@@ -40,11 +40,11 @@ export default function ShareResultCard({ leagueName, leaderboard, currentUser }
     ctx.fillStyle = "#E8B34C";
     ctx.fillText("Tipp", W / 2 + 60, 110);
 
-    ctx.fillStyle = "#8B9890";
+    ctx.fillStyle = "#949494";
     ctx.font = "24px Arial";
     ctx.fillText(leagueName, W / 2, 155);
 
-    ctx.strokeStyle = "#24332C";
+    ctx.strokeStyle = "#2A2A2A";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(60, 190);
@@ -86,7 +86,7 @@ export default function ShareResultCard({ leagueName, leaderboard, currentUser }
     // Footer
     ctx.textAlign = "center";
     ctx.font = "20px Arial";
-    ctx.fillStyle = "#8B9890";
+    ctx.fillStyle = "#949494";
     ctx.fillText("Tritt meiner Tipprunde bei – nur mit PoolTipp", W / 2, H - 60);
 
     return canvas;

@@ -1574,7 +1574,7 @@ export default function MatchCard({
       {card}
       <span
         aria-hidden
-        className="sport-badge pointer-events-none absolute -left-2.5 -top-3.5 z-[2] flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 bg-[#0f1916] text-lg leading-none shadow-[0_3px_8px_rgb(0_0_0/0.45)] sm:h-[38px] sm:w-[38px] sm:text-xl"
+        className="sport-badge pointer-events-none absolute -left-2.5 -top-3.5 z-[2] flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 bg-[#121212] text-lg leading-none shadow-[0_3px_8px_rgb(0_0_0/0.45)] sm:h-[38px] sm:w-[38px] sm:text-xl"
         style={{ borderColor: SPORT_BADGE_COLOR[match.sport] }}
       >
         <Emoji e={sportIcon[match.sport]} />
