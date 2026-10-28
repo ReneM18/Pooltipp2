@@ -919,6 +919,15 @@ function recentVar(f: Raw): number {
   return events.filter((e) => e?.type === "Var" && now - (toNumber(e?.time?.elapsed) ?? -99) <= 15).length;
 }
 
+// Minuten der Tore (ohne verschossene Elfmeter).
+function goalMinutes(f: Raw): number[] {
+  const events: Raw[] = Array.isArray(f?.events) ? f.events : [];
+  return events
+    .filter((e) => e?.type === "Goal" && e?.detail !== "Missed Penalty")
+    .map((e) => toNumber(e?.time?.elapsed))
+    .filter((m): m is number => m !== null);
+}
+
 export async function footballLiveHeat(ids: number[]): Promise<LiveHeatResult> {
   const key = process.env.API_SPORTS_KEY;
   if (!key) return { ok: false, error: "Kein API_SPORTS_KEY gesetzt", expiresAt: Date.now() + 300 * 1000 };
@@ -933,7 +942,7 @@ export async function footballLiveHeat(ids: number[]): Promise<LiveHeatResult> {
       const homeId = f?.teams?.home?.id;
       const home = teams.find((t) => t?.team?.id === homeId) ?? teams[0];
       const away = teams.find((t) => t !== home) ?? teams[1];
-      return { id: String(id), home: heatSide(home), away: heatSide(away), recentVar: recentVar(f) };
+      return { id: String(id), home: heatSide(home), away: heatSide(away), recentVar: recentVar(f), goalMinutes: goalMinutes(f) };
     })
     .filter((x: HeatStats | null): x is HeatStats => x !== null);
   return { ok: true, stats, expiresAt: res.hit.expiresAt };

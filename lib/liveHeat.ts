@@ -23,6 +23,9 @@ export interface HeatStats {
   away: HeatSide;
   // Videobeweis in den letzten 15 Minuten (aus den Ereignissen derselben Abfrage).
   recentVar: number;
+  // Minuten der Tore laut derselben Abfrage (falls die Live-Liste sie noch
+  // nicht hat).
+  goalMinutes: number[];
 }
 
 export interface LiveHeatResponse {
@@ -57,23 +60,34 @@ export interface HeatSnapshot {
   actions: number;
 }
 
+// Ein normales Spiel: so viele gewichtete Aktionen bzw. xG pro Minute.
+const NORMAL_ACTIONS_PER_MIN = 55 / 90;
+const NORMAL_XG_PER_MIN = 2.6 / 90;
+// So viele Minuten "normales Spiel" werden am Anfang dazugerechnet, damit die
+// ersten Minuten nicht automatisch fad sind (Rene, 28.10.2026).
+const PRIOR_MINUTES = 20;
+
 // Spannung 0–100 aus
-//  - Tempo: gewichtete Aktionen je 90 Minuten (bis 40),
+//  - Tempo: gewichtete Aktionen je 90 Minuten (bis 40), am Anfang mit einem
+//    normalen Spiel aufgefüllt (erste Minuten = "Ruhig", nicht "Fad"),
 //  - Torgefahr: xG je 90 Minuten (bis 15; ohne xG zählt das Tempo mehr),
 //  - offenem Spiel: beide Teams schießen, der Ballbesitz ist ausgeglichen (bis 6),
 //  - Trend: Aktionen der letzten ~10 Minuten gegenüber dem Schnitt (−8 bis +10),
-//  - Toren, Roten, verschossenen Elfmetern und Videobeweis der letzten 15 Minuten (bis 30),
+//  - Toren: je Tor +4 (bis 16), ein Tor in den letzten 15 Minuten +14, und
+//    bis 10 Minuten nach einem Tor mindestens "Spannend" (Rene, 28.10.2026:
+//    "Salzburg macht das Tor in der ersten Minute und es steht fad"),
+//  - Roten, verschossenen Elfmetern und Videobeweis der letzten 15 Minuten,
 //  - Spielstand: knapp zählt mehr, in der Schlussphase doppelt, ab 3 Toren
 //    Abstand ist die Luft raus.
 // Nur Spiele mit Statistik kommen auf die Karte (Rene, 27.10.2026).
 export function liveHeat(game: LiveGame, stats: HeatStats, earlier: HeatSnapshot | null = null): { heat: number; trend: HeatTrend } {
   const minute = Math.max(1, Math.min(120, game.elapsed ?? 45));
-  // Am Anfang nicht hochrechnen (eine Chance in Minute 2 ist kein Feuerwerk).
-  const per90 = (x: number) => (x / Math.max(minute, 15)) * 90;
+  const per90 = (x: number, normalPerMin: number) => ((x + normalPerMin * PRIOR_MINUTES) / (minute + PRIOR_MINUTES)) * 90;
   const actions = heatActions(stats);
   const xg = stats.home.xg !== null && stats.away.xg !== null ? stats.home.xg + stats.away.xg : null;
-  const tempo = xg === null ? Math.min(52, per90(actions) * 0.85) : Math.min(40, per90(actions) * 0.65);
-  const danger = xg === null ? 0 : Math.min(15, per90(xg) * 5);
+  const actions90 = per90(actions, NORMAL_ACTIONS_PER_MIN);
+  const tempo = xg === null ? Math.min(52, actions90 * 0.6) : Math.min(40, actions90 * 0.45);
+  const danger = xg === null ? 0 : Math.min(15, per90(xg, NORMAL_XG_PER_MIN) * 4);
 
   const hs = stats.home.shots;
   const as = stats.away.shots;
@@ -95,15 +109,27 @@ export function liveHeat(game: LiveGame, stats: HeatStats, earlier: HeatSnapshot
   }
 
   const events: LiveEvent[] = game.events ?? [];
-  let recentPts = 6 * stats.recentVar;
+  const isGoal = (e: LiveEvent) => e.type === "goal" || e.type === "owngoal" || e.type === "penalty";
+  // Tore aus der Live-Liste, sonst aus der Statistik-Abfrage.
+  const listGoals = events.filter(isGoal).map((e) => e.minute);
+  const goalMinutes = listGoals.length >= stats.goalMinutes.length ? listGoals : stats.goalMinutes;
+  const goals = Math.max(goalMinutes.length, (game.homeScore ?? 0) + (game.awayScore ?? 0));
+  // Tor ohne bekannte Minute in den ersten 10 Minuten: muss frisch sein.
+  const lastGoalAge = goalMinutes.length > 0 ? minute - Math.max(...goalMinutes) : goals > 0 && minute <= 10 ? 0 : Infinity;
+
+  const diff = Math.abs((game.homeScore ?? 0) - (game.awayScore ?? 0));
+  const blowout = diff >= 3;
+  // Bei einem Kantersieg machen weitere Tore das Spiel nicht spannender.
+  let eventPts = (blowout ? 0 : Math.min(16, 4 * goals)) + 6 * stats.recentVar;
+  eventPts += (blowout ? 4 : 14) * goalMinutes.filter((m) => minute - m <= 15).length;
   for (const e of events) {
     if (minute - e.minute > 15) continue;
-    if (e.type === "goal" || e.type === "owngoal" || e.type === "penalty") recentPts += 14;
-    else if (e.type === "red" || e.type === "missed_penalty") recentPts += 8;
+    if (e.type === "red" || e.type === "missed_penalty") eventPts += 8;
   }
-  const diff = Math.abs((game.homeScore ?? 0) - (game.awayScore ?? 0));
   const late = minute >= 70 ? 2 : 1;
-  const close = diff === 0 ? 7 * late : diff === 1 ? 9 * late : diff === 2 ? 0 : -15;
-  const heat = tempo + danger + open + trendPts + Math.min(30, recentPts) + close;
+  const close = diff === 0 ? 7 * late : diff === 1 ? 9 * late : diff === 2 ? 0 : -20;
+  let heat = tempo + danger + open + trendPts + Math.min(40, eventPts) + close;
+  // Frisches Tor: mindestens "Spannend", außer bei einem Kantersieg.
+  if (lastGoalAge <= 10 && !blowout) heat = Math.max(heat, 55);
   return { heat: Math.round(Math.max(0, Math.min(100, heat))), trend };
 }
