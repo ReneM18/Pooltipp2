@@ -67,3 +67,29 @@ export interface StandingsResponse {
   fetchedAt?: number;
   error?: string;
 }
+
+// Europacup-Ligaphase (CL, EL, ECL: 36 Teams in einer Tabelle). Plätze 1–8
+// direkt ins Achtelfinale, 9–24 Play-offs, 25–36 ausgeschieden (Rene,
+// 28.10.2026). Die Beschreibung der API hat Vorrang, fehlt sie, gilt der Platz.
+export const CUP_LEAGUE_IDS: readonly number[] = [2, 3, 848];
+const LEAGUE_PHASE_TEAMS = 36;
+
+export type CupZone = "r16" | "playoff" | "out";
+
+export const CUP_ZONES: readonly { zone: CupZone; label: string }[] = [
+  { zone: "r16", label: "Achtelfinale" },
+  { zone: "playoff", label: "Play-offs" },
+  { zone: "out", label: "Ausgeschieden" },
+];
+
+export function cupZone(leagueId: number, row: Pick<StandingTeamRow, "rank" | "description">, groupSize: number): CupZone | null {
+  if (!CUP_LEAGUE_IDS.includes(leagueId)) return null;
+  const d = row.description?.toLowerCase() ?? "";
+  if (d.includes("round of 16") || d.includes("1/8")) return "r16";
+  if (d.includes("play") || d.includes("1/16")) return "playoff";
+  if (d.includes("elimin")) return "out";
+  if (groupSize !== LEAGUE_PHASE_TEAMS) return null;
+  if (row.rank <= 8) return "r16";
+  if (row.rank <= 24) return "playoff";
+  return "out";
+}
