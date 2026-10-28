@@ -11,7 +11,7 @@ import { deadlineText } from "@/lib/dayGroups";
 // - getippt: "✓ Getippt", darunter dasselbe (Uhrzeit oder Countdown)
 // - Tippschluss vorbei: "🔒 Tippschluss vorbei"
 // Live, Beendet und Abgesagt zeigt die Karte selbst (components/MatchCard.tsx).
-const COUNTDOWN_FROM = 3 * 60 * 60 * 1000;
+export const COUNTDOWN_FROM = 3 * 60 * 60 * 1000;
 const SOON = 30 * 60 * 1000;
 
 function remainingText(ms: number): string {
