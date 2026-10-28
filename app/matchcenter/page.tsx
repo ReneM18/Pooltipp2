@@ -50,6 +50,8 @@ import { liveTipLabel } from "@/lib/liveTipText";
 import { appTeamName } from "@/lib/teamApiNames";
 import { fixtureTvFor } from "@/lib/fixtureTv";
 import { useUser } from "@/lib/UserContext";
+import { COUNTDOWN_FROM } from "@/components/Countdown";
+import { deadlineText } from "@/lib/dayGroups";
 import { isMatchTippable, isNightKickoff, sportDay, tipCardHref } from "@/lib/matchcenterLink";
 import Link from "next/link";
 import { useStartExperience } from "@/lib/useStartExperience";
@@ -1317,7 +1319,6 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
 
   const status = rowStatus(sport, game, clock?.text ?? null);
   const sub = status.sub && status.sub !== "heute" ? status.sub : null;
-  const badge = tipped || tippable;
   // Läuft: leuchtender Rand links statt roter Zeitlinie unten (Rene,
   // 27.10.2026, Variante C): rot = läuft, gelb = Pause.
   const glow = running ? (status.dot === "pause" ? "pause" : "live") : null;
@@ -1366,46 +1367,40 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
         <span className="flex w-[4.75rem] min-w-0 flex-col gap-0.5 overflow-hidden tabular-nums">
           <span className={`flex min-w-0 items-center gap-1 text-[13px] font-semibold leading-tight ${status.muted ? "text-muted" : "text-ink"}`}>
             {status.dot && <StateDot state={status.dot} />}
-            <span className={`min-w-0 ${sub && badge ? "shrink-0" : "truncate"}`}>{status.main}</span>
-            {/* Mit "Getippt"/"Tippen" darunter steht der Zusatz in derselben
-                Zeile ("Verl. 122'"), damit jede Zeile höchstens zwei Zeilen
-                hoch ist (Rene, 27.10.2026: "die Spalte ist höher"). */}
-            {sub && badge && <span className="min-w-0 truncate text-[10px] font-normal text-muted">{sub}</span>}
+            <span className={`min-w-0 ${sub && tv ? "shrink-0" : "truncate"}`}>{status.main}</span>
+            {/* Mit Sender darunter steht der Zusatz in derselben Zeile
+                ("Verl. 122'"), damit jede Zeile höchstens zwei Zeilen hoch
+                ist (Rene, 27.10.2026: "die Spalte ist höher"). */}
+            {sub && tv && <span className="min-w-0 truncate text-[10px] font-normal text-muted">{sub}</span>}
           </span>
           {/* "heute" steht schon im Reiter, nur "morgen"/"gestern" zeigen (Rene, 27.10.2026: flachere Zeilen). */}
-          {sub && !badge && <span className="truncate text-[10px] leading-tight text-muted">{sub}</span>}
-          {tipped && <span className="truncate text-[10px] font-semibold leading-tight text-gold">Getippt</span>}
-          {/* Tippspiel, noch nicht getippt: goldenes Schild mit Glanz
-              (Rene, 27.10.2026, Variante C; Glanz in globals.css). */}
-          {tippable && (
-            <span className="tip-shine w-fit rounded-full bg-gold px-1.5 text-[10px] font-bold leading-[1.4] text-pitch">Tippen</span>
+          {sub && !tv && <span className="truncate text-[10px] leading-tight text-muted">{sub}</span>}
+          {/* Sender unter der Uhrzeit (Rene, 28.10.2026), rechts stehen
+              "Tippen" und der Countdown. */}
+          {tv && (
+            <span className="flex min-w-0 items-center gap-1 text-[10px] font-medium leading-tight text-muted" title={tv}>
+              <TvIcon className="h-3 w-3 shrink-0" />
+              <span className="truncate">{tv}</span>
+            </span>
           )}
+          {/* Vor Tippschluss steht "Getippt" rechts über dem Countdown. */}
+          {tipped && !open && <span className="truncate text-[10px] font-semibold leading-tight text-gold">Getippt</span>}
         </span>
         {/* Namen und Tore in einem Raster (Rene, 27.10.2026): jede Tor-Zahl
             steht genau neben ihrem Verein, auch wenn ein Name zwei Zeilen
             braucht. Die Tore stehen mittig in einer festen Spalte, so liegen
             "1" und "0" sauber untereinander (Poppins hat schmale Einsen).
-            Im freien Platz davor der Sender des Tippspiels. */}
-        <span
-          className={`grid min-w-0 grid-rows-[auto_auto] items-center gap-x-2 gap-y-0.5 lg:hidden ${
-            tv ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"
-          }`}
-        >
+            Beim Tippspiel steht dort "Tippen" und der Countdown. */}
+        <span className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto] items-center gap-x-2 gap-y-0.5 lg:hidden">
           <FitText text={firstName} maxLines={2} minPx={12} className={`col-start-1 row-start-1 leading-tight ${nameTone(firstWins)}`} />
           <FitText text={secondName} maxLines={2} minPx={12} className={`col-start-1 row-start-2 leading-tight ${nameTone(secondWins)}`} />
-          {tv ? (
-            <span className="col-start-2 row-span-2 row-start-1 flex max-w-[5.5rem] items-center gap-1 rounded-full border border-edge bg-pitch px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-muted">
-              <TvIcon className="h-3 w-3 shrink-0" />
-              <span className="truncate">{tv}</span>
-            </span>
-          ) : null}
           {open && link ? (
-            <span className={`${tv ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 justify-self-end`}>
-              <TipCountdown deadline={link.match.tipDeadline} />
+            <span className="col-start-2 row-span-2 row-start-1 justify-self-end">
+              <TipStatus deadline={link.match.tipDeadline} tipped={tipped} />
             </span>
           ) : (
             <span
-              className={`${tv ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
+              className={`col-start-2 row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
                 flash ? "bg-gold/15 text-gold" : scoreColor
               }`}
             >
@@ -1417,8 +1412,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
         {/* Am PC eine Zeile wie eine Anzeigetafel (Rene, 27.10.2026: "Handy
             und Web nicht gleich bauen"): Heim rechtsbündig, Ergebnis in der
             Mitte, Gast links. Lange Namen brechen um oder werden kleiner
-            statt abgeschnitten. Rechts eine schmale feste Spalte: Sender
-            klein und ohne Rahmen, darunter der Countdown. Feste Breite, damit
+            statt abgeschnitten. Rechts eine schmale feste Spalte mit "Tippen"
+            und dem Countdown (Sender steht links unter der Uhrzeit). Feste Breite, damit
             das Ergebnis in jeder Zeile an derselben Stelle steht. */}
         {/* Ergebnisfelder mit Mindest- statt fester Breite, damit auch
             dreistellige Spielstände (NBA, z. B. 125:124) hineinpassen. */}
@@ -1434,14 +1429,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             <span className={`min-w-6 whitespace-nowrap text-center ${scoreTone(secondWins)}`}>{hasScore ? secondScore : "–"}</span>
           </span>
           <FitText text={secondName} maxLines={2} minPx={12} className={`text-[15px] leading-tight ${nameTone(secondWins)}`} />
-          <span className="flex min-w-0 flex-col items-end gap-0.5">
-            {tv && (
-              <span className="flex max-w-full items-center gap-1 text-[11px] font-medium leading-tight text-muted" title={tv}>
-                <TvIcon className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{tv}</span>
-              </span>
-            )}
-            {open && link && <TipCountdown deadline={link.match.tipDeadline} />}
+          <span className="flex min-w-0 flex-col items-end">
+            {open && link && <TipStatus deadline={link.match.tipDeadline} tipped={tipped} />}
           </span>
         </span>
       </div>
@@ -1490,10 +1479,12 @@ function FixtureTvEditor({ sport, game }: { sport: Sport; game: LiveGame }) {
   );
 }
 
-// Tippspiel vor Tippschluss: rechts statt der Striche ein laufender
-// Countdown bis Tippschluss, auch wenn schon getippt (Rene, 27.10.2026).
-// Letzte 30 Min. orange mit ⏰.
-function TipCountdown({ deadline }: { deadline: string }) {
+// Tippspiel vor Tippschluss: rechts statt der Striche oben "Tippen" (bzw.
+// "Getippt"), darunter bis wann. Gleiche Regel wie auf der Tippkarte
+// (components/Countdown.tsx, Rene 28.10.2026: "der Countdown muss zum
+// Tippschluss passen"): mehr als 3 Std. vorher "bis 20:45", ab 3 Std. ein
+// laufender Countdown bis Tippschluss, letzte 30 Min. orange mit ⏰.
+function TipStatus({ deadline, tipped }: { deadline: string; tipped: boolean }) {
   const target = Date.parse(deadline);
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
@@ -1501,22 +1492,43 @@ function TipCountdown({ deadline }: { deadline: string }) {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
-  if (now === null) return <span className="min-w-[1.75rem]" />;
-  const left = Math.max(0, Math.floor((target - now) / 1000));
+  const label = tipped ? (
+    <span className="text-[10px] font-semibold leading-[1.4] text-gold">Getippt</span>
+  ) : (
+    // Goldenes Schild mit Glanz (Rene, 27.10.2026, Variante C; Glanz in globals.css).
+    <span className="tip-shine w-fit rounded-full bg-gold px-1.5 text-[10px] font-bold leading-[1.4] text-pitch">Tippen</span>
+  );
+  if (now === null) {
+    return (
+      <span className="flex flex-col items-end gap-0.5">
+        {label}
+        <span className="text-[13px] leading-tight opacity-0">&nbsp;</span>
+      </span>
+    );
+  }
+  const ms = Math.max(0, target - now);
+  const left = Math.floor(ms / 1000);
   const h = Math.floor(left / 3600);
   const m = Math.floor((left % 3600) / 60);
   const sec = left % 60;
   const pad = (n: number) => String(n).padStart(2, "0");
-  const text = h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
-  const soon = left <= 30 * 60;
+  const counting = ms <= COUNTDOWN_FROM;
+  const soon = ms <= 30 * 60 * 1000;
   return (
-    <span
-      className={`flex flex-col items-end leading-tight tabular-nums ${soon ? "text-[#FF9B5C]" : "text-gold"}`}
-      role="timer"
-      aria-label={`Noch ${h > 0 ? `${h} Std. ` : ""}${m} Min. bis Tippschluss`}
-    >
-      <span className="text-[10px] font-semibold opacity-80">{soon ? "⏰ noch" : "noch"}</span>
-      <span className="font-display text-[13px] font-bold">{text}</span>
+    <span className="flex flex-col items-end gap-0.5">
+      {label}
+      {counting ? (
+        <span
+          className={`flex items-baseline gap-1 whitespace-nowrap leading-tight tabular-nums ${soon ? "text-[#FF9B5C]" : "text-gold"}`}
+          role="timer"
+          aria-label={`Noch ${h > 0 ? `${h} Std. ` : ""}${m} Min. bis Tippschluss`}
+        >
+          <span className="text-[10px] font-semibold opacity-80">{soon ? "⏰ noch" : "noch"}</span>
+          <span className="font-display text-[13px] font-bold">{h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`}</span>
+        </span>
+      ) : (
+        <span className="whitespace-nowrap text-[11px] font-semibold leading-tight text-gold">bis {deadlineText(target, now)}</span>
+      )}
     </span>
   );
 }
