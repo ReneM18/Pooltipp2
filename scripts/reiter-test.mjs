@@ -45,7 +45,7 @@ const gz = groupMatchesByDay(geschlossen, now, "geschlossen");
 assert.deepEqual(gz.map((x) => [x.label, ids(x.matches)]), [["Heute", ["abgesagt", "beendet"]]]);
 assert.deepEqual(groupMatchesByDay(offen, null, "offen").map((x) => x.label), [""]);
 
-// Startseite Tippen/Live/Beendet (Rene, 18.10.2026).
+// Startseite Tipps/Beendet (Rene, 27.10.2026; vorher mit Reiter Live).
 const getippt = new Set(["spaeter"]);
 const abgepfiffen = new Set(["laeuft"]);
 const home = splitHomeTabs(matches, now, (m) => getippt.has(m.id), (m) => abgepfiffen.has(m.id));
@@ -61,22 +61,24 @@ assert.deepEqual(ids(home.beendet), ["abgesagt", "beendet"]);
 // Offene Tipps nach Tippschluss sortiert.
 const sortiert = splitHomeTabs([M("b", "upcoming", 5), M("a", "upcoming", 1)], now, () => false, () => false);
 assert.deepEqual(ids(sortiert.offen), ["a", "b"]);
-// Automatische Reiterwahl: Live vor Tippen vor Beendet.
-assert.equal(autoHomeTab(home), "live");
+// Automatische Reiterwahl (Rene, 27.10.2026): laufend oder tippbar → Tipps, sonst Beendet.
+assert.equal(autoHomeTab(home), "tippen");
 assert.equal(autoHomeTab(splitHomeTabs([M("x", "upcoming", 3)], now, () => false, () => false)), "tippen");
-// Renes Regel (21.10.2026): Live vor Tipps (auch schon getippt) vor Beendet.
+// Auch schon getippte Spiele halten den Reiter Tipps.
 assert.equal(autoHomeTab(splitHomeTabs([M("x", "upcoming", 3)], now, () => true, () => false)), "tippen");
 assert.equal(autoHomeTab(splitHomeTabs([M("x", "upcoming", 3), M("alt", "finished", -20)], now, () => true, () => false)), "tippen");
 assert.equal(autoHomeTab(splitHomeTabs([M("alt", "finished", -20)], now, () => true, () => false)), "beendet");
-assert.equal(autoHomeTab(splitHomeTabs([M("alt", "finished", -20), M("laeuft", "live", -1)], now, () => true, () => false)), "live");
+assert.equal(autoHomeTab(splitHomeTabs([M("alt", "finished", -20), M("laeuft", "live", -1)], now, () => true, () => false)), "tippen");
+assert.equal(autoHomeTab(splitHomeTabs([M("alt", "finished", -20), M("ab", "live", -1)], now, () => true, () => true)), "tippen");
 assert.equal(autoHomeTab(splitHomeTabs([], now, () => false, () => false)), "tippen");
 assert.equal(autoHomeTab(gleich), "tippen");
 assert.equal(homeTabOf(home, "bald"), "tippen");
-assert.equal(homeTabOf(home, "laeuft"), "live");
+assert.equal(homeTabOf(home, "laeuft"), "tippen");
+assert.equal(homeTabOf(home, "tippschluss-vorbei"), "tippen");
 assert.equal(homeTabOf(home, "beendet"), "beendet");
 // Tippschluss-Text: heute nur Uhrzeit, sonst mit Wochentag.
 assert.equal(deadlineText(Date.parse("2026-10-04T19:30:00Z"), now), "21:30");
 assert.equal(deadlineText(Date.parse("2026-10-10T13:30:00Z"), now), "Sa. 15:30");
 assert.equal(deadlineText(Date.parse("2026-10-24T13:30:00Z"), now), "Sa. 24.10. 15:30");
 
-console.log("✓ Reiter-Test: 30 Prüfungen bestanden");
+console.log("✓ Reiter-Test: 32 Prüfungen bestanden");

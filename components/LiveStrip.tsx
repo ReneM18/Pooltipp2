@@ -18,7 +18,7 @@ interface LiveItem {
   myTip: string | null;
 }
 
-// onSelect: statt selbst zur Karte zu rollen (Startseite: erst zum Reiter Live,
+// onSelect: statt selbst zur Karte zu rollen (Startseite: erst zum Reiter Tipps,
 // Rene, 18.10.2026: Tippen/Live/Beendet).
 export default function LiveStrip({ items, onSelect }: { items: LiveItem[]; onSelect?: (matchId: string) => void }) {
   const { orderFor } = useAppData();

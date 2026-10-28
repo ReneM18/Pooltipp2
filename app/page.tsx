@@ -54,7 +54,8 @@ export default function DashboardPage() {
     return () => window.clearTimeout(timer);
   }, []);
   const { showToast, celebrate } = useFeedback();
-  // Reiter Tippen/Live/Beendet (Rene, 18.10.2026: Tippen/Live/Beendet).
+  // Reiter Tipps/Beendet (Rene, 27.10.2026: Live-Reiter weg, laufende Spiele
+  // stehen mit im Reiter Tipps; vorher 18.10.2026: Tippen/Live/Beendet).
   // null = noch nicht gewählt: beim Öffnen wählt die Seite EINMAL nach Renes
   // Regel (autoHomeTab), danach bleibt der Reiter, bis der Spieler umschaltet –
   // ändert sich die Lage, werden nur die Zahlen neu, es springt nichts um.
@@ -145,15 +146,15 @@ export default function DashboardPage() {
     return !!live && isLiveFinished(live.status);
   }
 
-  // Einteilung in Tippen/Live/Beendet (Regel und Test in lib/matchTabs.ts,
-  // Rene, 18.10.2026: Tippen/Live/Beendet). Ohne Live-Daten gilt: Anpfiff
-  // vorbei und kein Endstand = läuft.
+  // Einteilung in Tipps/Beendet (Regel und Test in lib/matchTabs.ts, Rene,
+  // 27.10.2026). Ohne Live-Daten gilt: Anpfiff vorbei und kein Endstand = läuft.
   const split = splitHomeTabs(shownMatches, now, (m) => !!findTipForMatch(m.id), liveFinished);
   const toTip = split.offen.length;
-  // Reiter "Tipps x/y": getippte von allen noch tippbaren Spielen (Rene, 19.10.2026).
-  const tipTabDone = split.getippt.length;
-  const tipTabTotal = split.offen.length + split.getippt.length;
-  const running = split.laeuft.length;
+  // Reiter "Tipps x/y": getippte von allen Spielen im Reiter, also tippbare
+  // und laufende (Rene, 27.10.2026; vorher 19.10.2026 nur tippbare).
+  const tipTabMatches = [...split.offen, ...split.getippt, ...split.laeuft, ...split.gleich, ...split.geradeBeendet];
+  const tipTabDone = tipTabMatches.filter((m) => !!findTipForMatch(m.id)).length;
+  const tipTabTotal = tipTabMatches.length;
   // Erst wählen, wenn Spiele, Uhr und (eingeloggt) die eigenen Tipps da sind,
   // sonst stünde beim Öffnen kurz der falsche Reiter da.
   // Hängt das Laden der Tipps, nach 5 s trotzdem zeigen statt ewig "lädt".
@@ -200,7 +201,7 @@ export default function DashboardPage() {
     window.scrollBy({ top: tabs.getBoundingClientRect().top - top, behavior: "smooth" });
   }
 
-  // Live-Streifen antippen (auf Tippen/Beendet): zum Reiter Live, dann zur Karte.
+  // Live-Streifen antippen (auf Beendet): zum Reiter Tipps, dann zur Karte.
   const [scrollToId, setScrollToId] = useState<string | null>(null);
   useEffect(() => {
     if (!scrollToId) return;
@@ -245,9 +246,10 @@ export default function DashboardPage() {
   // "Sa. 15:30") für die Leiste über den Reitern und "Noch offen".
   const next = split.offen[0] && now !== null ? deadlineText(Date.parse(split.offen[0].tipDeadline), now) : null;
 
-  // Gruppen je Reiter. Tippen: "Noch offen" und "✓ Schon getippt", darin nach
-  // Tag ("Heute", "Morgen" …). Live: "Läuft gerade", "Tippschluss vorbei ·
-  // beginnt gleich", "Gerade beendet · Wertung folgt". Beendet: nach Tag.
+  // Gruppen je Reiter. Tipps: oben "Läuft gerade", "Tippschluss vorbei ·
+  // beginnt gleich", "Gerade beendet · Wertung folgt" (früher Reiter Live),
+  // darunter "Noch offen" und "✓ Schon getippt", darin nach Tag ("Heute",
+  // "Morgen" …). Beendet: nach Tag.
   // Ohne Spiele-Anzahl: die steht schon im Reiter (Rene, 18.10.2026).
   type Section = { key: string; label: string; sub?: string; dot?: boolean; days: DayGroup<Match>[] };
   const byDay = (list: Match[]) => groupMatchesByDay(list, now, "offen");
@@ -260,29 +262,26 @@ export default function DashboardPage() {
   const sections: Section[] =
     tab === "tippen"
       ? [
+          ...(split.laeuft.length ? [{ key: "laeuft", label: "Läuft gerade", dot: true, days: flat(split.laeuft) }] : []),
+          ...(split.gleich.length
+            ? [{ key: "gleich", label: "🔒 Tippschluss vorbei", sub: "beginnt gleich", days: flat(split.gleich) }]
+            : []),
+          ...(split.geradeBeendet.length
+            ? [{ key: "gerade-beendet", label: "Gerade beendet", sub: "Wertung folgt", days: flat(split.geradeBeendet) }]
+            : []),
           ...(offenList.length ? [{ key: "offen", label: "Noch offen", sub: offenNext ? `nächster Tippschluss ${offenNext}` : undefined, days: byDay(offenList) }] : []),
           ...(getipptList.length
             ? [{ key: "getippt", label: "✓ Schon getippt", sub: "bis Tippschluss änderbar", days: byDay(getipptList) }]
             : []),
         ]
-      : tab === "live"
-        ? [
-            ...(split.laeuft.length ? [{ key: "laeuft", label: "Läuft gerade", dot: true, days: flat(split.laeuft) }] : []),
-            ...(split.gleich.length
-              ? [{ key: "gleich", label: "🔒 Tippschluss vorbei", sub: "beginnt gleich", days: flat(split.gleich) }]
-              : []),
-            ...(split.geradeBeendet.length
-              ? [{ key: "gerade-beendet", label: "Gerade beendet", sub: "Wertung folgt", days: flat(split.geradeBeendet) }]
-              : []),
-          ]
-        : split.beendet.length
-          ? [{ key: "beendet", label: "", days: groupMatchesByDay(split.beendet, now, "geschlossen") }]
-          : [];
+      : split.beendet.length
+        ? [{ key: "beendet", label: "", days: groupMatchesByDay(split.beendet, now, "geschlossen") }]
+        : [];
 
-  // Laufende Spiele als Streifen über den Reitern Tippen und Beendet
+  // Laufende Spiele als Streifen über den Reitern, nur auf Beendet
   // (Spielstand kommt live mit), laut Live-Daten schon abgepfiffene nicht
-  // mehr (Rene, 15.10.2026). Im Reiter Live stehen sie als Karten mit
-  // Anzeigetafel, dort kein Streifen (Rene, 18.10.2026: Tippen/Live/Beendet).
+  // mehr (Rene, 15.10.2026). Im Reiter Tipps stehen sie oben als Karten mit
+  // Anzeigetafel, dort kein Streifen (Rene, 27.10.2026).
   function toLiveItem(m: Match) {
     const tip = findTipForMatch(m.id);
     const [l, r] = tip ? displayOrder(orderFor(m), tip.predictedHomeScore, tip.predictedAwayScore) : [0, 0];
@@ -293,12 +292,12 @@ export default function DashboardPage() {
       myTip: tip ? (m.tipMode === "1x2" ? "✓" : `${l} : ${r}`) : null,
     };
   }
-  const liveItems = tab === "live" ? [] : split.laeuft.filter((m) => m.status === "live").map(toLiveItem);
-  // Im Reiter Live: Spiele, auf die man nicht getippt hat, nur als schmale
+  const liveItems = tab === "tippen" ? [] : split.laeuft.filter((m) => m.status === "live").map(toLiveItem);
+  // Im Reiter Tipps unter "Läuft gerade": Spiele, auf die man nicht getippt hat, nur als schmale
   // Zeile mit Spielstand statt großer Karte; groß nur, wo man mitfiebert.
   // Antippen öffnet das Spiel im Matchcenter (Rene, 27.10.2026).
   const slimLive = (sectionKey: string, m: Match) =>
-    tab === "live" && sectionKey === "laeuft" && !findTipForMatch(m.id) && !!getTeam(m.homeTeamId) && !!getTeam(m.awayTeamId);
+    tab === "tippen" && sectionKey === "laeuft" && !findTipForMatch(m.id) && !!getTeam(m.homeTeamId) && !!getTeam(m.awayTeamId);
 
   function renderCard(match: Match, stage = false) {
     const homeTeam = getTeam(match.homeTeamId);
@@ -393,32 +392,25 @@ export default function DashboardPage() {
       <LiveStrip
         items={liveItems}
         onSelect={(id) => {
-          selectTab("live");
+          selectTab("tippen");
           setScrollToId(id);
         }}
       />
       {/* Eingeloggt: schmale Zeile "Noch N offene Tipps · nächster
-          Tippschluss" nur auf Live/Beendet (Rene, 18.10.2026). */}
+          Tippschluss" nur auf Beendet (Rene, 18.10.2026). */}
       {sessionChecked && authUserId && (
         <HomeTipBar guest={false} toTip={toTip} next={next} tab={tab} onGo={goToTab} />
       )}
       <div ref={tabsRef} className="mb-5 flex gap-5 border-b border-edge" role="tablist">
         <TabButton active={tab === "tippen"} onClick={() => selectTab("tippen")}>
-          {/* "Tipps 4/5" = 4 von 5 Spielen in diesem Reiter getippt; ohne
-              Spiele nur "Tipps" (Rene, 19.10.2026). */}
+          {/* "Tipps 4/5" = 4 von 5 Spielen in diesem Reiter getippt, laufende
+              mitgezählt; ohne Spiele nur "Tipps" (Rene, 19./27.10.2026). */}
           Tipps{" "}
           {tipTabTotal > 0 && (
             <span className={toTip > 0 ? "text-gold" : "text-muted"} aria-label={`${tipTabDone} von ${tipTabTotal} getippt`}>
               {tipTabDone}/{tipTabTotal}
             </span>
           )}
-        </TabButton>
-        <TabButton active={tab === "live"} onClick={() => selectTab("live")}>
-          <span
-            aria-hidden
-            className={`h-2 w-2 shrink-0 rounded-full ${running > 0 ? "animate-pulse bg-red-500" : "bg-edge"}`}
-          />
-          Live <span className={running > 0 ? "text-red-400" : "text-muted"}>({running})</span>
         </TabButton>
         <TabButton active={tab === "beendet"} onClick={() => selectTab("beendet")}>
           Beendet
@@ -431,8 +423,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Leerzustände je Reiter (Rene, 18.10.2026: Tippen/Live/Beendet). */}
-      {tab === "tippen" && split.offen.length === 0 && (
+      {/* Leerzustände je Reiter (Rene, 18.10.2026). */}
+      {/* Nur laufende Spiele, nichts mehr tippbar: kein "Alles getippt" darüber. */}
+      {tab === "tippen" && split.offen.length === 0 && (tippable.length > 0 || sections.length === 0) && (
         <EmptyState
           className="mb-7"
           emoji="✅"
@@ -443,13 +436,6 @@ export default function DashboardPage() {
               : "Neue Spiele erscheinen hier, sobald sie angesetzt sind. Schau solange im Matchcenter vorbei."
           }
           action={tippable.length > 0 ? undefined : { href: "/matchcenter", label: "Zum Matchcenter" }}
-        />
-      )}
-      {tab === "live" && sections.length === 0 && (
-        <EmptyState
-          emoji="📺"
-          title="Gerade läuft kein Spiel."
-          text={toTip > 0 ? "Bis zum Anpfiff kannst du noch tippen." : "Sobald ein Spiel angepfiffen ist, siehst du es hier mit Spielstand."}
         />
       )}
       {tab === "beendet" && sections.length === 0 && (
