@@ -669,7 +669,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   }, [sport, view, todayDay.games, links, gameTv, tvTeamName]);
 
   return (
-    <section className="mb-6 sm:rounded-card sm:border sm:border-edge sm:bg-surface sm:px-4 sm:pt-3 sm:pb-4">
+    <section className="mb-6">
       {/* Oben Sportarten + Tippspiel-Kästchen, darunter die Reiter, ohne
           eigene Überschrift (Rene, 27.10.2026, Variante C). */}
       {switcher}
@@ -715,8 +715,11 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
           />
         )
       ) : (
-        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start xl:grid-cols-[minmax(0,1fr)_460px]">
-          <div className="min-w-0">
+        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start xl:grid-cols-[minmax(0,1fr)_460px]">
+          {/* Liste, Spiel-Detail und TV-Karte je als eigene Karte mit klarem
+              Rand und Abstand (Rene, 28.10.2026: "man muss sehen, dass es
+              verschiedene Karten sind"). */}
+          <div className="min-w-0 rounded-card border border-muted/40 bg-surface p-3 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] lg:p-4">
             {view === "spielplan" ? (
               <LcUpcoming dates={upcomingDates} days={upcomingDays} onRetry={retry} {...listProps} />
             ) : view === "live" ? (
@@ -752,7 +755,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
               </div>
             )}
             {friendsTab && (
-              <div className="hidden rounded-card border border-edge bg-surface p-3 sm:p-4 lg:block">
+              <div className="hidden rounded-card border border-muted/40 bg-surface shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] p-3 sm:p-4 lg:block">
                 <FriendsLivePanel state={friendsLive} />
               </div>
             )}
@@ -1658,7 +1661,7 @@ function LcDetail({
   const firstApiName = (leftSide === "home") !== swapped ? game.home : game.away;
 
   return (
-    <div className="flex flex-col gap-4 rounded-card border border-edge bg-surface p-3 sm:p-4">
+    <div className="flex flex-col gap-4 rounded-card border border-muted/40 bg-surface shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] p-3 sm:p-4">
       <div className="flex items-center justify-between gap-2 text-xs">
         <span className="flex min-w-0 items-center gap-1.5 font-semibold text-ink">
           {flag && (
