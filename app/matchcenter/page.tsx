@@ -17,7 +17,7 @@ import {
   type LiveMatchResult,
 } from "@/lib/liveScores";
 import { reloadLiveDay, useLiveDay, useLiveDays, useLivePolling, type LiveDay } from "@/lib/useLiveScores";
-import { TABLE_LEAGUES, type StandingGroup, type StandingsResponse } from "@/lib/standings";
+import { CUP_ZONES, cupZone, TABLE_LEAGUES, type CupZone, type StandingGroup, type StandingsResponse } from "@/lib/standings";
 import { LIVE_SPORTS, liveGameCountry, liveGameLeague } from "@/lib/liveConfig";
 import { flagEmoji } from "@/lib/flags";
 import { useLiveClock, useMinuteTick } from "@/lib/useLiveMinute";
@@ -1050,6 +1050,13 @@ function rankColor(description: string | null): string | null {
   return null;
 }
 
+// Farben der Europacup-Ligaphase (lib/standings.ts, cupZone).
+const CUP_ZONE_COLOR: Record<CupZone, string> = {
+  r16: "bg-emerald-500",
+  playoff: "bg-sky-500",
+  out: "bg-red-500",
+};
+
 const STANDINGS_GRID =
   "grid grid-cols-[1.5rem_minmax(0,1fr)_1.5rem_3.25rem_2rem_1.75rem] gap-2 px-3 sm:grid-cols-[2rem_minmax(0,1fr)_2.5rem_2rem_2rem_2rem_3.5rem_2.5rem_3rem] sm:px-4";
 
@@ -1117,7 +1124,7 @@ function LcTable() {
       ) : (
         <div className="flex flex-col gap-4">
           {data.groups.map((group, i) => (
-            <StandingsGroupTable key={`${group.name}-${i}`} group={group} showName={data.groups.length > 1} teamName={teamName} />
+            <StandingsGroupTable key={`${group.name}-${i}`} leagueId={data.league} group={group} showName={data.groups.length > 1} teamName={teamName} />
           ))}
         </div>
       )}
@@ -1126,10 +1133,12 @@ function LcTable() {
 }
 
 function StandingsGroupTable({
+  leagueId,
   group,
   showName,
   teamName,
 }: {
+  leagueId: number;
   group: StandingGroup;
   showName: boolean;
   teamName: (apiName: string) => string;
@@ -1151,7 +1160,8 @@ function StandingsGroupTable({
           <span className="text-right">Pkt</span>
         </div>
         {group.rows.map((row) => {
-          const color = rankColor(row.description);
+          const zone = cupZone(leagueId, row, group.rows.length);
+          const color = zone ? CUP_ZONE_COLOR[zone] : rankColor(row.description);
           return (
             <div key={`${row.rank}-${row.team}`} className={`${STANDINGS_GRID} relative items-center border-b border-edge py-2 text-sm last:border-0`}>
               {color && <span aria-hidden className={`absolute inset-y-1 left-0 w-1 rounded-r ${color}`} />}
@@ -1179,6 +1189,16 @@ function StandingsGroupTable({
           );
         })}
       </div>
+      {group.rows.some((row) => cupZone(leagueId, row, group.rows.length)) && (
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 px-1 text-xs text-muted">
+          {CUP_ZONES.map(({ zone, label }) => (
+            <span key={zone} className="flex items-center gap-1.5">
+              <span aria-hidden className={`h-3 w-1 rounded ${CUP_ZONE_COLOR[zone]}`} />
+              {label}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

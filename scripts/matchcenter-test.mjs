@@ -47,3 +47,19 @@ assert.equal(tipCardHref("a b"), "/?spiel=a%20b");
 assert.equal(matchcenterHref("m1"), "/matchcenter?spiel=m1");
 
 console.log("Matchcenter-Verknüpfung: alle Tests bestanden");
+
+// Europacup-Ligaphase: Farben nach Platz bzw. API-Beschreibung (Rene, 28.10.2026).
+{
+  const { cupZone } = await import("../lib/standings.ts");
+  const r = (rank, description = null) => ({ rank, description });
+  assert.equal(cupZone(2, r(1), 36), "r16");
+  assert.equal(cupZone(2, r(8), 36), "r16");
+  assert.equal(cupZone(3, r(9), 36), "playoff");
+  assert.equal(cupZone(848, r(24), 36), "playoff");
+  assert.equal(cupZone(2, r(25), 36), "out");
+  assert.equal(cupZone(2, r(36), 36), "out");
+  assert.equal(cupZone(2, r(10, "Promotion - Champions League (Round of 16)"), 36), "r16");
+  assert.equal(cupZone(2, r(3, "Promotion - Champions League (Play Offs: 1/16-finals)"), 36), "playoff");
+  assert.equal(cupZone(78, r(1), 18), null); // Bundesliga: wie bisher
+  assert.equal(cupZone(2, r(1), 4), null); // keine Ligaphase
+}
