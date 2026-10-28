@@ -12,7 +12,6 @@ import {
   isLiveRunning,
   isLiveDelayed,
   updatedAgoText,
-  viennaDate,
   type LiveGame,
   type LiveSource,
   type LiveMatchResult,
@@ -51,7 +50,7 @@ import { liveTipLabel } from "@/lib/liveTipText";
 import { appTeamName } from "@/lib/teamApiNames";
 import { fixtureTvFor } from "@/lib/fixtureTv";
 import { useUser } from "@/lib/UserContext";
-import { isMatchTippable, tipCardHref } from "@/lib/matchcenterLink";
+import { isMatchTippable, isNightKickoff, sportDay, tipCardHref } from "@/lib/matchcenterLink";
 import Link from "next/link";
 import { useStartExperience } from "@/lib/useStartExperience";
 
@@ -156,6 +155,41 @@ function previousDate(date: string): string {
   return addDays(date, -1);
 }
 
+// Sporttag aus zwei Kalendertagen (Rene, 28.10.2026: US-Spiele in der
+// Nacht): vom Kalendertag die Spiele ab 06:00, vom nächsten die Nacht-
+// Spiele bis 06:00 (lib/matchcenterLink.ts, sportDay). Zeitstand und Quelle
+// vom Teil mit laufenden Spielen, damit "verzögert" ehrlich bleibt.
+function sportDayGames(day: LiveGame[] | null, night: LiveGame[] | null): LiveGame[] | null {
+  if (!day || !night) return null;
+  return [...day.filter((g) => !isNightKickoff(g.kickoff)), ...night.filter((g) => isNightKickoff(g.kickoff))];
+}
+
+// games: schon zusammengesetzt (useMemo), damit die Liste nicht bei jedem
+// Rendern neu entsteht.
+function mergeSportDay(day: LiveDay, night: LiveDay, games = sportDayGames(day.games, night.games)): LiveDay {
+  const nightRunning = !!games?.some((g) => isNightKickoff(g.kickoff) && isLiveRunning(g.status));
+  const dayRunning = !!games?.some((g) => !isNightKickoff(g.kickoff) && isLiveRunning(g.status));
+  const pick = nightRunning && !dayRunning ? night : day;
+  return {
+    games,
+    // Fehler nur, wenn gar nichts da ist (sonst verdeckt er die Spiele).
+    error: games && games.length > 0 ? null : day.error ?? night.error,
+    loading: day.loading || night.loading,
+    loadedAt: Math.min(day.loadedAt, night.loadedAt),
+    dataAt: pick.dataAt,
+    source: pick.source,
+    liveError: pick.liveError,
+    providerName: day.providerName ?? night.providerName,
+    providerUrl: day.providerUrl ?? night.providerUrl,
+    quota: day.quota ?? night.quota,
+  };
+}
+
+// Läuft im Sporttag-Teil dieses Kalendertags ein Spiel (bzw. sollte es)?
+function partNeedsPolling(games: LiveGame[] | null, night: boolean, now: number | null): boolean {
+  return now !== null && !!games && games.some((g) => isNightKickoff(g.kickoff) === night && needsPolling(g, now));
+}
+
 // "2026-10-30" -> "Do., 30.10."
 function dayLabel(date: string): string {
   return new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", {
@@ -200,13 +234,13 @@ function useTodayTips() {
     return () => clearInterval(t);
   }, []);
   if (now === null || !contentLoaded) return null;
-  const today = viennaDate(now);
+  const today = sportDay(now);
   const list = matches.filter(
     (m) =>
       !m.draft &&
       m.status !== "cancelled" &&
       isSportActive(m.sport) &&
-      viennaDate(m.kickoff) === today &&
+      sportDay(m.kickoff) === today &&
       !!getTeam(m.homeTeamId) &&
       !!getTeam(m.awayTeamId),
   );
@@ -431,20 +465,28 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   const { matches, getTeam, myTips, apiNameLinks } = useAppData();
 
   // Datum und Uhr erst im Browser (sonst Hydration-Fehler), Uhr alle 30 s.
+  // today = Sporttag (06:00 bis 06:00 Wiener Zeit, Rene 28.10.2026).
   useEffect(() => {
-    setToday(viennaDate(Date.now()));
+    setToday(sportDay(Date.now()));
     setNow(Date.now());
     const t = setInterval(() => {
       setNow(Date.now());
-      setToday(viennaDate(Date.now()));
+      setToday(sportDay(Date.now()));
     }, 30 * 1000);
     return () => clearInterval(t);
   }, []);
 
   const yesterday = today ? previousDate(today) : null;
-  // Heute immer, gestern erst mit "Ergebnisse" (1 h Cache auf dem Server).
-  const todayDay = useLiveDay(sport, today);
-  const yesterdayDay = useLiveDay(sport, view === "ergebnisse" ? yesterday : null);
+  const tomorrow = today ? addDays(today, 1) : null;
+  // Heute immer (Kalendertag + Nacht danach), gestern erst mit "Ergebnisse"
+  // (1 h Cache auf dem Server; seine Nacht steckt im Kalendertag heute).
+  const todayCal = useLiveDay(sport, today);
+  const tomorrowCal = useLiveDay(sport, tomorrow);
+  const yesterdayCal = useLiveDay(sport, view === "ergebnisse" ? yesterday : null);
+  const todayGames = useMemo(() => sportDayGames(todayCal.games, tomorrowCal.games), [todayCal.games, tomorrowCal.games]);
+  const yesterdayGames = useMemo(() => sportDayGames(yesterdayCal.games, todayCal.games), [yesterdayCal.games, todayCal.games]);
+  const todayDay = mergeSportDay(todayCal, tomorrowCal, todayGames);
+  const yesterdayDay = mergeSportDay(yesterdayCal, todayCal, yesterdayGames);
   // Spielplan nur für Fußball und nur mit Pro-Plan (Tageskontingent laut
   // API-Sports ab PRO_PLAN_LIMIT); der Gratis-Plan kennt nur gestern bis
   // morgen und hat 100 Abfragen pro Tag.
@@ -453,20 +495,31 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     () => (today && hasPlan && view === "spielplan" ? Array.from({ length: UPCOMING_DAYS }, (_, i) => addDays(today, i + 1)) : NO_DATES),
     [today, hasPlan, view],
   );
-  const upcomingDays = useLiveDays(sport, upcomingDates);
+  // Je Spielplan-Tag auch die Nacht danach: ein Kalendertag mehr laden.
+  const upcomingCalDates = useMemo(
+    () => (upcomingDates.length > 0 ? [...upcomingDates, addDays(upcomingDates[upcomingDates.length - 1], 1)] : NO_DATES),
+    [upcomingDates],
+  );
+  const upcomingCalDays = useLiveDays(sport, upcomingCalDates);
+  const upcomingDays = upcomingDates.map((_, i) => mergeSportDay(upcomingCalDays[i], upcomingCalDays[i + 1]));
   useEffect(() => {
     if (!hasPlan && view === "spielplan" && todayDay.games !== null) setView("live");
   }, [hasPlan, view, todayDay.games]);
 
   // Automatisch aktualisieren – nur solange ein Spiel läuft, im 180-s-Takt
   // (gemeinsam mit den Tippkarten, pausiert im Hintergrund).
-  const polling = now !== null && !!todayDay.games && todayDay.games.some((g) => needsPolling(g, now));
-  useLivePolling(sport, today, polling);
+  // Je Kalendertag nur, wenn in seinem Teil des Sporttags etwas läuft.
+  const pollToday = partNeedsPolling(todayCal.games, false, now);
+  const pollTomorrow = partNeedsPolling(tomorrowCal.games, true, now);
+  const polling = pollToday || pollTomorrow;
+  useLivePolling(sport, today, pollToday);
+  useLivePolling(sport, tomorrow, pollTomorrow);
 
   const retry = () => {
     if (today) reloadLiveDay(sport, today);
+    if (tomorrow) reloadLiveDay(sport, tomorrow);
     if (view === "ergebnisse" && yesterday) reloadLiveDay(sport, yesterday);
-    for (const date of upcomingDates) reloadLiveDay(sport, date);
+    for (const date of upcomingCalDates) reloadLiveDay(sport, date);
   };
 
   // App-Spiele den API-Spielen zuordnen (gleiche Zuordnung wie die Tippkarten).
@@ -483,7 +536,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     if (allGames.length === 0) return map;
     for (const m of matches) {
       if (m.sport !== sport || m.draft || m.status === "cancelled") continue;
-      const day = viennaDate(m.kickoff);
+      const day = sportDay(m.kickoff);
       if (day !== today && day !== yesterday && !upcomingDates.includes(day)) continue;
       const home = getTeam(m.homeTeamId);
       const away = getTeam(m.awayTeamId);
@@ -511,7 +564,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
 
   // Von der Tippkarte: Spiel von gestern steht unter "Ergebnisse", eines
   // ab morgen unter "Spielplan" (Rene, 27.10.2026).
-  const targetDay = target ? viennaDate(target.kickoff) : null;
+  const targetDay = target ? sportDay(target.kickoff) : null;
   useEffect(() => {
     if (targetDay && yesterday && targetDay === yesterday) setView("ergebnisse");
     else if (targetDay && today && hasPlan && targetDay > today) setView("spielplan");
@@ -898,8 +951,8 @@ function LcResults({
     );
   }
   const days = [
-    { label: "Heute", games: finished.filter((g) => viennaDate(g.kickoff) === today) },
-    { label: "Gestern", games: finished.filter((g) => viennaDate(g.kickoff) !== today) },
+    { label: "Heute", games: finished.filter((g) => sportDay(g.kickoff) === today) },
+    { label: "Gestern", games: finished.filter((g) => sportDay(g.kickoff) !== today) },
   ].filter((d) => d.games.length > 0);
   return (
     <div className="flex flex-col gap-4">
@@ -1194,9 +1247,13 @@ function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowS
   const s = game.statusShort.toUpperCase();
   const minute = game.elapsed !== null && game.elapsed > 0 ? `${game.elapsed}'` : undefined;
   if (game.status === "NS") {
-    const today = viennaDate(Date.now());
-    const day = viennaDate(game.kickoff);
-    const sub = day === today ? "heute" : day < today ? "gestern" : day === addDays(today, 1) ? "morgen" : dayLabel(day).split(",")[0];
+    // Nacht-Spiele (00:00 bis 05:59) gehören zum Vortag (Sporttag) und
+    // stehen mit "Nacht" da (Rene, 28.10.2026).
+    const today = sportDay(Date.now());
+    const day = sportDay(game.kickoff);
+    const sub = isNightKickoff(game.kickoff)
+      ? "Nacht"
+      : day === today ? "heute" : day < today ? "gestern" : day === addDays(today, 1) ? "morgen" : dayLabel(day).split(",")[0];
     return { main: viennaTime(game.kickoff), sub, muted: true };
   }
   if (isLiveFinished(game.status)) {
