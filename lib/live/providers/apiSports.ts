@@ -598,6 +598,7 @@ function normalize(sport: Sport, g: Raw): LiveGame | null {
     elapsed,
     ...(hockey?.progress !== undefined ? { progress: hockey.progress } : {}),
     league: [g?.league?.name, rawCountry(g)].filter((x) => typeof x === "string" && x).join(" · "),
+    ...(isFootball && typeof g?.league?.round === "string" ? { round: g.league.round } : {}),
     ...(isFootball && Array.isArray(g?.events) ? { events: normalizeEvents(g, homeScore, awayScore) } : {}),
   };
 }

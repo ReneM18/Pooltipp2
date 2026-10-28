@@ -33,6 +33,8 @@ import { DuelReport } from "@/components/DuelReport";
 import { GrowthReport } from "@/components/GrowthReport";
 import { SportBioAdmin } from "@/components/SportBioAdmin";
 import { ApiTeamNamesAdmin } from "@/components/ApiTeamNamesAdmin";
+import { ApiFixturePicker, type ApiFixturePick } from "@/components/ApiFixturePicker";
+import { appTeamForApiName, findApiNameLink } from "@/lib/teamApiNames";
 import Emoji from "@/components/Emoji";
 import { peekLiveDays, peekLiveSportDiagnostics, refreshLiveDays, useLiveStoreVersion } from "@/lib/useLiveScores";
 import type { LiveDiagnostics, LiveGame, LiveSource } from "@/lib/live/types";
@@ -2169,6 +2171,8 @@ function MatchManager() {
     setBonusQuestion,
     setBonusQuestionAnswer,
     orderFor,
+    apiNameLinks,
+    saveApiNameLinks,
   } = useAppData();
   const { showToast } = useFeedback();
 
@@ -2216,6 +2220,44 @@ function MatchManager() {
   const [booster, setBoosterInput] = useState(false);
   const [tvChannel, setTvChannelInput] = useState("");
   const [tipMode, setTipModeInput] = useState<TipMode>("score");
+
+  // Spiel aus der API übernommen (Rene, 28.10.2026): API-Namen merken, damit
+  // ein unten von Hand gewähltes Team beim Anlegen als Vereinsname verknüpft
+  // wird – beim nächsten Mal passt es dann von selbst.
+  const [apiPick, setApiPick] = useState<ApiFixturePick | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  function applyApiPick(p: ApiFixturePick) {
+    const local = toLocalInputValue(p.kickoff);
+    setSport(p.sport);
+    setCompetition(p.competition);
+    setHomeTeamId(p.homeTeamId);
+    setAwayTeamId(p.awayTeamId);
+    setHomeJersey(undefined);
+    setAwayJersey(undefined);
+    setKickoff(local);
+    setTipDeadline(local);
+    setDeadlineTouched(false);
+    setMatchday(p.matchday ? String(p.matchday) : "");
+    setApiPick(p);
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // Fehlte beim übernommenen Spiel ein eigenes Team und wurde unten eines
+  // gewählt: als Vereinsname verknüpfen (nur ohne bestehende Verknüpfung).
+  function rememberApiNames(p: ApiFixturePick) {
+    const added = [
+      { apiName: p.homeApiName, teamId: homeTeamId },
+      { apiName: p.awayApiName, teamId: awayTeamId },
+    ].filter(
+      (x) =>
+        x.teamId &&
+        !findApiNameLink(apiNameLinks, p.sport, x.apiName) &&
+        !appTeamForApiName(teams, apiNameLinks, p.sport, x.apiName),
+    );
+    if (added.length === 0) return;
+    saveApiNameLinks([...apiNameLinks, ...added.map((x) => ({ sport: p.sport, apiName: x.apiName, teamId: x.teamId }))]);
+  }
 
   const teamsForSport = teams.filter((t) => t.sport === sport);
   // Bestätigung direkt im Formular statt Browser-Dialog: Safari/Chrome können
@@ -2306,7 +2348,9 @@ function MatchManager() {
       // „Veröffentlichen" online – einzeln oder alle auf einmal.
       draft: true,
     });
+    if (apiPick && apiPick.sport === sport) rememberApiNames(apiPick);
 
+    setApiPick(null);
     setCompetition("");
     setMatchday("");
     setKickoff("");
@@ -2329,10 +2373,13 @@ function MatchManager() {
     <section>
       <h2 className="mb-4 font-display text-2xl font-semibold text-ink">Spiele</h2>
 
+      <ApiFixturePicker onPick={applyApiPick} />
+
       {/* noValidate: Safari meldete beim Datumsfeld sonst "Ungültiger Wert"
           und blockierte das Anlegen, obwohl Anpfiff und Tippschluss
           korrekt eingetragen waren. Geprüft wird selbst in handleSubmit. */}
       <form
+        ref={formRef}
         noValidate
         onSubmit={handleSubmit}
         className="mb-6 flex flex-col gap-6 rounded-card border border-edge bg-surface p-5 sm:p-6"
