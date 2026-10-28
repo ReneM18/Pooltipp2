@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { LiveGame } from "@/lib/live/types";
-import { HEAT_LEVELS, heatActions, heatLevel, liveHeat, type HeatLevel, type HeatSnapshot, type HeatStats, type HeatTrend, type LiveHeatResponse } from "@/lib/liveHeat";
+import { HEAT_LEVELS, heatActions, heatLevel, liveHeat, type HeatSnapshot, type HeatStats, type HeatTrend, type LiveHeatResponse } from "@/lib/liveHeat";
 import Emoji from "@/components/Emoji";
 
-// Abschnitt "Was läuft gerade im TV?" unter dem Spiel-Detail im Matchcenter
-// (Rene, 27.10.2026; seit 28.10.2026 Variante A): je laufendem TV-Spiel eine
-// Zeile mit Sender, Stand, Minute und Stufe (🔥 Heiß … 😴 Fad, ▲/▼ = Trend
-// der letzten ~10 Min.), oben "Lohnt sich jetzt", Info-Knopf. Nur Spiele mit
+// Karte "Live im TV" unter dem Spiel-Detail im Matchcenter (Rene,
+// 27.10.2026, Variante C): je laufendem TV-Spiel eine Kachel mit Tacho
+// 0–100 (wie spannend gerade, ▲/▼ = Trend der letzten ~10 Min.), Schüssen,
+// Ecken, Karten und xG, mit Info-Knopf. Nur Spiele mit
 // TV-Sender UND Live-Statistik, das heißeste zuerst; ohne solche Spiele
 // keine Karte. Statistik für alle Spiele in einer Abfrage, alle 2 Min.
 
@@ -75,23 +75,41 @@ function hasStats(s: HeatStats, minute: number): boolean {
   return heatActions(s) > 0 || minute <= EMPTY_OK_MINUTE;
 }
 
-// Wort-Abzeichen je Stufe (Rene, 28.10.2026: keine Zahlen, nur das Wort).
-const LEVEL_CLASS: Record<HeatLevel, string> = {
-  heiss: "bg-red-500/20 text-red-300",
-  spannend: "bg-amber-500/15 text-amber-300",
-  ruhig: "bg-yellow-500/10 text-yellow-200/80",
-  fad: "bg-sky-400/15 text-sky-300",
-};
+const LEVEL_COLOR = { heiss: "#ef4444", spannend: "#f59e0b", ruhig: "#eab308", fad: "#60a5fa" } as const;
 
-function LevelPill({ heat, trend }: { heat: number; trend: HeatTrend }) {
+function Gauge({ heat, trend }: { heat: number; trend: HeatTrend }) {
   const level = heatLevel(heat);
-  const { emoji, label } = HEAT_LEVELS[level];
+  const r = 31;
+  const c = 2 * Math.PI * r;
   return (
-    <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-extrabold ${LEVEL_CLASS[level]}`}>
-      <Emoji e={emoji} /> {label}
-      {trend === "up" && <span aria-label="wird heißer"> ▲</span>}
-      {trend === "down" && <span aria-label="flacht ab"> ▼</span>}
-    </span>
+    <div className="relative h-[74px] w-[74px]" role="img" aria-label={`Spannung ${heat} von 100, ${HEAT_LEVELS[level].label}${trend === "up" ? ", wird heißer" : trend === "down" ? ", flacht ab" : ""}`}>
+      <svg width="74" height="74" viewBox="0 0 74 74" aria-hidden>
+        <circle cx="37" cy="37" r={r} fill="none" strokeWidth="7" className="stroke-edge" />
+        <circle
+          cx="37"
+          cy="37"
+          r={r}
+          fill="none"
+          strokeWidth="7"
+          strokeLinecap="round"
+          stroke={LEVEL_COLOR[level]}
+          strokeDasharray={`${(c * heat) / 100} ${c}`}
+          transform="rotate(-90 37 37)"
+          className="transition-[stroke-dasharray] duration-700"
+        />
+      </svg>
+      <span aria-hidden className="absolute inset-0 flex flex-col items-center justify-center">
+        {/* Keine Zahl im Kreis, sonst denkt man an Minuten (Rene, 27.10.2026). */}
+        <span className="text-xl leading-none">
+          <Emoji e={HEAT_LEVELS[level].emoji} />
+        </span>
+        <span className="mt-0.5 text-[10px] font-bold text-ink">
+          {HEAT_LEVELS[level].label}
+          {trend === "up" && <span className="text-red-400"> ▲</span>}
+          {trend === "down" && <span className="text-sky-400"> ▼</span>}
+        </span>
+      </span>
+    </div>
   );
 }
 
@@ -124,67 +142,55 @@ export default function LiveTvHeat({
 
   const [info, setInfo] = useState(false);
   if (tiles.length === 0) return null;
-  // Empfehlung zum Einschalten am heißesten Spiel, aber nur, wenn dort
-  // wirklich etwas los ist.
-  const top = tiles[0].heat >= 45 ? tiles[0] : null;
-  // Eigener Abschnitt mit Abstand, Überschrift und Linie, damit die Karte
-  // nicht mit dem Spiel darüber verschwimmt; je Spiel nur eine Zeile
-  // (Rene, 28.10.2026, Variante A: "es erschlägt dich mit Zahlen").
+  // Empfehlung zum Einschalten am heißesten Spiel (Rene, 27.10.2026,
+  // Variante B), aber nur, wenn dort wirklich etwas los ist.
+  const recommend = tiles[0].heat >= 45;
   return (
-    <section className="mt-8" aria-label="Was läuft gerade im TV?">
-      <div className="mb-2.5 flex items-center gap-2.5">
-        <h3 className="whitespace-nowrap font-display text-[15px] font-bold text-ink">
+    // Eigene Karte mit Rand und Abstand zum Spiel darüber (Rene, 28.10.2026).
+    <section className="mt-6 rounded-card border border-muted/40 bg-surface shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] p-3 sm:p-4" aria-label="Was läuft gerade im TV?">
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        <p className="font-display text-sm font-bold text-ink">
           <Emoji e="📺" /> Was läuft gerade im TV?
-        </h3>
-        <span aria-hidden className="h-px flex-1 bg-edge" />
-        <button
-          type="button"
-          onClick={() => setInfo((v) => !v)}
-          aria-expanded={info}
-          aria-label="Was ist das?"
-          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold transition-colors ${
-            info ? "border-gold bg-gold text-pitch" : "border-muted/50 text-muted hover:text-ink"
-          }`}
-        >
-          i
-        </button>
+        </p>
+        <span className="flex items-center gap-2">
+          <span className="text-[11px] text-muted">
+            heißestes zuerst
+          </span>
+          {/* Info (Rene, 27.10.2026: "mach ein Info rein") */}
+          <button
+            type="button"
+            onClick={() => setInfo((v) => !v)}
+            aria-expanded={info}
+            aria-label="Was ist das?"
+            className={`flex h-5 w-5 items-center justify-center rounded-full border text-[11px] font-bold transition-colors ${
+              info ? "border-gold bg-gold text-pitch" : "border-muted/50 text-muted hover:text-ink"
+            }`}
+          >
+            i
+          </button>
+        </span>
       </div>
       {info && (
-        <div className="mb-3 rounded-lg border border-edge bg-surface px-3 py-2.5 text-[12px] leading-relaxed text-muted">
+        <div className="mb-3 rounded-lg border border-edge bg-pitch/60 px-3 py-2.5 text-[12px] leading-relaxed text-muted">
           <p className="mb-1.5 font-semibold text-ink">Welches Spiel lohnt sich gerade im TV?</p>
           <p>
-            Hier stehen alle laufenden Tippspiele, die im TV kommen, das spannendste zuerst:{" "}
-            <span className="text-red-300">🔥 Heiß</span>, <span className="text-amber-300">⚡ Spannend</span>,{" "}
-            <span className="text-yellow-200/80">🙂 Ruhig</span> oder <span className="text-sky-300">😴 Fad</span>. ▲ heißt, es wird
-            gerade heißer, ▼ flacht ab. Antippen zeigt das Spiel oben.
+            Hier stehen alle laufenden Tippspiele, die im TV kommen. Je voller der Kreis, desto mehr ist gerade los:{" "}
+            <span className="text-red-400">🔥 Heiß</span>, <span className="text-amber-400">⚡ Spannend</span>,{" "}
+            <span className="text-yellow-400">🙂 Ruhig</span> oder <span className="text-sky-400">😴 Fad</span>. Ist das heißeste Spiel mindestens „Spannend“, bekommt es „Lohnt sich jetzt“: dort einschalten. Antippen zeigt das Spiel oben.
           </p>
           <p className="mt-1.5">
             Gerechnet wird aus den Live-Zahlen: Schüsse (aufs Tor und aus dem Strafraum zählen mehr), Paraden, Ecken, Karten und
             erwartete Tore (xG). Dazu kommen Tore, Rote Karten und Videobeweise der letzten 15 Minuten, ein knapper Spielstand
-            (in der Schlussphase doppelt) und ob beide Teams angreifen. Nach einem Tor ist ein Spiel mindestens „Spannend“. Neu alle
-            2 Minuten.
+            (in der Schlussphase doppelt) und ob beide Teams angreifen. ▲ heißt, es wird gerade heißer, ▼ flacht ab.
           </p>
+          <p className="mt-1.5">Unten in jeder Kachel: Schüsse, Ecken und Karten beider Teams zusammen, xG = erwartete Tore. Neu alle 2 Minuten.</p>
         </div>
       )}
-      <div className="overflow-hidden rounded-card border border-red-500/35 bg-gradient-to-b from-red-500/[0.07] to-surface/60">
-        {top && (
-          <button
-            type="button"
-            onClick={() => onSelect(top.game.id)}
-            className="flex w-full items-center gap-2.5 border-b border-red-500/30 bg-red-500/[0.14] px-3 py-2.5 text-left"
-          >
-            <span aria-hidden className="text-lg">
-              <Emoji e="🔥" />
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-[13px] font-bold text-ink">
-                Lohnt sich jetzt: {top.home} – {top.away}
-              </span>
-              <span className="block text-[12px] text-muted">jetzt auf {top.tv} einschalten</span>
-            </span>
-          </button>
-        )}
+      <div className={`grid grid-cols-2 gap-2 ${recommend ? "pt-2" : ""}`}>
         {tiles.map((t, i) => {
+          const tip = recommend && i === 0;
+          const sum = (k: "shots" | "corners" | "cards") => t.s.home[k] + t.s.away[k];
+          const xg = t.s.home.xg !== null && t.s.away.xg !== null ? t.s.home.xg + t.s.away.xg : null;
           const selected = t.game.id === selectedId;
           return (
             <button
@@ -192,21 +198,45 @@ export default function LiveTvHeat({
               type="button"
               onClick={() => onSelect(t.game.id)}
               aria-pressed={selected}
-              className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] transition-colors ${
-                i > 0 ? "border-t border-edge" : ""
-              } ${selected ? "bg-surface-hover" : "hover:bg-surface-hover/60"}`}
+              className={`relative flex min-w-0 flex-col items-center gap-1.5 rounded-xl border p-2.5 text-center transition-colors ${
+                tip
+                  ? `border-red-500/70 shadow-[0_0_0_1px_rgba(239,68,68,0.25),0_0_18px_-6px_rgba(239,68,68,0.6)] ${selected ? "bg-surface-hover" : "bg-surface hover:bg-surface-hover"}`
+                  : selected
+                    ? "border-muted/50 bg-surface-hover"
+                    : "border-edge bg-surface hover:bg-surface-hover"
+              }`}
             >
-              <span className="w-12 shrink-0 truncate rounded-md border border-edge bg-surface-hover px-1 py-0.5 text-center text-[10px] font-extrabold text-ink">
-                {t.tv}
+              {tip && (
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-extrabold text-white">
+                  <Emoji e="🔥" /> Lohnt sich jetzt
+                </span>
+              )}
+              <span className="max-w-full truncate rounded-md border border-edge px-1.5 text-[10px] font-bold text-muted">
+                {t.tv} · {t.game.statusText}
               </span>
-              <span className="min-w-0 flex-1 truncate font-semibold text-ink">
-                {t.home} – {t.away}
+              <span className="w-full text-xs font-semibold leading-tight text-ink">
+                <span className="block truncate">{t.home}</span>
+                <span className="block font-display text-[15px] font-bold">
+                  {t.homeScore} : {t.awayScore}
+                </span>
+                <span className="block truncate">{t.away}</span>
               </span>
-              <span className="shrink-0 font-display font-bold tabular-nums text-ink">
-                {t.homeScore} : {t.awayScore}
+              <Gauge heat={t.heat} trend={t.trend} />
+              {tip && (
+                <span className="text-[11px] font-bold leading-tight text-red-300">
+                  <Emoji e="📺" /> Jetzt auf {t.tv} einschalten
+                </span>
+              )}
+              {/* Klar beschriftet statt nur Symbole (Rene, 27.10.2026). */}
+              <span className="text-[10px] leading-snug text-muted">
+                <span className="block">
+                  {sum("shots")} Schüsse · {sum("corners")} Ecken
+                </span>
+                <span className="block">
+                  {sum("cards")} {sum("cards") === 1 ? "Karte" : "Karten"}
+                  {xg !== null && ` · ${xg.toFixed(1).replace(".", ",")} xG`}
+                </span>
               </span>
-              <span className="w-9 shrink-0 text-right text-[11px] font-bold text-red-400">{t.game.statusText}</span>
-              <LevelPill heat={t.heat} trend={t.trend} />
             </button>
           );
         })}
