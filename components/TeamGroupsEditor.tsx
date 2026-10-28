@@ -24,6 +24,7 @@ export default function TeamGroupsEditor() {
   const [country, setCountry] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
   const [renameText, setRenameText] = useState("");
+  const [flagging, setFlagging] = useState<string | null>(null);
 
   const sportTeams = teams.filter((t) => t.sport === sport);
   const groups = groupTeams(sportTeams, sport);
@@ -43,6 +44,17 @@ export default function TeamGroupsEditor() {
     saveTeamGroupDefs([...teamGroupDefs.filter((d) => d.sport !== sport), ...mine]);
   }
 
+  // Flagge einer Untergruppe setzen oder entfernen (Rene, 28.10.2026: "2.
+  // Bundesliga" bekam immer den Pokal, die Flagge ließ sich nachher nicht
+  // mehr ändern). "" = ohne Flagge -> Pokal.
+  function setFlag(key: string, code: string) {
+    save(groups, (d) => {
+      if (normalizeTeamName(d.label) !== key) return d;
+      const { countryCode: _old, ...rest } = d;
+      return code ? { ...rest, countryCode: code } : rest;
+    });
+  }
+
   function move(i: number, dir: -1 | 1) {
     const next = [...groups];
     const j = i + dir;
@@ -56,8 +68,18 @@ export default function TeamGroupsEditor() {
     const label = name.trim();
     if (!label) return;
     const key = normalizeTeamName(label);
-    if (groups.some((g) => g.key === key)) {
-      showToast("Diese Untergruppe gibt es schon.", "info");
+    const existing = groups.find((g) => g.key === key);
+    if (existing) {
+      // Gibt es schon (z. B. weil Vereine sie beim Anlegen bekommen haben):
+      // mit gewählter Flagge nur die Flagge setzen.
+      if (country && !isFixedGroup(key)) {
+        setFlag(key, country);
+        setName("");
+        setCountry("");
+        showToast(`✓ Flagge für „${existing.label}“ gesetzt.`, "success");
+      } else {
+        showToast("Diese Untergruppe gibt es schon.", "info");
+      }
       return;
     }
     const created: TeamGroupWithTeams = { key, label, icon: country ? flagEmoji(country) : "🏆", teams: [] };
@@ -83,9 +105,11 @@ export default function TeamGroupsEditor() {
       const { id, ...rest } = t;
       await updateTeam(id, { ...rest, group: label });
     }
+    // Flagge zieht mit (sonst stand nach dem Umbenennen wieder der Pokal da).
+    const code = teamGroupDefs.find((d) => d.sport === sport && normalizeTeamName(d.label) === g.key)?.countryCode;
     save(
       groups.map((x) => (x.key === g.key ? { ...x, key, label } : x)),
-      undefined
+      (d) => (code && normalizeTeamName(d.label) === key ? { ...d, countryCode: code } : d)
     );
     setRenaming(null);
     showToast(`✓ Umbenannt in „${label}“.`, "success");
@@ -132,7 +156,7 @@ export default function TeamGroupsEditor() {
             {groups.map((g, i) => {
               const fixed = isFixedGroup(g.key);
               return (
-                <li key={g.key} className="flex items-center gap-3 rounded-lg border border-edge bg-pitch px-3 py-2">
+                <li key={g.key} className="flex flex-wrap items-center gap-3 rounded-lg border border-edge bg-pitch px-3 py-2">
                   <span className="flex shrink-0 gap-1">
                     <button
                       type="button"
@@ -178,6 +202,13 @@ export default function TeamGroupsEditor() {
                     <span className="flex shrink-0 gap-3">
                       <button
                         type="button"
+                        onClick={() => setFlagging(flagging === g.key ? null : g.key)}
+                        className="text-xs text-muted hover:text-gold"
+                      >
+                        Flagge
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => {
                           setRenaming(g.key);
                           setRenameText(g.label);
@@ -192,6 +223,19 @@ export default function TeamGroupsEditor() {
                         </button>
                       )}
                     </span>
+                  )}
+                  {flagging === g.key && (
+                    <div className="basis-full">
+                      <CountryPicker
+                        value={teamGroupDefs.find((d) => d.sport === sport && normalizeTeamName(d.label) === g.key)?.countryCode ?? ""}
+                        onChange={(code) => {
+                          setFlag(g.key, code);
+                          setFlagging(null);
+                          showToast(code ? `✓ Flagge für „${g.label}“ gesetzt.` : `✓ Flagge bei „${g.label}“ entfernt.`, "success");
+                        }}
+                        emptyLabel="Ohne Flagge (Pokal)"
+                      />
+                    </div>
                   )}
                 </li>
               );
