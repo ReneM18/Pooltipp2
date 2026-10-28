@@ -39,3 +39,41 @@ export interface MatchInfoResponse {
   lineupsError?: string;
   statsError?: string;
 }
+
+// Vor dem Spiel (Rene, 28.10.2026: "mehr Statistik, zB die letzten
+// Partien"): Form, direkter Vergleich und Tabellenplatz beider Teams.
+// Abgefragt über GET /api/match-preview?fixture=<id>.
+
+export interface PreviewGame {
+  date: string; // ISO
+  home: string;
+  away: string;
+  homeGoals: number;
+  awayGoals: number;
+}
+
+export interface PreviewTeam {
+  team: string;
+  // Letzte Spiele, neuestes zuerst.
+  form: PreviewGame[];
+  // Tabellenplatz in der Liga dieses Spiels, sonst null (z. B. Cup).
+  rank: number | null;
+  points: number | null;
+  played: number | null;
+  goalsFor: number | null;
+  goalsAgainst: number | null;
+}
+
+export interface MatchPreviewResponse {
+  fixture: number;
+  teams: PreviewTeam[];
+  h2h: PreviewGame[];
+  error?: string;
+}
+
+// "S", "U" oder "N" aus Sicht von team.
+export function gameResult(g: PreviewGame, team: string): "S" | "U" | "N" {
+  const own = g.home === team ? g.homeGoals : g.awayGoals;
+  const other = g.home === team ? g.awayGoals : g.homeGoals;
+  return own > other ? "S" : own < other ? "N" : "U";
+}
