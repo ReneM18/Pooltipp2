@@ -49,9 +49,22 @@ import {
 } from "@/components/LiveMatch";
 import { liveTipLabel } from "@/lib/liveTipText";
 import { appTeamName } from "@/lib/teamApiNames";
+import { fixtureTvFor } from "@/lib/fixtureTv";
+import { useUser } from "@/lib/UserContext";
 import { isMatchTippable, tipCardHref } from "@/lib/matchcenterLink";
 import Link from "next/link";
 import { useStartExperience } from "@/lib/useStartExperience";
+
+// TV-Sender eines Spiels: beim Tippspiel der Sender am Spiel, sonst der im
+// Matchcenter eingetragene (Rene, 28.10.2026, lib/fixtureTv.ts).
+function useGameTv(sport: Sport): (game: LiveGame, link: AppLink | null | undefined) => string | null {
+  const { fixtureTv } = useAppData();
+  return useMemo(
+    () => (game: LiveGame, link: AppLink | null | undefined) =>
+      link ? link.match.tvChannel?.trim() || null : fixtureTvFor(fixtureTv, sport, game.id),
+    [fixtureTv, sport],
+  );
+}
 
 // Eigene Vereinsnamen statt API-Namen (Rene, 27.10.2026, lib/teamApiNames.ts).
 function useApiTeamName(sport: Sport | undefined): (apiName: string) => string {
@@ -567,16 +580,24 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
 
   const runningCount = todayDay.games?.filter((g) => isLiveRunning(g.status)).length ?? 0;
   // "Live im TV" unter dem Detail (Rene, 27.10.2026): laufende Fußball-
-  // Tippspiele mit TV-Sender. Ob die Statistik da ist, prüft die Karte.
+  // Spiele mit TV-Sender, seit 28.10.2026 auch ohne Tippspiel. Ob die
+  // Statistik da ist, prüft die Karte.
+  const gameTv = useGameTv(sport);
+  const tvTeamName = useApiTeamName(sport);
   const tvGames = useMemo((): TvGame[] => {
     if (sport !== "Fußball" || view !== "live") return [];
     return (todayDay.games ?? []).flatMap((g) => {
       const link = links.get(g.id);
-      const tv = link?.match.tvChannel?.trim();
-      if (!link || !tv || !isLiveRunning(g.status) || link.result.homeScore === null || link.result.awayScore === null) return [];
-      return [{ game: g, tv, home: link.home.name, away: link.away.name, homeScore: link.result.homeScore, awayScore: link.result.awayScore }];
+      const tv = gameTv(g, link);
+      if (!tv || !isLiveRunning(g.status)) return [];
+      const home = link ? link.home.name : tvTeamName(g.home);
+      const away = link ? link.away.name : tvTeamName(g.away);
+      const homeScore = link ? link.result.homeScore : g.homeScore;
+      const awayScore = link ? link.result.awayScore : g.awayScore;
+      if (homeScore === null || awayScore === null) return [];
+      return [{ game: g, tv, home, away, homeScore, awayScore }];
     });
-  }, [sport, view, todayDay.games, links]);
+  }, [sport, view, todayDay.games, links, gameTv, tvTeamName]);
 
   return (
     <section className="mb-6 sm:rounded-card sm:border sm:border-edge sm:bg-surface sm:px-4 sm:pt-3 sm:pb-4">
@@ -1234,8 +1255,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   // Tippkarte), sonst der eigene Vereinsname zum API-Namen.
   const homeName = link ? (link.result.swapped ? link.away.name : link.home.name) : teamName(game.home);
   const awayName = link ? (link.result.swapped ? link.home.name : link.away.name) : teamName(game.away);
-  // Sender gibt es nur bei Tippspielen (vom Admin eingetragen).
-  const tv = link?.match.tvChannel?.trim() || null;
+  // Sender vom Admin: am Tippspiel bzw. im Matchcenter-Detail eingetragen.
+  const tv = useGameTv(sport)(game, link);
 
   const status = rowStatus(sport, game, clock?.text ?? null);
   const sub = status.sub && status.sub !== "heute" ? status.sub : null;
@@ -1376,6 +1397,41 @@ const GLOW = {
   live: "inset 3px 0 0 rgb(239 68 68), 0 0 14px -6px rgb(239 68 68)",
   pause: "inset 3px 0 0 rgb(250 204 21)",
 } as const;
+
+// Admin: TV-Sender für ein Spiel ohne Tippspiel eintragen (Rene, 28.10.2026).
+// Tippspiele bekommen ihren Sender weiter im Admin am Spiel.
+function FixtureTvEditor({ sport, game }: { sport: Sport; game: LiveGame }) {
+  const { isAdmin } = useUser();
+  const { fixtureTv, saveFixtureTv } = useAppData();
+  const saved = fixtureTvFor(fixtureTv, sport, game.id) ?? "";
+  const [value, setValue] = useState(saved);
+  useEffect(() => setValue(saved), [saved]);
+  if (!isAdmin) return null;
+  const changed = value.trim() !== saved;
+  return (
+    <form
+      className="flex items-center gap-2 rounded-lg border border-dashed border-edge px-3 py-2 text-[13px]"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (changed) saveFixtureTv({ sport, fixtureId: game.id, kickoff: game.kickoff, channel: value });
+      }}
+    >
+      <TvIcon className="h-4 w-4 shrink-0 text-muted" />
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="TV-Sender (nur Admin), z. B. Sky"
+        aria-label="TV-Sender"
+        className="min-w-0 flex-1 bg-transparent text-ink placeholder:text-muted focus:outline-none"
+      />
+      {changed && (
+        <button type="submit" className="shrink-0 font-semibold text-gold hover:underline">
+          {value.trim() ? "Speichern" : "Löschen"}
+        </button>
+      )}
+    </form>
+  );
+}
 
 // Tippspiel vor Tippschluss: rechts statt der Striche ein laufender
 // Countdown bis Tippschluss, auch wenn schon getippt (Rene, 27.10.2026).
@@ -1526,6 +1582,8 @@ function LcDetail({
           </p>
         </div>
       )}
+
+      {!link && <FixtureTvEditor sport={sport} game={game} />}
 
       {pending && tier && (
         <LiveTipLine
