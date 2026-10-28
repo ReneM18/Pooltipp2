@@ -619,10 +619,22 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   function select(id: string) {
     pickedRef.current = true;
     setSelectedId(id);
+    if (typeof window === "undefined") return;
     // Am Handy steht das Detail unter der Liste: dorthin scrollen.
-    if (typeof window !== "undefined" && !window.matchMedia("(min-width: 1024px)").matches) {
+    if (!window.matchMedia("(min-width: 1024px)").matches) {
       requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      return;
     }
+    // Am PC steht das Detail rechts oben: ist man in der Liste weit unten,
+    // nach oben springen, sonst sieht man das gewählte Spiel nicht (Rene,
+    // 28.10.2026). Steht der Anfang des Details schon im Bild, nichts tun.
+    requestAnimationFrame(() => {
+      const el = detailRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      const margin = parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
+      if (top < margin || top > window.innerHeight * 0.6) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   const selected = selectedId ? allGames.find((g) => g.id === selectedId) ?? null : null;
