@@ -3,6 +3,7 @@
 import { AppSettingsRow, DEFAULT_TICKER_SPEED, SETTINGS_ROW_ID, TickerSpeed, readTickerSpeed } from "./appSettings";
 import { GROUPS_ROW_ID, setTeamGroupDefs, TeamGroupDef, TeamGroupsRow } from "./teamGroups";
 import { API_NAMES_ROW_ID, applyApiNameAliases, type ApiNameLink, type ApiNamesRow } from "./teamApiNames";
+import { FIXTURE_TV_ROW_ID, withFixtureTv, type FixtureTv, type FixtureTvRow } from "./fixtureTv";
 import { createContext, useContext, useState, useEffect, useMemo, useRef, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { coinText } from "@/lib/coinText";
@@ -447,6 +448,9 @@ interface AppDataContextValue {
   // Eigene Vereinsnamen statt API-Namen (lib/teamApiNames.ts).
   apiNameLinks: ApiNameLink[];
   saveApiNameLinks: (list: ApiNameLink[]) => void;
+  // TV-Sender der Matchcenter-Spiele ohne Tippspiel (lib/fixtureTv.ts).
+  fixtureTv: FixtureTv[];
+  saveFixtureTv: (entry: FixtureTv) => void;
   // Fehlgeschlagenes Speichern von Spielen/News/Wettbewerben (Admin-Meldung).
   saveProblem: SaveProblem | null;
   clearSaveProblem: () => void;
@@ -569,7 +573,7 @@ interface AppDataContextValue {
 const AppDataContext = createContext<AppDataContextValue | null>(null);
 
 // Zeilen der Tabelle "teams", die keine Teams sind (Einstellungen, Listen).
-const META_ROW_IDS = new Set([COMPETITIONS_ROW_ID, SETTINGS_ROW_ID, GROUPS_ROW_ID, API_NAMES_ROW_ID]);
+const META_ROW_IDS = new Set([COMPETITIONS_ROW_ID, SETTINGS_ROW_ID, GROUPS_ROW_ID, API_NAMES_ROW_ID, FIXTURE_TV_ROW_ID]);
 
 // Beim Aktualisieren nur dann neu zeichnen, wenn sich wirklich etwas geändert
 // hat – sonst würde jede Minute die ganze App neu rendern.
@@ -583,6 +587,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   // Für groupTeams() überall in der App (lib/teamGroups.ts).
   setTeamGroupDefs(teamGroupDefs);
   const [apiNameLinks, setApiNameLinksState] = useState<ApiNameLink[]>([]);
+  const [fixtureTv, setFixtureTvState] = useState<FixtureTv[]>([]);
   // Für die Live-Zuordnung der Tippspiele (lib/live/aliases.ts), nur neu
   // bei Änderungen.
   useMemo(() => applyApiNameAliases(teams, apiNameLinks), [teams, apiNameLinks]);
@@ -730,6 +735,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         if (Array.isArray(groupsList)) setTeamGroupDefsState(groupsList);
         const apiNamesList = (teamsRes.data.find((row) => row.id === API_NAMES_ROW_ID)?.data as ApiNamesRow | undefined)?.list;
         if (Array.isArray(apiNamesList)) setApiNameLinksState(apiNamesList);
+        const tvList = (teamsRes.data.find((row) => row.id === FIXTURE_TV_ROW_ID)?.data as FixtureTvRow | undefined)?.list;
+        if (Array.isArray(tvList)) setFixtureTvState(tvList);
         const savedList = (compRow?.data as CompetitionsRow | undefined)?.list;
         if (Array.isArray(savedList)) {
           setCompetitions(savedList);
@@ -812,6 +819,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (Array.isArray(groupsList)) setTeamGroupDefsState((current) => (sameJson(current, groupsList) ? current : groupsList));
       const apiNamesList = (teamsRes.data.find((row) => row.id === API_NAMES_ROW_ID)?.data as ApiNamesRow | undefined)?.list;
       if (Array.isArray(apiNamesList)) setApiNameLinksState((current) => (sameJson(current, apiNamesList) ? current : apiNamesList));
+      const tvList = (teamsRes.data.find((row) => row.id === FIXTURE_TV_ROW_ID)?.data as FixtureTvRow | undefined)?.list;
+      if (Array.isArray(tvList)) setFixtureTvState((current) => (sameJson(current, tvList) ? current : tvList));
     }
     if (!matchesRes.error && matchesRes.data) {
       const nextMatches = matchesRes.data.map((row) => row.data as Match);
@@ -1152,6 +1161,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     adminWriteAtRef.current = Date.now();
     void upsertConfirmed("teams", [{ id: API_NAMES_ROW_ID, data: row, updated_at: new Date().toISOString() }]).then((result) => {
       if (!result.ok) reportSaveProblem("Vereinsnamen", result.error);
+    });
+  }
+
+  // Sender eines API-Spiels setzen oder löschen (lib/fixtureTv.ts).
+  function saveFixtureTv(entry: FixtureTv) {
+    if (!loadedFromDb.teams) return;
+    const list = withFixtureTv(fixtureTv, entry);
+    setFixtureTvState(list);
+    const row: FixtureTvRow = { kind: "fixtureTv", list };
+    adminWriteAtRef.current = Date.now();
+    void upsertConfirmed("teams", [{ id: FIXTURE_TV_ROW_ID, data: row, updated_at: new Date().toISOString() }]).then((result) => {
+      if (!result.ok) reportSaveProblem("TV-Sender", result.error);
     });
   }
 
@@ -1842,6 +1863,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         teamGroupDefs,
         apiNameLinks,
         saveApiNameLinks,
+        fixtureTv,
+        saveFixtureTv,
         saveTeamGroupDefs,
         comments,
         getCommentsForMatch,
