@@ -3,7 +3,7 @@ import { isLiveLeagueEnabled, sameLeague } from "../../liveConfig";
 import { isLiveFinished, liveIntervalSeconds, liveMaxIntervalSeconds, viennaDate } from "../../liveScores";
 import { cachedLoad, type LoadResult } from "../cache";
 import type { StandingGroup, StandingTeamRow } from "../../standings";
-import type { LineupPlayer, LineupTeam, StatTeam } from "../../matchInfo";
+import type { LineupPlayer, LineupTeam, PreviewGame, PreviewTeam, StatTeam } from "../../matchInfo";
 import type { HeatSide, HeatStats } from "../../liveHeat";
 import type {
   LiveDayStatus,
@@ -786,6 +786,76 @@ export async function footballMatchInfo(fixtureId: number): Promise<MatchInfoRes
     ...(stats.ok ? {} : { statsError: stats.error }),
     expiresAt: Math.min(lineups.ok ? lineups.hit.expiresAt : lineups.expiresAt, stats.ok ? stats.hit.expiresAt : stats.expiresAt),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Vor dem Spiel (Rene, 28.10.2026: "mehr Statistik, zB die letzten Partien"):
+// Spiel (Team-IDs, Liga, Saison), letzte 5 Spiele beider Teams, direkter
+// Vergleich und Tabelle der Liga. Fünf Abfragen je Spiel, lange gemerkt:
+// das alles ändert sich höchstens nach einem Abpfiff.
+
+export type MatchPreviewResult =
+  | { ok: true; teams: PreviewTeam[]; h2h: PreviewGame[]; expiresAt: number }
+  | { ok: false; error: string; expiresAt: number };
+
+const FIXTURES_URL = "https://v3.football.api-sports.io/fixtures";
+const H2H_URL = "https://v3.football.api-sports.io/fixtures/headtohead";
+const FIXTURE_TTL = 6 * 3600;
+const FORM_TTL = 3 * 3600;
+const H2H_TTL = 6 * 3600;
+const PREVIEW_GAMES = 5;
+const FINISHED = new Set(["FT", "AET", "PEN"]);
+
+// Nur beendete Spiele mit Ergebnis, neuestes zuerst, ohne dieses Spiel.
+function toPreviewGames(list: Raw[], skipId: number): PreviewGame[] {
+  return list
+    .filter((f: Raw) => toNumber(f?.fixture?.id) !== skipId && FINISHED.has(String(f?.fixture?.status?.short ?? "")))
+    .map((f: Raw): PreviewGame | null => {
+      const home = f?.teams?.home?.name;
+      const away = f?.teams?.away?.name;
+      const homeGoals = toNumber(f?.goals?.home);
+      const awayGoals = toNumber(f?.goals?.away);
+      const date = typeof f?.fixture?.date === "string" ? f.fixture.date : null;
+      if (typeof home !== "string" || typeof away !== "string" || homeGoals === null || awayGoals === null || !date) return null;
+      return { date, home, away, homeGoals, awayGoals };
+    })
+    .filter((g): g is PreviewGame => g !== null)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, PREVIEW_GAMES);
+}
+
+export async function footballMatchPreview(fixtureId: number): Promise<MatchPreviewResult> {
+  const key = process.env.API_SPORTS_KEY;
+  if (!key) return { ok: false, error: "Kein API_SPORTS_KEY gesetzt", expiresAt: Date.now() + 300 * 1000 };
+  const fixture = await load(`${FIXTURES_URL}?id=${fixtureId}`, key, FIXTURE_TTL);
+  if (!fixture.ok) return { ok: false, error: fixture.error, expiresAt: fixture.expiresAt };
+  const f = fixture.hit.value[0];
+  const sides = [f?.teams?.home, f?.teams?.away].map((t: Raw) => ({ id: toNumber(t?.id), name: typeof t?.name === "string" ? t.name : null }));
+  if (sides.some((t) => t.id === null || t.name === null)) return { ok: false, error: "Spiel nicht gefunden", expiresAt: Date.now() + 300 * 1000 };
+  const leagueId = toNumber(f?.league?.id);
+  const season = toNumber(f?.league?.season);
+  const [formA, formB, h2h, table] = await Promise.all([
+    ...sides.map((t) => load(`${FIXTURES_URL}?team=${t.id}&last=${PREVIEW_GAMES + 1}`, key, FORM_TTL)),
+    load(`${H2H_URL}?h2h=${sides[0].id}-${sides[1].id}&last=${PREVIEW_GAMES + 1}`, key, H2H_TTL),
+    leagueId !== null && season !== null ? load(`${STANDINGS_URL}?league=${leagueId}&season=${season}`, key, STANDINGS_TTL) : null,
+  ]);
+  const rows: Raw[] = table?.ok ? (table.hit.value[0]?.league?.standings ?? []).flat() : [];
+  const teams = sides.map((t, i): PreviewTeam => {
+    const form = [formA, formB][i];
+    const row = rows.find((r: Raw) => toNumber(r?.team?.id) === t.id);
+    return {
+      team: t.name!,
+      form: form?.ok ? toPreviewGames(form.hit.value, fixtureId) : [],
+      rank: toNumber(row?.rank),
+      points: toNumber(row?.points),
+      played: toNumber(row?.all?.played),
+      goalsFor: toNumber(row?.all?.goals?.for),
+      goalsAgainst: toNumber(row?.all?.goals?.against),
+    };
+  });
+  const parts = [fixture, formA, formB, h2h, table].filter((x) => x !== null);
+  const expiresAt = Math.min(...parts.map((x) => (x!.ok ? x!.hit.expiresAt : x!.expiresAt)));
+  return { ok: true, teams, h2h: h2h?.ok ? toPreviewGames(h2h.hit.value, fixtureId) : [], expiresAt };
 }
 
 // ---------------------------------------------------------------------------

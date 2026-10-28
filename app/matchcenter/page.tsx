@@ -31,7 +31,7 @@ import { displayOrder, isAwayFirst, scoreText, type TeamOrder } from "@/lib/team
 import { SPORT_ICONS, isSportActive, sportLabel, type Match, type Sport, type Team } from "@/lib/types";
 import TeamBadge, { matchJerseyProps } from "@/components/TeamBadge";
 import CommentThread from "@/components/CommentThread";
-import { LineupView, StatsView, useMatchInfo } from "@/components/MatchInfo";
+import { LineupView, PreviewView, StatsView, useMatchInfo, useMatchPreview } from "@/components/MatchInfo";
 import Emoji from "@/components/Emoji";
 import LiveTvHeat, { type TvGame } from "@/components/LiveTvHeat";
 import { CommunityTrend } from "@/components/MatchCard";
@@ -1640,6 +1640,7 @@ function LcDetail({
   const [tab, setTab] = useState<"spiel" | "aufstellung" | "statistik">("spiel");
   const hasInfo = sport === "Fußball";
   const info = useMatchInfo(hasInfo && tab !== "spiel" ? game.id : null, isLiveRunning(game.status));
+  const preview = useMatchPreview(hasInfo && tab === "statistik" ? game.id : null);
   const swapped = !!link?.result.swapped;
   const firstApiName = (leftSide === "home") !== swapped ? game.home : game.away;
 
@@ -1748,8 +1749,18 @@ function LcDetail({
       {tab === "aufstellung" && (
         <LineupView info={info.data} failed={info.failed} onRetry={info.retry} firstApiName={firstApiName} teamName={teamName} started={started} />
       )}
+      {/* Ab Anpfiff oben die Werte im Spiel, darunter immer Tabelle, Form
+          und direkter Vergleich (Rene, 28.10.2026). */}
       {tab === "statistik" && (
-        <StatsView info={info.data} failed={info.failed} onRetry={info.retry} firstApiName={firstApiName} started={started} />
+        <div className="flex flex-col gap-4">
+          {started && (
+            <div>
+              <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted">Im Spiel</p>
+              <StatsView info={info.data} failed={info.failed} onRetry={info.retry} firstApiName={firstApiName} started={started} />
+            </div>
+          )}
+          <PreviewView info={preview.data} failed={preview.failed} onRetry={preview.retry} firstApiName={firstApiName} teamName={teamName} />
+        </div>
       )}
 
       {tab === "spiel" && (
