@@ -96,16 +96,23 @@ export default function MatchcenterPage() {
   );
 }
 
+// Am Handy große Knöpfe wie bei den Sportarten (40 px hoch, Variante A),
+// alle in einer Reihe ohne Wischen, damit man nicht zwei Reiter auf einmal
+// trifft (Rene, 28.10.2026). Ab sm: wie bisher Text mit goldenem Strich.
 function SubTab({ label, active, onClick }: { label: React.ReactNode; active: boolean; onClick: () => void }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`relative whitespace-nowrap py-2.5 font-display text-sm font-semibold transition-colors ${
-        active ? "text-ink" : "text-muted hover:text-ink"
+      aria-pressed={active}
+      className={`relative flex h-10 min-w-0 flex-auto items-center justify-center whitespace-nowrap rounded-full border px-1 font-display text-[12.5px] font-semibold transition-colors min-[400px]:text-[13px] sm:h-auto sm:flex-none sm:rounded-none sm:border-0 sm:px-0 sm:py-2.5 sm:text-sm ${
+        active
+          ? "border-gold bg-gold text-pitch sm:bg-transparent sm:text-ink"
+          : "border-edge text-muted hover:text-ink"
       }`}
     >
       {label}
-      {active && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-gold" />}
+      {active && <span className="absolute inset-x-0 -bottom-px hidden h-0.5 rounded-full bg-gold sm:block" />}
     </button>
   );
 }
@@ -664,7 +671,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
       {/* Oben Sportarten + Tippspiel-Kästchen, darunter die Reiter, ohne
           eigene Überschrift (Rene, 27.10.2026, Variante C). */}
       {switcher}
-      <div className="mb-3 flex items-center gap-3 border-b border-edge sm:mb-4 sm:gap-4">
+      <div className="mb-3 flex gap-1.5 sm:mb-4 sm:items-center sm:gap-4 sm:border-b sm:border-edge">
         <SubTab
           label="Heute"
           active={view === "live" && !onlyLive}
