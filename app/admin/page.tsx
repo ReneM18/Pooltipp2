@@ -34,6 +34,7 @@ import { GrowthReport } from "@/components/GrowthReport";
 import { SportBioAdmin } from "@/components/SportBioAdmin";
 import { ApiTeamNamesAdmin } from "@/components/ApiTeamNamesAdmin";
 import { ApiFixturePicker, type ApiFixturePick } from "@/components/ApiFixturePicker";
+import { GuestTeamButton } from "@/components/GuestTeamButton";
 import { appTeamForApiName, findApiNameLink } from "@/lib/teamApiNames";
 import Emoji from "@/components/Emoji";
 import { peekLiveDays, peekLiveSportDiagnostics, refreshLiveDays, useLiveStoreVersion } from "@/lib/useLiveScores";
@@ -2432,6 +2433,17 @@ function MatchManager() {
               {previewHome && (
                 <JerseyPicker team={previewHome} value={jerseyFor(previewHome, homeJersey)} onChange={setHomeJersey} />
               )}
+              {!homeTeamId && (
+                <GuestTeamButton
+                  sport={sport}
+                  competition={competition}
+                  suggestedName={apiPick && apiPick.sport === sport && !apiPick.homeTeamId ? apiPick.homeApiName : undefined}
+                  onCreated={(id) => {
+                    setHomeTeamId(id);
+                    setHomeJersey(undefined);
+                  }}
+                />
+              )}
             </div>
             <div>
               <label className="mb-1.5 block text-sm text-muted">{teamFieldLabel(formOrder, "away")}</label>
@@ -2449,6 +2461,17 @@ function MatchManager() {
               />
               {previewAway && (
                 <JerseyPicker team={previewAway} value={jerseyFor(previewAway, awayJersey)} onChange={setAwayJersey} />
+              )}
+              {!awayTeamId && (
+                <GuestTeamButton
+                  sport={sport}
+                  competition={competition}
+                  suggestedName={apiPick && apiPick.sport === sport && !apiPick.awayTeamId ? apiPick.awayApiName : undefined}
+                  onCreated={(id) => {
+                    setAwayTeamId(id);
+                    setAwayJersey(undefined);
+                  }}
+                />
               )}
             </div>
           </div>

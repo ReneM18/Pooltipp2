@@ -437,7 +437,9 @@ interface AppDataContextValue {
   publishMatches: (ids?: string[]) => void;
   // Speichern direkt in der Datenbank; bei Fehler kommt der letzte
   // Datenbank-Stand zurück (Rene, 15.10.2026).
-  addTeam: (team: Omit<Team, "id">) => Promise<SaveResult>;
+  // id optional: wer das neue Team gleich auswählen will (Gastteam im
+  // Spiel-Formular), gibt die id selbst vor.
+  addTeam: (team: Omit<Team, "id">, id?: string) => Promise<SaveResult>;
   updateTeam: (id: string, changes: Omit<Team, "id">) => Promise<SaveResult>;
   removeTeam: (id: string) => Promise<SaveResult>;
   teamGroupDefs: TeamGroupDef[];
@@ -1062,8 +1064,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return result;
   }
 
-  function addTeam(team: Omit<Team, "id">) {
-    return writeTeam({ ...team, id: `team-${Date.now()}` }, undefined);
+  function addTeam(team: Omit<Team, "id">, id = `team-${Date.now()}`) {
+    return writeTeam({ ...team, id }, undefined);
   }
 
   // Spiele speichern nur die Team-ID, darum erscheinen Änderungen (Name,
