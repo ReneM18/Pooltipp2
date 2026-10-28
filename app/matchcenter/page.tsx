@@ -1484,6 +1484,7 @@ function FixtureTvEditor({ sport, game }: { sport: Sport; game: LiveGame }) {
 // (components/Countdown.tsx, Rene 28.10.2026: "der Countdown muss zum
 // Tippschluss passen"): mehr als 3 Std. vorher "bis 20:45", ab 3 Std. ein
 // laufender Countdown bis Tippschluss, letzte 30 Min. orange mit ⏰.
+// Etwas Abstand zwischen Schild und Zeit (Rene, 28.10.2026: "zu nah").
 function TipStatus({ deadline, tipped }: { deadline: string; tipped: boolean }) {
   const target = Date.parse(deadline);
   const [now, setNow] = useState<number | null>(null);
@@ -1500,7 +1501,7 @@ function TipStatus({ deadline, tipped }: { deadline: string; tipped: boolean }) 
   );
   if (now === null) {
     return (
-      <span className="flex flex-col items-end gap-0.5">
+      <span className="flex flex-col items-end gap-1">
         {label}
         <span className="text-[13px] leading-tight opacity-0">&nbsp;</span>
       </span>
@@ -1515,7 +1516,7 @@ function TipStatus({ deadline, tipped }: { deadline: string; tipped: boolean }) 
   const counting = ms <= COUNTDOWN_FROM;
   const soon = ms <= 30 * 60 * 1000;
   return (
-    <span className="flex flex-col items-end gap-0.5">
+    <span className="flex flex-col items-end gap-1">
       {label}
       {counting ? (
         <span
