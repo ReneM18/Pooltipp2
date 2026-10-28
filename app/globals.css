@@ -107,21 +107,23 @@ html {
 }
 
 /* App-Farben als "R G B" (siehe tailwind.config.ts). Das Saison-Design
-   (lib/seasonDesign.ts) überschreibt sie mit den Farben der laufenden Saison. */
+   (lib/seasonDesign.ts) überschreibt sie mit den Farben der laufenden Saison.
+   Hintergrund, Karten, Ränder und grauer Text sind neutral schwarz/grau ohne
+   Grünstich (Rene, 28.10.2026: innen sah es grau-grün aus). */
 :root {
-  --c-pitch: 13 21 18;
-  --c-surface: 23 36 32;
-  --c-surface-hover: 30 47 41;
-  --c-edge: 36 51 44;
+  --c-pitch: 13 13 13;
+  --c-surface: 26 26 26;
+  --c-surface-hover: 34 34 34;
+  --c-edge: 42 42 42;
   --c-gold: 232 179 76;
   --c-gold-dim: 74 61 34;
   --c-action: 63 166 107;
   --c-action-hover: 79 193 129;
   --c-ink: 243 241 234;
-  --c-muted: 139 152 144;
+  --c-muted: 148 148 148;
   --c-ticker: 232 179 76;
   --bg-glow-a: rgba(232, 179, 76, 0.06);
-  --bg-glow-b: rgba(63, 166, 107, 0.08);
+  --bg-glow-b: rgba(255, 255, 255, 0.02);
 }
 
 body {
@@ -173,7 +175,7 @@ input[type="range"].stake-slider::-webkit-slider-thumb {
   height: 18px;
   border-radius: 999px;
   background: #e8b34c;
-  border: 3px solid #0d1512;
+  border: 3px solid #0d0d0d;
   cursor: pointer;
 }
 
@@ -182,7 +184,7 @@ input[type="range"].stake-slider::-moz-range-thumb {
   height: 18px;
   border-radius: 999px;
   background: #e8b34c;
-  border: 3px solid #0d1512;
+  border: 3px solid #0d0d0d;
   cursor: pointer;
 }
 

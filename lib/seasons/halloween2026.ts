@@ -31,16 +31,16 @@ export const HALLOWEEN_2026: EventData = {
     // Design; halloween sind Knöpfe, Nachrichtenstreifen, lila Schimmer und
     // Fledermäuse statt Laub.
     colors: {
-      pitch: "#0D1512",
-      surface: "#172420",
-      surfaceHover: "#1E2F29",
-      edge: "#24332C",
+      pitch: "#0D0D0D",
+      surface: "#1A1A1A",
+      surfaceHover: "#222222",
+      edge: "#2A2A2A",
       gold: "#E8B34C",
       goldDim: "#4A3D22",
       action: "#F07A1A",
       actionHover: "#FF9433",
       ink: "#F3F1EA",
-      muted: "#8B9890",
+      muted: "#949494",
       ticker: "#F07A1A",
     },
     glow: ["rgba(155, 93, 229, 0.09)", "rgba(240, 122, 26, 0.06)"],
