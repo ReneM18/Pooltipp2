@@ -96,22 +96,24 @@ export default function MatchcenterPage() {
   );
 }
 
-// Große Knöpfe wie bei den Sportarten (Variante A), damit man nicht zwei
-// Reiter auf einmal trifft (Rene, 28.10.2026). Am Handy 40 px hoch, alle in
-// einer Reihe ohne Wischen; ab sm genauso, nur etwas größer.
+// Am Handy große Knöpfe wie bei den Sportarten (40 px hoch, Variante A),
+// alle in einer Reihe ohne Wischen, damit man nicht zwei Reiter auf einmal
+// trifft (Rene, 28.10.2026). Ab sm wie früher Text mit goldenem Strich, nur
+// etwas größer (16 px, mehr Abstand), damit es sich von den Sportarten abhebt.
 function SubTab({ label, active, onClick }: { label: React.ReactNode; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`flex h-10 min-w-0 flex-auto items-center justify-center whitespace-nowrap rounded-full border px-1 font-display text-[12.5px] font-semibold transition-colors min-[400px]:text-[13px] sm:h-11 sm:flex-none sm:px-5 sm:text-[15px] ${
+      className={`relative flex h-10 min-w-0 flex-auto items-center justify-center whitespace-nowrap rounded-full border px-1 font-display text-[12.5px] font-semibold transition-colors min-[400px]:text-[13px] sm:h-auto sm:flex-none sm:rounded-none sm:border-0 sm:px-0 sm:py-3 sm:text-base ${
         active
-          ? "border-gold bg-gold text-pitch"
+          ? "border-gold bg-gold text-pitch sm:bg-transparent sm:text-ink"
           : "border-edge text-muted hover:text-ink"
       }`}
     >
       {label}
+      {active && <span className="absolute inset-x-0 -bottom-px hidden h-0.5 rounded-full bg-gold sm:block" />}
     </button>
   );
 }
@@ -670,7 +672,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
       {/* Oben Sportarten + Tippspiel-Kästchen, darunter die Reiter, ohne
           eigene Überschrift (Rene, 27.10.2026, Variante C). */}
       {switcher}
-      <div className="mb-3 flex gap-1.5 sm:mb-4 sm:gap-2.5">
+      <div className="mb-3 flex gap-1.5 sm:mb-4 sm:items-center sm:gap-6 sm:border-b sm:border-edge">
         <SubTab
           label="Heute"
           active={view === "live" && !onlyLive}
