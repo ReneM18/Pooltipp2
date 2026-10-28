@@ -254,7 +254,7 @@ function SportFixtures({
                       {left} <span className="text-muted">{order.awayFirst ? "@" : "–"}</span> {right}
                       {missing && !r.existing && (
                         <span className="block text-xs text-muted">
-                          Gelber Name: kein eigenes Team gefunden. Unten auswählen, wird dann gemerkt.
+                          Gelber Name: kein eigenes Team gefunden. Unten auswählen oder als Gastteam anlegen, wird dann gemerkt.
                         </span>
                       )}
                       {!r.competition && !r.existing && (
