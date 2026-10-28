@@ -11,7 +11,7 @@ import { Sport, SPORTS, SPORT_ICONS, sportLabel } from "@/lib/types";
 
 // Admin -> Teams -> "Untergruppen" (Rene, 20.10.2026): Gruppen für die
 // Team-Auswahl vorher anlegen (z. B. "2. Liga Österreich"), Reihenfolge
-// festlegen, umbenennen, leere löschen. Länder, Nationalteams und NBA/NHL
+// festlegen, umbenennen, löschen (Vereine gehen zurück auf Automatisch). Länder, Nationalteams und NBA/NHL
 // sind automatische Gruppen: nur verschiebbar. Gespeichert über
 // saveTeamGroupDefs (eine Zeile in "teams", kein SQL).
 export default function TeamGroupsEditor() {
@@ -115,10 +115,23 @@ export default function TeamGroupsEditor() {
     showToast(`✓ Umbenannt in „${label}“.`, "success");
   }
 
-  function remove(g: TeamGroupWithTeams) {
-    if (g.teams.length > 0) return;
-    if (!confirm(`Untergruppe „${g.label}“ löschen?`)) return;
+  // Löschen geht auch mit Vereinen (Rene, 28.10.2026): die Vereine kommen
+  // zurück auf "Automatisch" (Land, Nationalteams, NBA/NHL), Spiele und
+  // Tipps bleiben unverändert.
+  async function remove(g: TeamGroupWithTeams) {
+    const n = g.teams.length;
+    const hint = n > 0 ? `\n\n${n} ${n === 1 ? "Verein kommt" : "Vereine kommen"} zurück auf „Automatisch“ (z. B. nach Land). Spiele und Tipps bleiben.` : "";
+    if (!confirm(`Untergruppe „${g.label}“ löschen?${hint}`)) return;
+    for (const t of g.teams) {
+      const { id, group: _group, ...rest } = t;
+      const result = await updateTeam(id, rest);
+      if (!result.ok) {
+        showToast(`„${t.name}“ konnte nicht gespeichert werden. Bitte nochmal versuchen.`, "info");
+        return;
+      }
+    }
     save(groups.filter((x) => x.key !== g.key));
+    showToast(`✓ Untergruppe „${g.label}“ gelöscht.`, "success");
   }
 
   return (
@@ -217,11 +230,9 @@ export default function TeamGroupsEditor() {
                       >
                         Umbenennen
                       </button>
-                      {g.teams.length === 0 && (
-                        <button type="button" onClick={() => remove(g)} className="text-xs text-muted hover:text-ink">
-                          Löschen
-                        </button>
-                      )}
+                      <button type="button" onClick={() => remove(g)} className="text-xs text-muted hover:text-red-400">
+                        Löschen
+                      </button>
                     </span>
                   )}
                   {flagging === g.key && (
