@@ -28,7 +28,7 @@ import { FriendsLivePanel, FriendsLiveRow, FriendsLiveSheet } from "@/components
 import { useAppData } from "@/lib/AppDataContext";
 import { classifyRankingTip, RANKING_POINTS } from "@/lib/poolScore";
 import { competitionFlag } from "@/lib/competitionFlag";
-import { displayOrder, scoreText, type TeamOrder } from "@/lib/teamOrder";
+import { displayOrder, isAwayFirst, scoreText, type TeamOrder } from "@/lib/teamOrder";
 import { SPORT_ICONS, isSportActive, sportLabel, type Match, type Sport, type Team } from "@/lib/types";
 import TeamBadge, { matchJerseyProps } from "@/components/TeamBadge";
 import CommentThread from "@/components/CommentThread";
@@ -1205,6 +1205,12 @@ function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowS
   return { main: OTHER_STATUS[s] ?? "—", muted: true };
 }
 
+// Gast zuerst bei API-Spielen ohne App-Spiel: wie isAwayFirst, Land aus der
+// API-Liga (z. B. "NHL · USA").
+function liveAwayFirst(sport: Sport, game: LiveGame): boolean {
+  return isAwayFirst(sport, { countryCode: liveGameCountry(game.league) });
+}
+
 // Eine Zeile (Rene, 15.10.2026: Spieltag-Umbau): links Status (siehe
 // rowStatus, feste Breite seit 16.10.2026), Mitte Heim und Gast
 // untereinander, rechts die Tore untereinander, unten ein dünner Balken
@@ -1223,6 +1229,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const selected = selectedId === game.id;
   const link = links.get(game.id);
   const teamName = useApiTeamName(sport);
+  const { orderFor } = useAppData();
   // Mit App-Spiel: Namen wie in der App (gleiche Schreibweise wie auf der
   // Tippkarte), sonst der eigene Vereinsname zum API-Namen.
   const homeName = link ? (link.result.swapped ? link.away.name : link.home.name) : teamName(game.home);
@@ -1242,6 +1249,12 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const done = isLiveFinished(game.status) && hasScore;
   const homeWins = done && game.homeScore! > game.awayScore!;
   const awayWins = done && game.awayScore! > game.homeScore!;
+  // US-Ligen "Gast @ Heim": Gast zuerst (oben bzw. links), Heim danach, wie
+  // auf der Tippkarte (Rene, 28.10.2026).
+  const awayFirst = link ? orderFor(link.match).awayFirst : liveAwayFirst(sport, game);
+  const [firstName, secondName] = awayFirst ? [awayName, homeName] : [homeName, awayName];
+  const [firstWins, secondWins] = awayFirst ? [awayWins, homeWins] : [homeWins, awayWins];
+  const [firstScore, secondScore] = awayFirst ? [game.awayScore, game.homeScore] : [game.homeScore, game.awayScore];
   const nameTone = (wins: boolean) => (!done ? "text-ink" : wins ? "font-semibold text-ink" : "text-muted");
   const scoreTone = (wins: boolean) => (done && !wins ? "text-muted" : "");
   // Laufend (Rene, 27.10.2026): Spielstand rot.
@@ -1300,8 +1313,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             tv ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"
           }`}
         >
-          <FitText text={homeName} maxLines={2} minPx={12} className={`col-start-1 row-start-1 leading-tight ${nameTone(homeWins)}`} />
-          <FitText text={awayName} maxLines={2} minPx={12} className={`col-start-1 row-start-2 leading-tight ${nameTone(awayWins)}`} />
+          <FitText text={firstName} maxLines={2} minPx={12} className={`col-start-1 row-start-1 leading-tight ${nameTone(firstWins)}`} />
+          <FitText text={secondName} maxLines={2} minPx={12} className={`col-start-1 row-start-2 leading-tight ${nameTone(secondWins)}`} />
           {tv ? (
             <span className="col-start-2 row-span-2 row-start-1 flex max-w-[5.5rem] items-center gap-1 rounded-full border border-edge bg-pitch px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-muted">
               <TvIcon className="h-3 w-3 shrink-0" />
@@ -1318,8 +1331,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
                 flash ? "bg-gold/15 text-gold" : scoreColor
               }`}
             >
-              <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(homeWins)}`}>{hasScore ? game.homeScore : "–"}</span>
-              <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(awayWins)}`}>{hasScore ? game.awayScore : "–"}</span>
+              <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(firstWins)}`}>{hasScore ? firstScore : "–"}</span>
+              <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(secondWins)}`}>{hasScore ? secondScore : "–"}</span>
             </span>
           )}
         </span>
@@ -1332,17 +1345,17 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
         {/* Ergebnisfelder mit Mindest- statt fester Breite, damit auch
             dreistellige Spielstände (NBA, z. B. 125:124) hineinpassen. */}
         <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_6.5rem] items-center gap-x-4 lg:grid">
-          <FitText text={homeName} maxLines={2} minPx={12} className={`text-right text-[15px] leading-tight ${nameTone(homeWins)}`} />
+          <FitText text={firstName} maxLines={2} minPx={12} className={`text-right text-[15px] leading-tight ${nameTone(firstWins)}`} />
           <span
             className={`flex items-center justify-center rounded-md border border-edge bg-pitch px-2 py-1 font-display text-lg font-bold leading-none tabular-nums transition-colors duration-700 ${
               flash ? "border-gold/50 bg-gold/15 text-gold" : scoreColor
             }`}
           >
-            <span className={`min-w-6 whitespace-nowrap text-center ${scoreTone(homeWins)}`}>{hasScore ? game.homeScore : "–"}</span>
+            <span className={`min-w-6 whitespace-nowrap text-center ${scoreTone(firstWins)}`}>{hasScore ? firstScore : "–"}</span>
             <span className="px-0.5 text-muted">:</span>
-            <span className={`min-w-6 whitespace-nowrap text-center ${scoreTone(awayWins)}`}>{hasScore ? game.awayScore : "–"}</span>
+            <span className={`min-w-6 whitespace-nowrap text-center ${scoreTone(secondWins)}`}>{hasScore ? secondScore : "–"}</span>
           </span>
-          <FitText text={awayName} maxLines={2} minPx={12} className={`text-[15px] leading-tight ${nameTone(awayWins)}`} />
+          <FitText text={secondName} maxLines={2} minPx={12} className={`text-[15px] leading-tight ${nameTone(secondWins)}`} />
           <span className="flex min-w-0 flex-col items-end gap-0.5">
             {tv && (
               <span className="flex max-w-full items-center gap-1 text-[11px] font-medium leading-tight text-muted" title={tv}>
@@ -1419,7 +1432,7 @@ function LcDetail({
   const clock = useBoardClock(sport, liveLike ? { ...game, dataAt } : null);
   const match = link?.match ?? null;
   const tip = match ? myTips.find((t) => t.matchId === match.id && !t.refunded) ?? null : null;
-  const order: TeamOrder = match ? orderFor(match) : { sport, awayFirst: false };
+  const order: TeamOrder = match ? orderFor(match) : { sport, awayFirst: liveAwayFirst(sport, game) };
   const awayFirst = !!order.awayFirst;
 
   // Alles in App-Heim/-Gast (Seiten der API ggf. gedreht).
