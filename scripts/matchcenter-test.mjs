@@ -1,7 +1,7 @@
 // Test für die Verknüpfung Tippspiele ↔ Matchcenter (lib/matchcenterLink.ts).
 // Ausführen: npm run test:matchcenter
 import assert from "node:assert/strict";
-import { inMatchcenterDays, isMatchTippable, matchcenterHref, tipCardHref } from "../lib/matchcenterLink.ts";
+import { inMatchcenterDays, isMatchTippable, isNightKickoff, matchcenterHref, sportDay, tipCardHref } from "../lib/matchcenterLink.ts";
 
 // 27.10.2026, 08:00 in Wien (07:00 UTC, Winterzeit).
 const now = Date.parse("2026-10-27T07:00:00Z");
@@ -15,14 +15,33 @@ assert.equal(isMatchTippable({ status: "live", tipDeadline: h(2) }, now), false)
 assert.equal(isMatchTippable({ status: "finished", tipDeadline: h(2) }, now), false);
 assert.equal(isMatchTippable({ status: "cancelled", tipDeadline: h(2) }, now), false);
 
-// Matchcenter kennt heute und gestern (Wiener Kalendertag).
+// Matchcenter kennt heute und gestern als Sporttag (06:00 bis 06:00 Wien).
 assert.equal(inMatchcenterDays("2026-10-27T19:00:00Z", now), true); // heute 20:00
 assert.equal(inMatchcenterDays("2026-10-27T22:59:00Z", now), true); // heute 23:59 in Wien
-assert.equal(inMatchcenterDays("2026-10-27T23:00:00Z", now), false); // morgen 00:00 in Wien
-assert.equal(inMatchcenterDays("2026-10-25T23:00:00Z", now), true); // gestern 00:00 in Wien
-assert.equal(inMatchcenterDays("2026-10-25T22:59:00Z", now), false); // vorgestern
+assert.equal(inMatchcenterDays("2026-10-28T02:00:00Z", now), true); // Nacht 03:00 zählt zu heute
+assert.equal(inMatchcenterDays("2026-10-28T04:59:00Z", now), true); // Nacht 05:59
+assert.equal(inMatchcenterDays("2026-10-28T05:00:00Z", now), false); // morgen 06:00
+assert.equal(inMatchcenterDays("2026-10-26T05:00:00Z", now), true); // gestern 06:00
+assert.equal(inMatchcenterDays("2026-10-26T04:59:00Z", now), false); // Nacht davor = vorgestern
 // Über die Zeitumstellung (25.10.2026) hinweg: gestern = 26.10.
-assert.equal(inMatchcenterDays("2026-10-26T12:00:00Z", Date.parse("2026-10-27T00:30:00Z")), true);
+assert.equal(inMatchcenterDays("2026-10-26T12:00:00Z", Date.parse("2026-10-27T07:30:00Z")), true);
+// Um 03:00 in der Nacht ist noch "gestern" der Sporttag heute.
+const night = Date.parse("2026-10-28T02:00:00Z"); // 28.10. 03:00 in Wien
+assert.equal(sportDay(night), "2026-10-27");
+assert.equal(inMatchcenterDays("2026-10-27T19:00:00Z", night), true);
+assert.equal(inMatchcenterDays("2026-10-26T12:00:00Z", night), true);
+assert.equal(inMatchcenterDays("2026-10-25T12:00:00Z", night), false);
+
+// Sporttag und Nacht-Spiele (Rene, 28.10.2026).
+assert.equal(isNightKickoff("2026-10-27T23:00:00Z"), true); // 00:00 Wien
+assert.equal(isNightKickoff("2026-10-28T04:59:00Z"), true); // 05:59 Wien
+assert.equal(isNightKickoff("2026-10-28T05:00:00Z"), false); // 06:00 Wien
+assert.equal(isNightKickoff("2026-10-27T22:59:00Z"), false); // 23:59 Wien
+assert.equal(sportDay("2026-10-28T01:00:00Z"), "2026-10-27"); // NBA 02:00
+assert.equal(sportDay("2026-10-28T12:00:00Z"), "2026-10-28");
+// Sommerzeit: 03:30 Wien = 01:30 UTC.
+assert.equal(sportDay("2026-07-15T01:30:00Z"), "2026-07-14");
+assert.equal(sportDay("2026-07-15T04:00:00Z"), "2026-07-15"); // 06:00 Wien
 
 assert.equal(tipCardHref("a b"), "/?spiel=a%20b");
 assert.equal(matchcenterHref("m1"), "/matchcenter?spiel=m1");
