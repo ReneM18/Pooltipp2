@@ -48,6 +48,9 @@ export interface LiveGame {
   // mitlaufende Minute kennt (Eishockey: über 60 Min., Rene, 16.10.2026).
   progress?: number;
   league: string; // "Wettbewerb · Land"
+  // Runde laut Anbieter, z. B. "Regular Season - 11" (nur Fußball; fürs
+  // Vorausfüllen des Spieltags im Admin, Rene, 28.10.2026).
+  round?: string;
   // Tore, Karten, Wechsel (nur Fußball). Fehlt das Feld, liefert der Anbieter
   // für diese Sportart keine Ereignisse (Eishockey) → Spielverlauf ausblenden.
   events?: LiveEvent[];
