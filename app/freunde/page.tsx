@@ -244,7 +244,7 @@ export default function FreundePage() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Nummer oder Name, z. B. #1002"
+          placeholder="Nummer oder Name"
           inputMode="search"
           className="min-w-0 flex-1 rounded-lg border border-edge bg-surface px-4 py-2.5 text-base text-ink outline-none focus:border-gold sm:text-sm"
         />

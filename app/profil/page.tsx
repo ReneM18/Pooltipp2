@@ -694,6 +694,14 @@ function ProfilInhalt() {
               : TIER_BADGE[tier];
             // Rangpunkte des Tipps statt Coins (Coins gibt es nur noch beim Booster).
             const points = tip.evaluated && !tip.refunded ? tip.rangDelta : undefined;
+            // Noch ohne Punkte: ehrlich sagen, ob das Spiel noch kommt, läuft
+            // oder schon aus ist und gleich gewertet wird (statt immer "offen").
+            const waiting =
+              match.status === "finished"
+                ? "wird gewertet"
+                : match.status === "live" || Date.parse(match.kickoff) <= Date.now()
+                  ? "läuft"
+                  : "offen";
 
             return (
               <div
@@ -739,8 +747,13 @@ function ProfilInhalt() {
                     >
                       {livePointsText(points)} <span className="text-[11px] font-semibold text-muted">Pkt.</span>
                     </span>
+                  ) : waiting === "läuft" ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink">
+                      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-red-500 animate-live-dot" />
+                      läuft
+                    </span>
                   ) : (
-                    <span className="text-xs text-muted">offen</span>
+                    <span className="text-xs text-muted">{waiting}</span>
                   )}
                 </div>
               </div>

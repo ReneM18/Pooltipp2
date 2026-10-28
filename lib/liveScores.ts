@@ -168,6 +168,13 @@ export function appSideEvents(result: LiveMatchResult): LiveEvent[] {
   return events.map((e) => ({ ...e, side: e.side === "home" ? "away" : "home" }));
 }
 
+// Elfmeterschießen mit Heim/Gast wie in der App (nur wenn es eines gab).
+export function appSidePenalties(result: LiveMatchResult): { penaltyHome?: number; penaltyAway?: number } {
+  const { penaltyHome, penaltyAway } = result.game;
+  if (penaltyHome === undefined || penaltyAway === undefined) return {};
+  return result.swapped ? { penaltyHome: penaltyAway, penaltyAway: penaltyHome } : { penaltyHome, penaltyAway };
+}
+
 // Passendes API-Spiel zu einem App-Spiel: Anpfiff innerhalb ±20 Minuten und
 // beide Teamnamen passen. Keine eindeutige Zuordnung = null (lieber nichts
 // zeigen als einen falschen Spielstand).
