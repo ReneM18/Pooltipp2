@@ -1416,7 +1416,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           <FitText text={secondName} maxLines={2} minPx={12} className={`col-start-1 row-start-2 leading-tight ${nameTone(secondWins)}`} />
           {open && link ? (
             <span className="col-start-2 row-span-2 row-start-1 justify-self-end">
-              <TipStatus deadline={link.match.tipDeadline} tipped={tipped} />
+              <TipStatus deadline={link.match.tipDeadline} kickoff={link.match.kickoff} tipped={tipped} />
             </span>
           ) : (
             <span
@@ -1450,7 +1450,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           </span>
           <FitText text={secondName} maxLines={2} minPx={12} className={`text-[15px] leading-tight ${nameTone(secondWins)}`} />
           <span className="flex min-w-0 flex-col items-end">
-            {open && link && <TipStatus deadline={link.match.tipDeadline} tipped={tipped} />}
+            {open && link && <TipStatus deadline={link.match.tipDeadline} kickoff={link.match.kickoff} tipped={tipped} />}
           </span>
         </span>
       </div>
@@ -1500,12 +1500,14 @@ function FixtureTvEditor({ sport, game }: { sport: Sport; game: LiveGame }) {
 }
 
 // Tippspiel vor Tippschluss: rechts statt der Striche oben "Tippen" (bzw.
-// "Getippt"), darunter bis wann. Gleiche Regel wie auf der Tippkarte
-// (components/Countdown.tsx, Rene 28.10.2026: "der Countdown muss zum
-// Tippschluss passen"): mehr als 3 Std. vorher "bis 20:45", ab 3 Std. ein
-// laufender Countdown bis Tippschluss, letzte 30 Min. orange mit ⏰.
+// "Getippt"), ab 3 Std. vor Tippschluss darunter ein laufender Countdown,
+// gleiche Regel wie auf der Tippkarte (components/Countdown.tsx, Rene
+// 28.10.2026: "der Countdown muss zum Tippschluss passen"), letzte 30 Min.
+// orange mit ⏰. Davor nur das Schild, kein "bis 20:45" (Rene, 28.10.2026:
+// verwirrend neben der Anstoßzeit); nur wenn der Tippschluss vor dem
+// Anstoß liegt, steht "bis …" darunter.
 // Etwas Abstand zwischen Schild und Zeit (Rene, 28.10.2026: "zu nah").
-function TipStatus({ deadline, tipped }: { deadline: string; tipped: boolean }) {
+function TipStatus({ deadline, kickoff, tipped }: { deadline: string; kickoff: string; tipped: boolean }) {
   const target = Date.parse(deadline);
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
@@ -1519,14 +1521,7 @@ function TipStatus({ deadline, tipped }: { deadline: string; tipped: boolean }) 
     // Goldenes Schild mit Glanz (Rene, 27.10.2026, Variante C; Glanz in globals.css).
     <span className="tip-shine w-fit rounded-full bg-gold px-1.5 text-[10px] font-bold leading-[1.4] text-pitch">Tippen</span>
   );
-  if (now === null) {
-    return (
-      <span className="flex flex-col items-end gap-1">
-        {label}
-        <span className="text-[13px] leading-tight opacity-0">&nbsp;</span>
-      </span>
-    );
-  }
+  if (now === null) return label;
   const ms = Math.max(0, target - now);
   const left = Math.floor(ms / 1000);
   const h = Math.floor(left / 3600);
@@ -1547,9 +1542,9 @@ function TipStatus({ deadline, tipped }: { deadline: string; tipped: boolean }) 
           <span className="text-[10px] font-semibold opacity-80">{soon ? "⏰ noch" : "noch"}</span>
           <span className="font-display text-[13px] font-bold">{h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`}</span>
         </span>
-      ) : (
+      ) : target < Date.parse(kickoff) ? (
         <span className="whitespace-nowrap text-[11px] font-semibold leading-tight text-gold">bis {deadlineText(target, now)}</span>
-      )}
+      ) : null}
     </span>
   );
 }
