@@ -1318,8 +1318,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
                 flash ? "bg-gold/15 text-gold" : scoreColor
               }`}
             >
-              <span className={`w-7 text-center ${scoreTone(homeWins)}`}>{hasScore ? game.homeScore : "–"}</span>
-              <span className={`w-7 text-center ${scoreTone(awayWins)}`}>{hasScore ? game.awayScore : "–"}</span>
+              <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(homeWins)}`}>{hasScore ? game.homeScore : "–"}</span>
+              <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(awayWins)}`}>{hasScore ? game.awayScore : "–"}</span>
             </span>
           )}
         </span>
@@ -1329,6 +1329,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             statt abgeschnitten. Rechts eine schmale feste Spalte: Sender
             klein und ohne Rahmen, darunter der Countdown. Feste Breite, damit
             das Ergebnis in jeder Zeile an derselben Stelle steht. */}
+        {/* Ergebnisfelder mit Mindest- statt fester Breite, damit auch
+            dreistellige Spielstände (NBA, z. B. 125:124) hineinpassen. */}
         <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_6.5rem] items-center gap-x-4 lg:grid">
           <FitText text={homeName} maxLines={2} minPx={12} className={`text-right text-[15px] leading-tight ${nameTone(homeWins)}`} />
           <span
@@ -1336,9 +1338,9 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
               flash ? "border-gold/50 bg-gold/15 text-gold" : scoreColor
             }`}
           >
-            <span className={`w-6 text-center ${scoreTone(homeWins)}`}>{hasScore ? game.homeScore : "–"}</span>
-            <span className="text-muted">:</span>
-            <span className={`w-6 text-center ${scoreTone(awayWins)}`}>{hasScore ? game.awayScore : "–"}</span>
+            <span className={`min-w-6 whitespace-nowrap text-center ${scoreTone(homeWins)}`}>{hasScore ? game.homeScore : "–"}</span>
+            <span className="px-0.5 text-muted">:</span>
+            <span className={`min-w-6 whitespace-nowrap text-center ${scoreTone(awayWins)}`}>{hasScore ? game.awayScore : "–"}</span>
           </span>
           <FitText text={awayName} maxLines={2} minPx={12} className={`text-[15px] leading-tight ${nameTone(awayWins)}`} />
           <span className="flex min-w-0 flex-col items-end gap-0.5">
