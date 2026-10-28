@@ -752,7 +752,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
               </div>
             )}
             {friendsTab && (
-              <div className="hidden rounded-card border border-muted/25 bg-pitch/40 p-3 sm:p-4 lg:block">
+              <div className="hidden rounded-card border border-edge bg-surface p-3 sm:p-4 lg:block">
                 <FriendsLivePanel state={friendsLive} />
               </div>
             )}
@@ -1658,7 +1658,7 @@ function LcDetail({
   const firstApiName = (leftSide === "home") !== swapped ? game.home : game.away;
 
   return (
-    <div className="flex flex-col gap-4 rounded-card border border-muted/25 bg-pitch/40 p-3 sm:p-4">
+    <div className="flex flex-col gap-4 rounded-card border border-edge bg-surface p-3 sm:p-4">
       <div className="flex items-center justify-between gap-2 text-xs">
         <span className="flex min-w-0 items-center gap-1.5 font-semibold text-ink">
           {flag && (
