@@ -398,10 +398,12 @@ function LiveCenter() {
   };
   // Oben eine Reihe (Rene, 27.10.2026, Variante C): die Sportarten einzeln
   // (Namen erst ab lg:), rechts das kleine Tippspiel-Kästchen.
+  // Am Handy mind. 48 × 44 px pro Knopf, damit man gut mit dem Finger
+  // trifft (Rene, 28.10.2026).
   const switcher = (
-    <div className="mb-2 flex items-center gap-1.5 sm:mb-3">
+    <div className="mb-3 flex items-center gap-2">
       {LIVE_SPORTS.length > 1 && (
-        <div className="flex gap-1.5" role="tablist" aria-label="Sportart">
+        <div className="flex gap-2" role="tablist" aria-label="Sportart">
           {LIVE_SPORTS.map((s) => (
             <button
               key={s}
@@ -410,11 +412,14 @@ function LiveCenter() {
               aria-selected={sport === s}
               aria-label={sportLabel(s)}
               onClick={() => pick(s)}
-              className={`flex min-h-8 items-center gap-1 rounded-full border px-2.5 text-[13px] font-semibold transition-colors ${
+              className={`flex min-h-11 min-w-12 items-center justify-center gap-1.5 rounded-full border px-3 font-semibold transition-colors lg:px-4 ${
                 sport === s ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
               }`}
             >
-              <Emoji e={SPORT_ICONS[s]} /> <span className="hidden lg:inline">{sportLabel(s)}</span>
+              <span className="text-xl leading-none">
+                <Emoji e={SPORT_ICONS[s]} />
+              </span>
+              <span className="hidden text-[15px] lg:inline">{sportLabel(s)}</span>
             </button>
           ))}
         </div>
