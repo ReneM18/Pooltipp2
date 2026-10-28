@@ -35,6 +35,7 @@ import CommentThread from "@/components/CommentThread";
 import { LineupView, PreviewView, StatsView, useMatchInfo, useMatchPreview } from "@/components/MatchInfo";
 import Emoji from "@/components/Emoji";
 import LiveTvHeat, { type TvGame } from "@/components/LiveTvHeat";
+import MatchSheet from "@/components/MatchSheet";
 import { CommunityTrend } from "@/components/MatchCard";
 import { useBeginnerShieldLeft } from "@/components/BeginnerShieldHint";
 import {
@@ -153,6 +154,19 @@ interface AppLink {
   home: Team;
   away: Team;
   result: LiveMatchResult;
+}
+
+// Am PC (ab lg) steht das Detail rechts, am Handy öffnet es als Fenster.
+function useIsDesktop(): boolean {
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const update = () => setDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return desktop;
 }
 
 // "2026-10-15" -> "2026-10-14" (days = -1), "2026-10-16" (days = 1)
@@ -478,6 +492,8 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   // Hat der Spieler selbst gewählt? Dann nichts mehr automatisch wählen.
   const pickedRef = useRef(false);
   const detailRef = useRef<HTMLDivElement>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const isDesktop = useIsDesktop();
   const { matches, getTeam, myTips, apiNameLinks } = useAppData();
 
   // Datum und Uhr erst im Browser (sonst Hydration-Fehler), Uhr alle 30 s.
@@ -620,9 +636,10 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     pickedRef.current = true;
     setSelectedId(id);
     if (typeof window === "undefined") return;
-    // Am Handy steht das Detail unter der Liste: dorthin scrollen.
+    // Am Handy öffnet das Spiel als Fenster über der Liste, die Liste bleibt
+    // an ihrer Stelle (Rene, 28.10.2026).
     if (!window.matchMedia("(min-width: 1024px)").matches) {
-      requestAnimationFrame(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      setSheetOpen(true);
       return;
     }
     // Am PC steht das Detail rechts oben: ist man in der Liste weit unten,
@@ -679,6 +696,31 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
       return [{ game: g, tv, home, away, homeScore, awayScore }];
     });
   }, [sport, view, todayDay.games, links, gameTv, tvTeamName]);
+
+  // Spiel-Detail (bzw. Hinweis): am PC rechts, am Handy im Fenster.
+  const detailContent = (
+    <>
+      {selected ? (
+        <LcDetail
+          key={selected.id}
+          sport={sport}
+          game={selected}
+          link={selectedLink}
+          dataAt={todayDay.games?.some((g) => g.id === selected.id) ? todayDay.dataAt : 0}
+          friendsRow={friendsRow}
+          now={now}
+        />
+      ) : targetMissing ? (
+        <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
+          Dieses Spiel ist (noch) nicht in den Live-Daten. {hasPlan ? `Das Matchcenter zeigt Spiele von gestern bis in ${UPCOMING_DAYS} Tagen.` : "Das Matchcenter zeigt Spiele von heute und gestern."}
+        </p>
+      ) : (
+        <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
+          Spiel antippen, um Spielverlauf, Tipps und Kommentare zu sehen.
+        </p>
+      )}
+    </>
+  );
 
   return (
     <section className="mb-6">
@@ -772,24 +814,19 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
               </div>
             )}
             <div className={friendsTab ? "lg:hidden" : ""}>
-              {selected ? (
-                <LcDetail
-                  key={selected.id}
-                  sport={sport}
-                  game={selected}
-                  link={selectedLink}
-                  dataAt={todayDay.games?.some((g) => g.id === selected.id) ? todayDay.dataAt : 0}
-                  friendsRow={friendsRow}
-                  now={now}
-                />
-              ) : targetMissing ? (
-                <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
-                  Dieses Spiel ist (noch) nicht in den Live-Daten. {hasPlan ? `Das Matchcenter zeigt Spiele von gestern bis in ${UPCOMING_DAYS} Tagen.` : "Das Matchcenter zeigt Spiele von heute und gestern."}
-                </p>
+              {isDesktop ? (
+                detailContent
               ) : (
-                <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
-                  Spiel antippen, um Spielverlauf, Tipps und Kommentare zu sehen.
-                </p>
+                <>
+                  {!selected && detailContent}
+                  <MatchSheet
+                    open={sheetOpen && !!selected}
+                    title={selected ? `${selectedLink ? selectedLink.home.name : selected.home} – ${selectedLink ? selectedLink.away.name : selected.away}` : ""}
+                    onClose={() => setSheetOpen(false)}
+                  >
+                    {detailContent}
+                  </MatchSheet>
+                </>
               )}
               <LiveTvHeat games={tvGames} selectedId={selectedId} onSelect={select} />
             </div>
