@@ -109,12 +109,13 @@ html {
 /* App-Farben als "R G B" (siehe tailwind.config.ts). Das Saison-Design
    (lib/seasonDesign.ts) überschreibt sie mit den Farben der laufenden Saison.
    Hintergrund, Karten, Ränder und grauer Text sind neutral schwarz/grau ohne
-   Grünstich (Rene, 28.10.2026: innen sah es grau-grün aus). */
+   Grünstich (Rene, 28.10.2026: innen sah es grau-grün aus). Ränder heller,
+   damit man jede Karte als eigene Karte sieht (Rene, 28.10.2026). */
 :root {
   --c-pitch: 13 13 13;
   --c-surface: 26 26 26;
   --c-surface-hover: 34 34 34;
-  --c-edge: 42 42 42;
+  --c-edge: 62 62 62;
   --c-gold: 232 179 76;
   --c-gold-dim: 74 61 34;
   --c-action: 63 166 107;

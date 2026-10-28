@@ -35,7 +35,7 @@ export const HERBST_2026: SeasonData = {
       pitch: "#0D0D0D",
       surface: "#1A1A1A",
       surfaceHover: "#222222",
-      edge: "#2A2A2A",
+      edge: "#3E3E3E", // heller, damit Karten getrennt wirken (Rene, 28.10.2026)
       gold: "#E8B34C",
       goldDim: "#4A3D22",
       action: "#E2793A",
