@@ -55,6 +55,11 @@ export default function AdminPage() {
   // "Spiele" ist bewusst der Start-Tab: das wird im Alltag am häufigsten
   // gebraucht und soll sofort sichtbar sein, ohne erst scrollen zu müssen.
   const [tab, setTab] = useState<AdminTab>("spiele");
+  // Direkt-Link aus dem Matchcenter (Trikot für Spiele ohne Tippspiel):
+  // /admin?tab=teams&team=<id> oder &neu=<API-Name>&sport=<Sportart>.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "teams") setTab("teams");
+  }, []);
   const { teams, allMatches: matches, newsItems, competitions } = useAppData();
   const { tournaments } = useTournaments();
 
@@ -1454,9 +1459,13 @@ function ThirdColorField({
 }
 
 function TeamManager() {
-  const { teams, addTeam, updateTeam, removeTeam } = useAppData();
+  const { teams, addTeam, updateTeam, removeTeam, apiNameLinks, saveApiNameLinks } = useAppData();
   const { showToast } = useFeedback();
   const [name, setName] = useState("");
+  // Aus dem Matchcenter gekommen (Rene, 28.10.2026): API-Name des Vereins,
+  // damit das neue Team gleich mit ihm verknüpft wird, und "Zurück".
+  const [fromMatchcenter, setFromMatchcenter] = useState<{ sport: Sport; apiName: string | null } | null>(null);
+  const urlApplied = useRef(false);
   const [sport, setSport] = useState<Sport>("Fußball");
   // Team-Liste nach Sportart in Reitern statt alles gemischt untereinander –
   // sonst verliert man bei mehreren Sportarten schnell den Überblick.
@@ -1551,6 +1560,38 @@ function TeamManager() {
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  // Direkt-Link aus dem Matchcenter: Team zum Bearbeiten öffnen bzw. ein
+  // neues mit dem API-Namen vorausfüllen. Einmal, sobald die Teams da sind.
+  useEffect(() => {
+    if (urlApplied.current) return;
+    const query = new URLSearchParams(window.location.search);
+    const teamId = query.get("team");
+    const apiName = query.get("neu");
+    const urlSport = query.get("sport") as Sport | null;
+    if (!teamId && !apiName) {
+      urlApplied.current = true;
+      return;
+    }
+    if (teamId) {
+      const team = teams.find((t) => t.id === teamId);
+      if (!team) return;
+      urlApplied.current = true;
+      setFromMatchcenter({ sport: team.sport, apiName: null });
+      startEdit(team);
+    } else if (apiName && urlSport && ALL_SPORTS.includes(urlSport)) {
+      urlApplied.current = true;
+      resetForm();
+      setName(apiName);
+      setSport(urlSport);
+      setTeamListTab(urlSport);
+      const land = query.get("land");
+      if (land && COUNTRIES.some((c) => c.code === land)) setCountryCode(land);
+      setFromMatchcenter({ sport: urlSport, apiName });
+      setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+    }
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+  }, [teams]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Gibt es das Team in dieser Sportart schon? Dann Hinweis zeigen und
   // Speichern sperren, damit kein Team doppelt angelegt wird.
   const duplicate = findDuplicateTeam(teams, name, sport, countryCode, editingId);
@@ -1631,10 +1672,18 @@ function TeamManager() {
     }
     if (!confirm(`Team "${name.trim()}" anlegen?`)) return;
     setTeamSave({ state: "saving" });
-    const result = await addTeam(data);
+    const newId = `team-${Date.now()}`;
+    const result = await addTeam(data, newId);
     if (!result.ok) {
       reportTeamFailure(result.error);
       return;
+    }
+    // Neues Team aus dem Matchcenter: mit dem API-Namen verknüpfen (falls
+    // noch nicht), damit das Trikot dort auch bei anderem Namen erscheint.
+    const api = fromMatchcenter?.apiName;
+    const oldLink = api && sport === fromMatchcenter.sport ? findApiNameLink(apiNameLinks, sport, api) : undefined;
+    if (api && sport === fromMatchcenter.sport && !oldLink?.teamId) {
+      saveApiNameLinks([...apiNameLinks.filter((l) => l !== oldLink), { sport, apiName: api, teamId: newId }]);
     }
     setName("");
     setTeamSave({ state: "saved", text: `✓ Gespeichert – „${data.name}“ angelegt.` });
@@ -2028,6 +2077,16 @@ function TeamManager() {
           <p role="status" className="mt-3 text-base font-semibold text-action-hover">
             {teamSave.text}
           </p>
+        )}
+        {fromMatchcenter && teamSave.state === "saved" && (
+          // Zurück zum offenen Spiel (Verlauf), sonst ins Matchcenter.
+          <button
+            type="button"
+            onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/matchcenter"))}
+            className="mt-2 inline-flex w-fit rounded-full border border-gold/50 px-4 py-2 text-sm font-semibold text-gold transition-colors hover:bg-gold/10"
+          >
+            ← Zurück zum Spiel
+          </button>
         )}
         {teamSave.state === "failed" && (
           <div role="alert" className="mt-3 rounded-lg border-2 border-red-500 px-3 py-2">
