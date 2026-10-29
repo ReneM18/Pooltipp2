@@ -30,10 +30,9 @@ import Emoji from "@/components/Emoji";
 import { SPORT_BADGE, SPORT_BADGE_COLOR } from "@/lib/cardStyle";
 import { useLiveScore } from "@/lib/useLiveScores";
 import { isGoalEvent, shortPlayerName, eventMinuteText } from "@/lib/liveScores";
-import { useLiveForecast } from "@/lib/liveForecast";
 import { useBeginnerShieldLeft } from "./BeginnerShieldHint";
 import { liveTipLabel, livePoints, liveTipToastText } from "@/lib/liveTipText";
-import { LivePill, LiveTipLine, Scoreboard, forecastPlain, signedPoints, useBoardClock } from "./LiveMatch";
+import { LivePill, LiveTipLine, Scoreboard, signedPoints, useBoardClock } from "./LiveMatch";
 import { showGoalToast } from "./GoalToast";
 import { FriendsLiveRow, FriendsLiveSheet } from "./FriendsLive";
 import { friendsRowTable, moveText, useFriendsLive } from "@/lib/friendsLive";
@@ -377,10 +376,8 @@ export default function MatchCard({
     ? classifyRankingTip(pendingTip.predictedHomeScore, pendingTip.predictedAwayScore, boardScore.home, boardScore.away, isOneXTwo)
     : null;
   const pendingPoints = pendingTier ? (shieldLeft > 0 ? Math.max(0, RANKING_POINTS[pendingTier]) : RANKING_POINTS[pendingTier]) : 0;
-  // "Wenn es so bleibt": vorläufiger Platz in der Rangliste (lib/liveForecast.ts).
-  const forecast = useLiveForecast(match.sport, !!live && !!pendingTip);
-  // Freunde-Live (Rene, 16.10.2026: Freunde-Live): eine Zeile unter "Dein
-  // Tipp" mit deinem Platz unter Freunden am Spieltag, solange das Spiel
+  // Freunde-Live (Rene, 16.10.2026: Freunde-Live): eine Zeile (seit
+  // 29.10.2026 im aufgeklappten "getippt") mit deinem Platz unter Freunden am Spieltag, solange das Spiel
   // läuft, Pause hat oder abgepfiffen, aber noch nicht gewertet ist – nur
   // mit mindestens einem Freund. Antippen öffnet die Tabelle als Sheet.
   const friendsLive = useFriendsLive(!!live);
@@ -416,7 +413,6 @@ export default function MatchCard({
       scorer ? `${shortPlayerName(scorer.player) || "Tor"} ${eventMinuteText(scorer)}` : null,
       // Nur die vorläufigen Punkte: "Dein Tipp: +5 vorläufig" (Rene, 16.10.2026).
       liveTipToastText(livePoints(myTip.predictedHomeScore, myTip.predictedAwayScore, live.homeScore, live.awayScore, isOneXTwo, shieldLeft > 0)),
-      forecast ? `wenn es so bleibt ${forecastPlain(forecast)}` : null,
     ]
       .filter(Boolean)
       .join(" · ");
@@ -991,8 +987,8 @@ export default function MatchCard({
               {compactTeamRow(rightTeam, rightSide)}
             </div>
           )}
-          {/* EINE Zeile "Dein Tipp: Sieg Frankfurt  +5 vorläufig" mit "wenn es so
-              bleibt" darunter; nach Abpfiff ohne Wertung "Wertung folgt"
+          {/* EINE Zeile "Dein Tipp: Sieg Frankfurt  +5 vorläufig" (ohne "wenn es
+              so bleibt", Rene 29.10.2026); nach Abpfiff ohne Wertung "Wertung folgt"
               statt "vorläufig" (Rene, 16.10.2026: nur Tipp und Punkte). */}
           {pendingTip && pendingTier && boardScore && (
             <LiveTipLine
@@ -1006,15 +1002,11 @@ export default function MatchCard({
               )}
               points={pendingPoints}
               finished={!live || live.finished}
-              forecast={forecast}
             />
           )}
-          {showFriendsRow && friendsLive && (
-            <>
-              <FriendsLiveRow state={friendsLive} onOpen={() => setFriendsOpen(true)} className={pendingTip && pendingTier ? "mt-1.5" : "mt-2.5"} />
-              <FriendsLiveSheet open={friendsOpen} onClose={() => setFriendsOpen(false)} />
-            </>
-          )}
+          {/* Freunde-Zeile steht seit 29.10.2026 im aufgeklappten "getippt"
+              (Rene: "gehört unten zu getippt rein"), das Fenster bleibt. */}
+          {showFriendsRow && <FriendsLiveSheet open={friendsOpen} onClose={() => setFriendsOpen(false)} />}
           {!showResultView && closingSoon && (
             <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-[#FF9B5C]">
               <span aria-hidden>⏰</span> Gleich geschlossen – jetzt noch schnell tippen!
@@ -1378,6 +1370,11 @@ export default function MatchCard({
             authUserId={authUserId}
             showTips={tippingClosed}
             formatTip={formatTip}
+            friendsRow={
+              showFriendsRow && friendsLive ? (
+                <FriendsLiveRow state={friendsLive} onOpen={() => setFriendsOpen(true)} className="mb-2" />
+              ) : null
+            }
           />
         )}
 
@@ -1511,16 +1508,20 @@ function TippersList({
   authUserId,
   showTips,
   formatTip,
+  friendsRow,
 }: {
   tippers: MatchTipper[] | null;
   failed: boolean;
   authUserId: string | null;
   showTips: boolean;
   formatTip: (home: number, away: number) => string;
+  // Live: "Freunde: du bist 2. von 5" über der Liste (Rene, 29.10.2026).
+  friendsRow?: React.ReactNode;
 }) {
   return (
     <div className="mt-3 border-t border-edge pt-3">
       <p className="mb-2 text-xs font-semibold text-ink">Wer hat getippt?</p>
+      {friendsRow}
       {tippers === null ? (
         <p className="text-xs text-muted">{failed ? "Konnte nicht geladen werden." : "Wird geladen…"}</p>
       ) : (
