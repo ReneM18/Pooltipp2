@@ -23,6 +23,7 @@ export const EMOJI_FILES: Record<string, string> = {
   "❔": "2754.png",
   "❤": "2764.png",
   "⭐": "2b50.png",
+  "🌊": "1f30a.png",
   "🌍": "1f30d.png",
   "🌐": "1f310.png",
   "🌟": "1f31f.png",

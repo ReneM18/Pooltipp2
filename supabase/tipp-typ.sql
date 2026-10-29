@@ -127,7 +127,7 @@ begin
       'strength', round(v_rate / 0.65, 3));
   end if;
 
-  -- 🦁 Mutiger Außenseiter / 🐑 Mit dem Strom
+  -- 🦁 Mutiger Außenseiter / 🌊 Mit dem Strom
   if s.crowd_n >= 8 then
     v_rate := s.contra::numeric / s.crowd_n;
     if v_rate >= 0.35 then
