@@ -18,8 +18,9 @@ const VISITS_KEY = "pooltipp-visits";
 const HIDDEN_KEY = "pooltipp-install-hint-hidden-until";
 const HIDE_DAYS = 30;
 const MIN_VISITS = 2;
-// Hier stört der Hinweis: Anmelden, Start-Erlebnis, neues Passwort, Admin.
-const SKIP_PATHS = ["/registrieren", "/start", "/passwort-neu", "/admin"];
+// Hier stört der Hinweis: Anmelden, Start-Erlebnis, neues Passwort, Admin,
+// Freundes-Einladung.
+const SKIP_PATHS = ["/registrieren", "/start", "/passwort-neu", "/admin", "/einladung"];
 
 function countVisit() {
   try {

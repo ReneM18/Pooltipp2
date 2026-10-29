@@ -8,6 +8,7 @@ import { useFeedback } from "@/lib/FeedbackContext";
 import { supabase } from "@/lib/supabaseClient";
 import { readPendingInvite } from "@/lib/leagueInvite";
 import { isIOS, isStandalone } from "@/lib/installApp";
+import { readPendingFriendInvite } from "@/lib/friendInvite";
 import { translateAuthError } from "@/lib/authMessages";
 
 // "forgot" = "Passwort vergessen?": nur E-Mail eingeben, Link anfordern.
@@ -50,8 +51,11 @@ export default function RegistrierenPage() {
   // Kam man über einen Tipprunden-Einladungslink hierher, geht es nach dem
   // Einloggen direkt zurück zum Beitreten.
   const [pendingInvite, setPendingInvite] = useState<string | null>(null);
+  // Genauso für einen Freundes-Einladungslink (lib/friendInvite.ts).
+  const [pendingFriendInvite, setPendingFriendInvite] = useState<string | null>(null);
   useEffect(() => {
     setPendingInvite(readPendingInvite());
+    setPendingFriendInvite(readPendingFriendInvite());
     const modus = new URLSearchParams(window.location.search).get("modus");
     if (modus === "registrieren") setMode("register");
     if (modus === "passwort-vergessen") setMode("forgot");
@@ -61,8 +65,10 @@ export default function RegistrierenPage() {
   useEffect(() => {
     if (isRegistered && pendingInvite) {
       router.replace(`/teams?code=${encodeURIComponent(pendingInvite)}`);
+    } else if (isRegistered && pendingFriendInvite) {
+      router.replace(`/einladung?code=${encodeURIComponent(pendingFriendInvite)}`);
     }
-  }, [isRegistered, pendingInvite, router]);
+  }, [isRegistered, pendingInvite, pendingFriendInvite, router]);
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -74,7 +80,9 @@ export default function RegistrierenPage() {
   // sonst nimmt Supabase die dort eingestellte "Site URL".
   function confirmRedirectUrl() {
     const origin = window.location.origin;
-    return pendingInvite ? `${origin}/teams?code=${encodeURIComponent(pendingInvite)}` : `${origin}/registrieren`;
+    if (pendingInvite) return `${origin}/teams?code=${encodeURIComponent(pendingInvite)}`;
+    if (pendingFriendInvite) return `${origin}/einladung?code=${encodeURIComponent(pendingFriendInvite)}`;
+    return `${origin}/registrieren`;
   }
 
   async function handleLogout() {

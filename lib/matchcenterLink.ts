@@ -1,6 +1,6 @@
 // Tippspiele ↔ Matchcenter (Rene, 27.10.2026): Im Matchcenter steht bei
-// tippbaren Spielen "Tippen" und es geht direkt zur Tippkarte; auf der
-// Tippkarte führt "Matchcenter" zum selben Spiel im Matchcenter.
+// tippbaren Spielen "Tippen" und es geht direkt zur Tippkarte. Den Link
+// "Matchcenter" auf der Tippkarte gibt es seit 29.10.2026 nicht mehr (Stadion).
 // Getestet: npm run test:matchcenter
 import type { MatchStatus } from "./types";
 

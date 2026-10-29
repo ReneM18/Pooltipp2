@@ -11,6 +11,7 @@ import FitText from "@/components/FitText";
 import { TrashIcon, ChatIcon } from "@/components/Icons";
 import { useChat } from "@/lib/ChatContext";
 import { supabase } from "@/lib/supabaseClient";
+import { friendInviteLink, friendInviteText } from "@/lib/friendInvite";
 
 const PRIMARY_BTN =
   "shrink-0 whitespace-nowrap rounded-full bg-action px-4 py-2 font-display text-xs font-semibold text-pitch transition-colors enabled:hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50";
@@ -96,6 +97,18 @@ export default function FreundePage() {
   // Doppel-Klicks, solange die Datenbank noch antwortet.
   const [busyId, setBusyId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Eigener Einladungslink (supabase/freunde-einladen.sql). null = (noch)
+  // keiner, dann bleibt der Bereich weg.
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [canShare, setCanShare] = useState(false);
+  useEffect(() => {
+    setCanShare(typeof navigator !== "undefined" && "share" in navigator);
+    if (!isRegistered) return;
+    supabase.rpc("my_friend_invite").then(({ data, error }) => {
+      if (!error && typeof data === "string") setInviteCode(data);
+    });
+  }, [isRegistered]);
   // Blockierte Spieler (chat.sql) – hier kann man die Blockierung aufheben.
   const [blocked, setBlocked] = useState<{ id: string; name: string; number: number }[]>([]);
 
@@ -177,6 +190,26 @@ export default function FreundePage() {
     }
   }
 
+  async function shareInvite() {
+    if (!inviteCode) return;
+    if (canShare) {
+      try {
+        await navigator.share({ title: "PoolTipp – Freunde einladen", text: friendInviteText(inviteCode) });
+        return;
+      } catch (e) {
+        // Abgebrochen: nichts tun. Sonst unten kopieren.
+        if (e instanceof DOMException && e.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(friendInviteLink(inviteCode));
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // Kopieren nicht erlaubt – dann bleibt WhatsApp.
+    }
+  }
+
   if (!isRegistered) {
     return (
       <main className="mx-auto max-w-3xl px-5 py-8 lg:max-w-4xl">
@@ -223,21 +256,48 @@ export default function FreundePage() {
     <main className="mx-auto max-w-3xl px-5 py-8 lg:max-w-4xl">
       <FriendsTabs active="freunde" />
 
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-gold/40 bg-surface p-4">
-        <div className="min-w-0">
-          <p className="text-xs text-muted">Deine Nummer</p>
-          <p className="font-display text-2xl font-bold text-gold">{userNumber !== null ? `#${userNumber}` : "–"}</p>
-          <p className="text-xs text-muted">Gib sie weiter, damit dich Freunde finden.</p>
-        </div>
-        {userNumber !== null && (
-          <button
-            type="button"
-            onClick={copyNumber}
-            className="shrink-0 rounded-full border border-edge px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-gold/60 hover:text-ink"
-          >
-            {copied ? "Kopiert ✓" : "Nummer kopieren"}
-          </button>
+      <div className="mb-5 rounded-card border border-gold/40 bg-surface">
+        {inviteCode && (
+          <div className="border-b border-edge p-4">
+            <p className="font-display text-base font-bold text-ink">Freunde einladen</p>
+            <p className="mt-0.5 text-xs text-muted">Wer deinen Link öffnet, ist gleich mit dir befreundet.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(friendInviteText(inviteCode))}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-action px-4 py-2.5 font-display text-sm font-semibold text-pitch transition-colors hover:bg-action-hover sm:flex-none"
+              >
+                <WhatsAppIcon className="h-4 w-4" />
+                Per WhatsApp
+              </a>
+              <button
+                type="button"
+                onClick={shareInvite}
+                className="flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-edge px-4 py-2.5 text-sm font-semibold text-muted transition-colors hover:border-gold/60 hover:text-ink sm:flex-none"
+              >
+                <LinkIcon className="h-4 w-4" />
+                {linkCopied ? "Kopiert ✓" : canShare ? "Link teilen" : "Link kopieren"}
+              </button>
+            </div>
+          </div>
         )}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <div className="min-w-0">
+            <p className="text-xs text-muted">Deine Nummer</p>
+            <p className="font-display text-2xl font-bold text-gold">{userNumber !== null ? `#${userNumber}` : "–"}</p>
+            <p className="text-xs text-muted">Gib sie weiter, damit dich Freunde finden.</p>
+          </div>
+          {userNumber !== null && (
+            <button
+              type="button"
+              onClick={copyNumber}
+              className="shrink-0 rounded-full border border-edge px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-gold/60 hover:text-ink"
+            >
+              {copied ? "Kopiert ✓" : "Nummer kopieren"}
+            </button>
+          )}
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="flex gap-3">
@@ -307,7 +367,7 @@ export default function FreundePage() {
             <EmptyState
               emoji="👋"
               title="Noch keine Freunde"
-              text="Gib deine Nummer weiter oder such oben nach Nummer oder Name."
+              text="Lade Freunde mit deinem Link ein oder such oben nach Nummer oder Name."
               className="rounded-none border-none"
             />
           ) : (
@@ -391,5 +451,22 @@ export default function FreundePage() {
         </Section>
       )}
     </main>
+  );
+}
+
+function WhatsAppIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z" />
+    </svg>
+  );
+}
+
+function LinkIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className={className} aria-hidden="true">
+      <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+      <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+    </svg>
   );
 }
