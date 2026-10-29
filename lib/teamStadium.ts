@@ -65,8 +65,10 @@ export interface ShownStadium {
 // Stadion für die Tippkarte:
 //  - Spiel bei der API gefunden und es ist das Stadion eines der beiden
 //    Vereine → der gespeicherte Name (z. B. "SUN MINIMEAL Arena").
+//  - Heimverein der API hat ein von Hand geändertes Stadion → immer der
+//    eigene Name (leer = keins zeigen), auch wenn die API es anders nennt.
 //  - Heimverein der API hat ein Stadion, dessen API-Name wir nicht kennen
-//    (von Hand eingetragen) → trotzdem der gespeicherte Name.
+//    → ebenfalls der gespeicherte Name.
 //  - Sonst (z. B. Finale auf neutralem Platz) → das Stadion laut API.
 //  - Spiel nicht bei der API (weiter weg, Eishockey) → Stadion des
 //    Heimvereins, falls gespeichert.
@@ -89,6 +91,12 @@ export function matchStadium(
   for (const t of [apiHome, apiAway]) {
     const s = own(t);
     if (s && isTeamStadium(s, venueName, venueId)) return shown(s, apiCapacity);
+  }
+  // Von Hand geändert (Rene, 29.10.2026: Lustenau zeigte trotzdem den alten
+  // Namen, weil die Spiele der API das Stadion anders nennen als die
+  // Team-Suche): beim Heimspiel gilt immer der eigene Name, leer = ausblenden.
+  if (apiHome?.stadium?.manual && !apiHome.isNationalTeam) {
+    return apiHome.stadium.name.trim() ? shown(apiHome.stadium, apiCapacity) : null;
   }
   const home = own(apiHome);
   if (home && !home.apiName && home.apiVenueId === undefined) return shown(home, apiCapacity);
