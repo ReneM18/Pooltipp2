@@ -14,6 +14,7 @@ import SwipeNav from "./SwipeNav";
 import StartPageRedirect from "./StartPageRedirect";
 import EventDayClaim from "./EventDayClaim";
 import { GoalToastHost } from "./GoalToast";
+import FriendInviteCatcher from "./FriendInviteCatcher";
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -66,6 +67,7 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
       <PullToRefresh />
       <SwipeNav />
       <StartPageRedirect />
+      <FriendInviteCatcher />
     </>
   );
 }
