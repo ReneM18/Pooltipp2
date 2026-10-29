@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 
 // Spiel-Detail am Handy als Fenster von unten (Rene, 28.10.2026: "wenn ich
 // ein Match antippe, fährt der ganze Bildschirm runter … ich muss immer
@@ -29,6 +30,7 @@ export default function MatchSheet({
   // Wurde für das Fenster ein Verlaufseintrag angelegt? Dann schließt
   // "Zurück" im Fenster über history.back(), damit kein Eintrag übrig bleibt.
   const pushedRef = useRef(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (!open) return;
@@ -65,6 +67,22 @@ export default function MatchSheet({
     else closeRef.current();
   }
 
+  // Link im Fenster, z. B. "Jetzt tippen" (Rene, 29.10.2026: "am Handy bei
+  // den Spielen auf Tippen komme ich nicht zu den Tipps"): Bisher holte das
+  // Aufräumen beim Verlassen der Seite mit history.back() sofort wieder das
+  // Matchcenter. Jetzt ersetzt der Link den Eintrag des Fensters, so führt
+  // die Zurück-Taste danach direkt ins Matchcenter.
+  function onLinkClick(e: React.MouseEvent) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = (e.target as HTMLElement).closest("a[href]") as HTMLAnchorElement | null;
+    if (!a || (a.target && a.target !== "_self") || a.hasAttribute("download")) return;
+    const url = new URL(a.href, window.location.href);
+    if (url.origin !== window.location.origin) return;
+    e.preventDefault();
+    pushedRef.current = false;
+    router.replace(url.pathname + url.search + url.hash);
+  }
+
   if (!open || typeof document === "undefined") return null;
   const dragHandlers = {
     onTouchStart: (e: React.TouchEvent) => {
@@ -91,6 +109,7 @@ export default function MatchSheet({
         className="flex h-[92dvh] w-full flex-col overflow-hidden rounded-t-card border border-muted/40 bg-surface shadow-2xl"
         style={{ transform: drag ? `translateY(${drag}px)` : undefined, transition: drag ? "none" : "transform 0.2s ease-out" }}
         onClick={(e) => e.stopPropagation()}
+        onClickCapture={onLinkClick}
       >
         <div className="shrink-0 touch-none border-b border-edge" {...dragHandlers}>
           <div aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-muted/50" />
