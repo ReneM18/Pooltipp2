@@ -50,6 +50,7 @@ export default function SportBioEditor({
   bio,
   unavailable,
   onSaved,
+  hideTitle = false,
 }: {
   userId: string;
   name: string;
@@ -60,6 +61,8 @@ export default function SportBioEditor({
   bio: SportBio | null;
   unavailable: boolean;
   onSaved: () => void;
+  // In den Einstellungen steht die Überschrift schon über dem Bereich.
+  hideTitle?: boolean;
 }) {
   const { teams } = useAppData();
   const { photos } = useUser();
@@ -138,7 +141,7 @@ export default function SportBioEditor({
   if (unavailable) {
     return (
       <section id="steckbrief" className="mb-8 scroll-mt-48">
-        <h2 className="font-display text-lg font-semibold text-ink">Deine Sportlerkarte</h2>
+        {!hideTitle && <h2 className="font-display text-lg font-semibold text-ink">Deine Sportlerkarte</h2>}
         <p className="mt-1 text-xs text-muted">⚠️ Kommt gleich – es fehlt noch ein Datenbank-Update.</p>
       </section>
     );
@@ -155,10 +158,8 @@ export default function SportBioEditor({
 
   return (
     <section id="steckbrief" className="mb-8 scroll-mt-48">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-semibold text-ink">🃏 Deine Sportlerkarte</h2>
-      </div>
-      <p className="mt-1 text-xs text-muted">
+      {!hideTitle && <h2 className="font-display text-lg font-semibold text-ink">🃏 Deine Sportlerkarte</h2>}
+      <p className={`${hideTitle ? "" : "mt-1 "}text-xs text-muted`}>
         Was hast du selbst mit Sport zu tun? Deine Karte gibt es pro Sportart, mit deinem Rang und deiner Tipp-Statistik. Laufbahn
         und Erfolge sind „eigene Angaben“ und bringen keine Punkte, „✓ bestätigt“ kann nur der Admin setzen. Kaufen kannst du eine
         Karte bald, frühestens ab 500 getippten Spielen in der Sportart. Sie wird gedruckt und dir nach Hause geschickt.
@@ -803,7 +804,7 @@ function Chip({
       onClick={onClick}
       className={`flex min-w-0 items-center gap-1.5 whitespace-nowrap rounded-full border font-display font-semibold transition-colors ${
         small ? "px-3 py-1 text-xs" : "px-3 py-1.5 text-sm"
-      } ${active ? "border-action bg-action text-pitch" : "border-edge bg-pitch text-muted hover:border-gold/60 hover:text-ink"}`}
+      } ${active ? "border-gold bg-gold/15 text-gold" : "border-edge bg-pitch text-muted hover:text-ink"}`}
     >
       {children}
     </button>

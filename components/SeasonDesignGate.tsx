@@ -91,10 +91,10 @@ export default function SeasonDesignGate({ showNotice = true }: { showNotice?: b
               {isEvent
                 ? `Du hast genug gesammelt: Die App zeigt jetzt das Design „${source.name}“, solange das Event läuft.`
                 : `Du hast im Saison-Pass genug Punkte gesammelt: Die App zeigt jetzt das Design „${source.name}“.`}{" "}
-              Gefällt es dir nicht, kannst du es im Profil im Reiter Einstellungen ausschalten.
+              Gefällt es dir nicht, kannst du es im Profil unter Einstellungen › Aussehen ausschalten.
             </p>
             <Link
-              href="/profil#einstellungen"
+              href="/profil#aussehen"
               onClick={dismiss}
               className="mt-3 inline-block text-sm font-semibold text-gold hover:underline"
             >

@@ -237,7 +237,7 @@ function Chip({
       disabled={disabled}
       onClick={onClick}
       className={`flex min-w-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 font-display text-sm font-semibold transition-colors disabled:opacity-60 ${
-        active ? "border-action bg-action text-pitch" : "border-edge bg-pitch text-muted hover:border-gold/60 hover:text-ink"
+        active ? "border-gold bg-gold/15 text-gold" : "border-edge bg-pitch text-muted hover:text-ink"
       }`}
     >
       {children}

@@ -112,7 +112,7 @@ export default function ClubLeaderboard() {
           </p>
           <h2 className="mb-1 font-display text-lg font-semibold text-ink">Noch keine Fans in {sportLabel(sport)}</h2>
           <p className="mx-auto mb-5 max-w-sm text-sm text-muted">
-            Wähle im Profil unter „Einstellungen“ deinen Herzensverein und sammle mit deinen Tipps Punkte für ihn.
+            Wähle im Profil unter „Einstellungen › Herzensvereine“ deinen Herzensverein und sammle mit deinen Tipps Punkte für ihn.
           </p>
           <Link
             href="/profil#herzensvereine"
