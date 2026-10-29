@@ -987,8 +987,8 @@ export default function MatchCard({
               {compactTeamRow(rightTeam, rightSide)}
             </div>
           )}
-          {/* EINE Zeile "Dein Tipp: Sieg Frankfurt  +5 vorläufig" mit "wenn es so
-              bleibt" darunter; nach Abpfiff ohne Wertung "Wertung folgt"
+          {/* EINE Zeile "Dein Tipp: Sieg Frankfurt  +5 vorläufig" (ohne "wenn es
+              so bleibt", Rene 29.10.2026); nach Abpfiff ohne Wertung "Wertung folgt"
               statt "vorläufig" (Rene, 16.10.2026: nur Tipp und Punkte). */}
           {pendingTip && pendingTier && boardScore && (
             <LiveTipLine
@@ -1002,8 +1002,6 @@ export default function MatchCard({
               )}
               points={pendingPoints}
               finished={!live || live.finished}
-              // Ohne "wenn es so bleibt: Platz …" (Rene, 29.10.2026: "weg damit").
-              forecast={null}
             />
           )}
           {/* Freunde-Zeile steht seit 29.10.2026 im aufgeklappten "getippt"

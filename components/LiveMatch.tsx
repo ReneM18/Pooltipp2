@@ -6,7 +6,6 @@ import { livePointsText } from "@/lib/liveTipText";
 import { eventMinuteText, isGoalEvent, shortPlayerName, type LiveEvent, type LiveStatus } from "@/lib/liveScores";
 import type { ShootoutKick } from "@/lib/live/types";
 import { useLiveClock } from "@/lib/useLiveMinute";
-import type { LiveForecast } from "@/lib/liveForecast";
 import FitText from "@/components/FitText";
 
 // Gemeinsame Live-Bausteine für Tippkarte (components/MatchCard.tsx) und
@@ -217,42 +216,21 @@ export function signedPoints(n: number): string {
   return n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "±0";
 }
 
-// "wenn es so bleibt: ▲ Platz 2 in der Rangliste" – Pfeil grün bei
-// Verbesserung, rot bei Verschlechterung, sonst ohne Pfeil.
-export function ForecastText({ forecast, prefix = "wenn es so bleibt: " }: { forecast: LiveForecast; prefix?: string }) {
-  const better = forecast.rankThen < forecast.rankNow;
-  const worse = forecast.rankThen > forecast.rankNow;
-  return (
-    <>
-      {prefix}
-      {better && <span className="text-[#4FC181]">▲ </span>}
-      {worse && <span className="text-red-400">▼ </span>}
-      Platz {forecast.rankThen} in der Rangliste
-    </>
-  );
-}
-
-export function forecastPlain(forecast: LiveForecast): string {
-  const arrow = forecast.rankThen < forecast.rankNow ? "▲ " : forecast.rankThen > forecast.rankNow ? "▼ " : "";
-  return `${arrow}Platz ${forecast.rankThen}`;
-}
-
 // EINE Zeile: links nur der Tipp ("Dein Tipp: Sieg Frankfurt" / "3:1"),
 // rechts nur die Punkte beim jetzigen Stand ("+5" grün, "−3" rot) mit klein
 // "vorläufig" bzw. nach Abpfiff ohne App-Endstand "Wertung folgt" – keine
-// Status-Wörter mehr (Rene, 16.10.2026). Darunter klein der vorläufige Platz.
+// Status-Wörter mehr (Rene, 16.10.2026). Der vorläufige Platz darunter ist
+// weg (Rene, 29.10.2026: "wenn es so bleibt platz 1 weg damit").
 // Gold nur, wenn der Tipp gerade Punkte bringt. Nur feste Punkte (ohne Bonus
 // und Joker), mit Anfänger-Schutz ein Minus als 0.
 export function LiveTipLine({
   tipText,
   points,
   finished,
-  forecast,
 }: {
   tipText: string;
   points: number;
   finished: boolean;
-  forecast: LiveForecast | null;
 }) {
   const good = points > 0;
   return (
@@ -276,11 +254,6 @@ export function LiveTipLine({
           <span className="text-[10px] text-muted/80">{finished ? "Wertung folgt" : "vorläufig"}</span>
         </span>
       </div>
-      {forecast && !finished && (
-        <p className="mt-1 px-1 text-[11px] text-muted">
-          <ForecastText forecast={forecast} />
-        </p>
-      )}
     </div>
   );
 }
