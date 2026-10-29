@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { SWIPE_EVENT, type SwipeDetail } from "@/components/SwipeNav";
 import AdBanner from "@/components/AdBanner";
 import FitText from "@/components/FitText";
-import { TvIcon } from "@/components/Icons";
+import { StadiumIcon, TvIcon } from "@/components/Icons";
 import {
   appSideEvents,
   appSideShootout,
@@ -19,35 +19,26 @@ import {
   type LiveSource,
   type LiveMatchResult,
 } from "@/lib/liveScores";
-import { reloadLiveDay, useLiveDay, useLiveDays, useLivePolling, type LiveDay } from "@/lib/useLiveScores";
+import { reloadLiveDay, useLiveDay, useLiveDays, useLivePolling, useStadium, type LiveDay } from "@/lib/useLiveScores";
 import { CUP_ZONES, cupZone, TABLE_LEAGUES, type CupZone, type StandingGroup, type StandingsResponse } from "@/lib/standings";
 import { LIVE_SPORTS, liveGameCountry, liveGameLeague } from "@/lib/liveConfig";
 import { flagEmoji } from "@/lib/flags";
 import { useLiveClock, useMinuteTick } from "@/lib/useLiveMinute";
-import { useLiveForecast } from "@/lib/liveForecast";
-import { friendsRowTable, useFriendsLive } from "@/lib/friendsLive";
-import { FriendsLivePanel, FriendsLiveRow, FriendsLiveSheet } from "@/components/FriendsLive";
 import { useAppData } from "@/lib/AppDataContext";
-import { classifyRankingTip, RANKING_POINTS } from "@/lib/poolScore";
 import { competitionFlag } from "@/lib/competitionFlag";
 import { displayOrder, isAwayFirst, scoreText, type TeamOrder } from "@/lib/teamOrder";
-import { SPORT_ICONS, isSportActive, sportLabel, type Match, type Sport, type Team } from "@/lib/types";
+import { SPORT_ICONS, sportLabel, type Match, type Sport, type Team } from "@/lib/types";
 import TeamBadge, { matchJerseyProps, teamColorProps } from "@/components/TeamBadge";
-import CommentThread from "@/components/CommentThread";
 import { LineupView, PreviewView, StatsView, useMatchInfo, useMatchPreview } from "@/components/MatchInfo";
 import Emoji from "@/components/Emoji";
 import LiveTvHeat, { type TvGame } from "@/components/LiveTvHeat";
 import MatchSheet from "@/components/MatchSheet";
-import { CommunityTrend } from "@/components/MatchCard";
-import { useBeginnerShieldLeft } from "@/components/BeginnerShieldHint";
 import {
   EventTimeline,
   ShootoutList,
   LivePill,
-  LiveTipLine,
   Scoreboard,
   StateDot,
-  signedPoints,
   useBoardClock,
   type BoardSide,
 } from "@/components/LiveMatch";
@@ -56,9 +47,7 @@ import { appTeamForApiName, appTeamName } from "@/lib/teamApiNames";
 import { fixtureTvFor } from "@/lib/fixtureTv";
 import { GUEST_PRIMARY_COLOR, GUEST_SECONDARY_COLOR } from "@/lib/guestTeam";
 import { useUser } from "@/lib/UserContext";
-import { COUNTDOWN_FROM } from "@/components/Countdown";
-import { deadlineText } from "@/lib/dayGroups";
-import { isMatchTippable, isNightKickoff, sportDay, tipCardHref } from "@/lib/matchcenterLink";
+import { isNightKickoff, sportDay } from "@/lib/matchcenterLink";
 import Link from "next/link";
 import { useStartExperience } from "@/lib/useStartExperience";
 
@@ -100,8 +89,6 @@ export default function MatchcenterPage() {
     // stehen, darum ohne sichtbare Überschrift und mit wenig Abstand.
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-4 pt-3 pb-8 sm:px-5 sm:pt-4">
       <h1 className="sr-only">Matchcenter</h1>
-
-      <TodayTipsBox />
 
       {/* Live-Bereich mit Detail (Rene, 15.10.2026: Spieltag-Umbau), nur die
           in lib/liveConfig.ts eingeschalteten Ligen (zum Testen Europa League). */}
@@ -258,161 +245,6 @@ function liveLeagueFlag(sport: Sport, g: LiveGame, competitions: Parameters<type
   return country ? flagEmoji(country) : null;
 }
 
-// Oben: "Heute N Tippspiele" mit Sprung zur Tipps-Seite (Rene, 27.10.2026).
-// Alle Sportarten, nur Spiele mit Anstoß heute (Wiener Zeit). Ohne
-// Tippspiele heute stehen die nächsten Tippspiele da (NextTipsBox).
-// Tippspiele von heute (Wiener Zeit), null solange die echten Spiele noch
-// nicht geladen sind (vorher stehen Demo-Spiele im Speicher).
-function useTodayTips() {
-  const { matches, getTeam, myTips, contentLoaded } = useAppData();
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 60 * 1000);
-    return () => clearInterval(t);
-  }, []);
-  if (now === null || !contentLoaded) return null;
-  const today = sportDay(now);
-  const list = matches.filter(
-    (m) =>
-      !m.draft &&
-      m.status !== "cancelled" &&
-      isSportActive(m.sport) &&
-      sportDay(m.kickoff) === today &&
-      !!getTeam(m.homeTeamId) &&
-      !!getTeam(m.awayTeamId),
-  );
-  const tipped = new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId));
-  const open = list.filter((m) => !tipped.has(m.id) && isMatchTippable(m, now)).length;
-  return { now, list, tipped, open };
-}
-
-// Kleines Kästchen "🎯 7 · 5 offen ›" oben in der Reihe der Sportarten
-// (Rene, 27.10.2026: Variante C), führt zu den Tipps.
-function TodayTipsMini() {
-  const today = useTodayTips();
-  if (!today || today.list.length === 0) return null;
-  const { list, open } = today;
-  return (
-    <Link
-      href="/"
-      className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-gold/40 bg-gold/5 px-2.5 py-1 text-xs transition-colors hover:border-gold"
-      aria-label={`Heute ${list.length} Tippspiele, ${open} offen – zu den Tipps`}
-    >
-      <span aria-hidden>🎯</span>
-      <span className="font-display font-bold text-ink">
-        {list.length}
-        <span className="hidden sm:inline"> {list.length === 1 ? "Tippspiel" : "Tippspiele"}</span>
-      </span>
-      {open > 0 && <span className="font-semibold text-gold">· {open} offen</span>}
-      <span className="font-bold text-gold" aria-hidden>
-        ›
-      </span>
-    </Link>
-  );
-}
-
-function TodayTipsBox() {
-  const { getTeam, matches, orderFor } = useAppData();
-  const today = useTodayTips();
-  if (!today) return null;
-  const { now, list, tipped, open } = today;
-  // Mit Live-Bereich steht das Kästchen dort klein oben (TodayTipsMini).
-  if (list.length > 0 && LIVE_SPORT) return null;
-  if (list.length === 0) {
-    const next = matches
-      .filter(
-        (m) =>
-          !m.draft &&
-          m.status !== "cancelled" &&
-          isSportActive(m.sport) &&
-          isMatchTippable(m, now) &&
-          !!getTeam(m.homeTeamId) &&
-          !!getTeam(m.awayTeamId),
-      )
-      .sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime())
-      .slice(0, 3);
-    if (next.length === 0) return null;
-    return (
-      <section className="mb-4 rounded-card border border-gold/40 bg-gold/5 px-3 py-2.5 sm:px-4">
-        <div className="mb-1.5 flex items-baseline justify-between gap-3">
-          <h2 className="font-display text-sm font-bold text-ink">Deine nächsten Tippspiele</h2>
-          <Link href="/" className="shrink-0 text-xs font-semibold text-gold hover:opacity-80">
-            Alle Tipps ›
-          </Link>
-        </div>
-        <ul className="flex flex-col">
-          {next.map((m) => {
-            const [a, b] = displayOrder(orderFor(m), getTeam(m.homeTeamId)!, getTeam(m.awayTeamId)!);
-            const when = new Date(m.kickoff).toLocaleString("de-AT", {
-              weekday: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-              timeZone: "Europe/Vienna",
-            });
-            const done = tipped.has(m.id);
-            return (
-              <li key={m.id}>
-                <Link
-                  href={tipCardHref(m.id)}
-                  className="flex min-h-11 items-center gap-2.5 border-t border-edge/60 py-1.5 text-sm first:border-t-0"
-                >
-                  <Emoji e={SPORT_ICONS[m.sport]} />
-                  <span className="min-w-0 flex-1 truncate font-semibold text-ink">
-                    {a.name} – {b.name}
-                  </span>
-                  <span className="shrink-0 text-xs text-muted">{when}</span>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                      done ? "bg-action/15 text-action" : "bg-gold/15 text-gold"
-                    }`}
-                  >
-                    {done ? "✓ Getippt" : "Tippen"}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-    );
-  }
-  const sports = Array.from(new Set(list.map((m) => m.sport)));
-  return (
-    <Link
-      href="/"
-      className="mb-3 flex items-center gap-2.5 rounded-card border border-gold/40 bg-gold/5 px-3 py-1.5 transition-colors hover:border-gold sm:mb-4 sm:gap-3 sm:px-4 sm:py-2.5"
-    >
-      <span className="flex shrink-0 gap-0.5 text-base sm:text-lg" aria-hidden>
-        {sports.map((s) => (
-          <Emoji key={s} e={SPORT_ICONS[s]} />
-        ))}
-      </span>
-      {/* Am Handy eine Zeile: "Heute 7 Tippspiele · 5 offen". */}
-      <span className="min-w-0 flex-1 truncate sm:whitespace-normal">
-        <span className="font-display text-sm font-bold text-ink sm:block">
-          Heute {list.length === 1 ? "1 Tippspiel" : `${list.length} Tippspiele`}
-        </span>
-        {open > 0 && (
-          <span className="text-xs font-semibold text-gold sm:hidden"> · {open} offen</span>
-        )}
-        <span className="hidden text-xs text-muted sm:block">
-          {open > 0 ? (
-            <>
-              <span className="font-semibold text-gold">{open} noch offen</span> · hier geht&apos;s zu den Tipps
-            </>
-          ) : (
-            "Hier geht's zu deinen Tipps"
-          )}
-        </span>
-      </span>
-      <span className="shrink-0 font-display text-lg font-bold text-gold" aria-hidden>
-        ›
-      </span>
-    </Link>
-  );
-}
-
 // Mehrere Sportarten (Rene, 16.10.2026): Umschalter ⚽/🏒 über dem
 // Live-Bereich; je Sportart eigener Bereich (key → Auswahl beginnt neu).
 function LiveCenter() {
@@ -433,7 +265,8 @@ function LiveCenter() {
     setSport(s);
   };
   // Oben eine Reihe (Rene, 27.10.2026, Variante C): die Sportarten einzeln
-  // (Namen erst ab lg:), rechts das kleine Tippspiel-Kästchen.
+  // (Namen erst ab lg:). Kein Tippspiel-Kästchen mehr (Rene, 29.10.2026:
+  // im Matchcenter nur das echte Spiel).
   // Am Handy mind. 48 × 44 px pro Knopf, damit man gut mit dem Finger
   // trifft (Rene, 28.10.2026).
   const switcher = (
@@ -460,7 +293,6 @@ function LiveCenter() {
           ))}
         </div>
       )}
-      <TodayTipsMini />
     </div>
   );
   return (
@@ -628,11 +460,6 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     const link = links.get(g.id);
     return !!link && tippedMatchIds.has(link.match.id);
   };
-  // Tippspiel, das man noch tippen kann (Rene, 27.10.2026: "Tippen").
-  const canTip = (g: LiveGame) => {
-    const link = links.get(g.id);
-    return !!link && now !== null && isMatchTippable(link.match, now);
-  };
 
   // Von der Tippkarte: Spiel von gestern steht unter "Ergebnisse", eines
   // ab morgen unter "Spielplan" (Rene, 27.10.2026).
@@ -661,13 +488,12 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     (targetDay !== yesterday || !!yesterdayDay.games) &&
     !(targetDay && today && targetDay > today && hasPlan && upcomingDays.some((d) => d.games === null));
 
-  // Standard: erstes getipptes laufendes Spiel.
+  // Standard: erstes getipptes laufendes Spiel, sonst das erste laufende
+  // (Rene, 29.10.2026: rechts steht das echte Spiel, nicht der Tipp).
   useEffect(() => {
     if (pickedRef.current || selectedId || !todayDay.games || target) return;
-    const first = todayDay.games
-      .filter((g) => isLiveRunning(g.status))
-      .sort(byKickoff)
-      .find((g) => isTipped(g));
+    const runningGames = todayDay.games.filter((g) => isLiveRunning(g.status)).sort(byKickoff);
+    const first = runningGames.find((g) => isTipped(g)) ?? runningGames[0];
     if (first) setSelectedId(first.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [todayDay.games, links, tippedMatchIds, selectedId]);
@@ -695,27 +521,9 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   }
 
   const selected = selectedId ? allGames.find((g) => g.id === selectedId) ?? null : null;
-  const listProps = { sport, links, isTipped, canTip, selectedId, onSelect: select };
+  const listProps = { sport, links, selectedId, onSelect: select };
 
-  // Freunde-Live (Rene, 16.10.2026: Freunde-Live): am PC rechts ein Reiter
-  // "Freunde" neben dem Spiel-Detail, am Handy eine Zeile im Detail, die
-  // die Tabelle als Bottom-Sheet öffnet. Nur eingeloggt und mit Freunden
-  // bzw. einer Tipprunde mit Mitspielern.
-  const [rightTab, setRightTab] = useState<"spiel" | "freunde">("spiel");
-  const [friendsSheet, setFriendsSheet] = useState(false);
-  const friendsLive = useFriendsLive(view === "live", view === "live" && rightTab === "freunde");
-  const showFriendsTab = view === "live" && !!friendsLive && (friendsLive.hasFriends || friendsLive.tables.length > 0);
-  const friendsTab = showFriendsTab && rightTab === "freunde";
   const selectedLink = selected ? links.get(selected.id) ?? null : null;
-  const friendsRow =
-    // Nur mit mittippenden Freunden (Rene, 16.10.2026), sonst keine Zeile.
-    friendsLive && friendsRowTable(friendsLive) && selectedLink && friendsLive.games.some((g) => g.match.id === selectedLink.match.id) ? (
-      <div className="lg:hidden">
-        <FriendsLiveRow state={friendsLive} onOpen={() => setFriendsSheet(true)} className="-mt-2" />
-        <FriendsLiveSheet open={friendsSheet} onClose={() => setFriendsSheet(false)} />
-      </div>
-    ) : null;
-
   const runningCount = todayDay.games?.filter((g) => isLiveRunning(g.status)).length ?? 0;
   // "Live im TV" unter dem Detail (Rene, 27.10.2026): laufende Fußball-
   // Spiele mit TV-Sender, seit 28.10.2026 auch ohne Tippspiel. Ob die
@@ -747,8 +555,6 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
           game={selected}
           link={selectedLink}
           dataAt={todayDay.games?.some((g) => g.id === selected.id) ? todayDay.dataAt : 0}
-          friendsRow={friendsRow}
-          now={now}
         />
       ) : targetMissing ? (
         <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
@@ -756,7 +562,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
         </p>
       ) : (
         <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
-          Spiel antippen, um Spielverlauf, Tipps und Kommentare zu sehen.
+          Spiel antippen, um Spielverlauf, Aufstellung und Statistik zu sehen.
         </p>
       )}
     </>
@@ -831,30 +637,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
               )}
             </div>
             <div ref={detailRef} className="scroll-mt-32">
-              {showFriendsTab && (
-                <div className="mb-2 hidden gap-1.5 lg:flex" role="tablist" aria-label="Rechte Spalte">
-                  {(["spiel", "freunde"] as const).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      role="tab"
-                      aria-selected={rightTab === t}
-                      onClick={() => setRightTab(t)}
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-                        rightTab === t ? "border-muted/50 bg-surface-hover text-ink" : "border-edge text-muted hover:text-ink"
-                      }`}
-                    >
-                      {t === "spiel" ? "Spiel" : "Freunde"}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {friendsTab && (
-                <div className="hidden rounded-card border border-muted/40 bg-surface shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] p-3 sm:p-4 lg:block">
-                  <FriendsLivePanel state={friendsLive} />
-                </div>
-              )}
-              <div className={friendsTab ? "lg:hidden" : ""}>
+              <div>
                 {isDesktop ? (
                   detailContent
                 ) : (
@@ -885,8 +668,6 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
 interface ListProps {
   sport: Sport;
   links: Map<string, AppLink>;
-  isTipped: (g: LiveGame) => boolean;
-  canTip: (g: LiveGame) => boolean;
   selectedId: string | null;
   onSelect: (id: string) => void;
 }
@@ -1434,18 +1215,14 @@ function liveAwayFirst(sport: Sport, game: LiveGame): boolean {
 // Eine Zeile (Rene, 15.10.2026: Spieltag-Umbau): links Status (siehe
 // rowStatus, feste Breite seit 16.10.2026), Mitte Heim und Gast
 // untereinander, rechts die Tore untereinander, unten ein dünner Balken
-// (Minute/90). "Getippt" klein in Gold unter dem Status, gewählte Zeile mit Gold-Rand.
+// (Minute/90). Kein "Getippt"/"Tippen" mehr (Rene, 29.10.2026: im Matchcenter
+// nur das echte Spiel).
 // Rahmen eine Spur heller als border-edge, neutral für alle Zustände.
-function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId, onSelect }: ListProps & { game: LiveGame; dataAt?: number }) {
+function GameRow({ sport, game, dataAt = 0, links, selectedId, onSelect }: ListProps & { game: LiveGame; dataAt?: number }) {
   const clock = useLiveClock(sport, game.statusShort, game.elapsed, dataAt);
   const running = isLiveRunning(game.status);
   const hasScore = game.homeScore !== null && game.awayScore !== null && game.status !== "NS";
   const flash = useGoalFlash(game.id, hasScore ? `${game.homeScore}:${game.awayScore}` : null);
-  const tipped = isTipped(game);
-  // Tippschluss noch nicht vorbei: Countdown rechts, getippt oder nicht
-  // (Rene, 27.10.2026: "kein Countdown vor dem Spiel"). "Tippen" nur ungetippt.
-  const open = canTip(game);
-  const tippable = !tipped && open;
   const selected = selectedId === game.id;
   const link = links.get(game.id);
   const teamName = useApiTeamName(sport);
@@ -1484,7 +1261,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   // in der schmalen Status-Spalte (Rene, 29.10.2026: "du hast so viel platz
   // in der zeile"; am PC war es mit Sender als "Endstand i…" abgeschnitten):
   // am Handy neben den Toren, am PC unter der Ergebnis-Box.
-  const endNote = done && !(open && link) ? sub : null;
+  const endNote = done ? sub : null;
   const [endNoteMain, endNoteScore] = endNote ? splitEndNote(endNote) : [null, null];
   const statusSub = endNote ? null : sub;
 
@@ -1495,24 +1272,20 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       aria-pressed={selected}
       style={glow ? { boxShadow: GLOW[glow] } : undefined}
       // Gewählt: hellerer Hintergrund und weißlicher Rahmen statt Gold, damit
-      // der rote Live-Rand klar bleibt (Rene, 27.10.2026). Gold nur für "Tippen".
+      // der rote Live-Rand klar bleibt (Rene, 27.10.2026).
       className={`relative w-full overflow-hidden rounded-card border px-3 py-2 text-left transition-[color,background-color,border-color,box-shadow] sm:pl-4 ${
         moved ? "motion-safe:animate-lc-row-in" : ""
       } ${
         selected
           ? "border-ink/50 bg-surface-hover"
-          : tippable
-            ? "border-gold/45 bg-surface hover:border-gold/70"
-            : done
+          : done
               ? "border-muted/15 bg-surface/50 hover:border-muted/40"
               : "border-muted/25 bg-surface hover:border-muted/50"
       }`}
     >
       <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] items-center gap-x-2.5 text-sm">
-        {/* "Getippt" steht klein unter dem Status statt absolut über der
-            Tor-Spalte – dort überlappte es die obere Tor-Zahl (Rene, 15.10.2026). */}
         {/* Feste Breite, nichts läuft in die Namen (Rene, 16.10.2026):
-            Zeile 1 groß/fett, Zeile 2 klein muted, "Getippt" darunter. */}
+            Zeile 1 groß/fett, Zeile 2 klein muted. */}
         <span className="flex w-[4.75rem] min-w-0 flex-col gap-0.5 overflow-hidden tabular-nums">
           <span className={`flex min-w-0 items-center gap-1 text-[13px] font-semibold leading-tight ${status.muted ? "text-muted" : "text-ink"}`}>
             {status.dot && <StateDot state={status.dot} />}
@@ -1524,8 +1297,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           </span>
           {/* "heute" steht schon im Reiter, nur "morgen"/"gestern" zeigen (Rene, 27.10.2026: flachere Zeilen). */}
           {statusSub && !tv && <span className="truncate text-[10px] leading-tight text-muted">{statusSub}</span>}
-          {/* Sender unter der Uhrzeit (Rene, 28.10.2026), rechts stehen
-              "Tippen" und der Countdown. */}
+          {/* Sender unter der Uhrzeit (Rene, 28.10.2026). */}
           {tv && (
             <span className="flex min-w-0 items-start gap-1 text-[10px] font-medium leading-tight text-muted" title={tv}>
               <TvIcon className="h-3 w-3 shrink-0" />
@@ -1536,33 +1308,24 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
               <span className="min-w-0 break-words">{tv}</span>
             </span>
           )}
-          {/* Vor Tippschluss steht "Getippt" rechts über dem Countdown. */}
-          {tipped && !open && <span className="truncate text-[10px] font-semibold leading-tight text-gold">Getippt</span>}
         </span>
         {/* Namen und Tore in einem Raster (Rene, 27.10.2026): jede Tor-Zahl
             steht genau neben ihrem Verein, auch wenn ein Name zwei Zeilen
             braucht. Die Tore stehen mittig in einer festen Spalte, so liegen
-            "1" und "0" sauber untereinander (Poppins hat schmale Einsen).
-            Beim Tippspiel steht dort "Tippen" und der Countdown. */}
+            "1" und "0" sauber untereinander (Poppins hat schmale Einsen). */}
         <span
           className={`grid min-w-0 ${endNote ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"} grid-rows-[auto_auto] items-center gap-x-2 gap-y-0.5 lg:hidden`}
         >
           <FitText text={firstName} maxLines={2} minPx={12} className={`col-start-1 row-start-1 leading-tight ${nameTone(firstWins)}`} />
           <FitText text={secondName} maxLines={2} minPx={12} className={`col-start-1 row-start-2 leading-tight ${nameTone(secondWins)}`} />
-          {open && link ? (
-            <span className="col-start-2 row-span-2 row-start-1 justify-self-end">
-              <TipStatus deadline={link.match.tipDeadline} kickoff={link.match.kickoff} tipped={tipped} />
-            </span>
-          ) : (
-            <span
-              className={`${endNote ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
-                flash ? "bg-gold/15 text-gold" : scoreColor
-              }`}
-            >
-              <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(firstWins)}`}>{hasScore ? firstScore : "–"}</span>
-              <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(secondWins)}`}>{hasScore ? secondScore : "–"}</span>
-            </span>
-          )}
+          <span
+            className={`${endNote ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
+              flash ? "bg-gold/15 text-gold" : scoreColor
+            }`}
+          >
+            <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(firstWins)}`}>{hasScore ? firstScore : "–"}</span>
+            <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(secondWins)}`}>{hasScore ? secondScore : "–"}</span>
+          </span>
           {endNote && (
             <span className="col-start-2 row-span-2 row-start-1 flex flex-col items-end text-right text-[11px] font-semibold leading-tight text-muted">
               <span className="whitespace-nowrap">{endNoteMain}</span>
@@ -1578,7 +1341,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             das Ergebnis in jeder Zeile an derselben Stelle steht. */}
         {/* Ergebnisfelder mit Mindest- statt fester Breite, damit auch
             dreistellige Spielstände (NBA, z. B. 125:124) hineinpassen. */}
-        <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_6.5rem] items-center gap-x-4 lg:grid">
+        <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-4 lg:grid">
           <FitText text={firstName} maxLines={2} minPx={12} className={`text-right text-[15px] leading-tight ${nameTone(firstWins)}`} />
           <span className="flex flex-col items-center gap-0.5">
             <span
@@ -1593,9 +1356,6 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             {endNote && <span className="whitespace-nowrap text-[12px] font-semibold leading-none text-muted">{endNote}</span>}
           </span>
           <FitText text={secondName} maxLines={2} minPx={12} className={`text-[15px] leading-tight ${nameTone(secondWins)}`} />
-          <span className="flex min-w-0 flex-col items-end">
-            {open && link && <TipStatus deadline={link.match.tipDeadline} kickoff={link.match.kickoff} tipped={tipped} />}
-          </span>
         </span>
       </div>
     </button>
@@ -1690,75 +1450,20 @@ function FixtureJerseyEditor({ sport, game, apiNames }: { sport: Sport; game: Li
   );
 }
 
-// Tippspiel vor Tippschluss: rechts statt der Striche oben "Tippen" (bzw.
-// "Getippt"), ab 3 Std. vor Tippschluss darunter ein laufender Countdown,
-// gleiche Regel wie auf der Tippkarte (components/Countdown.tsx, Rene
-// 28.10.2026: "der Countdown muss zum Tippschluss passen"), letzte 30 Min.
-// orange mit ⏰. Davor nur das Schild, kein "bis 20:45" (Rene, 28.10.2026:
-// verwirrend neben der Anstoßzeit); nur wenn der Tippschluss vor dem
-// Anstoß liegt, steht "bis …" darunter.
-// Etwas Abstand zwischen Schild und Zeit (Rene, 28.10.2026: "zu nah").
-function TipStatus({ deadline, kickoff, tipped }: { deadline: string; kickoff: string; tipped: boolean }) {
-  const target = Date.parse(deadline);
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  const label = tipped ? (
-    <span className="text-[10px] font-semibold leading-[1.4] text-gold">Getippt</span>
-  ) : (
-    // Goldenes Schild mit Glanz (Rene, 27.10.2026, Variante C; Glanz in globals.css).
-    <span className="tip-shine w-fit rounded-full bg-gold px-1.5 text-[10px] font-bold leading-[1.4] text-pitch">Tippen</span>
-  );
-  if (now === null) return label;
-  const ms = Math.max(0, target - now);
-  const left = Math.floor(ms / 1000);
-  const h = Math.floor(left / 3600);
-  const m = Math.floor((left % 3600) / 60);
-  const sec = left % 60;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const counting = ms <= COUNTDOWN_FROM;
-  const soon = ms <= 30 * 60 * 1000;
-  return (
-    <span className="flex flex-col items-end gap-1">
-      {label}
-      {counting ? (
-        <span
-          className={`flex items-baseline gap-1 whitespace-nowrap leading-tight tabular-nums ${soon ? "text-[#FF9B5C]" : "text-gold"}`}
-          role="timer"
-          aria-label={`Noch ${h > 0 ? `${h} Std. ` : ""}${m} Min. bis Tippschluss`}
-        >
-          <span className="text-[10px] font-semibold opacity-80">{soon ? "⏰ noch" : "noch"}</span>
-          <span className="font-display text-[13px] font-bold">{h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`}</span>
-        </span>
-      ) : target < Date.parse(kickoff) ? (
-        <span className="whitespace-nowrap text-[11px] font-semibold leading-tight text-gold">bis {deadlineText(target, now)}</span>
-      ) : null}
-    </span>
-  );
-}
-
 // Detail rechts: Liga + Pill, Anzeigetafel (dieselbe wie auf der Tippkarte),
-// "Dein Tipp", Spielverlauf, Community, Kommentare.
+// "Dein Tipp", Spiel / Aufstellung / Statistik.
 function LcDetail({
   sport,
   game,
   link,
   dataAt,
-  friendsRow,
-  now,
 }: {
   sport: Sport;
   game: LiveGame;
   link: AppLink | null;
   dataAt: number;
-  friendsRow?: React.ReactNode;
-  now: number | null;
 }) {
-  const { myTips, orderFor, tipTendencies, competitions } = useAppData();
-  const shieldLeft = useBeginnerShieldLeft();
+  const { myTips, orderFor, competitions } = useAppData();
   const started = game.status !== "NS" && game.homeScore !== null && game.awayScore !== null;
   const liveLike = started && (isLiveRunning(game.status) || isLiveFinished(game.status));
   const clock = useBoardClock(sport, liveLike ? { ...game, dataAt, ...(link ? appSidePenalties(link.result) : {}) } : null);
@@ -1787,6 +1492,17 @@ function LcDetail({
   const teamOf = (s: "home" | "away") =>
     link ? (s === "home" ? link.home : link.away) : apiTeam(s === "home" ? game.home : game.away);
   const anyJersey = !!teamOf("home") || !!teamOf("away");
+  // Vereine in der Reihenfolge der API (fürs Stadion).
+  const swappedSides = !!link?.result.swapped;
+  const venue = useStadium(
+    teamOf(swappedSides ? "away" : "home"),
+    teamOf(swappedSides ? "home" : "away"),
+    game.venue ?? null,
+    game.venueId ?? null,
+  );
+  const tv = useGameTv(sport)(game, link);
+  // Spieltag vom Tippspiel (wanderte von der Tippkarte hierher, 29.10.2026).
+  const matchday = link?.match.matchday ?? null;
   const side = (s: "home" | "away"): BoardSide => {
     const team = teamOf(s);
     const badge = !anyJersey ? undefined : team ? (
@@ -1803,25 +1519,19 @@ function LcDetail({
     return { name: s === "home" ? appHome : appAway, badge };
   };
 
-  const tippable = !!match && now !== null && isMatchTippable(match, now);
-  const appFinal = !!match && match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null;
-  const pending = !!tip && !tip.evaluated && started && homeScore !== null && awayScore !== null;
   const isOneXTwo = match?.tipMode === "1x2";
-  const tier = pending ? classifyRankingTip(tip!.predictedHomeScore, tip!.predictedAwayScore, homeScore!, awayScore!, isOneXTwo) : null;
-  const points = tier ? (shieldLeft > 0 ? Math.max(0, RANKING_POINTS[tier]) : RANKING_POINTS[tier]) : 0;
-  const forecast = useLiveForecast(sport, pending && isLiveRunning(game.status));
-  const tipText = (() => {
-    if (!tip || !match || !link) return "";
-    if (!isOneXTwo) return scoreText(order, tip.predictedHomeScore, tip.predictedAwayScore);
-    const d = Math.sign(tip.predictedHomeScore - tip.predictedAwayScore);
-    return d > 0 ? link.home.name : d < 0 ? link.away.name : "Unentschieden";
-  })();
-  // Live-Zeile kurz: "Sieg Frankfurt" / "Unentschieden" / "3:1" (Rene, 16.10.2026).
-  const liveTipTextShort =
-    tip && match && link
-      ? liveTipLabel(tip.predictedHomeScore, tip.predictedAwayScore, isOneXTwo, link.home.name, link.away.name, tipText)
+  // "Sieg Graz" / "Unentschieden" / "3:1" (lib/liveTipText.ts).
+  const tipText =
+    tip && link
+      ? liveTipLabel(
+          tip.predictedHomeScore,
+          tip.predictedAwayScore,
+          isOneXTwo,
+          link.home.name,
+          link.away.name,
+          scoreText(order, tip.predictedHomeScore, tip.predictedAwayScore),
+        )
       : "";
-  const tendency = match ? tipTendencies[match.id] : undefined;
   const flag = liveLeagueFlag(sport, game, competitions);
   const [leftKick, rightKick] = displayOrder(order, appHome, appAway);
   // Reiter Spiel / Aufstellung / Statistik (Rene, 27.10.2026: Pro-Plan),
@@ -1870,6 +1580,28 @@ function LcDetail({
         </div>
       )}
 
+      {/* Sender und Stadion mit Kapazität wie auf der Tippkarte (Rene,
+          29.10.2026: "stadion und kapazität muss auch zu spiele"). Lange
+          Namen brechen um, nichts wird abgeschnitten. */}
+      {(matchday || tv || venue) && (
+        <div className="-mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[13px] text-muted">
+          {matchday && <span>Spieltag {matchday}</span>}
+          {tv && (
+            <span className="flex items-center gap-1.5 rounded-full border border-edge bg-pitch py-0.5 pl-2 pr-2.5 font-semibold text-ink">
+              <TvIcon className="h-4 w-4 shrink-0 text-ink" />
+              {tv}
+            </span>
+          )}
+          {venue && (
+            <span className="min-w-0 break-words">
+              <StadiumIcon className="mr-1.5 inline-block h-[22px] w-[22px] -translate-y-px align-middle" />
+              {venue.name}
+              {venue.capacity !== null && <span className="whitespace-nowrap"> · {venue.capacity.toLocaleString("de-DE")} Plätze</span>}
+            </span>
+          )}
+        </div>
+      )}
+
       {!link && <FixtureTvEditor sport={sport} game={game} />}
       {!link && (
         <FixtureJerseyEditor
@@ -1879,42 +1611,11 @@ function LcDetail({
         />
       )}
 
-      {pending && tier && (
-        <LiveTipLine
-          tipText={liveTipTextShort}
-          points={points}
-          finished={!isLiveRunning(game.status)}
-          forecast={forecast}
-        />
-      )}
-      {liveLike && !appFinal && friendsRow}
-      {tip && tip.evaluated && appFinal && (
-        <p className="rounded-lg border border-edge bg-pitch px-3 py-2 text-[13px] text-muted">
+      {/* Matchcenter = nur das echte Spiel (Rene, 29.10.2026): keine Punkte,
+          Community, Kommentare oder Freunde mehr, nur der eigene Tipp. */}
+      {tipText && (
+        <p className="truncate rounded-lg border border-edge bg-pitch px-3 py-2 text-[13px] text-muted">
           Dein Tipp: <span className="font-semibold text-ink">{tipText}</span>
-          {tip.rangDelta !== undefined && (
-            <span className={tip.rangDelta > 0 ? "text-gold" : ""}> · {signedPoints(tip.rangDelta)} Punkte</span>
-          )}
-        </p>
-      )}
-      {/* Direkt zur Tippkarte, solange getippt werden kann (Rene, 27.10.2026). */}
-      {match && !tip && tippable && (
-        <Link
-          href={tipCardHref(match.id)}
-          className="flex items-center justify-center gap-1.5 rounded-full bg-action-hover py-2.5 text-center font-display text-sm font-semibold tracking-wide text-pitch transition-all hover:brightness-110"
-        >
-          🎯 Jetzt tippen
-        </Link>
-      )}
-      {tip && !tip.evaluated && !started && (
-        <p className="flex items-center justify-between gap-2 rounded-lg border border-gold/40 bg-gold/5 px-3 py-2 text-[13px] text-muted">
-          <span>
-            Dein Tipp: <span className="font-semibold text-gold">{tipText}</span>
-          </span>
-          {match && tippable && (
-            <Link href={tipCardHref(match.id)} className="shrink-0 font-semibold text-ink underline-offset-2 hover:underline">
-              Ändern ›
-            </Link>
-          )}
         </p>
       )}
 
@@ -1977,23 +1678,6 @@ function LcDetail({
             </div>
           )}
 
-          {match && tendency && started && (
-            <CommunityTrend
-              tendency={tendency}
-              sport={match.sport}
-              order={order}
-              homeName={link!.home.name}
-              awayName={link!.away.name}
-              finalScore={appFinal ? { home: match.liveHomeScore!, away: match.liveAwayScore! } : null}
-              myTip={tip ? { home: tip.predictedHomeScore, away: tip.predictedAwayScore } : null}
-            />
-          )}
-
-          {match && (
-            <div className="border-t border-edge pt-3">
-              <CommentThread threadId={match.id} />
-            </div>
-          )}
         </>
       )}
     </div>
