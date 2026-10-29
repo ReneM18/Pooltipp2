@@ -58,7 +58,8 @@ import type {
 // "events" (Tore, Karten, Wechsel) gleich mit. Die Tagesliste hat keine.
 // Für beendete Spiele werden die Ereignisse aus dem letzten Live-Stand
 // weitergereicht, den sich diese Server-Instanz gemerkt hat (LAST_EVENTS).
-// KEINE zusätzlichen Abfragen pro Spiel.
+// Fehlt der (Neustart, gestrige Spiele), werden sie für beendete Spiele
+// nachgeladen, je 20 Spiele eine Abfrage (fillFinishedEvents, 29.10.2026).
 
 const ENDPOINTS: Record<Sport, string> = {
   "Fußball": "https://v3.football.api-sports.io/fixtures",
@@ -265,6 +266,53 @@ function rememberEvents(games: LiveGame[], at: number) {
   }
 }
 
+// Beendete Spiele ohne gemerkte Ereignisse (Rene, 29.10.2026: "da steht
+// nicht einmal wer die tore gemacht hat"): LAST_EVENTS ist nach einem
+// Neustart der Server-Instanz leer, und für gestrige Spiele gibt es keinen
+// Live-Stand. Dann die Ereignisse nachladen, je 20 Spiele in EINER Abfrage
+// (fixtures?ids=a-b-c). Beendet ändert sich nichts mehr, daher je Spiel
+// gemerkt (auch Spiele ohne Ereignis, z. B. 0:0) und nicht erneut gefragt.
+const FINISHED_IDS_MAX = 20;
+// Höchstens 5 Abfragen (100 Spiele) je Aufruf, der Rest beim nächsten.
+const FINISHED_CHUNKS_MAX = 5;
+const FINISHED_EVENTS_TTL = 24 * 3600;
+const FINISHED_EVENTS = new Map<string, { events: LiveEvent[]; at: number }>();
+
+async function fillFinishedEvents(games: LiveGame[], key: string) {
+  const missing = games.filter(
+    (g) => isLiveFinished(g.status) && (!g.events || g.events.length === 0) && /^\d+$/.test(g.id),
+  );
+  const ask = missing.map((g) => g.id).filter((id) => !FINISHED_EVENTS.has(id)).sort((a, b) => Number(a) - Number(b));
+  const chunks: string[][] = [];
+  for (let i = 0; i < ask.length && chunks.length < FINISHED_CHUNKS_MAX; i += FINISHED_IDS_MAX) chunks.push(ask.slice(i, i + FINISHED_IDS_MAX));
+  const results = await Promise.all(
+    chunks.map((ids) => load(`${ENDPOINTS["Fußball"]}?ids=${ids.join("-")}&timezone=Europe/Vienna`, key, FINISHED_EVENTS_TTL)),
+  );
+  const now = Date.now();
+  results.forEach((res, i) => {
+    if (!res.ok) return;
+    const byId = new Map<string, Raw>(res.hit.value.map((f: Raw) => [String(f?.fixture?.id), f]));
+    for (const id of chunks[i]) {
+      // Nur wirklich beendet merken, sonst beim nächsten Mal neu fragen.
+      // Ohne Ereignisse beim Anbieter (kleine Ligen) leer merken.
+      const full = byId.has(id) ? normalize("Fußball", byId.get(id)) : null;
+      if (!full || !isLiveFinished(full.status)) continue;
+      FINISHED_EVENTS.set(id, { events: full.events ?? [], at: now });
+    }
+  });
+  for (let i = 0; i < games.length; i++) {
+    const g = games[i];
+    if (g.events && g.events.length > 0) continue;
+    const found = FINISHED_EVENTS.get(g.id);
+    if (found && found.events.length > 0) games[i] = { ...g, events: found.events };
+  }
+  // Erst nach dem Übernehmen aufräumen, sonst fehlen gerade geladene Spiele.
+  for (const [id, entry] of FINISHED_EVENTS) {
+    if (FINISHED_EVENTS.size <= MAX_CACHED_EVENTS && now - entry.at < EVENTS_KEEP_MS) break;
+    FINISHED_EVENTS.delete(id);
+  }
+}
+
 // Letzter erfolgreicher live=all-Stand (Rene, 16.10.2026): fällt ein
 // Live-Abruf aus, wird er – ehrlich als "stale" markiert – gezeigt, falls er
 // neuer ist als die Tagesliste.
@@ -383,6 +431,7 @@ async function football(date: string, league: string | null, key: string): Promi
     const cached = LAST_EVENTS.get(games[i].id);
     games[i] = { ...games[i], events: cached ? cached.events : [] };
   }
+  await fillFinishedEvents(games, key);
   rememberDay(sport, date, league, games, fetchedAt);
   return snapshotResult(games, fetchedAt, source, expiresAt, liveError);
 }
@@ -494,7 +543,7 @@ function mapStatus(sport: Sport, short: string, elapsed: number | null): { statu
   if (s === "NS" || s === "TBD") return { status: "NS", text: "Noch nicht begonnen" };
   if (s === "HT") return { status: "HT", text: "Halbzeit" };
   if (s === "FT") return { status: "FT", text: "Beendet" };
-  if (s === "AET" || s === "AOT") return { status: "AET", text: sport === "Fußball" || sport === "Handball" ? "n. V." : "n. OT" };
+  if (s === "AET" || s === "AOT") return { status: "AET", text: "n. V." };
   if (s === "PEN" || s === "AP") return { status: "PEN", text: sport === "Handball" ? "n. 7m" : "n. E." };
   if (s === "BT") return { status: "BREAK", text: "Pause" };
 
@@ -615,6 +664,9 @@ function normalizeEvents(g: Raw, homeScore: number | null, awayScore: number | n
   for (const e of g.events as Raw[]) {
     const minute = toNumber(e?.time?.elapsed);
     if (minute === null) continue;
+    // Elfmeterschießen ist kein Tor im Spiel (sonst "120' Tor" für jeden
+    // Schützen, 29.10.2026). Das Ergebnis steht als "i. E. 5:4" da.
+    if (String(e?.comments ?? "").toLowerCase().includes("shootout")) continue;
     const teamId = e?.team?.id;
     const ownTeam: "home" | "away" | null =
       teamId != null && teamId === homeId ? "home"
