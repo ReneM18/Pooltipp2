@@ -22,7 +22,7 @@ import Countdown from "./Countdown";
 import ScoreInput from "./ScoreInput";
 import { CoinIcon } from "./CoinIcon";
 import { competitionDisplayName, competitionFlag } from "@/lib/competitionFlag";
-import { TvIcon, HighlightTvIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
+import { TvIcon, HighlightTvIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon, StadiumIcon } from "./Icons";
 import { SeasonCardWatermark } from "./SeasonDeco";
 import ShareTipButton from "./ShareTipCard";
 import type { ShareCardData } from "@/lib/shareCard";
@@ -991,7 +991,7 @@ export default function MatchCard({
               wenn bekannt. Lange Namen brechen um, nichts wird abgeschnitten. */}
           {venue && (
             <span className="min-w-0 break-words">
-              <span className="mr-1" aria-hidden><Emoji e="🏟️" /></span>
+              <StadiumIcon className="mr-1.5 inline-block h-[22px] w-[22px] -translate-y-px align-middle" />
               {venue.name}
               {venue.capacity !== null && (
                 <span className="whitespace-nowrap"> · {venue.capacity.toLocaleString("de-DE")} Plätze</span>
