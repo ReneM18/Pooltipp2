@@ -258,7 +258,8 @@ returns table (
   exakt int,
   richtig int,
   first_tip timestamptz,
-  last_tip timestamptz
+  last_tip timestamptz,
+  evaluated_score int
 )
 language plpgsql
 stable
@@ -288,6 +289,13 @@ begin
     select x.sport as s,
            count(*)::int as n_tips,
            count(*) filter (where x.evaluated and x.result_tier is not null)::int as n_eval,
+           -- Nur Ergebnis-Tipps: Basis für "exakt" in %, ein 1X2-Tipp kann
+           -- nie exakt sein (Rene, 29.10.2026: "nicht die % von allen
+           -- Tipps"). Ohne bekannten Modus (Spiel gelöscht) = Ergebnis-Tipp.
+           -- NFL, NBA, NHL haben kein Exakt (Rene, 29.10.2026).
+           count(*) filter (where x.evaluated and x.result_tier is not null
+                              and coalesce(x.tip_mode, 'score') <> '1x2'
+                              and x.sport not in ('NFL', 'NBA', 'NHL'))::int as n_eval_score,
            count(*) filter (where x.evaluated and x.result_tier = 'exakt')::int as n_exakt,
            count(*) filter (where x.evaluated and x.result_tier in ('exakt', 'differenz', 'tendenz'))::int as n_richtig,
            min(x.submitted_at) as d_first,
@@ -317,7 +325,8 @@ begin
     case when v_show then coalesce(ts.n_exakt, 0) end,
     case when v_show then coalesce(ts.n_richtig, 0) end,
     case when v_show then ts.d_first end,
-    case when v_show then ts.d_last end
+    case when v_show then ts.d_last end,
+    case when v_show then coalesce(ts.n_eval_score, 0) end
   from sp
   left join rp on rp.s = sp.s
   left join pr on pr.s = sp.s

@@ -405,6 +405,11 @@ export async function saveSportBio(userId: string, data: BioData, visibility: Bi
   return null;
 }
 
+/** NFL, NBA und NHL haben kein Exakt, nur Sieger richtig (Rene, 29.10.2026). */
+export function hasExakt(sport: string): boolean {
+  return !["NFL", "NBA", "NHL"].includes(sport);
+}
+
 /** Werte einer Sportart für die Karte (supabase/sportlerkarte-statistik.sql). */
 export interface SportCardStat {
   sport: Sport;
@@ -414,6 +419,8 @@ export interface SportCardStat {
   // Nur gesetzt, wenn man die Statistik sehen darf:
   tips: number | null;
   evaluated: number | null;
+  // Ausgewertete Ergebnis-Tipps (ohne 1X2), Basis für "exakt" in %.
+  evaluatedScore: number | null;
   exakt: number | null;
   richtig: number | null;
   firstTip: string | null;
@@ -443,6 +450,12 @@ export function useSportCardStats(userId: string | null | undefined): SportCardS
             prestige: Number(r.prestige ?? 0),
             tips: r.tips == null ? null : Number(r.tips),
             evaluated: r.evaluated == null ? null : Number(r.evaluated),
+            // Fehlt die Spalte (SQL noch alt), wie bisher alle ausgewerteten.
+            evaluatedScore: !hasExakt(r.sport as string)
+              ? 0
+              : r.evaluated_score !== undefined
+                ? r.evaluated_score == null ? null : Number(r.evaluated_score)
+                : r.evaluated == null ? null : Number(r.evaluated),
             exakt: r.exakt == null ? null : Number(r.exakt),
             richtig: r.richtig == null ? null : Number(r.richtig),
             firstTip: (r.first_tip as string | null) ?? null,

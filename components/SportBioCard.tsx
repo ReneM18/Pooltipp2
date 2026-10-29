@@ -11,6 +11,7 @@ import {
   COUNTRIES,
   honorIcon,
   isBioEmpty,
+  hasExakt,
   isFanRole,
   mainRole,
   roleDef,
@@ -424,7 +425,10 @@ export function SportCard({
                     {all
                       .filter((x) => (x.tips ?? 0) > 0)
                       .map((x) => {
-                        const [treffer, exakt, tips] = statTiles(x);
+                        const tiles = statTiles(x);
+                        const treffer = tiles[0];
+                        const tips = tiles[tiles.length - 1];
+                        const exakt = tiles.length === 3 ? tiles[1] : ["–"];
                         return (
                           <tr key={x.sport} className="border-t border-edge">
                             <td className="py-1">
@@ -443,7 +447,7 @@ export function SportCard({
             {stat && stat.tips != null && stat.tips > 0 && sport && (
               <BackSection title={`Tipp-Statistik ${sportLabel(sport)}`}>
                 <p className="-mt-1 text-[10.5px] text-muted">{periodText(stat.firstTip, stat.lastTip)}</p>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className={`grid gap-1.5 ${hasExakt(stat.sport) ? "grid-cols-3" : "grid-cols-2"}`}>
                   {statTiles(stat).map(([v, l]) => (
                     <div key={l} className="min-w-0 rounded-lg border border-edge bg-white/[0.04] px-1.5 py-1.5 text-center">
                       <b className="block truncate font-display text-[15px] text-gold">{v}</b>
@@ -583,12 +587,15 @@ function FlipIcon() {
 }
 
 // Kacheln: Treffer in %, exakt in %, Zahl der Tipps (einer Sportart).
+// Treffer zählt alle ausgewerteten Tipps, exakt nur die Ergebnis-Tipps
+// (Rene, 29.10.2026: "nicht die % von allen Tipps").
+// NFL, NBA, NHL haben kein Exakt: dort nur Treffer und Tipps.
 function statTiles(st: SportCardStat): [string, string][] {
-  const ev = st.evaluated ?? 0;
-  const pct = (n: number | null) => (ev > 0 ? `${Math.round(((n ?? 0) / ev) * 100)} %` : "–");
+  const pct = (n: number | null, of: number | null) =>
+    (of ?? 0) > 0 ? `${Math.round(((n ?? 0) / of!) * 100)} %` : "–";
   return [
-    [pct(st.richtig), "Treffer"],
-    [pct(st.exakt), "Exakt"],
+    [pct(st.richtig, st.evaluated), "Treffer"],
+    ...(hasExakt(st.sport) ? [[pct(st.exakt, st.evaluatedScore), "Exakt"] as [string, string]] : []),
     [(st.tips ?? 0).toLocaleString("de-DE"), "Tipps"],
   ];
 }
