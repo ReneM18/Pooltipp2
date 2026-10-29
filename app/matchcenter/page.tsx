@@ -1450,8 +1450,6 @@ function FixtureJerseyEditor({ sport, game, apiNames }: { sport: Sport; game: Li
   );
 }
 
-const INFO_VARIANT: "A" | "B" = "A";
-
 // Detail rechts: Liga + Pill, Anzeigetafel (dieselbe wie auf der Tippkarte),
 // "Dein Tipp", Spiel / Aufstellung / Statistik.
 function LcDetail({
@@ -1550,7 +1548,7 @@ function LcDetail({
   const kickoffDay = sportDay(game.kickoff);
   const startText = `${kickoffDay === sportDay(Date.now()) ? "" : `${dayLabel(kickoffDay)} · `}${viennaTime(game.kickoff)} Uhr`;
   const infoRow = (
-    <div className={INFO_VARIANT === "A" ? "flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[13px] text-muted" : "-mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted"}>
+    <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[13px] text-muted">
       {matchday && <span>Spieltag {matchday}</span>}
       {matchday && <span aria-hidden>·</span>}
       <span className="whitespace-nowrap">
