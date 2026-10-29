@@ -27,6 +27,14 @@ export interface LiveEvent {
   assist: string | null;
 }
 
+// Ein Schuss im Elfmeterschießen (Rene, 29.10.2026: "die elferschützen"),
+// in der Reihenfolge der Schüsse. side = Team des Schützen.
+export interface ShootoutKick {
+  side: "home" | "away";
+  player: string | null;
+  scored: boolean;
+}
+
 export interface LiveGame {
   id: string;
   kickoff: string; // ISO 8601
@@ -54,6 +62,8 @@ export interface LiveGame {
   // Tore, Karten, Wechsel (nur Fußball). Fehlt das Feld, liefert der Anbieter
   // für diese Sportart keine Ereignisse (Eishockey) → Spielverlauf ausblenden.
   events?: LiveEvent[];
+  // Elfmeterschießen, nur Fußball und nur wenn es eines gab.
+  shootout?: ShootoutKick[];
 }
 
 // Woher die Spieldaten stammen (Rene, 16.10.2026: ehrliche Aktualität):

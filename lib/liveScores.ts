@@ -9,7 +9,7 @@ import { isTeamAlias } from "./live/aliases";
 
 // Typen anbieterneutral in lib/live/types.ts (Rene, 16.10.2026: Anbieter
 // austauschbar), hier weitergereicht, damit bestehende Imports bleiben.
-import type { LiveEvent, LiveGame, LiveSource, LiveStatus } from "./live/types";
+import type { LiveEvent, LiveGame, LiveSource, LiveStatus, ShootoutKick } from "./live/types";
 export type {
   LiveDiagnostics,
   LiveEvent,
@@ -166,6 +166,13 @@ export function appSideEvents(result: LiveMatchResult): LiveEvent[] {
   const events = result.game.events ?? [];
   if (!result.swapped) return events;
   return events.map((e) => ({ ...e, side: e.side === "home" ? "away" : "home" }));
+}
+
+// Schützen im Elfmeterschießen mit Heim/Gast wie in der App.
+export function appSideShootout(result: LiveMatchResult): ShootoutKick[] {
+  const kicks = result.game.shootout ?? [];
+  if (!result.swapped) return kicks;
+  return kicks.map((k) => ({ ...k, side: k.side === "home" ? "away" : "home" }));
 }
 
 // Elfmeterschießen mit Heim/Gast wie in der App (nur wenn es eines gab).
