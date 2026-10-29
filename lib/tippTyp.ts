@@ -40,7 +40,7 @@ export function traitInfo(t: TippTrait): TraitInfo {
     case "aussenseiter":
       return { emoji: "🦁", name: "Mutiger Außenseiter", text: `${pct(t.value)} der Tipps gegen die Mehrheit.` };
     case "strom":
-      return { emoji: "🐑", name: "Mit dem Strom", text: `Fast immer wie die Mehrheit getippt (nur ${pct(t.value)} dagegen).` };
+      return { emoji: "🌊", name: "Mit dem Strom", text: `Fast immer wie die Mehrheit getippt (nur ${pct(t.value)} dagegen).` };
     case "vereinsbrille":
       return { emoji: "❤️", name: "Vereinsbrille", text: `Bei Spielen des Herzensvereins zu ${pct(t.value)} auf seinen Sieg getippt 😅` };
     case "lastminute":
