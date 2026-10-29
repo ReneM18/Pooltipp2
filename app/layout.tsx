@@ -58,6 +58,9 @@ const EMOJI_BOOT = `(function(){try{if(!/iPhone|iPad|iPod|Macintosh|Mac OS X/i.t
 export const metadata: Metadata = {
   title: "PoolTipp",
   description: "Das Social-Tippspiel für echte Sportfans.",
+  // iPhone: vom Home-Bildschirm aus ohne Safari-Leiste öffnen, mit schwarzer
+  // Statusleiste (die Seite rutscht nicht darunter).
+  appleWebApp: { capable: true, title: "PoolTipp", statusBarStyle: "black" },
 };
 
 // Icons kommen automatisch aus app/icon.png, app/apple-icon.png und

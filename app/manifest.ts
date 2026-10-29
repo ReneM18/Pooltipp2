@@ -7,10 +7,15 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "PoolTipp",
     short_name: "PoolTipp",
     description: "Das Social-Tippspiel für echte Sportfans.",
+    id: "/",
     start_url: "/",
-    // "browser" statt "standalone": die Homescreen-Verknüpfung öffnet weiter
-    // normal im Browser, damit Login und Bestätigungs-Mails wie gewohnt gehen.
-    display: "browser",
+    scope: "/",
+    // Wie eine echte App (Rene, 29.10.2026): vom Home-Bildschirm aus öffnet
+    // PoolTipp ohne Browserleiste. Links aus Mails (Bestätigen, Passwort)
+    // öffnen am iPhone trotzdem im Browser; die Seite sagt dann, dass man
+    // sich danach in der App anmeldet (app/registrieren/page.tsx).
+    // Hinweis zum Installieren: components/InstallHint.tsx.
+    display: "standalone",
     background_color: "#0D0D0D",
     theme_color: "#0D0D0D",
     icons: [

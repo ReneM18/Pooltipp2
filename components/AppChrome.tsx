@@ -14,6 +14,7 @@ import SwipeNav from "./SwipeNav";
 import StartPageRedirect from "./StartPageRedirect";
 import EventDayClaim from "./EventDayClaim";
 import { GoalToastHost } from "./GoalToast";
+import InstallHint from "./InstallHint";
 
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -62,6 +63,8 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
       <GoalToastHost />
       {/* Handy/Tablet: feste Leiste unten (ersetzt dort die Menüleiste oben). */}
       <BottomNav />
+      {/* "PoolTipp als App" am Handy, über der Leiste unten. */}
+      <InstallHint />
       {/* Neue Spieler haben auf /start ihr eigenes Start-Erlebnis. */}
       <PullToRefresh />
       <SwipeNav />

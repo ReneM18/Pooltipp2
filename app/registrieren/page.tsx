@@ -7,6 +7,7 @@ import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { supabase } from "@/lib/supabaseClient";
 import { readPendingInvite } from "@/lib/leagueInvite";
+import { isStandalone } from "@/lib/installApp";
 import { translateAuthError } from "@/lib/authMessages";
 
 // "forgot" = "Passwort vergessen?": nur E-Mail eingeben, Link anfordern.
@@ -41,6 +42,10 @@ export default function RegistrierenPage() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [resending, setResending] = useState(false);
+  // Läuft PoolTipp als App vom Home-Bildschirm? Links aus Mails öffnen dann
+  // im Browser, nicht in der App (siehe lib/installApp.ts).
+  const [inApp, setInApp] = useState(false);
+  useEffect(() => setInApp(isStandalone()), []);
   // Kam man über einen Tipprunden-Einladungslink hierher, geht es nach dem
   // Einloggen direkt zurück zum Beitreten.
   const [pendingInvite, setPendingInvite] = useState<string | null>(null);
@@ -252,6 +257,11 @@ export default function RegistrierenPage() {
             Wir haben dir eine Mail an <span className="font-semibold [overflow-wrap:anywhere]">{notice.email}</span> geschickt.
             Öffne sie und tippe auf den Bestätigungslink. Danach logge dich hier mit deinem Passwort ein.
           </p>
+          {inApp && (
+            <p className="mt-2">
+              Der Link öffnet sich im Browser. Komm danach hierher in die App zurück und logge dich ein.
+            </p>
+          )}
           <p className="mt-2 text-xs text-muted">Keine Mail da? Schau auch im Spam-Ordner nach.</p>
           <button
             type="button"
@@ -271,6 +281,11 @@ export default function RegistrierenPage() {
             Wenn es zu <span className="font-semibold [overflow-wrap:anywhere]">{notice.email}</span> ein Konto gibt, ist
             jetzt eine Mail mit einem Link unterwegs. Tippe darauf und lege dein neues Passwort fest.
           </p>
+          {inApp && (
+            <p className="mt-2">
+              Der Link öffnet sich im Browser. Danach hier in der App mit dem neuen Passwort einloggen.
+            </p>
+          )}
           <p className="mt-2 text-xs text-muted">
             Keine Mail da? Schau auch im Spam-Ordner nach. Der Link gilt nur kurze Zeit und nur einmal.
           </p>
