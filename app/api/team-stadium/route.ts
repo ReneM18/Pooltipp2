@@ -6,6 +6,8 @@ import { getLiveProvider } from "@/lib/live";
 import { hasStadiumSearch, searchTeamStadiums, type StadiumCandidate } from "@/lib/live/providers/apiSports";
 import { teamMatchScore } from "@/lib/liveScores";
 import { leagueNicknameMatch } from "@/lib/teamGroups";
+import { HOCKEY_ARENAS } from "@/lib/hockeyArenas";
+import { DEFAULT_COUNTRY_CODE } from "@/lib/flags";
 import { canLookupStadium, stadiumSearchTerms, type StadiumLookup } from "@/lib/teamStadium";
 
 // Heimstadion eines Vereins von der API (Rene, 29.10.2026), fürs Füllen im
@@ -16,7 +18,7 @@ import { canLookupStadium, stadiumSearchTerms, type StadiumLookup } from "@/lib/
 // Fußball und American Football: Team-Suche der API. Basketball: die API
 // kennt kein Heimstadion, darum die Halle aus den Heimspielen der nächsten
 // Tage (dieselben Tageslisten wie Matchcenter und Tippkarten, also kaum
-// zusätzliche Abfragen). Eishockey: nichts, nur von Hand.
+// zusätzliche Abfragen). Eishockey: feste Liste (lib/hockeyArenas.ts).
 
 const GAME_DAYS = 14;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -103,6 +105,25 @@ export async function GET(request: Request) {
   if (!sport || names.length === 0) return json({ found: null, error: "Ungültige Anfrage" }, 3600, 400);
   if (!canLookupStadium(sport) || !isLiveSportEnabled(sport)) {
     return json({ found: null, error: "Die API kennt hier kein Stadion – bitte von Hand eintragen." }, 3600);
+  }
+
+  // Eishockey: feste Liste statt API (Rene, 29.10.2026).
+  if (sport === "NHL") {
+    // Land passt nicht zur Liga → Halle nicht in Frage ("DE" = Standard, unbekannt).
+    const cc = countryCode.toUpperCase();
+    const northAmerica = cc === "US" || cc === "CA";
+    const unknown = !cc || cc === DEFAULT_COUNTRY_CODE;
+    const scored = HOCKEY_ARENAS.filter((a) => unknown || !!a.nhl === northAmerica).map((a) => ({
+      a,
+      score: Math.max(...a.names.map((n) => stadiumTeamScore(sport, names, countryCode, n))),
+    }))
+      .filter((x) => x.score >= 2)
+      .sort((x, y) => y.score - x.score);
+    const hit = scored.length === 1 || (scored.length > 1 && scored[1].score < scored[0].score) ? scored[0].a : null;
+    return json(
+      { found: hit ? { name: hit.arena, capacity: hit.capacity ?? null, venueId: null, apiTeam: hit.names[0] } : null },
+      3600,
+    );
   }
 
   let error: string | undefined;

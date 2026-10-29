@@ -17,10 +17,11 @@ export interface StadiumLookup {
   error?: string;
 }
 
-// Sportarten, bei denen die API ein Stadion liefern kann. Eishockey: die API
-// kennt keine Hallen, dort nur von Hand.
+// Sportarten, für die "Von der API füllen" ein Stadion findet. Eishockey:
+// die API kennt keine Hallen, dafür gibt es eine feste Liste
+// (lib/hockeyArenas.ts).
 export function canLookupStadium(sport: Sport): boolean {
-  return sport === "Fußball" || sport === "NFL" || sport === "NBA";
+  return sport === "Fußball" || sport === "NFL" || sport === "NBA" || sport === "NHL";
 }
 
 // Suchwörter für die Team-Suche der API: nur Buchstaben, Ziffern und
