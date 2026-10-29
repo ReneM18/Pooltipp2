@@ -84,6 +84,61 @@ const LEAGUE_NICKNAMES: Partial<Record<Sport, string[]>> = {
   ],
 };
 
+// Volle Namen der NBA-, NHL- und NFL-Teams, wie die API sie schickt
+// ("Memphis Grizzlies"). Heißt das eigene Team nur wie der Spitzname
+// ("Grizzlies"), ist es dasselbe Team (Rene, 29.10.2026). Nur diese Namen,
+// damit z. B. "Vienna Capitals" oder "Kapfenberg Bulls" nicht als
+// Washington Capitals bzw. Chicago Bulls gelten.
+const LEAGUE_FULL_NAMES: Partial<Record<Sport, string[]>> = {
+  NBA: [
+    "Atlanta Hawks", "Boston Celtics", "Brooklyn Nets", "Charlotte Hornets", "Chicago Bulls",
+    "Cleveland Cavaliers", "Dallas Mavericks", "Denver Nuggets", "Detroit Pistons", "Golden State Warriors",
+    "Houston Rockets", "Indiana Pacers", "Los Angeles Clippers", "LA Clippers", "Los Angeles Lakers",
+    "LA Lakers", "Memphis Grizzlies", "Miami Heat", "Milwaukee Bucks", "Minnesota Timberwolves",
+    "New Orleans Pelicans", "New York Knicks", "Oklahoma City Thunder", "Orlando Magic",
+    "Philadelphia 76ers", "Phoenix Suns", "Portland Trail Blazers", "Sacramento Kings",
+    "San Antonio Spurs", "Toronto Raptors", "Utah Jazz", "Washington Wizards",
+  ],
+  NHL: [
+    "Anaheim Ducks", "Boston Bruins", "Buffalo Sabres", "Calgary Flames", "Carolina Hurricanes",
+    "Chicago Blackhawks", "Colorado Avalanche", "Columbus Blue Jackets", "Dallas Stars", "Detroit Red Wings",
+    "Edmonton Oilers", "Florida Panthers", "Los Angeles Kings", "Minnesota Wild", "Montreal Canadiens",
+    "Nashville Predators", "New Jersey Devils", "New York Islanders", "New York Rangers", "Ottawa Senators",
+    "Philadelphia Flyers", "Pittsburgh Penguins", "San Jose Sharks", "Seattle Kraken", "St. Louis Blues",
+    "Tampa Bay Lightning", "Toronto Maple Leafs", "Utah Mammoth", "Vancouver Canucks",
+    "Vegas Golden Knights", "Washington Capitals", "Winnipeg Jets",
+  ],
+  NFL: [
+    "Arizona Cardinals", "Atlanta Falcons", "Baltimore Ravens", "Buffalo Bills", "Carolina Panthers",
+    "Chicago Bears", "Cincinnati Bengals", "Cleveland Browns", "Dallas Cowboys", "Denver Broncos",
+    "Detroit Lions", "Green Bay Packers", "Houston Texans", "Indianapolis Colts", "Jacksonville Jaguars",
+    "Kansas City Chiefs", "Las Vegas Raiders", "Los Angeles Chargers", "Los Angeles Rams", "Miami Dolphins",
+    "Minnesota Vikings", "New England Patriots", "New Orleans Saints", "New York Giants", "New York Jets",
+    "Philadelphia Eagles", "Pittsburgh Steelers", "San Francisco 49ers", "Seattle Seahawks",
+    "Tampa Bay Buccaneers", "Tennessee Titans", "Washington Commanders",
+  ],
+};
+const leagueFullKeys: Partial<Record<Sport, Set<string>>> = Object.fromEntries(
+  Object.entries(LEAGUE_FULL_NAMES).map(([sport, list]) => [sport, new Set(list.map(normalizeTeamName))]),
+);
+
+/** Eigenes Team "Grizzlies" (USA/Kanada oder ohne Land) = API-Name "Memphis Grizzlies". */
+export function leagueNicknameMatch(
+  sport: Sport,
+  team: Pick<Team, "name" | "countryCode">,
+  apiName: string,
+): boolean {
+  const app = normalizeTeamName(team.name ?? "");
+  const api = normalizeTeamName(apiName);
+  if (!app || app === api || !leagueFullKeys[sport]?.has(api)) return false;
+  const country = (team.countryCode ?? "").toUpperCase();
+  if (country && country !== DEFAULT_COUNTRY_CODE && !LEAGUE_COUNTRIES.includes(country)) return false;
+  // Nur ganze Wörter am Ende: "Kings" passt zu "Sacramento Kings", "Blazers"
+  // und "Trail Blazers" zu "Portland Trail Blazers", "ers" aber nicht zu "76ers".
+  const words = apiName.split(/\s+/).map(normalizeTeamName).filter(Boolean);
+  return words.some((_, i) => i > 0 && words.slice(i).join("") === app);
+}
+
 function isLeagueTeamName(sport: Sport, name: string): boolean {
   const key = normalizeTeamName(name);
   return (LEAGUE_NICKNAMES[sport] ?? []).some((n) => key.endsWith(normalizeTeamName(n)));

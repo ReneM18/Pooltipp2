@@ -2,6 +2,7 @@ import type { Sport, Team } from "./types";
 import { normalizeTeamName } from "./teamName";
 import { teamMatchScore } from "./liveScores";
 import { setManualAliases } from "./live/aliases";
+import { leagueNicknameMatch } from "./teamGroups";
 
 // Eigene Vereinsnamen statt der Namen von der API (Rene, 27.10.2026: "Rapid
 // Vienna" soll "Rapid Wien" heißen, wie im Admin händisch angelegt).
@@ -37,14 +38,16 @@ export function findApiNameLink(links: ApiNameLink[], sport: Sport, apiName: str
 
 // Automatischer Treffer: genau ein Team dieser Sportart mit gleichem Namen
 // oder Alias (Score ≥ 3, siehe teamMatchScore). Lockere Treffer ("Capitals"
-// ↔ "Washington Capitals") zählen bewusst nicht.
+// ↔ "Washington Capitals") zählen bewusst nicht – außer bei NBA, NHL und
+// NFL, wo der Spitzname eindeutig ist (leagueNicknameMatch).
 export function autoTeamForApiName(teams: Team[], sport: Sport, apiName: string): Team | undefined {
   let best: Team | undefined;
   let bestScore = 0;
   let tie = false;
   for (const t of teams) {
     if (t.sport !== sport) continue;
-    const score = teamMatchScore(t.name, apiName);
+    // US-Ligen: "Grizzlies" = "Memphis Grizzlies" zählt wie gleicher Name.
+    const score = Math.max(teamMatchScore(t.name, apiName), leagueNicknameMatch(sport, t, apiName) ? 3 : 0);
     if (score < 3) continue;
     if (score > bestScore) {
       best = t;
