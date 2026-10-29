@@ -1387,6 +1387,13 @@ function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowS
   return { main: OTHER_STATUS[s] ?? "—", muted: true };
 }
 
+// "i. E. 5:4" → ["i. E.", "5:4"], damit am Handy das Elfmeter-Ergebnis
+// unter dem Kürzel steht.
+function splitEndNote(note: string): [string, string | null] {
+  const m = /^(.*?)\s+(\d+:\d+)$/.exec(note);
+  return m ? [m[1], m[2]] : [note, null];
+}
+
 // Gast zuerst bei API-Spielen ohne App-Spiel: wie isAwayFirst, Land aus der
 // API-Liga (z. B. "NHL · USA").
 function liveAwayFirst(sport: Sport, game: LiveGame): boolean {
@@ -1442,6 +1449,12 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const scoreTone = (wins: boolean) => (done && !wins ? "text-muted" : "");
   // Laufend (Rene, 27.10.2026): Spielstand rot.
   const scoreColor = hasScore ? (running ? "text-red-500" : "text-ink") : "text-muted";
+  // n. V. / i. E. 5:4 / n. P. steht am Handy direkt neben dem Ergebnis statt
+  // abgeschnitten in der schmalen Status-Spalte (Rene, 29.10.2026: "du hast
+  // so viel platz in der zeile"). Am PC bleibt es unter "Endstand".
+  const endNote = done && !(open && link) ? sub : null;
+  const [endNoteMain, endNoteScore] = endNote ? splitEndNote(endNote) : [null, null];
+  const subClass = endNote ? "hidden lg:inline" : "";
 
   return (
     <button
@@ -1475,10 +1488,10 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             {/* Mit Sender darunter steht der Zusatz in derselben Zeile
                 ("Verl. 122'"), damit jede Zeile höchstens zwei Zeilen hoch
                 ist (Rene, 27.10.2026: "die Spalte ist höher"). */}
-            {sub && tv && <span className="min-w-0 truncate text-[10px] font-normal text-muted">{sub}</span>}
+            {sub && tv && <span className={`min-w-0 truncate text-[10px] font-normal text-muted ${subClass}`}>{sub}</span>}
           </span>
           {/* "heute" steht schon im Reiter, nur "morgen"/"gestern" zeigen (Rene, 27.10.2026: flachere Zeilen). */}
-          {sub && !tv && <span className="truncate text-[10px] leading-tight text-muted">{sub}</span>}
+          {sub && !tv && <span className={`truncate text-[10px] leading-tight text-muted ${endNote ? "hidden lg:block" : ""}`}>{sub}</span>}
           {/* Sender unter der Uhrzeit (Rene, 28.10.2026), rechts stehen
               "Tippen" und der Countdown. */}
           {tv && (
@@ -1499,7 +1512,9 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             braucht. Die Tore stehen mittig in einer festen Spalte, so liegen
             "1" und "0" sauber untereinander (Poppins hat schmale Einsen).
             Beim Tippspiel steht dort "Tippen" und der Countdown. */}
-        <span className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] grid-rows-[auto_auto] items-center gap-x-2 gap-y-0.5 lg:hidden">
+        <span
+          className={`grid min-w-0 ${endNote ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"} grid-rows-[auto_auto] items-center gap-x-2 gap-y-0.5 lg:hidden`}
+        >
           <FitText text={firstName} maxLines={2} minPx={12} className={`col-start-1 row-start-1 leading-tight ${nameTone(firstWins)}`} />
           <FitText text={secondName} maxLines={2} minPx={12} className={`col-start-1 row-start-2 leading-tight ${nameTone(secondWins)}`} />
           {open && link ? (
@@ -1508,12 +1523,18 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             </span>
           ) : (
             <span
-              className={`col-start-2 row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
+              className={`${endNote ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
                 flash ? "bg-gold/15 text-gold" : scoreColor
               }`}
             >
               <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(firstWins)}`}>{hasScore ? firstScore : "–"}</span>
               <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(secondWins)}`}>{hasScore ? secondScore : "–"}</span>
+            </span>
+          )}
+          {endNote && (
+            <span className="col-start-2 row-span-2 row-start-1 flex flex-col items-end text-right text-[11px] font-semibold leading-tight text-muted">
+              <span className="whitespace-nowrap">{endNoteMain}</span>
+              {endNoteScore && <span className="whitespace-nowrap font-normal tabular-nums">{endNoteScore}</span>}
             </span>
           )}
         </span>
