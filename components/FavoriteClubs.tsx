@@ -18,7 +18,8 @@ const sportIcon: Record<string, string> = SPORT_ICONS;
 
 // Profil-Bereich "Herzensvereine": pro Sportart freiwillig einen Verein
 // wählen, plus Schalter, um die Vereinswertung komplett abzuschalten.
-export default function FavoriteClubs() {
+// hideTitle: in den Einstellungen steht die Überschrift schon über dem Bereich.
+export default function FavoriteClubs({ hideTitle = false }: { hideTitle?: boolean } = {}) {
   const { authUserId, isRegistered } = useUser();
   const { teams } = useAppData();
   const { showToast } = useFeedback();
@@ -33,7 +34,7 @@ export default function FavoriteClubs() {
   if (!isRegistered || !authUserId) {
     return (
       <section className="mb-8">
-        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Herzensvereine</h2>
+        {!hideTitle && <h2 className="mb-3 font-display text-lg font-semibold text-ink">Herzensvereine</h2>}
         <div className="rounded-card border border-edge bg-surface p-4 text-sm text-muted">
           <Link href="/registrieren" className="font-semibold text-gold hover:underline">
             Melde dich an
@@ -73,7 +74,7 @@ export default function FavoriteClubs() {
 
   return (
     <section className="mb-8">
-      <h2 className="mb-1 font-display text-lg font-semibold text-ink">Herzensvereine</h2>
+      {!hideTitle && <h2 className="mb-1 font-display text-lg font-semibold text-ink">Herzensvereine</h2>}
       <p className="mb-3 text-xs text-muted">
         Mit deinen Tipps sammelst du Punkte für deinen Verein in der Vereinstabelle. Freiwillig, Coins und
         Ranglistenpunkte bekommst du so oder so.{" "}

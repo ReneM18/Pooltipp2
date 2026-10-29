@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AccountSettings from "@/components/AccountSettings";
 import StartPagePicker from "@/components/StartPagePicker";
+import Switch from "@/components/Switch";
+import { DEFAULT_START_PAGE, START_PAGES } from "@/lib/startPage";
 import PassDecoSettings from "@/components/PassDecoSettings";
 import SaveButton, { SavedHint, useDraft } from "@/components/SaveButton";
 import RivalCompareButton from "@/components/RivalCompare";
@@ -93,6 +95,7 @@ function ProfilInhalt() {
     authEmail,
     authUserId,
     logout,
+    startPage,
   } = useUser();
   // Serie, wie sie gerade wirklich zählt (gerissen = 0), siehe lib/streak.ts.
   const streak = useStreak();
@@ -135,23 +138,48 @@ function ProfilInhalt() {
   }, [displayName]);
   const [saved, setSaved] = useState(false);
   const [profileTab, setProfileTab] = useState<ProfileTab>("Übersicht");
-  // Reiter per Adresse öffnen (/profil#einstellungen, #herzensvereine, #rang),
-  // z. B. aus dem Saison-Design-Hinweis oder der Vereinstabelle. Danach zum
-  // Ziel scrollen, weil es erst mit dem Reiter im Seiteninhalt auftaucht.
+  // Offener Bereich der Einstellungen; null = am Handy die Liste der Bereiche
+  // (am PC steht dann der erste Bereich rechts daneben).
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
+  // Am Handy legt das Öffnen eines Bereichs einen Eintrag im Verlauf an, damit
+  // "Zurück" (Wischen, Knopf) wieder zur Liste führt statt aus dem Profil.
+  const pushedSection = useRef(false);
+  function scrollToSettings() {
+    const el = document.getElementById("einstellungen");
+    if (!el) return;
+    // Nur scrollen, wenn der Anfang nicht zu sehen ist (oben weggescrollt
+    // oder am PC noch unter der Karte).
+    const top = el.getBoundingClientRect().top;
+    if (top < 0 || top > window.innerHeight - 160) el.scrollIntoView({ block: "start" });
+  }
+  // Reiter per Adresse öffnen (/profil#einstellungen, #herzensvereine, #rang,
+  // #privatsphaere …), z. B. aus dem Saison-Design-Hinweis oder der
+  // Vereinstabelle. Danach zum Ziel scrollen, weil es erst mit dem Reiter im
+  // Seiteninhalt auftaucht.
   useEffect(() => {
     function openFromHash() {
       const id = window.location.hash.slice(1);
       const tab = HASH_TABS[id];
       if (!tab) return;
       setProfileTab(tab);
+      if (tab === "Einstellungen") setSettingsSection(HASH_SECTIONS[id] ?? null);
+      if (id === "einstellungen") pushedSection.current = false;
       // Zweimal, weil Fotos/Vereine beim Laden die Seite noch verschieben.
+      const target = id === "pass-belohnungen" || id === "herzensvereine" ? id : tab === "Einstellungen" ? "einstellungen" : id;
       for (const ms of [100, 700]) {
-        setTimeout(() => document.getElementById(id)?.scrollIntoView({ block: "start" }), ms);
+        setTimeout(() => {
+          if (target === "einstellungen") scrollToSettings();
+          else document.getElementById(target)?.scrollIntoView({ block: "start" });
+        }, ms);
       }
     }
     openFromHash();
     window.addEventListener("hashchange", openFromHash);
-    return () => window.removeEventListener("hashchange", openFromHash);
+    window.addEventListener("popstate", openFromHash);
+    return () => {
+      window.removeEventListener("hashchange", openFromHash);
+      window.removeEventListener("popstate", openFromHash);
+    };
   }, []);
   // Sport-Steckbrief (lib/sportBio.ts): oben in der Übersicht, bearbeiten unter Einstellungen.
   const sportBio = useSportBio(isRegistered ? authUserId : null);
@@ -159,15 +187,37 @@ function ProfilInhalt() {
   const hasSportCard = sportBio.status === "ready";
   function openSportBioEditor() {
     chooseProfileTab("Einstellungen");
-    for (const ms of [100, 700]) {
-      setTimeout(() => document.getElementById("steckbrief")?.scrollIntoView({ block: "start" }), ms);
-    }
+    openSettingsSection("karte");
+  }
+  function setHash(hash: string, push = false) {
+    const url = `${window.location.pathname}${window.location.search}${hash}`;
+    if (push) window.history.pushState(window.history.state, "", url);
+    else window.history.replaceState(window.history.state, "", url);
   }
   function chooseProfileTab(tab: ProfileTab) {
     setProfileTab(tab);
+    setSettingsSection(null);
+    pushedSection.current = false;
     // Reiter in der Adresse merken, damit Neuladen auf demselben Reiter bleibt.
-    const hash = tab === "Einstellungen" ? "#einstellungen" : tab === "Rang" ? "#rang" : "";
-    window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}${hash}`);
+    setHash(tab === "Einstellungen" ? "#einstellungen" : tab === "Rang" ? "#rang" : "");
+  }
+  function openSettingsSection(key: SettingsSection) {
+    setSettingsSection(key);
+    // Am PC ist das nur ein Umschalten rechts, dort kein Verlaufseintrag.
+    const push = !pushedSection.current && !window.matchMedia("(min-width: 1024px)").matches;
+    if (push) pushedSection.current = true;
+    setHash(`#${SETTINGS_SECTIONS[key].hash}`, push);
+    setTimeout(scrollToSettings, 0);
+  }
+  function closeSettingsSection() {
+    if (pushedSection.current) {
+      // Zurück im Verlauf; der popstate-Handler oben zeigt dann die Liste.
+      window.history.back();
+      return;
+    }
+    setSettingsSection(null);
+    setHash("#einstellungen");
+    setTimeout(scrollToSettings, 0);
   }
 
   // Alle Icons zeigen, auch die noch gesperrten (ausgegraut), damit man
@@ -270,6 +320,36 @@ function ProfilInhalt() {
     img.src = url;
     e.target.value = "";
   }
+
+  // Welche Bereiche der Einstellungen es gibt (Gäste sehen weniger) und die
+  // kurze Zeile darunter in der Liste.
+  const sectionVisible: Record<SettingsSection, boolean> = {
+    karte: isRegistered && !!authUserId,
+    aussehen: isRegistered || seasonDesign.available,
+    vereine: true,
+    privat: true,
+    app: isRegistered,
+    konto: true,
+  };
+  const firstSection = SETTINGS_GROUPS.flatMap((g) => g.items).find((k) => sectionVisible[k]) ?? "konto";
+  const shownSection: SettingsSection =
+    settingsSection && sectionVisible[settingsSection] ? settingsSection : firstSection;
+  const visibilityLabel = { public: "Alle", friends: "Freunde", private: "Niemand" } as const;
+  const startPageLabel = START_PAGES.find((pg) => pg.href === (startPage ?? DEFAULT_START_PAGE))?.label;
+  const sectionSummary: Record<SettingsSection, string> = {
+    karte: "Laufbahn, Erfolge, Vorschau",
+    aussehen: isRegistered ? "Saison-Design, Rahmen, Titel, Abzeichen" : "Saison-Design",
+    vereine: "Punkte für deinen Verein sammeln",
+    privat: [
+      `Fotos: ${visibilityLabel[photoVisibility]}`,
+      !statsVisibility.missing && `Statistik: ${visibilityLabel[statsVisibility.value]}`,
+      online.settingState === "ready" && `Online: ${online.showOnline ? "An" : "Aus"}`,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    app: [startPageLabel && `Startseite: ${startPageLabel}`, hasAdFreeSubscription && "Werbefrei"].filter(Boolean).join(" · "),
+    konto: isRegistered ? authEmail ?? displayName : "Noch nicht eingeloggt",
+  };
 
   return (
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-5 py-8">
@@ -863,293 +943,360 @@ function ProfilInhalt() {
           ))}
         </div>
         <p className="mt-2 text-xs text-muted">
-          Das erste Foto ist dein Profilbild. Wer deine Fotos sehen darf, stellst du unter Einstellungen ein.
+          Das erste Foto ist dein Profilbild. Wer deine Fotos sehen darf, stellst du unter{" "}
+          <a href="#privatsphaere" className="font-semibold text-gold hover:underline">
+            Einstellungen › Privatsphäre
+          </a>{" "}
+          ein.
         </p>
       </section>
         </>
       )}
 
       {profileTab === "Einstellungen" && (
-        // id für Links von außen (Saison-Design-Hinweis); scroll-mt wegen der
-        // festen Kopfleiste.
-        <div id="einstellungen" className="scroll-mt-48">
-          <section className="mb-8">
-            <h2 className="font-display text-lg font-semibold text-ink">Profil</h2>
-            <form
-              onSubmit={handleSaveName}
-              className="mt-3 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-end"
+        // Einstellungen in Bereiche gegliedert (Rene, 29.10.2026: vorher eine
+        // lange Liste). Am Handy erst die Liste der Bereiche, Antippen öffnet
+        // einen Bereich; am PC links die Bereiche, rechts der Inhalt.
+        // id für Links von außen; scroll-mt wegen der festen Kopfleiste.
+        <div id="einstellungen" className="scroll-mt-48 lg:flex lg:items-start lg:gap-8">
+          <nav aria-label="Einstellungen" className={`${settingsSection ? "hidden" : ""} lg:block lg:w-60 lg:shrink-0`}>
+            {SETTINGS_GROUPS.map((group, gi) => {
+              const items = group.items.filter((key) => sectionVisible[key]);
+              if (items.length === 0) return null;
+              return (
+                <div key={gi}>
+                  {group.title && (
+                    <p className="mb-1.5 mt-5 px-1 text-[11px] font-bold uppercase tracking-wider text-muted lg:mt-4 lg:px-3">
+                      {group.title}
+                    </p>
+                  )}
+                  <div className="overflow-hidden rounded-card border border-edge bg-surface lg:space-y-0.5 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
+                    {items.map((key) => {
+                      const s = SETTINGS_SECTIONS[key];
+                      const active = key === shownSection;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => openSettingsSection(key)}
+                          aria-current={active ? "page" : undefined}
+                          className={`flex w-full items-center gap-3 border-t border-edge px-4 py-3 text-left transition-colors first:border-t-0 hover:bg-surface-hover lg:rounded-lg lg:border-t-0 lg:px-3 lg:py-2.5 ${
+                            active ? "lg:bg-gold/15 lg:text-gold lg:hover:bg-gold/15" : "lg:text-muted lg:hover:text-ink"
+                          }`}
+                        >
+                          <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-pitch text-lg lg:h-auto lg:w-6 lg:bg-transparent lg:text-base">
+                            {s.icon}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-display text-sm font-semibold text-ink lg:text-inherit">{s.label}</span>
+                            <span className="block truncate text-xs text-muted lg:hidden">{sectionSummary[key]}</span>
+                          </span>
+                          <span aria-hidden className="shrink-0 text-xl text-muted lg:hidden">
+                            ›
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </nav>
+
+          <div className={`${settingsSection ? "" : "hidden lg:block"} min-w-0 flex-1 lg:max-w-2xl`}>
+            <button
+              type="button"
+              onClick={closeSettingsSection}
+              className="mb-2 flex items-center gap-1 py-1 text-sm font-semibold text-gold hover:opacity-80 lg:hidden"
             >
-              <div className="flex-1">
-                <label htmlFor="profil-name" className="mb-1 block text-xs text-muted">Anzeigename</label>
-                <input
-                  id="profil-name"
-                  value={nameInput}
-                  onChange={(e) => {
-                    setNameInput(e.target.value);
-                    setSaved(false);
-                  }}
-                  className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
-                />
-              </div>
-              <SaveButton
-                type="submit"
-                dirty={!!nameInput.trim() && nameInput.trim() !== displayName}
-                saved={saved}
-                className="self-start py-2 sm:self-auto"
-              />
-            </form>
-            <div className="mt-3 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-ink">Wer darf deine Fotos sehen?</p>
-                <p className="text-xs text-muted">
-                  Gilt für dein Profil, wenn andere User dich antippen (z. B. in der Rangliste).
-                </p>
-              </div>
-              {/* Am Handy zwei gleich breite Knöpfe nebeneinander (wie bei der Startseite). */}
-              <div className="grid shrink-0 grid-cols-2 items-center gap-2 sm:flex">
-                  <button
-                    type="button"
-                    onClick={() => visibilityDraft.pick("public", (v) => setPhotoVisibility(v))}
-                    className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-center text-xs font-semibold transition-colors ${
-                      visibilityDraft.value === "public"
-                        ? "border-gold bg-gold/15 text-gold"
-                        : "border-edge bg-pitch text-muted hover:text-ink"
-                    }`}
-                  >
-                    🌐 Öffentlich
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => visibilityDraft.pick("friends", (v) => setPhotoVisibility(v))}
-                    className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-center text-xs font-semibold transition-colors ${
-                      visibilityDraft.value === "friends"
-                        ? "border-gold bg-gold/15 text-gold"
-                        : "border-edge bg-pitch text-muted hover:text-ink"
-                    }`}
-                  >
-                    🔒 Nur für Freunde
-                  </button>
-                <SavedHint className="col-span-2" saved={visibilityDraft.saved} />
-              </div>
-            </div>
-            <div className="mt-3 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-ink">Wer darf deine Statistik sehen?</p>
-                <p className="text-xs text-muted">
-                  {statsVisibility.missing
-                    ? "Diese Einstellung wird gerade freigeschaltet – bitte später nochmal probieren."
-                    : "Gilt für den Rivalen-Vergleich: Wer dich sucht, sieht sonst nur 🔒."}
-                </p>
-              </div>
-              <div className="grid shrink-0 grid-cols-3 items-center gap-2 sm:flex">
-                {(
-                  [
-                    ["public", "🌐 Alle"],
-                    ["friends", "👥 Nur Freunde"],
-                    ["private", "🔒 Niemand"],
-                  ] as [StatsVisibility, string][]
-                ).map(([v, label]) => (
-                  <button
-                    key={v}
-                    type="button"
-                    disabled={statsVisibility.missing}
-                    onClick={() => statsDraft.pick(v, (x) => statsVisibility.save(x))}
-                    className={`whitespace-nowrap rounded-full border px-2.5 py-1.5 text-center text-xs font-semibold transition-colors sm:px-3.5 ${
-                      statsDraft.value === v
-                        ? "border-gold bg-gold/15 text-gold"
-                        : "border-edge bg-pitch text-muted hover:text-ink"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-                <SavedHint className="col-span-3" saved={statsDraft.saved} />
-              </div>
-            </div>
-            <div className="mt-3 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-ink">Online-Status zeigen</p>
-                <p className="text-xs text-muted">
-                  {online.settingState === "missing"
-                    ? "Diese Einstellung wird gerade freigeschaltet – bitte später nochmal probieren."
-                    : "Deine Freunde sehen einen grünen Punkt, wenn du gerade in der App bist."}
-                </p>
-              </div>
-              <div className="grid shrink-0 grid-cols-2 items-center gap-2 sm:flex">
-                {(
-                  [
-                    [true, "🟢 An"],
-                    [false, "⚪ Aus"],
-                  ] as [boolean, string][]
-                ).map(([v, label]) => (
-                  <button
-                    key={label}
-                    type="button"
-                    disabled={online.settingState !== "ready"}
-                    onClick={() => onlineDraft.pick(v, (x) => online.saveShowOnline(x))}
-                    className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-center text-xs font-semibold transition-colors ${
-                      onlineDraft.value === v
-                        ? "border-gold bg-gold/15 text-gold"
-                        : "border-edge bg-pitch text-muted hover:text-ink"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-                <SavedHint className="col-span-2" saved={onlineDraft.saved} />
-              </div>
-            </div>
-          </section>
-
-          {isRegistered && authUserId && sportBio.status !== "loading" && (
-            <SportBioEditor
-              userId={authUserId}
-              name={displayName}
-              photo={photos[0]}
-              rankIcon={activeRankIcon}
-              place={currentRank}
-              points={totalRangPunkte}
-              bio={sportBio.bio}
-              unavailable={sportBio.status === "missing"}
-              onSaved={sportBio.reload}
-            />
-          )}
-
-          <section className="mb-8">
-            <h2 className="font-display text-lg font-semibold text-ink">App</h2>
-            {isRegistered && <StartPagePicker />}
-            {/* Werbefrei: kompakt hier statt als große Box in der Übersicht (Rene, 19.10.2026). */}
-            {isRegistered &&
-              (hasAdFreeSubscription ? (
-                <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-ink">Werbefrei</p>
-                    <p className="text-xs text-muted">Im Premium-Pass enthalten – du siehst keine Werbebanner.</p>
-                  </div>
-                  <span className="shrink-0 rounded-full border border-gold/50 px-3 py-1 text-xs font-semibold text-gold">✓ aktiv</span>
-                </div>
-              ) : (
-                <Link
-                  href="/fortschritt"
-                  className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
-                >
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-ink">Werbung ausblenden</span>
-                    <span className="block text-xs text-muted">Ist im Premium-Pass enthalten – kein separater Kauf nötig.</span>
-                  </span>
-                  <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
-                    Ansehen
-                  </span>
-                </Link>
-              ))}
-            {/* Saison-Design: kommt automatisch ab dem Level aus der Saison-Datei,
-                hier abschaltbar (gilt pro Gerät, siehe lib/seasons/design.ts). */}
-            {seasonDesign.available && (
-              <div className="mt-3 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-ink">Saison-Design</p>
-                  <p className="text-xs text-muted">
-                    {seasonDesign.unlocked
-                      ? `Farben und Deko der Saison „${seasonDesign.seasonName}“ in der ganzen App.`
-                      : `Kommt automatisch, sobald du im Saison-Pass Level ${seasonDesign.unlockLevel} erreichst.`}
-                  </p>
-                </div>
-                {seasonDesign.unlocked ? (
-                  <div className="flex shrink-0 items-center gap-2">
-                    {/* Schalter wie bei "Für Vereine spielen", speichert sofort
-                        (Rene, 19.10.2026: vorher nur ein Knopf "Aus" ohne "An"). */}
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={designDraft.value}
-                      aria-label="Saison-Design an oder aus"
-                      onClick={() => designDraft.pick(!designDraft.value, (on) => seasonDesign.setEnabled(on))}
-                      className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors ${
-                        designDraft.value ? "border-gold bg-gold/80" : "border-edge bg-pitch"
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-ink transition-all ${designDraft.value ? "left-6" : "left-0.5"}`}
-                      />
-                    </button>
-                    <SavedHint saved={designDraft.saved} />
-                  </div>
-                ) : (
-                  <span className="shrink-0 self-start rounded-full border border-edge px-3 py-1.5 font-display text-sm font-semibold text-muted sm:self-auto">
-                    🔒 Level {seasonDesign.unlockLevel}
-                  </span>
-                )}
-              </div>
-            )}
-            {seasonDesign.available && seasonDesign.unlocked && accountSync?.seasonDesign === false && (
-              <p className="mt-2 text-[11px] text-muted">
-                ⚠️ Saison-Design gilt im Moment nur auf diesem Gerät. Damit es auf allen Geräten gilt, fehlt noch ein
-                Datenbank-Update.
-              </p>
-            )}
-
-            {isRegistered && (
-              <Link
-                href="/start?vorschau=1"
-                className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
-              >
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-ink">👋 Start-Erlebnis</span>
-                  <span className="block text-xs text-muted">
-                    So sieht ein neuer Spieler den Start. Nur zum Ansehen, es wird nichts gespeichert.
-                  </span>
-                </span>
-                <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
-                  Ansehen
-                </span>
-              </Link>
-            )}
-          </section>
-
-          {/* Pass-Belohnungen anlegen/ablegen + Deko anderer Spieler */}
-          {isRegistered && (
-            <div id="pass-belohnungen" className="scroll-mt-48">
-              <PassDecoSettings />
-            </div>
-          )}
-
-          {/* id für die Links aus der Vereinstabelle */}
-          <div id="herzensvereine" className="scroll-mt-48">
-            <FavoriteClubs />
-          </div>
-
-          <section>
-            <h2 className="font-display text-lg font-semibold text-ink">Konto</h2>
-            {isRegistered ? (
-              <>
-                <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted">Angemeldet als</p>
-                    <p className="break-all text-sm font-semibold text-ink">{authEmail}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    disabled={loggingOut}
-                    className="shrink-0 rounded-full border border-edge px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-red-400/60 hover:text-red-300 disabled:opacity-60"
-                  >
-                    {loggingOut ? "…" : "Ausloggen"}
-                  </button>
-                </div>
-                <AccountSettings />
-              </>
+              ‹ Einstellungen
+            </button>
+            <h2 className="mb-1 font-display text-xl font-bold text-ink">
+              {SETTINGS_SECTIONS[shownSection].icon} {SETTINGS_SECTIONS[shownSection].label}
+            </h2>
+            {SETTINGS_SECTIONS[shownSection].intro ? (
+              <p className="mb-4 text-xs text-muted">{SETTINGS_SECTIONS[shownSection].intro}</p>
             ) : (
-              <Link
-                href="/registrieren"
-                className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
-              >
-                <span className="text-sm text-muted">Noch nicht eingeloggt</span>
-                <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
-                  Registrieren / Einloggen →
-                </span>
-              </Link>
+              <div className="mb-2" />
             )}
-          </section>
+
+            {shownSection === "karte" &&
+              (isRegistered && authUserId && sportBio.status !== "loading" ? (
+                <SportBioEditor
+                  userId={authUserId}
+                  name={displayName}
+                  photo={photos[0]}
+                  rankIcon={activeRankIcon}
+                  place={currentRank}
+                  points={totalRangPunkte}
+                  bio={sportBio.bio}
+                  unavailable={sportBio.status === "missing"}
+                  onSaved={sportBio.reload}
+                  hideTitle
+                />
+              ) : (
+                <p className="text-sm text-muted">Lädt…</p>
+              ))}
+
+            {shownSection === "aussehen" && (
+              <>
+                {/* Saison-Design: kommt automatisch ab dem Level aus der Saison-Datei,
+                    hier abschaltbar (gilt pro Gerät, siehe lib/seasons/design.ts). */}
+                {seasonDesign.available && (
+                  <div className="flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink">Saison-Design</p>
+                      <p className="text-xs text-muted">
+                        {seasonDesign.unlocked
+                          ? `Farben und Deko der Saison „${seasonDesign.seasonName}“ in der ganzen App.`
+                          : `Kommt automatisch, sobald du im Saison-Pass Level ${seasonDesign.unlockLevel} erreichst.`}
+                      </p>
+                    </div>
+                    {seasonDesign.unlocked ? (
+                      <div className="flex shrink-0 items-center gap-2">
+                        {/* Speichert sofort (Rene, 19.10.2026). */}
+                        <Switch
+                          on={designDraft.value}
+                          label="Saison-Design an oder aus"
+                          onChange={(on) => designDraft.pick(on, (v) => seasonDesign.setEnabled(v))}
+                        />
+                        <SavedHint saved={designDraft.saved} />
+                      </div>
+                    ) : (
+                      <span className="shrink-0 self-start rounded-full border border-edge px-3 py-1.5 font-display text-sm font-semibold text-muted sm:self-auto">
+                        🔒 Level {seasonDesign.unlockLevel}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {seasonDesign.available && seasonDesign.unlocked && accountSync?.seasonDesign === false && (
+                  <p className="mt-2 text-[11px] text-muted">
+                    ⚠️ Saison-Design gilt im Moment nur auf diesem Gerät. Damit es auf allen Geräten gilt, fehlt noch ein
+                    Datenbank-Update.
+                  </p>
+                )}
+
+                {isRegistered && (
+                  // id für den Link aus dem Saison-Pass
+                  <div id="pass-belohnungen" className={`scroll-mt-48 ${seasonDesign.available ? "mt-8" : ""}`}>
+                    <PassDecoSettings />
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* id für die Links aus der Vereinstabelle */}
+            {shownSection === "vereine" && (
+              <div id="herzensvereine" className="scroll-mt-48">
+                <FavoriteClubs hideTitle />
+              </div>
+            )}
+
+            {shownSection === "privat" && (
+              <>
+                <div className="flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink">Wer darf deine Fotos sehen?</p>
+                    <p className="text-xs text-muted">
+                      Gilt für dein Profil, wenn andere User dich antippen (z. B. in der Rangliste).
+                    </p>
+                  </div>
+                  {/* Am Handy zwei gleich breite Knöpfe nebeneinander (wie bei der Startseite). */}
+                  <div className="grid shrink-0 grid-cols-2 items-center gap-2 sm:flex">
+                      <button
+                        type="button"
+                        onClick={() => visibilityDraft.pick("public", (v) => setPhotoVisibility(v))}
+                        className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-center text-xs font-semibold transition-colors ${
+                          visibilityDraft.value === "public"
+                            ? "border-gold bg-gold/15 text-gold"
+                            : "border-edge bg-pitch text-muted hover:text-ink"
+                        }`}
+                      >
+                        🌐 Öffentlich
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => visibilityDraft.pick("friends", (v) => setPhotoVisibility(v))}
+                        className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-center text-xs font-semibold transition-colors ${
+                          visibilityDraft.value === "friends"
+                            ? "border-gold bg-gold/15 text-gold"
+                            : "border-edge bg-pitch text-muted hover:text-ink"
+                        }`}
+                      >
+                        🔒 Nur für Freunde
+                      </button>
+                    <SavedHint className="col-span-2" saved={visibilityDraft.saved} />
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink">Wer darf deine Statistik sehen?</p>
+                    <p className="text-xs text-muted">
+                      {statsVisibility.missing
+                        ? "Diese Einstellung wird gerade freigeschaltet – bitte später nochmal probieren."
+                        : "Gilt für den Rivalen-Vergleich: Wer dich sucht, sieht sonst nur 🔒."}
+                    </p>
+                  </div>
+                  <div className="grid shrink-0 grid-cols-3 items-center gap-2 sm:flex">
+                    {(
+                      [
+                        ["public", "🌐 Alle"],
+                        ["friends", "👥 Freunde"],
+                        ["private", "🔒 Niemand"],
+                      ] as [StatsVisibility, string][]
+                    ).map(([v, label]) => (
+                      <button
+                        key={v}
+                        type="button"
+                        disabled={statsVisibility.missing}
+                        onClick={() => statsDraft.pick(v, (x) => statsVisibility.save(x))}
+                        className={`whitespace-nowrap rounded-full border px-2.5 py-1.5 text-center text-xs font-semibold transition-colors sm:px-3.5 ${
+                          statsDraft.value === v
+                            ? "border-gold bg-gold/15 text-gold"
+                            : "border-edge bg-pitch text-muted hover:text-ink"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                    <SavedHint className="col-span-3" saved={statsDraft.saved} />
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink">Online-Status zeigen</p>
+                    <p className="text-xs text-muted">
+                      {online.settingState === "missing"
+                        ? "Diese Einstellung wird gerade freigeschaltet – bitte später nochmal probieren."
+                        : "Deine Freunde sehen einen grünen Punkt, wenn du gerade in der App bist."}
+                    </p>
+                  </div>
+                  {/* Gleicher Schalter wie beim Saison-Design (vorher zwei Knöpfe An/Aus). */}
+                  <div className="flex shrink-0 items-center gap-2">
+                    <SavedHint saved={onlineDraft.saved} />
+                    <Switch
+                      on={onlineDraft.value}
+                      label="Online-Status zeigen"
+                      disabled={online.settingState !== "ready"}
+                      onChange={(v) => onlineDraft.pick(v, (x) => online.saveShowOnline(x))}
+                    />
+                  </div>
+                </div>
+                {isRegistered && (
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink">Deine Sportlerkarte</p>
+                      <p className="text-xs text-muted">Sehen immer nur deine Freunde.</p>
+                    </div>
+                    <span className="shrink-0 rounded-full border border-edge px-3 py-1.5 text-xs font-semibold text-muted">👥 Freunde</span>
+                  </div>
+                )}
+              </>
+            )}
+
+            {shownSection === "app" && (
+              <>
+                {isRegistered && <StartPagePicker />}
+                {/* Werbefrei: kompakt hier statt als große Box in der Übersicht (Rene, 19.10.2026). */}
+                {isRegistered &&
+                  (hasAdFreeSubscription ? (
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-ink">Werbefrei</p>
+                        <p className="text-xs text-muted">Im Premium-Pass enthalten – du siehst keine Werbebanner.</p>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-gold/50 px-3 py-1 text-xs font-semibold text-gold">✓ aktiv</span>
+                    </div>
+                  ) : (
+                    <Link
+                      href="/fortschritt"
+                      className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-ink">Werbung ausblenden</span>
+                        <span className="block text-xs text-muted">Ist im Premium-Pass enthalten – kein separater Kauf nötig.</span>
+                      </span>
+                      <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
+                        Ansehen
+                      </span>
+                    </Link>
+                  ))}
+                {isRegistered && (
+                  <Link
+                    href="/start?vorschau=1"
+                    className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-ink">👋 Start-Erlebnis</span>
+                      <span className="block text-xs text-muted">
+                        So sieht ein neuer Spieler den Start. Nur zum Ansehen, es wird nichts gespeichert.
+                      </span>
+                    </span>
+                    <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
+                      Ansehen
+                    </span>
+                  </Link>
+                )}
+              </>
+            )}
+
+            {shownSection === "konto" && (
+              <>
+                <form
+                  onSubmit={handleSaveName}
+                  className="flex flex-col gap-3 rounded-card border border-edge bg-surface p-4 sm:flex-row sm:items-end"
+                >
+                  <div className="flex-1">
+                    <label htmlFor="profil-name" className="mb-1 block text-xs text-muted">Anzeigename</label>
+                    <input
+                      id="profil-name"
+                      value={nameInput}
+                      onChange={(e) => {
+                        setNameInput(e.target.value);
+                        setSaved(false);
+                      }}
+                      className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
+                    />
+                  </div>
+                  <SaveButton
+                    type="submit"
+                    dirty={!!nameInput.trim() && nameInput.trim() !== displayName}
+                    saved={saved}
+                    className="self-start py-2 sm:self-auto"
+                  />
+                </form>
+                {isRegistered ? (
+                  <>
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">
+                      <div className="min-w-0">
+                        <p className="text-xs text-muted">Angemeldet als</p>
+                        <p className="break-all text-sm font-semibold text-ink">{authEmail}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        disabled={loggingOut}
+                        className="shrink-0 rounded-full border border-edge px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-red-400/60 hover:text-red-300 disabled:opacity-60"
+                      >
+                        {loggingOut ? "…" : "Ausloggen"}
+                      </button>
+                    </div>
+                    <AccountSettings />
+                  </>
+                ) : (
+                  <Link
+                    href="/registrieren"
+                    className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 transition-colors hover:border-gold/60"
+                  >
+                    <span className="text-sm text-muted">Noch nicht eingeloggt</span>
+                    <span className="shrink-0 rounded-full border border-gold/50 px-4 py-1.5 text-xs font-semibold text-gold">
+                      Registrieren / Einloggen →
+                    </span>
+                  </Link>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
     </main>
@@ -1158,12 +1305,30 @@ function ProfilInhalt() {
 
 const PROFILE_TABS = ["Übersicht", "Rang", "Einstellungen"] as const;
 type ProfileTab = (typeof PROFILE_TABS)[number];
+// Bereiche der Einstellungen (Rene, 29.10.2026). hash = Adresse /profil#…
+const SETTINGS_SECTIONS = {
+  karte: { icon: "🃏", label: "Sportlerkarte", hash: "steckbrief", intro: "" },
+  aussehen: { icon: "🎨", label: "Aussehen", hash: "aussehen", intro: "Saison-Design und was du aus dem Saison-Pass zeigst." },
+  vereine: { icon: "❤️", label: "Herzensvereine", hash: "herzensvereine", intro: "" },
+  privat: { icon: "🔒", label: "Privatsphäre", hash: "privatsphaere", intro: "Wer was von dir sehen darf." },
+  app: { icon: "📱", label: "App", hash: "app", intro: "Startseite und Werbung." },
+  konto: { icon: "👤", label: "Konto", hash: "konto", intro: "Name, Anmeldung und Passwort." },
+} as const; // intro leer: Karte und Vereine bringen ihren eigenen Text mit.
+type SettingsSection = keyof typeof SETTINGS_SECTIONS;
+const SETTINGS_GROUPS: { title?: string; items: SettingsSection[] }[] = [
+  { items: ["karte", "aussehen", "vereine"] },
+  { title: "Allgemein", items: ["privat", "app", "konto"] },
+];
+const HASH_SECTIONS: Record<string, SettingsSection> = {
+  ...Object.fromEntries(
+    (Object.keys(SETTINGS_SECTIONS) as SettingsSection[]).map((k) => [SETTINGS_SECTIONS[k].hash, k])
+  ),
+  "pass-belohnungen": "aussehen",
+};
 const HASH_TABS: Record<string, ProfileTab> = {
   rang: "Rang",
   einstellungen: "Einstellungen",
-  herzensvereine: "Einstellungen",
-  "pass-belohnungen": "Einstellungen",
-  steckbrief: "Einstellungen",
+  ...Object.fromEntries(Object.keys(HASH_SECTIONS).map((h) => [h, "Einstellungen" as ProfileTab])),
 };
 
 function StatCard({
