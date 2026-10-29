@@ -7,19 +7,21 @@ import { useInstallApp } from "@/lib/installApp";
 // Profil → Einstellungen → App: "PoolTipp als App" zum Nachschlagen, auch
 // wenn der Hinweis unten (components/InstallHint.tsx) weggeklickt wurde.
 export default function InstallAppCard({ className = "" }: { className?: string }) {
-  const { ready, platform, standalone, canPrompt, promptInstall } = useInstallApp();
+  const { ready, platform, standalone, installed, canPrompt, promptInstall } = useInstallApp();
   const [open, setOpen] = useState(false);
 
   if (!ready) return null;
 
-  if (standalone) {
+  if (standalone || installed) {
     return (
       <div className={`flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4 ${className}`}>
         <div className="min-w-0">
           <p className="text-sm font-semibold text-ink">📲 PoolTipp als App</p>
-          <p className="text-xs text-muted">Du nutzt PoolTipp schon als App.</p>
+          <p className="text-xs text-muted">
+            {standalone ? "Du nutzt PoolTipp schon als App." : "Installiert. Öffne PoolTipp über das neue Symbol."}
+          </p>
         </div>
-        <span className="shrink-0 rounded-full border border-gold/50 px-3 py-1 text-xs font-semibold text-gold">✓ aktiv</span>
+        <span className="shrink-0 rounded-full border border-gold/50 px-3 py-1 text-xs font-semibold text-gold">{standalone ? "✓ aktiv" : "✓ fertig"}</span>
       </div>
     );
   }

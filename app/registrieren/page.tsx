@@ -7,7 +7,7 @@ import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
 import { supabase } from "@/lib/supabaseClient";
 import { readPendingInvite } from "@/lib/leagueInvite";
-import { isStandalone } from "@/lib/installApp";
+import { isIOS, isStandalone } from "@/lib/installApp";
 import { translateAuthError } from "@/lib/authMessages";
 
 // "forgot" = "Passwort vergessen?": nur E-Mail eingeben, Link anfordern.
@@ -42,10 +42,11 @@ export default function RegistrierenPage() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [resending, setResending] = useState(false);
-  // Läuft PoolTipp als App vom Home-Bildschirm? Links aus Mails öffnen dann
-  // im Browser, nicht in der App (siehe lib/installApp.ts).
+  // Läuft PoolTipp am iPhone als App vom Home-Bildschirm? Links aus Mails
+  // öffnen dann in Safari, das die Anmeldung nicht mit der App teilt
+  // (Android teilt sie mit Chrome, siehe lib/installApp.ts).
   const [inApp, setInApp] = useState(false);
-  useEffect(() => setInApp(isStandalone()), []);
+  useEffect(() => setInApp(isStandalone() && isIOS()), []);
   // Kam man über einen Tipprunden-Einladungslink hierher, geht es nach dem
   // Einloggen direkt zurück zum Beitreten.
   const [pendingInvite, setPendingInvite] = useState<string | null>(null);

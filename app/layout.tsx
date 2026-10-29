@@ -14,6 +14,7 @@ import { OnlineProvider } from "@/lib/OnlineContext";
 import AppChrome from "@/components/AppChrome";
 import { seasonDesignBootScript } from "@/lib/seasons/design";
 import { startPageBootScript } from "@/lib/startPage";
+import { INSTALL_PROMPT_BOOT } from "@/lib/installApp";
 
 // Rajdhani wird jetzt NUR noch fürs "PoolTipp"-Logo in der Navbar verwendet
 // (siehe font-logo in tailwind.config.ts) – überall sonst übernimmt Poppins.
@@ -90,6 +91,8 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: startPageBootScript() }} />
         <script dangerouslySetInnerHTML={{ __html: seasonDesignBootScript() }} />
         <script dangerouslySetInnerHTML={{ __html: EMOJI_BOOT }} />
+        {/* "PoolTipp als App" (Android): Installieren-Ereignis früh merken. */}
+        <script dangerouslySetInnerHTML={{ __html: INSTALL_PROMPT_BOOT }} />
       </head>
       <body className="font-body min-h-screen bg-pitch text-ink antialiased">
         <AppDataProvider>

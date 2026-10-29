@@ -23,10 +23,17 @@ let installedNow = false;
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());
 
+// Das Ereignis kann kommen, bevor dieses Modul geladen ist. Darum fängt ein
+// kleines Skript im <head> es schon vorher auf (INSTALL_PROMPT_BOOT, in
+// app/layout.tsx) und legt es auf window ab.
+export const INSTALL_PROMPT_BOOT = `window.addEventListener("beforeinstallprompt",function(e){window.__pooltippInstallPrompt=e;});`;
+
 if (typeof window !== "undefined") {
+  const w = window as Window & { __pooltippInstallPrompt?: InstallPromptEvent };
+  if (w.__pooltippInstallPrompt) deferredPrompt = w.__pooltippInstallPrompt;
+  // Kein preventDefault: Chromes eigene Mini-Leiste darf weiter kommen,
+  // wenn unser Hinweis gerade nicht zu sehen ist (erster Besuch, weggeklickt).
   window.addEventListener("beforeinstallprompt", (e) => {
-    // Chromes eigene Mini-Leiste unterdrücken, wir zeigen unseren Hinweis.
-    e.preventDefault();
     deferredPrompt = e as InstallPromptEvent;
     notify();
   });
@@ -35,6 +42,8 @@ if (typeof window !== "undefined") {
     installedNow = true;
     notify();
   });
+  // Am PC wandert der Tab beim Installieren direkt ins App-Fenster.
+  window.matchMedia("(display-mode: standalone)").addEventListener?.("change", notify);
 }
 
 /** Läuft PoolTipp gerade als installierte App (ohne Browserleiste)? */
@@ -46,11 +55,15 @@ export function isStandalone() {
   );
 }
 
-function detectPlatform(): InstallPlatform {
+export function isIOS() {
   const ua = navigator.userAgent;
   // iPadOS meldet sich als Mac, hat aber einen Touchscreen.
-  if (/iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) return "ios";
-  if (/Android/i.test(ua)) return "android";
+  return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+}
+
+function detectPlatform(): InstallPlatform {
+  if (isIOS()) return "ios";
+  if (/Android/i.test(navigator.userAgent)) return "android";
   return "desktop";
 }
 
@@ -64,16 +77,19 @@ export function useInstallApp() {
     ready: boolean;
     platform: InstallPlatform;
     standalone: boolean;
+    /** Gerade eben installiert, man ist aber noch im Browser. */
+    installed: boolean;
     canPrompt: boolean;
     inAppBrowser: boolean;
-  }>({ ready: false, platform: "desktop", standalone: false, canPrompt: false, inAppBrowser: false });
+  }>({ ready: false, platform: "desktop", standalone: false, installed: false, canPrompt: false, inAppBrowser: false });
 
   useEffect(() => {
     const update = () =>
       setState({
         ready: true,
         platform: detectPlatform(),
-        standalone: isStandalone() || installedNow,
+        standalone: isStandalone(),
+        installed: installedNow,
         canPrompt: deferredPrompt !== null,
         inAppBrowser: isInAppBrowser(),
       });
@@ -89,10 +105,15 @@ export function useInstallApp() {
     const p = deferredPrompt;
     if (!p) return false;
     deferredPrompt = null; // jedes Ereignis darf nur einmal benutzt werden
-    await p.prompt();
-    const { outcome } = await p.userChoice;
-    notify();
-    return outcome === "accepted";
+    try {
+      await p.prompt();
+      const { outcome } = await p.userChoice;
+      return outcome === "accepted";
+    } catch {
+      return false; // Browser lehnt ab: dann zeigen wir die Schritte.
+    } finally {
+      notify();
+    }
   }
 
   return { ...state, promptInstall };

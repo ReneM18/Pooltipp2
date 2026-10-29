@@ -43,7 +43,7 @@ function hiddenNow() {
 
 export default function InstallHint() {
   const pathname = usePathname() ?? "";
-  const { ready, platform, standalone, canPrompt, inAppBrowser, promptInstall } = useInstallApp();
+  const { ready, platform, standalone, installed, canPrompt, inAppBrowser, promptInstall } = useInstallApp();
   const [eligible, setEligible] = useState(false);
   const [stepsOpen, setStepsOpen] = useState(false);
 
@@ -52,6 +52,13 @@ export default function InstallHint() {
     const forced = new URLSearchParams(window.location.search).get("app-hinweis") === "1";
     setEligible(forced || (visits >= MIN_VISITS && !hiddenNow()));
   }, []);
+
+  useEffect(() => {
+    if (!stepsOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setStepsOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stepsOpen]);
 
   function hide() {
     setEligible(false);
@@ -75,6 +82,7 @@ export default function InstallHint() {
     ready &&
     eligible &&
     !standalone &&
+    !installed &&
     !inAppBrowser &&
     (platform === "ios" || platform === "android") &&
     !SKIP_PATHS.some((p) => pathname.startsWith(p));
@@ -85,18 +93,22 @@ export default function InstallHint() {
       <div
         role="region"
         aria-label="PoolTipp als App"
-        className="fixed inset-x-3 bottom-[calc(4.5rem+var(--safe-bottom))] z-[44] mx-auto max-w-md animate-[sheetUp_0.25s_ease-out] rounded-card border border-gold/50 bg-surface p-3 shadow-[0_12px_32px_rgb(0_0_0/0.55)] lg:hidden"
+        // Rechts bleibt der Chat-Knopf frei (components/ChatWidget.tsx).
+        className="fixed bottom-[calc(4.5rem+var(--safe-bottom))] left-3 right-[4.25rem] z-[44] animate-[sheetUp_0.25s_ease-out] rounded-card border border-gold/50 bg-surface py-2 pl-3 pr-1 shadow-[0_12px_32px_rgb(0_0_0/0.55)] sm:right-[5rem] lg:hidden"
       >
-        <div className="flex items-center gap-3">
-          <img src="/icons/icon-192.png" alt="" className="h-11 w-11 shrink-0 rounded-xl" />
+        <div className="flex items-center gap-2">
           <div className="min-w-0 flex-1">
-            <p className="font-display text-sm font-semibold text-ink">PoolTipp als App</p>
-            <p className="text-xs leading-snug text-muted">Öffnet ohne Browserleiste.</p>
+            {/* Sehr schmale Handys (iPhone SE): kurzer Titel, keine zweite Zeile. */}
+            <p className="truncate font-display text-sm font-semibold text-ink">
+              <span className="max-[359px]:hidden">PoolTipp als App</span>
+              <span className="min-[360px]:hidden">Als App</span>
+            </p>
+            <p className="truncate text-xs leading-snug text-muted max-[359px]:hidden">Ohne Browserleiste</p>
           </div>
           <button
             type="button"
             onClick={install}
-            className="shrink-0 rounded-full bg-gold px-4 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90"
+            className="shrink-0 whitespace-nowrap rounded-full bg-gold px-3 py-2 font-display text-sm font-semibold text-pitch transition-colors hover:bg-gold/90"
           >
             {canPrompt ? "Installieren" : "So geht's"}
           </button>
@@ -104,7 +116,7 @@ export default function InstallHint() {
             type="button"
             onClick={hide}
             aria-label="Hinweis ausblenden"
-            className="-mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl text-muted transition-colors hover:bg-pitch/60 hover:text-ink"
+            className="flex h-10 w-9 shrink-0 items-center justify-center rounded-full text-xl text-muted transition-colors hover:bg-pitch/60 hover:text-ink"
           >
             ×
           </button>
