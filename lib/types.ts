@@ -123,6 +123,21 @@ export interface Team {
   // Eigene Untergruppe in der Team-Auswahl (z. B. "Champions League"). Fehlt
   // sie, ergibt sich die Gruppe automatisch (siehe lib/teamGroups.ts).
   group?: string;
+  // Heimstadion bzw. Halle (Rene, 29.10.2026), siehe lib/teamStadium.ts.
+  stadium?: TeamStadium;
+}
+
+// Stadion eines Vereins (Rene, 29.10.2026: "das austria lustenau stadion
+// heißt jetzt anders"). Einmal von der API gefüllt, im Admin unter Teams
+// änderbar. manual = von Hand geändert: dann überschreibt die API nichts mehr.
+export interface TeamStadium {
+  name: string;
+  capacity?: number;
+  // Name und Nummer des Stadions bei der API, um es in den Spielen der API
+  // wiederzuerkennen (auch wenn der eigene Name anders lautet).
+  apiName?: string;
+  apiVenueId?: number;
+  manual?: boolean;
 }
 
 // "cancelled" = vom Admin abgesagt: alle Einsätze gingen zurück, das Spiel

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Match, Sport } from "./types";
+import type { Match, Sport, Team } from "./types";
+import { matchStadium } from "./teamStadium";
 import {
   appSideEvents,
   appSidePenalties,
@@ -554,7 +555,11 @@ function loadCapacity(id: number): Promise<number | null> {
   return p;
 }
 
-export function useMatchVenue(match: Match, homeName: string, awayName: string): MatchVenue | null {
+// Gespeicherte Vereinsstadien (Rene, 29.10.2026, Admin → Teams) gehen vor:
+// Ist das Spiel das Heimspiel eines Vereins mit eigenem Stadionnamen, steht
+// der eigene Name da, sonst der der API (siehe matchStadium). Ohne API-Spiel
+// (weiter weg, Eishockey) das Stadion des Heimvereins.
+export function useMatchVenue(match: Match, homeTeam: Team, awayTeam: Team): MatchVenue | null {
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => setNow(Date.now()), []);
   const kickoff = new Date(match.kickoff).getTime();
@@ -565,20 +570,23 @@ export function useMatchVenue(match: Match, homeName: string, awayName: string):
     kickoff > now - DAY_MS &&
     kickoff < now + (VENUE_DAYS_AHEAD + 1) * DAY_MS;
   const day = useLiveDay(match.sport, relevant ? viennaDate(match.kickoff) : null);
-  const found = relevant && day.games ? findLiveGame(day.games, match.kickoff, homeName, awayName) : null;
+  const found = relevant && day.games ? findLiveGame(day.games, match.kickoff, homeTeam.name, awayTeam.name) : null;
   const name = found?.game.venue ?? null;
   const venueId = found?.game.venueId ?? null;
+  // Heimverein laut API (bei vertauschten Seiten der App-Gast).
+  const [apiHome, apiAway] = found?.swapped ? [awayTeam, homeTeam] : [homeTeam, awayTeam];
+  const withoutCapacity = matchStadium(apiHome, apiAway, name, venueId, null);
+  const needCapacity = withoutCapacity !== null && withoutCapacity.capacity === null ? venueId : null;
   const [capacity, setCapacity] = useState<{ id: number; value: number | null } | null>(null);
   useEffect(() => {
-    if (venueId === null) return;
+    if (needCapacity === null) return;
     let alive = true;
-    void loadCapacity(venueId).then((value) => {
-      if (alive) setCapacity({ id: venueId, value });
+    void loadCapacity(needCapacity).then((value) => {
+      if (alive) setCapacity({ id: needCapacity, value });
     });
     return () => {
       alive = false;
     };
-  }, [venueId]);
-  if (!name) return null;
-  return { name, capacity: capacity && capacity.id === venueId ? capacity.value : null };
+  }, [needCapacity]);
+  return matchStadium(apiHome, apiAway, name, venueId, capacity && capacity.id === venueId ? capacity.value : null);
 }
