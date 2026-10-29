@@ -79,8 +79,12 @@ export default function MatchSheet({
     const url = new URL(a.href, window.location.href);
     if (url.origin !== window.location.origin) return;
     e.preventDefault();
-    pushedRef.current = false;
-    router.replace(url.pathname + url.search + url.hash);
+    const href = url.pathname + url.search + url.hash;
+    // Ohne eigenen Eintrag nicht ersetzen, sonst ginge das Matchcenter verloren.
+    if (pushedRef.current) {
+      pushedRef.current = false;
+      router.replace(href);
+    } else router.push(href);
   }
 
   if (!open || typeof document === "undefined") return null;
