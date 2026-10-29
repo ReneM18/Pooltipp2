@@ -64,6 +64,11 @@ export interface LiveGame {
   events?: LiveEvent[];
   // Elfmeterschießen, nur Fußball und nur wenn es eines gab.
   shootout?: ShootoutKick[];
+  // Stadion bzw. Halle laut Anbieter (Rene, 29.10.2026: Stadion auf der
+  // Tippkarte), fehlt, wenn der Anbieter keines liefert (Eishockey).
+  venue?: string;
+  // Stadion-Nummer beim Anbieter (nur Fußball), für die Kapazität.
+  venueId?: number;
 }
 
 // Woher die Spieldaten stammen (Rene, 16.10.2026: ehrliche Aktualität):

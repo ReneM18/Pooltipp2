@@ -519,3 +519,66 @@ export function peekLiveSportDiagnostics(): LiveSportDiagnostics[] {
 export async function refreshLiveDays(days: { sport: Sport; date: string }[]): Promise<void> {
   await Promise.all(days.map((d) => load(entryFor(d.sport, d.date))));
 }
+
+// Stadion auf der Tippkarte (Rene, 29.10.2026: "tag, zeit, und stadion").
+// Aus der Tagesliste derselben Live-Daten (gleicher Speicher wie Matchcenter
+// und Admin, die Route hält kommende Tage stundenlang), nur für Spiele von
+// gestern bis in VENUE_DAYS_AHEAD Tagen, damit nicht für jeden Tag gefragt
+// wird. Fußball zusätzlich mit Kapazität (/api/venue, eine Woche im Cache).
+const VENUE_DAYS_AHEAD = 3;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export interface MatchVenue {
+  name: string;
+  capacity: number | null;
+}
+
+const venueCapacity = new Map<number, Promise<number | null>>();
+
+function loadCapacity(id: number): Promise<number | null> {
+  let p = venueCapacity.get(id);
+  if (!p) {
+    p = fetch(`/api/venue?id=${id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        // Fehler nicht merken, beim nächsten Mal neu fragen.
+        if (!d || d.error) venueCapacity.delete(id);
+        return typeof d?.capacity === "number" ? d.capacity : null;
+      })
+      .catch(() => {
+        venueCapacity.delete(id);
+        return null;
+      });
+    venueCapacity.set(id, p);
+  }
+  return p;
+}
+
+export function useMatchVenue(match: Match, homeName: string, awayName: string): MatchVenue | null {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => setNow(Date.now()), []);
+  const kickoff = new Date(match.kickoff).getTime();
+  const relevant =
+    now !== null &&
+    match.status !== "cancelled" &&
+    isLiveLeagueEnabled(match.sport, match.competition) &&
+    kickoff > now - DAY_MS &&
+    kickoff < now + (VENUE_DAYS_AHEAD + 1) * DAY_MS;
+  const day = useLiveDay(match.sport, relevant ? viennaDate(match.kickoff) : null);
+  const found = relevant && day.games ? findLiveGame(day.games, match.kickoff, homeName, awayName) : null;
+  const name = found?.game.venue ?? null;
+  const venueId = found?.game.venueId ?? null;
+  const [capacity, setCapacity] = useState<{ id: number; value: number | null } | null>(null);
+  useEffect(() => {
+    if (venueId === null) return;
+    let alive = true;
+    void loadCapacity(venueId).then((value) => {
+      if (alive) setCapacity({ id: venueId, value });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [venueId]);
+  if (!name) return null;
+  return { name, capacity: capacity && capacity.id === venueId ? capacity.value : null };
+}
