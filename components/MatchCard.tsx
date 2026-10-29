@@ -22,18 +22,18 @@ import Countdown from "./Countdown";
 import ScoreInput from "./ScoreInput";
 import { CoinIcon } from "./CoinIcon";
 import { competitionDisplayName, competitionFlag } from "@/lib/competitionFlag";
-import { TvIcon, HighlightTvIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon, StadiumIcon } from "./Icons";
+import { HighlightTvIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
 import { SeasonCardWatermark } from "./SeasonDeco";
 import ShareTipButton from "./ShareTipCard";
 import type { ShareCardData } from "@/lib/shareCard";
 import Emoji from "@/components/Emoji";
 import { SPORT_BADGE, SPORT_BADGE_COLOR } from "@/lib/cardStyle";
-import { useFinishedEvents, useLiveScore, useMatchVenue } from "@/lib/useLiveScores";
+import { useLiveScore } from "@/lib/useLiveScores";
 import { isGoalEvent, shortPlayerName, eventMinuteText } from "@/lib/liveScores";
 import { useLiveForecast } from "@/lib/liveForecast";
 import { useBeginnerShieldLeft } from "./BeginnerShieldHint";
 import { liveTipLabel, livePoints, liveTipToastText } from "@/lib/liveTipText";
-import { EventTimeline, LivePill, LiveTipLine, Scoreboard, forecastPlain, signedPoints, timelineCount, useBoardClock, useNewGoal, type NewGoal } from "./LiveMatch";
+import { LivePill, LiveTipLine, Scoreboard, forecastPlain, signedPoints, useBoardClock } from "./LiveMatch";
 import { showGoalToast } from "./GoalToast";
 import { FriendsLiveRow, FriendsLiveSheet } from "./FriendsLive";
 import { friendsRowTable, moveText, useFriendsLive } from "@/lib/friendsLive";
@@ -358,7 +358,6 @@ export default function MatchCard({
   // noch kein Endstand steht und nicht mehr getippt wird. Reine Anzeige, die
   // Wertung bleibt beim offiziellen Endstand (Rene, 15.10.2026).
   const liveScore = useLiveScore(match, homeTeam.name, awayTeam.name);
-  const venue = useMatchVenue(match, homeTeam, awayTeam);
   const live = !finalScore && !isCancelled && showResultView ? liveScore : null;
   // Anzeigetafel (Rene, 15.10.2026: Spieltag-Umbau): sobald Live-Daten da
   // sind (Live, Pause, nach Abpfiff "Beendet") und ebenso mit offiziellem
@@ -366,10 +365,6 @@ export default function MatchCard({
   // bleibt normal, Live zeigt nur das Pill (ohne roten Rahmen).
   const showBoard = !isCancelled && (!!live || !!finalScore);
   const boardClock = useBoardClock(match.sport, live);
-  // Tore/Karten: live mit dem Stand, nach der Wertung aus dem letzten
-  // Live-Stand des Servers (falls er ihn noch kennt).
-  const finishedEvents = useFinishedEvents(match, homeTeam.name, awayTeam.name, !!finalScore && !isCancelled);
-  const events = live ? live.events : finalScore ? finishedEvents : null;
   const leftSide: "home" | "away" = isUsSport ? "away" : "home";
   const rightSide: "home" | "away" = isUsSport ? "home" : "away";
   const shieldLeft = useBeginnerShieldLeft();
@@ -392,34 +387,6 @@ export default function MatchCard({
   // Nur mit mittippenden Freunden (Rene, 16.10.2026), sonst keine Zeile.
   const showFriendsRow = !!live && !!friendsRowTable(friendsLive) && !!friendsLive?.games.some((g) => g.match.id === match.id);
   const [friendsOpen, setFriendsOpen] = useState(false);
-  const [eventsOpen, setEventsOpen] = useState(false);
-  // Ohne bekannte Ereignisse nach Abpfiff kein leerer "Spielverlauf".
-  const showEventsButton = showBoard && !!events && (!!live || events.some((e) => e.type !== "subst"));
-  // Neues Tor (Rene, 15.10.2026): Knopf "Spielverlauf" pulsiert golden, bis
-  // der Spielverlauf aufgeklappt wird, höchstens 60 s. Ist er schon offen,
-  // wird das neue Tor dort direkt ~3 s golden hinterlegt.
-  const newGoal = useNewGoal(events);
-  const [eventsPulse, setEventsPulse] = useState(false);
-  const [timelineGlow, setTimelineGlow] = useState<NewGoal | null>(null);
-  const eventsOpenRef = useRef(eventsOpen);
-  eventsOpenRef.current = eventsOpen;
-  useEffect(() => {
-    if (!newGoal) return;
-    if (eventsOpenRef.current) {
-      setTimelineGlow(newGoal);
-      return;
-    }
-    setEventsPulse(true);
-    const t = window.setTimeout(() => setEventsPulse(false), 60_000);
-    return () => window.clearTimeout(t);
-  }, [newGoal]);
-  function toggleEvents() {
-    if (!eventsOpen) {
-      setTimelineGlow(eventsPulse ? newGoal : null);
-      setEventsPulse(false);
-    }
-    setEventsOpen((current) => !current);
-  }
 
   // Tor-Moment (Rene, 15.10.2026: Spieltag-Umbau): Ändert sich der Stand
   // eines getippten Spiels gegenüber dem letzten Abruf, leuchtet der
@@ -736,15 +703,12 @@ export default function MatchCard({
           />
         </span>
         <TeamLabel name={team.name} inline="left" single big={stage} selected={selected} />
-        {/* Getippt: "Dein Tipp" statt Heim/Gast am gewählten Verein
-            (Rene, 15.10.2026: Spieltag-Umbau). */}
-        <span
-          className={`shrink-0 pl-2 text-[11px] font-medium uppercase tracking-wide ${
-            selected ? "text-gold/80" : "text-muted/60"
-          }`}
-        >
-          {selected && !compactPicking ? "Dein Tipp" : side === "home" ? "Heim" : "Gast"}
-        </span>
+        {/* Getippt: "Dein Tipp" am gewählten Verein (Rene, 15.10.2026:
+            Spieltag-Umbau). "Heim"/"Gast" entfällt, die Reihenfolge zeigt es
+            (Rene, 29.10.2026: Tippkarte entschlacken). */}
+        {selected && !compactPicking && (
+          <span className="shrink-0 pl-2 text-[11px] font-medium uppercase tracking-wide text-gold/80">Dein Tipp</span>
+        )}
         {scoreInput}
         {/* Getippte Tore im selben Kasten-Maß wie das Ergebnisfeld. */}
         {tipGoals !== null && (
@@ -820,10 +784,11 @@ export default function MatchCard({
     );
   }
 
-  // Kurzer Hinweis je Tipp-Art direkt über den Vereins-Zeilen, nur solange
-  // noch getippt werden kann (Rene, 15.10.2026).
+  // Kurzer Hinweis über den Vereins-Zeilen, solange noch getippt werden kann
+  // (Rene, 15.10.2026). Seit 29.10.2026 nur noch beim Sieger-Tipp, wo man die
+  // Zeilen antippt; beim Ergebnis-Tipp erklären die Zahlenfelder sich selbst.
   const tipHint = !isOneXTwo
-    ? "Tippe das Endergebnis: Tore pro Team eintragen"
+    ? null
     : compactShowsDraw
       ? "Sieger oder Unentschieden antippen"
       : "Tippe auf den Sieger";
@@ -973,32 +938,15 @@ export default function MatchCard({
             <span className="min-w-0 leading-tight">{competitionName}</span>
           </div>
         )}
-        <div
-          className={`flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-muted ${
-            stage ? "mb-4 min-h-[1.75rem] text-[15px]" : "mb-3 text-[13px]"
-          }`}
-        >
-          {match.matchday && !stage ? <span>Spieltag {match.matchday}</span> : null}
-          {match.matchday && !stage ? <span aria-hidden>·</span> : null}
-          <span>{kickoffLabel}</span>
-          {match.tvChannel && (
-            <span className="flex items-center gap-1.5 rounded-full border border-edge bg-pitch py-0.5 pl-2 pr-2.5 text-[13px] font-semibold text-ink">
-              <TvIcon className="h-4 w-4 shrink-0 text-ink" />
-              {match.tvChannel}
-            </span>
-          )}
-          {/* Stadion statt "Matchcenter" (Rene, 29.10.2026), mit Kapazität
-              wenn bekannt. Lange Namen brechen um, nichts wird abgeschnitten. */}
-          {venue && (
-            <span className="min-w-0 break-words">
-              <StadiumIcon className="mr-1.5 inline-block h-[22px] w-[22px] -translate-y-px align-middle" />
-              {venue.name}
-              {venue.capacity !== null && (
-                <span className="whitespace-nowrap"> · {venue.capacity.toLocaleString("de-DE")} Plätze</span>
-              )}
-            </span>
-          )}
-        </div>
+        {/* Tippkarte = Spielstand + Tippspiel (Rene, 29.10.2026: "dort kommt
+            dann nur wie viel es steht und der rest gamification"). Spieltag,
+            Sender und Stadion stehen nur noch im Matchcenter; die Zeit zeigt
+            der Countdown oben. Beim Topspiel bleibt die Anstoßzeit. */}
+        {stage && (
+          <div className="mb-4 flex min-h-[1.75rem] items-center justify-center text-center text-[15px] text-muted">
+            <span>{kickoffLabel}</span>
+          </div>
+        )}
 
         {/* Vereine untereinander in voller Breite (Rene, 15.10.2026, Variante B),
             Reihenfolge wie bisher (US-Ligen Gast oben, sonst Heim oben).
@@ -1021,7 +969,7 @@ export default function MatchCard({
               Dein Tipp
             </p>
           )}
-          {!showResultView && (
+          {!showResultView && tipHint && (
             <p className={`mb-2 text-center text-muted/80 ${stage ? "text-[13px]" : "text-xs"}`}>{tipHint}</p>
           )}
           {showBoard && boardScore ? (
@@ -1111,8 +1059,11 @@ export default function MatchCard({
               </div>
             )}
 
+            {/* Joker als eine Leiste kleiner Chips (Rene, 29.10.2026). */}
             {!tippingClosed && !isCancelled && (
-              <TrendRow matchId={match.id} homeName={homeTeam.name} awayName={awayTeam.name} awayFirst={isUsSport} className="mb-3" />
+              <div className="mb-3 flex flex-wrap justify-center gap-2 empty:hidden">
+                <TrendRow matchId={match.id} homeName={homeTeam.name} awayName={awayTeam.name} awayFirst={isUsSport} />
+              </div>
             )}
 
             {stage ? (
@@ -1259,7 +1210,8 @@ export default function MatchCard({
             {/* Getippt (Rene, 15.10.2026: Spieltag-Umbau): der Tipp steht in den
                 Vereins-Zeilen, hier nur noch Booster-Hinweis und "Tipp ändern"
                 (dezent, Umriss). Ersetzt den früheren Kasten "Dein Tipp". */}
-            {hasTipped && !showBoard && !myTip?.evaluated && !isCancelled && ((myTip?.stake ?? 0) > 0 || canChangeTip) && (
+            {/* "Tipp ändern" steht seit 29.10.2026 klein in der Fußzeile. */}
+            {hasTipped && !showBoard && !myTip?.evaluated && !isCancelled && (myTip?.stake ?? 0) > 0 && (
               <div className="flex flex-col gap-2">
                 {(myTip?.stake ?? 0) > 0 && (
                   <p className="text-center">
@@ -1270,15 +1222,6 @@ export default function MatchCard({
                       ⚡ Mit Booster getippt
                     </span>
                   </p>
-                )}
-                {canChangeTip && (
-                  <button
-                    onClick={withdrawMyTip}
-                    disabled={withdrawing}
-                    className="w-full rounded-full border border-edge py-2 text-sm font-semibold text-muted transition-colors hover:border-gold hover:text-ink disabled:cursor-wait disabled:opacity-60"
-                  >
-                    {withdrawing ? "Wird zurückgenommen…" : "Tipp ändern"}
-                  </button>
                 )}
               </div>
             )}
@@ -1291,16 +1234,20 @@ export default function MatchCard({
               </div>
             )}
 
+            {/* Joker setzen und Trend-Joker in EINER Leiste kleiner Chips statt
+                drei Kästen untereinander (Rene, 29.10.2026). */}
             {hasTipped && !myTip?.evaluated && !isCancelled && !showBoard && (
-              <JokerRow
-                matchId={match.id}
-                joker={myTip?.joker ?? null}
-                canChange={!tippingClosed}
-                isOneXTwo={isOneXTwo}
-              />
-            )}
-            {hasTipped && !tippingClosed && !isCancelled && !myTip?.evaluated && (
-              <TrendRow matchId={match.id} homeName={homeTeam.name} awayName={awayTeam.name} awayFirst={isUsSport} />
+              <div className="flex flex-wrap justify-center gap-2 empty:hidden">
+                <JokerRow
+                  matchId={match.id}
+                  joker={myTip?.joker ?? null}
+                  canChange={!tippingClosed}
+                  isOneXTwo={isOneXTwo}
+                />
+                {!tippingClosed && (
+                  <TrendRow matchId={match.id} homeName={homeTeam.name} awayName={awayTeam.name} awayFirst={isUsSport} />
+                )}
+              </div>
             )}
 
             {hasTipped && myTip?.evaluated && !myTip.refunded && !isCancelled && (
@@ -1393,28 +1340,19 @@ export default function MatchCard({
               <PeopleIcon className="h-3.5 w-3.5" />0 getippt
             </span>
           )}
-          {/* getippt · Spielverlauf (live, beendet, gewertet) · Kommentieren.
-              Neues Tor: Spielverlauf golden mit pulsierendem Punkt.
-              Spielverlauf-Knopf (Rene, 15.10.2026): 2 px größer als der Rest
-              (14 statt 12 px), Farbe ink statt muted, Pfeil ▾/▴ – ruhig, gold
-              nur beim Puls. Damit die Zeile hält, ist "Kommentieren" neben dem
-              Spielverlauf am Handy und ab lg nur das Sprechblasen-Icon. */}
-          <div className="flex min-w-0 items-center gap-2">
-            {showEventsButton && (
+          {/* getippt · Tipp ändern · Kommentieren. Der Spielverlauf steht seit
+              29.10.2026 nur noch im Matchcenter (Rene: auf der Tippkarte vom
+              Spiel nur der Spielstand). Neben "Tipp ändern" ist "Kommentieren"
+              am Handy und in der PC-3er-Reihe nur das Sprechblasen-Icon. */}
+          <div className="flex min-w-0 items-center gap-3">
+            {canChangeTip && (
               <button
-                onClick={toggleEvents}
-                aria-expanded={eventsOpen}
-                aria-label={`Spielverlauf${timelineCount(events) > 0 ? ` (${timelineCount(events)})` : ""}${eventsPulse ? " – neues Tor" : ""}`}
-                className={`flex shrink-0 items-center gap-1 text-[14px] font-semibold transition-colors ${
-                  eventsPulse ? "text-gold" : "text-ink hover:text-gold"
-                }`}
+                onClick={withdrawMyTip}
+                disabled={withdrawing}
+                className="flex shrink-0 items-center gap-1 text-[13px] font-semibold text-ink transition-colors hover:text-gold disabled:cursor-wait disabled:opacity-60"
               >
-                {eventsPulse && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-gold animate-live-dot" />}
-                <span className={eventsPulse ? "animate-goal-pulse" : ""}>
-                  Spielverlauf
-                  {timelineCount(events) > 0 ? ` (${timelineCount(events)})` : ""}
-                </span>
-                <span aria-hidden className="text-[12px] leading-none">{eventsOpen ? "▴" : "▾"}</span>
+                <span aria-hidden>✎</span>
+                {withdrawing ? "Wird zurückgenommen…" : "Tipp ändern"}
               </button>
             )}
             <button
@@ -1425,19 +1363,13 @@ export default function MatchCard({
             >
               <ChatIcon className="h-3.5 w-3.5 shrink-0" />
               {matchComments.length === 0 ? (
-                <span className={`truncate ${showEventsButton ? "max-sm:hidden lg:hidden" : ""}`}>Kommentieren</span>
+                <span className={`truncate ${canChangeTip ? "max-sm:hidden lg:hidden" : ""}`}>Kommentieren</span>
               ) : (
                 <span className="truncate">{matchComments.length.toLocaleString("de-DE")}</span>
               )}
             </button>
           </div>
         </div>
-
-        {eventsOpen && showEventsButton && events && (
-          <div className="mt-3 border-t border-edge pt-3">
-            <EventTimeline events={events} leftSide={leftSide} glow={timelineGlow} />
-          </div>
-        )}
 
         {tippersOpen && tipCount > 0 && (
           <TippersList
@@ -2178,7 +2110,7 @@ function JokerRow({
 
   if (joker) {
     return (
-      <div className="rounded-lg border border-gold/40 bg-gold/[0.07] px-4 py-2.5">
+      <div className="basis-full rounded-lg border border-gold/40 bg-gold/[0.07] px-4 py-2.5">
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm font-semibold text-ink">{JOKER_ICON[joker]} {TIP_JOKER_LABEL[joker]}</span>
           {canChange && (
@@ -2202,29 +2134,24 @@ function JokerRow({
   );
   if (options.length === 0) return null;
 
+  // Kleine Chips in der Joker-Leiste statt eigenem Kasten (Rene, 29.10.2026:
+  // Tippkarte entschlacken).
   return (
-    <div className="rounded-lg border border-edge bg-pitch/60 px-4 py-2.5">
-      <p className="text-[11px] uppercase tracking-wide text-muted">Joker setzen</p>
-      <div className={`mt-1.5 grid gap-1.5 ${["grid-cols-1", "grid-cols-2", "grid-cols-3"][options.length - 1]}`}>
-        {options.map((j) => (
-          <button
-            key={j}
-            onClick={() => choose(j)}
-            disabled={saving}
-            className="flex flex-col items-center rounded-xl border border-gold/40 bg-gold/[0.07] px-1 py-1.5 text-xs font-semibold text-gold transition-colors hover:border-gold disabled:cursor-wait"
-          >
-            {/* Emoji oben: in einer Zeile wäre es am Handy (360 px) zu breit. */}
-            <span className="text-base leading-tight" aria-hidden>
-              {JOKER_ICON[j]}
-            </span>
-            <span className="whitespace-nowrap">
-              {TIP_JOKER_LABEL[j].replace("-Joker", "")}
-              <span className="ml-0.5 text-muted">×{stock[j]}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-    </div>
+    <>
+      {options.map((j) => (
+        <button
+          key={j}
+          onClick={() => choose(j)}
+          disabled={saving}
+          title={`${TIP_JOKER_LABEL[j]} setzen: ${TIP_JOKER_EFFECT[j]}`}
+          className="flex items-center gap-1 whitespace-nowrap rounded-full border border-gold/40 bg-gold/[0.07] px-3 py-1.5 text-xs font-semibold text-gold transition-colors hover:border-gold disabled:cursor-wait"
+        >
+          <span aria-hidden>{JOKER_ICON[j]}</span>
+          {TIP_JOKER_LABEL[j].replace("-Joker", "")}
+          <span className="text-muted">×{stock[j]}</span>
+        </button>
+      ))}
+    </>
   );
 }
 
@@ -2238,13 +2165,11 @@ function TrendRow({
   homeName,
   awayName,
   awayFirst,
-  className = "",
 }: {
   matchId: string;
   homeName: string;
   awayName: string;
   awayFirst: boolean;
-  className?: string;
 }) {
   const { ready, stock, trendMatches, expertMatches, revealTrend, revealExpert } = useJokers();
   const { showToast } = useFeedback();
@@ -2315,10 +2240,12 @@ function TrendRow({
     }
   }
 
+  // Knöpfe als kleine Chips in der Joker-Leiste (Rene, 29.10.2026:
+  // Tippkarte entschlacken), das Ergebnis in voller Breite darunter.
   return (
-    <div className={`flex flex-col gap-2 ${className}`}>
+    <>
       {shownResult && (
-        <div className={`rounded-lg border bg-pitch/60 px-4 py-2.5 ${expert ? "border-gold/40" : "border-edge"}`}>
+        <div className={`basis-full rounded-lg border bg-pitch/60 px-4 py-2.5 ${expert ? "border-gold/40" : "border-edge"}`}>
           <p className="text-[11px] uppercase tracking-wide text-muted">
             {expert ? "🎓 Experten-Trend" : "📊 Trend der anderen"} ({shownResult.tipps}{" "}
             {shownResult.tipps === 1 ? "Tipp" : "Tipps"})
@@ -2375,27 +2302,23 @@ function TrendRow({
         <button
           onClick={() => reveal("trend")}
           disabled={!!loading || usedTrend}
-          className="flex w-full items-center justify-between gap-3 rounded-lg border border-edge bg-pitch/60 px-4 py-2.5 text-left transition-colors hover:border-gold/40 disabled:cursor-wait"
+          title="Trend-Joker: wie haben die anderen getippt?"
+          className="flex items-center gap-1 whitespace-nowrap rounded-full border border-edge bg-pitch/60 px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-gold/40 disabled:cursor-wait"
         >
-          <span className="whitespace-nowrap text-sm font-semibold text-ink">📊 Trend ansehen</span>
-          <span className="min-w-0 text-right text-xs text-muted">
-            {usedTrend || loading === "trend" ? "Wird geladen…" : `Trend-Joker ×${stock.trend}`}
-          </span>
+          📊 {usedTrend || loading === "trend" ? "Wird geladen…" : <>Trend <span className="text-muted">×{stock.trend}</span></>}
         </button>
       )}
       {showExpertButton && (
         <button
           onClick={() => reveal("experte")}
           disabled={!!loading || usedExpert}
-          className="flex w-full items-center justify-between gap-3 rounded-lg border border-gold/40 bg-pitch/60 px-4 py-2.5 text-left transition-colors hover:border-gold/70 disabled:cursor-wait"
+          title="Experten-Joker: was tippen die Besten?"
+          className="flex items-center gap-1 whitespace-nowrap rounded-full border border-gold/40 bg-gold/[0.07] px-3 py-1.5 text-xs font-semibold text-gold transition-colors hover:border-gold disabled:cursor-wait"
         >
-          <span className="min-w-0 text-sm font-semibold text-ink">🎓 Experten-Trend ansehen</span>
-          <span className="shrink-0 text-right text-xs text-muted">
-            {usedExpert || loading === "experte" ? "Wird geladen…" : `Experten-Joker ×${stock.experte}`}
-          </span>
+          🎓 {usedExpert || loading === "experte" ? "Wird geladen…" : <>Experten-Trend <span className="text-muted">×{stock.experte}</span></>}
         </button>
       )}
-    </div>
+    </>
   );
 }
 
