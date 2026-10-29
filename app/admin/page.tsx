@@ -35,6 +35,7 @@ import { SportBioAdmin } from "@/components/SportBioAdmin";
 import { ApiTeamNamesAdmin } from "@/components/ApiTeamNamesAdmin";
 import { ApiFixturePicker, type ApiFixturePick } from "@/components/ApiFixturePicker";
 import { GuestTeamButton } from "@/components/GuestTeamButton";
+import { StadiumFillAll, TeamStadiumRow } from "@/components/TeamStadiumAdmin";
 import { appTeamForApiName, findApiNameLink } from "@/lib/teamApiNames";
 import Emoji from "@/components/Emoji";
 import { peekLiveDays, peekLiveSportDiagnostics, refreshLiveDays, useLiveStoreVersion } from "@/lib/useLiveScores";
@@ -1627,6 +1628,7 @@ function TeamManager() {
     e.preventDefault();
     if (!name.trim()) return;
     if (teamSave.state === "saving") return;
+    const editingStadium = editingId ? teams.find((t) => t.id === editingId)?.stadium : undefined;
     if (duplicate) {
       showToast(`„${duplicate.name}“ gibt es bei ${sportLabel(duplicate.sport)}${duplicate.countryCode ? ` in ${countryName(duplicate.countryCode)}` : ""} schon.`, "info");
       return;
@@ -1654,6 +1656,9 @@ function TeamManager() {
       isNationalTeam,
       // Untergruppe nur speichern, wenn eine eigene gewählt ist.
       ...(groupValue && hasTeamGroups(sport) ? { group: canonicalGroupLabel(groupValue) } : {}),
+      // Stadion wird in der Team-Liste geändert (TeamStadiumAdmin), hier nur
+      // mitnehmen, damit es beim Speichern nicht verloren geht.
+      ...(editingStadium ? { stadium: editingStadium } : {}),
     };
     if (editingId) {
       if (!confirm(`Änderungen an "${name.trim()}" speichern?`)) return;
@@ -2120,6 +2125,8 @@ function TeamManager() {
         })}
       </div>
 
+      <StadiumFillAll sport={teamListTab} teams={teams} links={apiNameLinks} updateTeam={updateTeam} />
+
       {showListGroups && (
         <div className="mb-4">
           <TeamGroupChips
@@ -2153,55 +2160,62 @@ function TeamManager() {
                 </p>
               )}
               {g.teams.map((team) => (
-                <div
-                  key={team.id}
-                  className="flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4"
-                >
-                  <span className="flex min-w-0 items-center gap-3">
-                    <TeamBadge
-                      sport={team.sport}
-                      {...teamColorProps(team)}
-                      jerseyStyle={team.jerseyStyle}
-                      isNationalTeam={team.isNationalTeam}
-                      countryCode={team.countryCode}
-                      size={40}
-                    />
-                    <span className="min-w-0">
-                      <span className="block text-sm font-semibold leading-tight text-ink">
-                        {!team.isNationalTeam && <Emoji e={flagEmoji(team.countryCode)} />} {team.name}
-                      </span>
-                      <span className="text-xs text-muted">
-                        {sportLabel(team.sport)}
-                        {team.isNationalTeam ? " · Nationalmannschaft" : ""}
+                <div key={team.id} className="flex flex-col gap-2 rounded-card border border-edge bg-surface p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex min-w-0 items-center gap-3">
+                      <TeamBadge
+                        sport={team.sport}
+                        {...teamColorProps(team)}
+                        jerseyStyle={team.jerseyStyle}
+                        isNationalTeam={team.isNationalTeam}
+                        countryCode={team.countryCode}
+                        size={40}
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold leading-tight text-ink">
+                          {!team.isNationalTeam && <Emoji e={flagEmoji(team.countryCode)} />} {team.name}
+                        </span>
+                        <span className="text-xs text-muted">
+                          {sportLabel(team.sport)}
+                          {team.isNationalTeam ? " · Nationalmannschaft" : ""}
+                        </span>
                       </span>
                     </span>
-                  </span>
-                  <span className="flex shrink-0 flex-col items-end gap-1">
-                    <button
-                      onClick={() => startEdit(team)}
-                      className="rounded-lg px-2 py-1 text-xs font-semibold text-gold transition-colors hover:text-ink"
-                    >
-                      Bearbeiten
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm(`Team "${team.name}" wirklich entfernen?`)) {
-                          if (editingId === team.id) resetForm();
-                          void removeTeam(team.id).then((result) => {
-                            if (result.ok) {
-                              setTeamSave({ state: "saved", text: `✓ Team „${team.name}“ entfernt.` });
-                              showToast(`✓ Team "${team.name}" entfernt.`, "info");
-                            } else {
-                              reportTeamFailure(result.error);
-                            }
-                          });
-                        }
-                      }}
-                      className="rounded-lg px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-red-400"
-                    >
-                      Entfernen
-                    </button>
-                  </span>
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      <button
+                        onClick={() => startEdit(team)}
+                        className="rounded-lg px-2 py-1 text-xs font-semibold text-gold transition-colors hover:text-ink"
+                      >
+                        Bearbeiten
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Team "${team.name}" wirklich entfernen?`)) {
+                            if (editingId === team.id) resetForm();
+                            void removeTeam(team.id).then((result) => {
+                              if (result.ok) {
+                                setTeamSave({ state: "saved", text: `✓ Team „${team.name}“ entfernt.` });
+                                showToast(`✓ Team "${team.name}" entfernt.`, "info");
+                              } else {
+                                reportTeamFailure(result.error);
+                              }
+                            });
+                          }
+                        }}
+                        className="rounded-lg px-2 py-1 text-xs font-semibold text-muted transition-colors hover:text-red-400"
+                      >
+                        Entfernen
+                      </button>
+                    </span>
+                  </div>
+                  {!team.isNationalTeam && (
+                    <TeamStadiumRow
+                      team={team}
+                      links={apiNameLinks}
+                      updateTeam={updateTeam}
+                      onSaved={(text) => showToast(text, "success")}
+                    />
+                  )}
                 </div>
               ))}
             </div>

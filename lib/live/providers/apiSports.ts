@@ -1080,3 +1080,65 @@ export async function footballVenue(id: number): Promise<VenueResult> {
     expiresAt: res.hit.expiresAt,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Heimstadion eines Vereins (Rene, 29.10.2026: "bau mir bei jedem verein einen
+// reiter wo ich das stadion ändern kann aber füll alles mit den namen von der
+// api aus"). Fußball über teams?search=…, American Football über die
+// Team-Suche (Feld "stadium"). Eine Abfrage je Suchwort, eine Woche gemerkt.
+// Basketball und Eishockey kennen bei API-Sports kein Heimstadion – dafür
+// sucht app/api/team-stadium in den Spielen der nächsten Tage.
+
+export interface StadiumCandidate {
+  apiTeam: string;
+  country: string | null;
+  national: boolean;
+  name: string;
+  capacity: number | null;
+  venueId: number | null;
+}
+
+export type StadiumSearchResult =
+  | { ok: true; candidates: StadiumCandidate[] }
+  | { ok: false; error: string };
+
+const TEAM_SEARCH_URL: Partial<Record<Sport, string>> = {
+  "Fußball": "https://v3.football.api-sports.io/teams",
+  NFL: "https://v1.american-football.api-sports.io/teams",
+};
+
+export function hasStadiumSearch(sport: Sport): boolean {
+  return !!TEAM_SEARCH_URL[sport];
+}
+
+export async function searchTeamStadiums(sport: Sport, term: string): Promise<StadiumSearchResult> {
+  const url = TEAM_SEARCH_URL[sport];
+  if (!url) return { ok: true, candidates: [] };
+  const key = process.env.API_SPORTS_KEY;
+  if (!key) return { ok: false, error: "Kein API_SPORTS_KEY gesetzt" };
+  const res = await load(`${url}?search=${encodeURIComponent(term)}`, key, VENUE_TTL);
+  if (!res.ok) return { ok: false, error: res.error };
+  const candidates = res.hit.value
+    .map((row: Raw): StadiumCandidate | null => {
+      // Fußball: { team, venue }, American Football: das Team selbst.
+      const t = sport === "Fußball" ? row?.team : row;
+      const apiTeam = typeof t?.name === "string" ? t.name.trim() : "";
+      const v = sport === "Fußball" ? row?.venue : null;
+      const rawName = sport === "Fußball" ? v?.name : typeof t?.stadium === "string" ? t.stadium : t?.stadium?.name;
+      const name = typeof rawName === "string" ? rawName.trim() : "";
+      if (!apiTeam || !name) return null;
+      const capacity = toNumber(v?.capacity);
+      const venueId = toNumber(v?.id);
+      const country = typeof t?.country === "string" ? t.country : typeof t?.country?.name === "string" ? t.country.name : null;
+      return {
+        apiTeam,
+        country,
+        national: t?.national === true,
+        name,
+        capacity: capacity !== null && capacity > 0 ? capacity : null,
+        venueId: venueId !== null && venueId > 0 ? venueId : null,
+      };
+    })
+    .filter((c): c is StadiumCandidate => c !== null);
+  return { ok: true, candidates };
+}

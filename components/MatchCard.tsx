@@ -358,7 +358,7 @@ export default function MatchCard({
   // noch kein Endstand steht und nicht mehr getippt wird. Reine Anzeige, die
   // Wertung bleibt beim offiziellen Endstand (Rene, 15.10.2026).
   const liveScore = useLiveScore(match, homeTeam.name, awayTeam.name);
-  const venue = useMatchVenue(match, homeTeam.name, awayTeam.name);
+  const venue = useMatchVenue(match, homeTeam, awayTeam);
   const live = !finalScore && !isCancelled && showResultView ? liveScore : null;
   // Anzeigetafel (Rene, 15.10.2026: Spieltag-Umbau): sobald Live-Daten da
   // sind (Live, Pause, nach Abpfiff "Beendet") und ebenso mit offiziellem
