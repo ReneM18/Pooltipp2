@@ -1542,6 +1542,34 @@ function LcDetail({
   const preview = useMatchPreview(hasInfo && tab === "statistik" ? game.id : null);
   const swapped = !!link?.result.swapped;
   const firstApiName = (leftSide === "home") !== swapped ? game.home : game.away;
+  // Startzeit, Sender und Stadion mit Kapazität über der Anzeigetafel (Rene,
+  // 29.10.2026: "ober dem ganz schwarzen ... die startzeit den sender und
+  // stadion"). Lange Namen brechen um, nichts wird abgeschnitten.
+  const kickoffDay = sportDay(game.kickoff);
+  const startText = `${kickoffDay === sportDay(Date.now()) ? "" : `${dayLabel(kickoffDay)} · `}${viennaTime(game.kickoff)} Uhr`;
+  const infoRow = (
+    <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[13px] text-muted">
+      {matchday && <span>Spieltag {matchday}</span>}
+      {matchday && <span aria-hidden>·</span>}
+      <span className="whitespace-nowrap">
+        {game.status === "NS" ? "Anstoß " : "Start "}
+        {startText}
+      </span>
+      {tv && (
+        <span className="flex items-center gap-1.5 rounded-full border border-edge bg-pitch py-0.5 pl-2 pr-2.5 font-semibold text-ink">
+          <TvIcon className="h-4 w-4 shrink-0 text-ink" />
+          {tv}
+        </span>
+      )}
+      {venue && (
+        <span className="min-w-0 break-words">
+          <StadiumIcon className="mr-1.5 inline-block h-[22px] w-[22px] -translate-y-px align-middle" />
+          {venue.name}
+          {venue.capacity !== null && <span className="whitespace-nowrap"> · {venue.capacity.toLocaleString("de-DE")} Plätze</span>}
+        </span>
+      )}
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-4 rounded-card border border-muted/40 bg-surface shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] p-3 sm:p-4">
@@ -1561,6 +1589,8 @@ function LcDetail({
         )}
       </div>
 
+      {infoRow}
+
       {liveLike && homeScore !== null && awayScore !== null ? (
         <Scoreboard
           left={side(leftSide)}
@@ -1574,31 +1604,8 @@ function LcDetail({
           <p className="font-display text-sm font-semibold text-ink">
             {leftKick} – {rightKick}
           </p>
-          <p className="mt-1 text-xs text-muted">
-            {game.status === "NS" ? `Anstoß ${viennaTime(game.kickoff)} Uhr` : OTHER_STATUS[game.statusShort.toUpperCase()] ?? "—"}
-          </p>
-        </div>
-      )}
-
-      {/* Sender und Stadion mit Kapazität wie auf der Tippkarte (Rene,
-          29.10.2026: "stadion und kapazität muss auch zu spiele"). Lange
-          Namen brechen um, nichts wird abgeschnitten. */}
-      {(matchday || tv || venue) && (
-        <div className="-mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[13px] text-muted">
-          {matchday && <span>Spieltag {matchday}</span>}
-          {tv && (
-            <span className="flex items-center gap-1.5 rounded-full border border-edge bg-pitch py-0.5 pl-2 pr-2.5 font-semibold text-ink">
-              <TvIcon className="h-4 w-4 shrink-0 text-ink" />
-              {tv}
-            </span>
-          )}
-          {venue && (
-            <span className="min-w-0 break-words">
-              <StadiumIcon className="mr-1.5 inline-block h-[22px] w-[22px] -translate-y-px align-middle" />
-              {venue.name}
-              {venue.capacity !== null && <span className="whitespace-nowrap"> · {venue.capacity.toLocaleString("de-DE")} Plätze</span>}
-            </span>
-          )}
+          {/* Die Anstoßzeit steht schon darüber. */}
+          {game.status !== "NS" && <p className="mt-1 text-xs text-muted">{OTHER_STATUS[game.statusShort.toUpperCase()] ?? "—"}</p>}
         </div>
       )}
 
