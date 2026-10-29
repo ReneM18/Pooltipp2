@@ -7,6 +7,7 @@ import FitText from "@/components/FitText";
 import { TvIcon } from "@/components/Icons";
 import {
   appSideEvents,
+  appSideShootout,
   appSidePenalties,
   findLiveGame,
   isLiveFinished,
@@ -40,6 +41,7 @@ import { CommunityTrend } from "@/components/MatchCard";
 import { useBeginnerShieldLeft } from "@/components/BeginnerShieldHint";
 import {
   EventTimeline,
+  ShootoutList,
   LivePill,
   LiveTipLine,
   Scoreboard,
@@ -1449,12 +1451,13 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const scoreTone = (wins: boolean) => (done && !wins ? "text-muted" : "");
   // Laufend (Rene, 27.10.2026): Spielstand rot.
   const scoreColor = hasScore ? (running ? "text-red-500" : "text-ink") : "text-muted";
-  // n. V. / i. E. 5:4 / n. P. steht am Handy direkt neben dem Ergebnis statt
-  // abgeschnitten in der schmalen Status-Spalte (Rene, 29.10.2026: "du hast
-  // so viel platz in der zeile"). Am PC bleibt es unter "Endstand".
+  // n. V. / i. E. 5:4 / n. P. steht direkt beim Ergebnis statt abgeschnitten
+  // in der schmalen Status-Spalte (Rene, 29.10.2026: "du hast so viel platz
+  // in der zeile"; am PC war es mit Sender als "Endstand i…" abgeschnitten):
+  // am Handy neben den Toren, am PC unter der Ergebnis-Box.
   const endNote = done && !(open && link) ? sub : null;
   const [endNoteMain, endNoteScore] = endNote ? splitEndNote(endNote) : [null, null];
-  const subClass = endNote ? "hidden lg:inline" : "";
+  const statusSub = endNote ? null : sub;
 
   return (
     <button
@@ -1484,14 +1487,14 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
         <span className="flex w-[4.75rem] min-w-0 flex-col gap-0.5 overflow-hidden tabular-nums">
           <span className={`flex min-w-0 items-center gap-1 text-[13px] font-semibold leading-tight ${status.muted ? "text-muted" : "text-ink"}`}>
             {status.dot && <StateDot state={status.dot} />}
-            <span className={`min-w-0 ${sub && tv ? "shrink-0" : "truncate"}`}>{status.main}</span>
+            <span className={`min-w-0 ${statusSub && tv ? "shrink-0" : "truncate"}`}>{status.main}</span>
             {/* Mit Sender darunter steht der Zusatz in derselben Zeile
                 ("Verl. 122'"), damit jede Zeile höchstens zwei Zeilen hoch
                 ist (Rene, 27.10.2026: "die Spalte ist höher"). */}
-            {sub && tv && <span className={`min-w-0 truncate text-[10px] font-normal text-muted ${subClass}`}>{sub}</span>}
+            {statusSub && tv && <span className="min-w-0 truncate text-[10px] font-normal text-muted">{statusSub}</span>}
           </span>
           {/* "heute" steht schon im Reiter, nur "morgen"/"gestern" zeigen (Rene, 27.10.2026: flachere Zeilen). */}
-          {sub && !tv && <span className={`truncate text-[10px] leading-tight text-muted ${endNote ? "hidden lg:block" : ""}`}>{sub}</span>}
+          {statusSub && !tv && <span className="truncate text-[10px] leading-tight text-muted">{statusSub}</span>}
           {/* Sender unter der Uhrzeit (Rene, 28.10.2026), rechts stehen
               "Tippen" und der Countdown. */}
           {tv && (
@@ -1548,14 +1551,17 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             dreistellige Spielstände (NBA, z. B. 125:124) hineinpassen. */}
         <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_6.5rem] items-center gap-x-4 lg:grid">
           <FitText text={firstName} maxLines={2} minPx={12} className={`text-right text-[15px] leading-tight ${nameTone(firstWins)}`} />
-          <span
-            className={`flex items-center justify-center rounded-md border border-edge bg-pitch px-2 py-1 font-display text-lg font-bold leading-none tabular-nums transition-colors duration-700 ${
-              flash ? "border-gold/50 bg-gold/15 text-gold" : scoreColor
-            }`}
-          >
-            <span className={`min-w-6 whitespace-nowrap text-center ${scoreTone(firstWins)}`}>{hasScore ? firstScore : "–"}</span>
-            <span className="px-0.5 text-muted">:</span>
-            <span className={`min-w-6 whitespace-nowrap text-center ${scoreTone(secondWins)}`}>{hasScore ? secondScore : "–"}</span>
+          <span className="flex flex-col items-center gap-0.5">
+            <span
+              className={`flex items-center justify-center rounded-md border border-edge bg-pitch px-2 py-1 font-display text-lg font-bold leading-none tabular-nums transition-colors duration-700 ${
+                flash ? "border-gold/50 bg-gold/15 text-gold" : scoreColor
+              }`}
+            >
+              <span className={`min-w-6 whitespace-nowrap text-center ${scoreTone(firstWins)}`}>{hasScore ? firstScore : "–"}</span>
+              <span className="px-0.5 text-muted">:</span>
+              <span className={`min-w-6 whitespace-nowrap text-center ${scoreTone(secondWins)}`}>{hasScore ? secondScore : "–"}</span>
+            </span>
+            {endNote && <span className="whitespace-nowrap text-[12px] font-semibold leading-none text-muted">{endNote}</span>}
           </span>
           <FitText text={secondName} maxLines={2} minPx={12} className={`text-[15px] leading-tight ${nameTone(secondWins)}`} />
           <span className="flex min-w-0 flex-col items-end">
@@ -1739,6 +1745,10 @@ function LcDetail({
   const homeScore = link ? link.result.homeScore : game.homeScore;
   const awayScore = link ? link.result.awayScore : game.awayScore;
   const events = link ? appSideEvents(link.result) : game.events ?? [];
+  const shootout = link ? appSideShootout(link.result) : game.shootout ?? [];
+  const pens = link ? appSidePenalties(link.result) : game;
+  const shootoutResult =
+    pens.penaltyHome !== undefined && pens.penaltyAway !== undefined ? { home: pens.penaltyHome, away: pens.penaltyAway } : null;
   const leftSide: "home" | "away" = awayFirst ? "away" : "home";
   const rightSide: "home" | "away" = awayFirst ? "home" : "away";
   // Ohne Tippspiel das eigene Team zum API-Namen, beide im Heimtrikot. Hat
@@ -1929,6 +1939,12 @@ function LcDetail({
               {/* Immer sichtbar, daher kein Pulsknopf: neues Tor erkennt der
                   Spielverlauf selbst und hinterlegt es ~3 s golden (Rene, 15.10.2026). */}
               <EventTimeline events={events} leftSide={leftSide} />
+            </div>
+          )}
+          {liveLike && shootout.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Elfmeterschießen</p>
+              <ShootoutList kicks={shootout} leftSide={leftSide} result={shootoutResult} />
             </div>
           )}
 

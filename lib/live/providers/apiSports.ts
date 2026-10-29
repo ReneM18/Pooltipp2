@@ -16,6 +16,7 @@ import type {
   LiveQuota,
   LiveSource,
   LiveStatus,
+  ShootoutKick,
 } from "../types";
 
 // Anbieter API-Sports (api-sports.io) (Rene, 15.10.2026; seit 16.10.2026 als
@@ -251,13 +252,13 @@ function load(url: string, key: string, ttlSeconds: number) {
 // Einträge älter als 2 Tage fliegen raus.
 const MAX_CACHED_EVENTS = 300;
 const EVENTS_KEEP_MS = 2 * 24 * 60 * 60 * 1000;
-const LAST_EVENTS = new Map<string, { events: LiveEvent[]; at: number }>();
+const LAST_EVENTS = new Map<string, { events: LiveEvent[]; shootout?: ShootoutKick[]; at: number }>();
 
 function rememberEvents(games: LiveGame[], at: number) {
   for (const g of games) {
     if (!g.events || g.events.length === 0) continue;
     LAST_EVENTS.delete(g.id);
-    LAST_EVENTS.set(g.id, { events: g.events, at });
+    LAST_EVENTS.set(g.id, { events: g.events, ...(g.shootout ? { shootout: g.shootout } : {}), at });
   }
   const now = Date.now();
   for (const [id, entry] of LAST_EVENTS) {
@@ -276,11 +277,16 @@ const FINISHED_IDS_MAX = 20;
 // Höchstens 5 Abfragen (100 Spiele) je Aufruf, der Rest beim nächsten.
 const FINISHED_CHUNKS_MAX = 5;
 const FINISHED_EVENTS_TTL = 24 * 3600;
-const FINISHED_EVENTS = new Map<string, { events: LiveEvent[]; at: number }>();
+const FINISHED_EVENTS = new Map<string, { events: LiveEvent[]; shootout?: ShootoutKick[]; at: number }>();
+
+// Fehlen Ereignisse, oder beim Elfmeterschießen die Schützen?
+function needsEvents(g: LiveGame): boolean {
+  return !g.events || g.events.length === 0 || (g.status === "PEN" && g.penaltyHome !== undefined && !g.shootout);
+}
 
 async function fillFinishedEvents(games: LiveGame[], key: string) {
   const missing = games.filter(
-    (g) => isLiveFinished(g.status) && (!g.events || g.events.length === 0) && /^\d+$/.test(g.id),
+    (g) => isLiveFinished(g.status) && needsEvents(g) && /^\d+$/.test(g.id),
   );
   const ask = missing.map((g) => g.id).filter((id) => !FINISHED_EVENTS.has(id)).sort((a, b) => Number(a) - Number(b));
   const chunks: string[][] = [];
@@ -297,14 +303,20 @@ async function fillFinishedEvents(games: LiveGame[], key: string) {
       // Ohne Ereignisse beim Anbieter (kleine Ligen) leer merken.
       const full = byId.has(id) ? normalize("Fußball", byId.get(id)) : null;
       if (!full || !isLiveFinished(full.status)) continue;
-      FINISHED_EVENTS.set(id, { events: full.events ?? [], at: now });
+      FINISHED_EVENTS.set(id, { events: full.events ?? [], ...(full.shootout ? { shootout: full.shootout } : {}), at: now });
     }
   });
   for (let i = 0; i < games.length; i++) {
     const g = games[i];
-    if (g.events && g.events.length > 0) continue;
+    if (!needsEvents(g)) continue;
     const found = FINISHED_EVENTS.get(g.id);
-    if (found && found.events.length > 0) games[i] = { ...g, events: found.events };
+    if (!found) continue;
+    // Nach Abpfiff geladen = vollständig, daher vor dem Live-Stand.
+    games[i] = {
+      ...g,
+      ...(found.events.length > 0 ? { events: found.events } : {}),
+      ...(found.shootout ? { shootout: found.shootout } : {}),
+    };
   }
   // Erst nach dem Übernehmen aufräumen, sonst fehlen gerade geladene Spiele.
   for (const [id, entry] of FINISHED_EVENTS) {
@@ -429,7 +441,7 @@ async function football(date: string, league: string | null, key: string): Promi
   for (let i = 0; i < games.length; i++) {
     if (games[i].events && games[i].events!.length > 0) continue;
     const cached = LAST_EVENTS.get(games[i].id);
-    games[i] = { ...games[i], events: cached ? cached.events : [] };
+    games[i] = { ...games[i], events: cached ? cached.events : [], ...(cached?.shootout ? { shootout: cached.shootout } : {}) };
   }
   await fillFinishedEvents(games, key);
   rememberDay(sport, date, league, games, fetchedAt);
@@ -649,13 +661,49 @@ function normalize(sport: Sport, g: Raw): LiveGame | null {
     league: [g?.league?.name, rawCountry(g)].filter((x) => typeof x === "string" && x).join(" · "),
     ...(isFootball && typeof g?.league?.round === "string" ? { round: g.league.round } : {}),
     ...(isFootball && Array.isArray(g?.events) ? { events: normalizeEvents(g, homeScore, awayScore) } : {}),
+    ...(isFootball && Array.isArray(g?.events) && penaltyHome !== null ? shootoutOf(g) : {}),
   };
+}
+
+// Schüsse im Elfmeterschießen (Rene, 29.10.2026: "die elferschützen"):
+// API-Football liefert sie als Goal-Ereignisse mit comments "Penalty
+// Shootout", detail "Penalty" (Treffer) bzw. "Missed Penalty".
+function isShootoutEvent(e: Raw): boolean {
+  return String(e?.comments ?? "").toLowerCase().includes("shootout");
+}
+
+function shootoutOf(g: Raw): { shootout?: ShootoutKick[] } {
+  const homeId = g?.teams?.home?.id;
+  const awayId = g?.teams?.away?.id;
+  const homeName = g?.teams?.home?.name;
+  const kicks: ShootoutKick[] = [];
+  for (const e of g.events as Raw[]) {
+    if (!isShootoutEvent(e) || String(e?.type ?? "").toLowerCase() !== "goal") continue;
+    const side = eventTeam(e, homeId, awayId, homeName);
+    if (!side) continue;
+    kicks.push({
+      side,
+      player: typeof e?.player?.name === "string" && e.player.name ? e.player.name : null,
+      scored: !String(e?.detail ?? "").toLowerCase().includes("missed"),
+    });
+  }
+  return kicks.length > 0 ? { shootout: kicks } : {};
 }
 
 // Ereignisse von API-Football vereinheitlichen (Rene, 15.10.2026:
 // Spieltag-Umbau). type "Goal" (detail "Normal Goal"/"Own Goal"/"Penalty"/
 // "Missed Penalty"), "Card" ("Yellow Card"/"Red Card"/"Second Yellow card"),
 // "subst"; alles andere (z. B. "Var") fällt weg.
+// Team des Spielers bei einem Ereignis, null = nicht zuzuordnen.
+function eventTeam(e: Raw, homeId: unknown, awayId: unknown, homeName: unknown): "home" | "away" | null {
+  const teamId = e?.team?.id;
+  if (teamId != null && teamId === homeId) return "home";
+  if (teamId != null && teamId === awayId) return "away";
+  if (typeof e?.team?.name === "string" && e.team.name === homeName) return "home";
+  if (typeof e?.team?.name === "string") return "away";
+  return null;
+}
+
 function normalizeEvents(g: Raw, homeScore: number | null, awayScore: number | null): LiveEvent[] {
   const homeId = g?.teams?.home?.id;
   const awayId = g?.teams?.away?.id;
@@ -666,14 +714,8 @@ function normalizeEvents(g: Raw, homeScore: number | null, awayScore: number | n
     if (minute === null) continue;
     // Elfmeterschießen ist kein Tor im Spiel (sonst "120' Tor" für jeden
     // Schützen, 29.10.2026). Das Ergebnis steht als "i. E. 5:4" da.
-    if (String(e?.comments ?? "").toLowerCase().includes("shootout")) continue;
-    const teamId = e?.team?.id;
-    const ownTeam: "home" | "away" | null =
-      teamId != null && teamId === homeId ? "home"
-      : teamId != null && teamId === awayId ? "away"
-      : typeof e?.team?.name === "string" && e.team.name === homeName ? "home"
-      : typeof e?.team?.name === "string" ? "away"
-      : null;
+    if (isShootoutEvent(e)) continue;
+    const ownTeam = eventTeam(e, homeId, awayId, homeName);
     if (!ownTeam) continue;
     const kind = String(e?.type ?? "").toLowerCase();
     const detail = String(e?.detail ?? "").toLowerCase();

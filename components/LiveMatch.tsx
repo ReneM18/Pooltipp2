@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Sport } from "@/lib/types";
 import { livePointsText } from "@/lib/liveTipText";
 import { eventMinuteText, isGoalEvent, shortPlayerName, type LiveEvent, type LiveStatus } from "@/lib/liveScores";
+import type { ShootoutKick } from "@/lib/live/types";
 import { useLiveClock } from "@/lib/useLiveMinute";
 import type { LiveForecast } from "@/lib/liveForecast";
 import FitText from "@/components/FitText";
@@ -341,6 +342,57 @@ export function EventTimeline({
               {e.assist && (e.type === "goal" || e.type === "penalty") && (
                 <span className="block text-[12px] leading-tight text-muted">Vorlage {shortPlayerName(e.assist)}</span>
               )}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+// Elfmeterschießen (Rene, 29.10.2026: "die elferschützen"): jeder Schuss in
+// seiner Reihenfolge, Schütze auf der Seite seines Teams wie im
+// Spielverlauf, ⚽ = getroffen, ✕ = verschossen/gehalten, davor der Stand
+// nach dem Schuss (links : rechts wie auf der Tafel).
+// Passt die Summe nicht zum Ergebnis (fehlende Schüsse beim Anbieter), steht
+// statt des Zwischenstands nur die Nummer des Schusses.
+export function ShootoutList({
+  kicks,
+  leftSide,
+  result,
+}: {
+  kicks: ShootoutKick[];
+  leftSide: "home" | "away";
+  result?: { home: number; away: number } | null;
+}) {
+  const scoredBy = (side: "home" | "away") => kicks.filter((k) => k.scored && k.side === side).length;
+  const tally = !result || (scoredBy("home") === result.home && scoredBy("away") === result.away);
+  let left = 0;
+  let right = 0;
+  return (
+    <ul className="flex flex-col gap-1.5">
+      {kicks.map((k, i) => {
+        const isLeft = k.side === leftSide;
+        if (k.scored) {
+          if (isLeft) left++;
+          else right++;
+        }
+        return (
+          <li key={i} className={`flex items-center gap-2 text-[14px] ${isLeft ? "flex-row text-left" : "flex-row-reverse text-right"}`}>
+            <span className="w-10 shrink-0 tabular-nums text-muted" style={{ textAlign: isLeft ? "left" : "right" }}>
+              {tally ? `${left}:${right}` : `${i + 1}.`}
+            </span>
+            <span className="flex h-5 w-4 shrink-0 items-center justify-center">
+              {k.scored ? (
+                <span aria-label="Getroffen">⚽</span>
+              ) : (
+                <span aria-label="Verschossen" className="font-bold text-red-500">
+                  ✕
+                </span>
+              )}
+            </span>
+            <span className={`min-w-0 ${k.scored ? "text-ink" : "text-muted line-through decoration-muted/60"}`}>
+              {shortPlayerName(k.player) || "Schütze"}
             </span>
           </li>
         );
