@@ -6,7 +6,7 @@ import { sportLabel } from "@/lib/types";
 import type { ApiNameLink } from "@/lib/teamApiNames";
 import { canLookupStadium, type StadiumLookup } from "@/lib/teamStadium";
 import type { SaveResult } from "@/lib/AppDataContext";
-import Emoji from "@/components/Emoji";
+import { StadiumIcon } from "@/components/Icons";
 
 // Stadion je Verein im Admin unter Teams (Rene, 29.10.2026: "bau mir bei jedem
 // verein einen reiter wo ich das stadion ändern kann aber füll alles mit den
@@ -88,7 +88,7 @@ export function StadiumFillAll({
   if (!canLookupStadium(sport)) {
     return (
       <p className="mb-4 rounded-card border border-edge bg-surface px-4 py-3 text-sm text-muted">
-        <Emoji e="🏟️" /> Für {sportLabel(sport)} kennt die API keine Hallen. Trag sie bei den Vereinen unten unter „Stadion“ von Hand ein.
+        <StadiumIcon className="mr-1 inline-block h-5 w-5 align-middle" /> Für {sportLabel(sport)} kennt die API keine Hallen. Trag sie bei den Vereinen unten unter „Stadion“ von Hand ein.
       </p>
     );
   }
@@ -125,7 +125,7 @@ export function StadiumFillAll({
     <div className="mb-4 rounded-card border border-edge bg-surface px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="min-w-0 text-sm text-muted">
-          <Emoji e="🏟️" /> <span className="font-semibold text-ink">Stadien</span> · {withName} von {clubs.length} Vereinen eingetragen
+          <StadiumIcon className="mr-1 inline-block h-5 w-5 align-middle" /> <span className="font-semibold text-ink">Stadien</span> · {withName} von {clubs.length} Vereinen eingetragen
         </p>
         <button
           type="button"
@@ -232,7 +232,7 @@ export function TeamStadiumRow({
     return (
       <div className="flex items-center justify-between gap-2 border-t border-edge pt-2">
         <span className="min-w-0 break-words text-xs text-muted">
-          <Emoji e="🏟️" />{" "}
+          <StadiumIcon className="mr-0.5 inline-block h-[18px] w-[18px] align-middle" />{" "}
           {stadium?.name.trim() ? (
             <>
               <span className="text-ink">{stadium.name}</span>

@@ -131,3 +131,38 @@ export function TrashIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+// Stadion (Rene, 29.10.2026: buntes Stadion wie auf seinem Beispielbild statt
+// des 🏟️-Emojis). Eigene Zeichnung, feste Farben, auf dunklem Grund lesbar.
+export function StadiumIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      stroke="#16181c"
+      strokeWidth={2.6}
+      strokeLinejoin="round"
+      strokeLinecap="round"
+      aria-hidden
+      className={className}
+    >
+      <path d="M18 15V3.5M32 15V3.5M46 15V3.5" fill="none" stroke="#c9ccd3" strokeWidth={2.4} />
+      <path
+        d="M19 3.5h7.5l-2.2 2.6 2.2 2.6H19zM33 3.5h7.5l-2.2 2.6 2.2 2.6H33zM47 3.5h7.5l-2.2 2.6 2.2 2.6H47z"
+        fill="#ef4351"
+        strokeWidth={1.6}
+      />
+      <path d="M3.5 29c0-8.5 6.5-15 15-15h27c8.5 0 15 6.5 15 15v15c0 8-6.5 14.5-15 14.5h-27c-8.5 0-15-6.5-15-14.5z" fill="#eceef1" />
+      <path d="M4 46.5h56M7.5 52.5h49" fill="none" strokeWidth={2.2} />
+      <path d="M3.5 29c0-8.5 6.5-15 15-15h27c8.5 0 15 6.5 15 15s-6.5 13-15 13h-27c-8.5 0-15-4.5-15-13z" fill="#5f646c" />
+      <path
+        d="M25 14v5.5M39 14v5.5M25 36.5V42M39 36.5V42M7 21l5 3.5M57 21l-5 3.5M7 37.5l5-3M57 37.5l-5-3"
+        fill="none"
+        strokeWidth={2.2}
+      />
+      <path d="M11 28.5c0-5.2 3.8-8.5 9-8.5h24c5.2 0 9 3.3 9 8.5s-3.8 8.5-9 8.5H20c-5.2 0-9-3.3-9-8.5z" fill="#f2f3f5" />
+      <path d="M15.5 30c0-2 1.5-3.5 3.5-3.5h26c2 0 3.5 1.5 3.5 3.5s-1.5 3-3.5 3H19c-2 0-3.5-1-3.5-3z" fill="#86d04a" />
+      <path d="M24.5 58.5V47.5h15v11" fill="#ffffff" />
+      <path d="M28.5 58.5v-6.5h7v6.5" fill="#5f646c" strokeWidth={2.2} />
+    </svg>
+  );
+}
