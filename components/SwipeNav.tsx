@@ -22,6 +22,9 @@ const EDGE = 24;
 
 let pendingDir: "next" | "prev" | null = null;
 
+export const SWIPE_EVENT = "pooltipp:swipe";
+export type SwipeDetail = { dir: "next" | "prev" };
+
 function blocked(target: EventTarget | null): boolean {
   let el = target instanceof Element ? target : null;
   while (el && el !== document.body) {
@@ -107,6 +110,10 @@ export default function SwipeNav() {
       if (Date.now() - st > MAX_MS || Math.abs(dx) < MIN_DX || Math.abs(dx) < END_RATIO * Math.abs(dy)) return;
       // Text markiert? Dann war es kein Wischer.
       if (window.getSelection()?.toString()) return;
+      // Eine Seite kann den Wisch selbst nehmen (Matchcenter: Reiter
+      // wechseln statt Menüseite, Rene 29.10.2026), dann preventDefault().
+      const swipe = new CustomEvent<SwipeDetail>(SWIPE_EVENT, { cancelable: true, detail: { dir: dx < 0 ? "next" : "prev" } });
+      if (!window.dispatchEvent(swipe)) return;
       const next = dx < 0 ? idx + 1 : idx - 1;
       if (next < 0 || next >= MAIN_HREFS.length) return;
       pendingDir = dx < 0 ? "next" : "prev";

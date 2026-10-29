@@ -2,6 +2,7 @@
 
 import EmptyState from "@/components/EmptyState";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { SWIPE_EVENT, type SwipeDetail } from "@/components/SwipeNav";
 import AdBanner from "@/components/AdBanner";
 import FitText from "@/components/FitText";
 import { TvIcon } from "@/components/Icons";
@@ -535,6 +536,33 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   // API-Sports ab PRO_PLAN_LIMIT); der Gratis-Plan kennt nur gestern bis
   // morgen und hat 100 Abfragen pro Tag.
   const hasPlan = sport === "Fußball" && (todayDay.quota?.limit ?? 0) >= PRO_PLAN_LIMIT;
+
+  // Am Handy seitlich wischen = Nachbar-Reiter (Rene, 29.10.2026), statt zur
+  // nächsten Menüseite. Am ersten/letzten Reiter passiert nichts. Wo nicht
+  // gewischt wird (Tabellen, Liga-Knöpfe, Spiel-Fenster), regelt SwipeNav.
+  const listRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function onSwipe(e: Event) {
+      e.preventDefault();
+      const tabs: string[] = ["heute", "live", "ergebnisse", ...(hasPlan ? ["spielplan"] : []), "tabelle"];
+      const cur = view === "live" ? (onlyLive ? "live" : "heute") : view;
+      const { dir } = (e as CustomEvent<SwipeDetail>).detail;
+      const next = tabs[tabs.indexOf(cur) + (dir === "next" ? 1 : -1)];
+      if (!next) return;
+      setView(next === "heute" || next === "live" ? "live" : (next as LcView));
+      setOnlyLive(next === "live");
+      const el = listRef.current;
+      if (el && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const cls = dir === "next" ? "animate-swipe-from-right" : "animate-swipe-from-left";
+        el.classList.remove("animate-swipe-from-right", "animate-swipe-from-left");
+        void el.offsetWidth;
+        el.classList.add(cls);
+        el.addEventListener("animationend", () => el.classList.remove(cls), { once: true });
+      }
+    }
+    window.addEventListener(SWIPE_EVENT, onSwipe);
+    return () => window.removeEventListener(SWIPE_EVENT, onSwipe);
+  }, [hasPlan, view, onlyLive]);
   const upcomingDates = useMemo(
     () => (today && hasPlan && view === "spielplan" ? Array.from({ length: UPCOMING_DAYS }, (_, i) => addDays(today, i + 1)) : NO_DATES),
     [today, hasPlan, view],
@@ -769,82 +797,84 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
         <SubTab label="Tabelle" active={view === "tabelle"} onClick={() => setView("tabelle")} />
       </div>
 
-      {view === "tabelle" ? (
-        sport === "Fußball" ? (
-          <LcTable />
+      <div ref={listRef}>
+        {view === "tabelle" ? (
+          sport === "Fußball" ? (
+            <LcTable />
+          ) : (
+            <EmptyState
+              emoji="📊"
+              title="Noch keine Tabelle"
+              text="Tabellen gibt es im Moment nur für Fußball. NBA, NFL und Eishockey kommen später dazu."
+              className="border-none bg-transparent"
+            />
+          )
         ) : (
-          <EmptyState
-            emoji="📊"
-            title="Noch keine Tabelle"
-            text="Tabellen gibt es im Moment nur für Fußball. NBA, NFL und Eishockey kommen später dazu."
-            className="border-none bg-transparent"
-          />
-        )
-      ) : (
-        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start xl:grid-cols-[minmax(0,1fr)_460px]">
-          {/* Liste, Spiel-Detail und TV-Karte je als eigene Karte mit klarem
-              Rand und Abstand (Rene, 28.10.2026: "man muss sehen, dass es
-              verschiedene Karten sind"). */}
-          <div className="min-w-0 rounded-card border border-muted/40 bg-surface p-3 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] lg:p-4">
-            {view === "spielplan" ? (
-              <LcUpcoming dates={upcomingDates} days={upcomingDays} onRetry={retry} {...listProps} />
-            ) : view === "live" ? (
-              <LcLive onlyLive={onlyLive} games={todayDay.games} error={todayDay.error} dataAt={todayDay.dataAt} source={todayDay.source} loading={polling && todayDay.loading} onRetry={retry} {...listProps} />
-            ) : (
-              <LcResults
-                today={today}
-                todayGames={todayDay.games}
-                yesterdayGames={yesterdayDay.games}
-                error={todayDay.error ?? yesterdayDay.error}
-                onRetry={retry}
-                {...listProps}
-              />
-            )}
-          </div>
-          <div ref={detailRef} className="scroll-mt-32">
-            {showFriendsTab && (
-              <div className="mb-2 hidden gap-1.5 lg:flex" role="tablist" aria-label="Rechte Spalte">
-                {(["spiel", "freunde"] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    role="tab"
-                    aria-selected={rightTab === t}
-                    onClick={() => setRightTab(t)}
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-                      rightTab === t ? "border-muted/50 bg-surface-hover text-ink" : "border-edge text-muted hover:text-ink"
-                    }`}
-                  >
-                    {t === "spiel" ? "Spiel" : "Freunde"}
-                  </button>
-                ))}
-              </div>
-            )}
-            {friendsTab && (
-              <div className="hidden rounded-card border border-muted/40 bg-surface shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] p-3 sm:p-4 lg:block">
-                <FriendsLivePanel state={friendsLive} />
-              </div>
-            )}
-            <div className={friendsTab ? "lg:hidden" : ""}>
-              {isDesktop ? (
-                detailContent
+          <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start xl:grid-cols-[minmax(0,1fr)_460px]">
+            {/* Liste, Spiel-Detail und TV-Karte je als eigene Karte mit klarem
+                Rand und Abstand (Rene, 28.10.2026: "man muss sehen, dass es
+                verschiedene Karten sind"). */}
+            <div className="min-w-0 rounded-card border border-muted/40 bg-surface p-3 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] lg:p-4">
+              {view === "spielplan" ? (
+                <LcUpcoming dates={upcomingDates} days={upcomingDays} onRetry={retry} {...listProps} />
+              ) : view === "live" ? (
+                <LcLive onlyLive={onlyLive} games={todayDay.games} error={todayDay.error} dataAt={todayDay.dataAt} source={todayDay.source} loading={polling && todayDay.loading} onRetry={retry} {...listProps} />
               ) : (
-                <>
-                  {!selected && detailContent}
-                  <MatchSheet
-                    open={sheetOpen && !!selected}
-                    title={selected ? `${selectedLink ? selectedLink.home.name : selected.home} – ${selectedLink ? selectedLink.away.name : selected.away}` : ""}
-                    onClose={() => setSheetOpen(false)}
-                  >
-                    {detailContent}
-                  </MatchSheet>
-                </>
+                <LcResults
+                  today={today}
+                  todayGames={todayDay.games}
+                  yesterdayGames={yesterdayDay.games}
+                  error={todayDay.error ?? yesterdayDay.error}
+                  onRetry={retry}
+                  {...listProps}
+                />
               )}
-              <LiveTvHeat games={tvGames} selectedId={selectedId} onSelect={select} />
+            </div>
+            <div ref={detailRef} className="scroll-mt-32">
+              {showFriendsTab && (
+                <div className="mb-2 hidden gap-1.5 lg:flex" role="tablist" aria-label="Rechte Spalte">
+                  {(["spiel", "freunde"] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      role="tab"
+                      aria-selected={rightTab === t}
+                      onClick={() => setRightTab(t)}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                        rightTab === t ? "border-muted/50 bg-surface-hover text-ink" : "border-edge text-muted hover:text-ink"
+                      }`}
+                    >
+                      {t === "spiel" ? "Spiel" : "Freunde"}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {friendsTab && (
+                <div className="hidden rounded-card border border-muted/40 bg-surface shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] p-3 sm:p-4 lg:block">
+                  <FriendsLivePanel state={friendsLive} />
+                </div>
+              )}
+              <div className={friendsTab ? "lg:hidden" : ""}>
+                {isDesktop ? (
+                  detailContent
+                ) : (
+                  <>
+                    {!selected && detailContent}
+                    <MatchSheet
+                      open={sheetOpen && !!selected}
+                      title={selected ? `${selectedLink ? selectedLink.home.name : selected.home} – ${selectedLink ? selectedLink.away.name : selected.away}` : ""}
+                      onClose={() => setSheetOpen(false)}
+                    >
+                      {detailContent}
+                    </MatchSheet>
+                  </>
+                )}
+                <LiveTvHeat games={tvGames} selectedId={selectedId} onSelect={select} />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Kein Hinweis "Daten von ..." mehr (Rene, 27.10.2026). */}
       {polling && <p className="mt-4 text-center text-[11px] text-muted">aktualisiert sich automatisch</p>}
