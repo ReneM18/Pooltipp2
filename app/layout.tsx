@@ -14,6 +14,7 @@ import { OnlineProvider } from "@/lib/OnlineContext";
 import AppChrome from "@/components/AppChrome";
 import { seasonDesignBootScript } from "@/lib/seasons/design";
 import { startPageBootScript } from "@/lib/startPage";
+import { INSTALL_PROMPT_BOOT } from "@/lib/installApp";
 
 // Rajdhani wird jetzt NUR noch fürs "PoolTipp"-Logo in der Navbar verwendet
 // (siehe font-logo in tailwind.config.ts) – überall sonst übernimmt Poppins.
@@ -58,6 +59,9 @@ const EMOJI_BOOT = `(function(){try{if(!/iPhone|iPad|iPod|Macintosh|Mac OS X/i.t
 export const metadata: Metadata = {
   title: "PoolTipp",
   description: "Das Social-Tippspiel für echte Sportfans.",
+  // iPhone: vom Home-Bildschirm aus ohne Safari-Leiste öffnen, mit schwarzer
+  // Statusleiste (die Seite rutscht nicht darunter).
+  appleWebApp: { capable: true, title: "PoolTipp", statusBarStyle: "black" },
 };
 
 // Icons kommen automatisch aus app/icon.png, app/apple-icon.png und
@@ -87,6 +91,8 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: startPageBootScript() }} />
         <script dangerouslySetInnerHTML={{ __html: seasonDesignBootScript() }} />
         <script dangerouslySetInnerHTML={{ __html: EMOJI_BOOT }} />
+        {/* "PoolTipp als App" (Android): Installieren-Ereignis früh merken. */}
+        <script dangerouslySetInnerHTML={{ __html: INSTALL_PROMPT_BOOT }} />
       </head>
       <body className="font-body min-h-screen bg-pitch text-ink antialiased">
         <AppDataProvider>

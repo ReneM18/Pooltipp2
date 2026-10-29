@@ -22,6 +22,7 @@ import RankProgress from "@/components/RankProgress";
 import SeasonFrame from "@/components/SeasonFrame";
 import RankMeaningBadge from "@/components/RankMeaningBadge";
 import FavoriteClubs from "@/components/FavoriteClubs";
+import InstallAppCard from "@/components/InstallAppCard";
 import WelcomeBanner from "@/components/WelcomeBanner";
 import FitText from "@/components/FitText";
 import PassHonorTags from "@/components/PassHonors";
@@ -1197,6 +1198,7 @@ function ProfilInhalt() {
             {shownSection === "app" && (
               <>
                 {isRegistered && <StartPagePicker />}
+                <InstallAppCard className={isRegistered ? "mt-3" : ""} />
                 {/* Werbefrei: kompakt hier statt als große Box in der Übersicht (Rene, 19.10.2026). */}
                 {isRegistered &&
                   (hasAdFreeSubscription ? (
@@ -1311,7 +1313,7 @@ const SETTINGS_SECTIONS = {
   aussehen: { icon: "🎨", label: "Aussehen", hash: "aussehen", intro: "Saison-Design und was du aus dem Saison-Pass zeigst." },
   vereine: { icon: "❤️", label: "Herzensvereine", hash: "herzensvereine", intro: "" },
   privat: { icon: "🔒", label: "Privatsphäre", hash: "privatsphaere", intro: "Wer was von dir sehen darf." },
-  app: { icon: "📱", label: "App", hash: "app", intro: "Startseite und Werbung." },
+  app: { icon: "📱", label: "App", hash: "app", intro: "Startseite, App aufs Handy und Werbung." },
   konto: { icon: "👤", label: "Konto", hash: "konto", intro: "Name, Anmeldung und Passwort." },
 } as const; // intro leer: Karte und Vereine bringen ihren eigenen Text mit.
 type SettingsSection = keyof typeof SETTINGS_SECTIONS;
