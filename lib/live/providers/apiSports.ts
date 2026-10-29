@@ -662,7 +662,19 @@ function normalize(sport: Sport, g: Raw): LiveGame | null {
     ...(isFootball && typeof g?.league?.round === "string" ? { round: g.league.round } : {}),
     ...(isFootball && Array.isArray(g?.events) ? { events: normalizeEvents(g, homeScore, awayScore) } : {}),
     ...(isFootball && Array.isArray(g?.events) && penaltyHome !== null ? shootoutOf(g) : {}),
+    ...venueOf(isFootball, g),
   };
+}
+
+// Stadion (Rene, 29.10.2026): Fußball fixture.venue {id, name}, American
+// Football game.venue {name}, Basketball venue als Text; Eishockey liefert
+// keines.
+function venueOf(isFootball: boolean, g: Raw): { venue?: string; venueId?: number } {
+  const raw = isFootball ? g?.fixture?.venue : g?.game?.venue ?? g?.venue;
+  const name = typeof raw === "string" ? raw : raw?.name;
+  if (typeof name !== "string" || !name.trim()) return {};
+  const id = isFootball ? toNumber(raw?.id) : null;
+  return { venue: name.trim(), ...(id !== null && id > 0 ? { venueId: id } : {}) };
 }
 
 // Schüsse im Elfmeterschießen (Rene, 29.10.2026: "die elferschützen"):
@@ -1040,4 +1052,31 @@ export async function footballLiveHeat(ids: number[]): Promise<LiveHeatResult> {
     })
     .filter((x: HeatStats | null): x is HeatStats => x !== null);
   return { ok: true, stats, expiresAt: res.hit.expiresAt };
+}
+
+// ---------------------------------------------------------------------------
+// Stadion-Kapazität (Rene, 29.10.2026: "vielleicht geht sich die kapazität
+// vom stadion auch noch aus"). Nur Fußball, eine Abfrage je Stadion, die
+// eine Woche gemerkt wird (ändert sich praktisch nie).
+
+export type VenueResult =
+  | { ok: true; name: string | null; capacity: number | null; expiresAt: number }
+  | { ok: false; error: string; expiresAt: number };
+
+const VENUES_URL = "https://v3.football.api-sports.io/venues";
+const VENUE_TTL = 7 * 24 * 3600;
+
+export async function footballVenue(id: number): Promise<VenueResult> {
+  const key = process.env.API_SPORTS_KEY;
+  if (!key) return { ok: false, error: "Kein API_SPORTS_KEY gesetzt", expiresAt: Date.now() + 300 * 1000 };
+  const res = await load(`${VENUES_URL}?id=${id}`, key, VENUE_TTL);
+  if (!res.ok) return { ok: false, error: res.error, expiresAt: res.expiresAt };
+  const v: Raw = res.hit.value[0];
+  const capacity = toNumber(v?.capacity);
+  return {
+    ok: true,
+    name: typeof v?.name === "string" && v.name.trim() ? v.name.trim() : null,
+    capacity: capacity !== null && capacity > 0 ? capacity : null,
+    expiresAt: res.hit.expiresAt,
+  };
 }
