@@ -1498,13 +1498,13 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           {/* Sender unter der Uhrzeit (Rene, 28.10.2026), rechts stehen
               "Tippen" und der Countdown. */}
           {tv && (
-            <span className="flex min-w-0 items-center gap-1 text-[10px] font-medium leading-tight text-muted lg:items-start" title={tv}>
+            <span className="flex min-w-0 items-start gap-1 text-[10px] font-medium leading-tight text-muted" title={tv}>
               <TvIcon className="h-3 w-3 shrink-0" />
-              {/* Am PC darf der Sender zweizeilig stehen ("Sky Sport /
-                  Austria 1" statt "Sky Sport ..."), die Zeile hat dort mit
-                  zweizeiligen Namen ohnehin die Höhe. Breiter machen ging
-                  nicht: dann werden lange Vereinsnamen abgeschnitten. */}
-              <span className="truncate lg:line-clamp-2 lg:whitespace-normal">{tv}</span>
+              {/* Sender nie abschneiden, sondern in die nächste Zeile
+                  umbrechen ("RTL, / DAZN" statt "RTL, DAZ...", Rene,
+                  29.10.2026), am Handy und am PC. Breiter machen ging nicht:
+                  dann werden lange Vereinsnamen abgeschnitten. */}
+              <span className="min-w-0 break-words">{tv}</span>
             </span>
           )}
           {/* Vor Tippschluss steht "Getippt" rechts über dem Countdown. */}
