@@ -575,6 +575,18 @@ export function useMatchVenue(match: Match, homeTeam: Team, awayTeam: Team): Mat
   const venueId = found?.game.venueId ?? null;
   // Heimverein laut API (bei vertauschten Seiten der App-Gast).
   const [apiHome, apiAway] = found?.swapped ? [awayTeam, homeTeam] : [homeTeam, awayTeam];
+  return useStadium(apiHome, apiAway, name, venueId);
+}
+
+// Stadion mit Kapazität zu einem API-Spiel (auch im Matchcenter, Rene,
+// 29.10.2026: "stadion und kapazität muss auch zu spiele"). apiHome/apiAway
+// = Vereine in der Reihenfolge der API.
+export function useStadium(
+  apiHome: Team | undefined,
+  apiAway: Team | undefined,
+  name: string | null,
+  venueId: number | null,
+): MatchVenue | null {
   const withoutCapacity = matchStadium(apiHome, apiAway, name, venueId, null);
   const needCapacity = withoutCapacity !== null && withoutCapacity.capacity === null ? venueId : null;
   const [capacity, setCapacity] = useState<{ id: number; value: number | null } | null>(null);
