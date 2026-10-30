@@ -1270,13 +1270,19 @@ export async function hockeyLeagueTeams(names: readonly string[], apiCountry: st
   return { ok: false, error: /free plan/i.test(error) ? "Der Gratis-Plan für Eishockey gibt diese Saison nicht frei" : error };
 }
 
-// Formel-1-Test im Admin (Rene, 30.10.2026: "heute ist um 19:30 training").
-// Nur zum Ausprobieren: Ist die Saison im Gratis-Plan frei, läuft die
-// Wertung während einer Session mit? Feste Abfragen, je 60 s gemerkt, damit
-// die 100 Abfragen pro Tag reichen. Geht wie alles über den eigenen Server
-// (Pfad /formula-1, scripts/api-proxy/einrichten.sh).
+// Motorsport / Formel 1 im Matchcenter (Rene, 30.10.2026: "Motorsport
+// anlegen … neben American Football"). Nur Anzeige, kein Tippen. Geht wie
+// alles über den eigenen Server (Pfad /formula-1, scripts/api-proxy/).
+// Gratis-Plan: 100 Abfragen pro Tag (eigenes Kontingent). Darum lange
+// Ablaufzeiten; nur die Wertung einer Session 120 s (1 Std. Training ≈ 30
+// Abfragen, Rennen ≈ 60).
 const F1_URL = "https://v1.formula-1.api-sports.io";
-const F1_TTL = 60;
+const F1_TTL: Record<Formula1Query["kind"], number> = {
+  "races-season": 6 * 3600,
+  "races-day": 900,
+  ranking: 120,
+  drivers: 3600,
+};
 
 export type Formula1Query =
   | { kind: "races-day"; date: string }
@@ -1284,16 +1290,54 @@ export type Formula1Query =
   | { kind: "ranking"; race: number }
   | { kind: "drivers"; season: number };
 
-export type Formula1TestResult =
-  | { ok: true; rows: Raw[]; at: number; quota: LiveQuota | null }
+export interface F1Session {
+  id: number;
+  gp: string; // "Mexico Grand Prix"
+  country: string | null;
+  city: string | null;
+  circuit: string | null;
+  type: string; // "1st Practice", "Qualifying", "Race", …
+  start: string; // ISO
+  status: string; // "Scheduled", "Live", "Completed", …
+  lapsCurrent: number | null;
+  lapsTotal: number | null;
+}
+
+export interface F1RankRow {
+  position: number | null;
+  driver: string;
+  abbr: string | null;
+  number: number | null;
+  team: string | null;
+  time: string | null;
+  gap: string | null;
+  laps: number | null;
+  pits: number | null;
+}
+
+export interface F1DriverStanding {
+  position: number | null;
+  driver: string;
+  team: string | null;
+  points: number | null;
+  wins: number | null;
+}
+
+export type Formula1Data =
+  | { kind: "sessions"; sessions: F1Session[] }
+  | { kind: "ranking"; rows: F1RankRow[] }
+  | { kind: "drivers"; rows: F1DriverStanding[] };
+
+export type Formula1Result =
+  | { ok: true; data: Formula1Data; at: number; quota: LiveQuota | null }
   | { ok: false; error: string; quota: LiveQuota | null };
 
 function formula1Url(q: Formula1Query): string {
   switch (q.kind) {
     case "races-day":
-      return `${F1_URL}/races?date=${q.date}&timezone=Europe/Vienna`;
+      return `${F1_URL}/races?date=${q.date}&timezone=UTC`;
     case "races-season":
-      return `${F1_URL}/races?season=${q.season}&timezone=Europe/Vienna`;
+      return `${F1_URL}/races?season=${q.season}&timezone=UTC`;
     case "ranking":
       return `${F1_URL}/rankings/races?race=${q.race}`;
     case "drivers":
@@ -1301,11 +1345,73 @@ function formula1Url(q: Formula1Query): string {
   }
 }
 
-export async function formula1Test(q: Formula1Query): Promise<Formula1TestResult> {
+const textOrNull = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
+
+function f1Session(r: Raw): F1Session | null {
+  const id = toNumber(r?.id);
+  const start = textOrNull(r?.date);
+  if (id === null || !start) return null;
+  return {
+    id,
+    gp: textOrNull(r?.competition?.name) ?? "Grand Prix",
+    country: textOrNull(r?.competition?.location?.country),
+    city: textOrNull(r?.competition?.location?.city),
+    circuit: textOrNull(r?.circuit?.name),
+    type: textOrNull(r?.type) ?? "Session",
+    start,
+    status: textOrNull(r?.status) ?? "Scheduled",
+    lapsCurrent: toNumber(r?.laps?.current),
+    lapsTotal: toNumber(r?.laps?.total),
+  };
+}
+
+function f1Data(q: Formula1Query, rows: Raw[]): Formula1Data {
+  if (q.kind === "ranking") {
+    return {
+      kind: "ranking",
+      rows: rows.map((r) => ({
+        position: toNumber(r?.position),
+        driver: textOrNull(r?.driver?.name) ?? "?",
+        abbr: textOrNull(r?.driver?.abbr),
+        number: toNumber(r?.driver?.number),
+        team: textOrNull(r?.team?.name),
+        time: textOrNull(r?.time),
+        gap: textOrNull(r?.gap),
+        laps: toNumber(r?.laps),
+        pits: toNumber(r?.pits),
+      })),
+    };
+  }
+  if (q.kind === "drivers") {
+    return {
+      kind: "drivers",
+      rows: rows.map((r) => ({
+        position: toNumber(r?.position),
+        driver: textOrNull(r?.driver?.name) ?? "?",
+        team: textOrNull(r?.team?.name),
+        points: toNumber(r?.points),
+        wins: toNumber(r?.wins),
+      })),
+    };
+  }
+  return { kind: "sessions", sessions: rows.map(f1Session).filter((s): s is F1Session => s !== null) };
+}
+
+const F1_PLAN_BLOCKED = new Map<string, { error: string; at: number }>();
+
+export async function formula1(q: Formula1Query): Promise<Formula1Result> {
   const key = process.env.API_SPORTS_KEY;
   const quota = () => QUOTA_BY_HOST.get(hostOf(F1_URL)) ?? null;
   if (!key) return { ok: false, error: "Kein API_SPORTS_KEY gesetzt", quota: null };
-  const res = await load(formula1Url(q), key, F1_TTL);
-  if (!res.ok) return { ok: false, error: res.error, quota: quota() };
-  return { ok: true, rows: res.hit.value, at: res.hit.at, quota: quota() };
+  const url = formula1Url(q);
+  // Sperrt der Gratis-Plan die Saison, nicht alle 30 s neu nachfragen
+  // (Fehler merkt sich load() sonst nur kurz).
+  const blocked = F1_PLAN_BLOCKED.get(url);
+  if (blocked && Date.now() - blocked.at < F1_TTL[q.kind] * 1000) return { ok: false, error: blocked.error, quota: quota() };
+  const res = await load(url, key, F1_TTL[q.kind]);
+  if (!res.ok) {
+    if (/plan/i.test(res.error)) F1_PLAN_BLOCKED.set(url, { error: res.error, at: Date.now() });
+    return { ok: false, error: res.error, quota: quota() };
+  }
+  return { ok: true, data: f1Data(q, res.hit.value), at: res.hit.at, quota: quota() };
 }
