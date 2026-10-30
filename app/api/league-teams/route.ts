@@ -12,6 +12,8 @@ export interface LeagueTeamsResponse {
   league: string;
   season: number;
   teams: LeagueTeam[];
+  // "app": Liste aus lib/leagueImport.ts, weil die API sie nicht liefert.
+  source?: "api" | "app";
   error?: string;
 }
 
@@ -30,6 +32,11 @@ export async function GET(request: Request) {
   const result = league.hockey
     ? await hockeyLeagueTeams(league.hockey.names, league.hockey.apiCountry)
     : await footballLeagueTeams(league.footballId!, season);
+  // Gratis-Plan sperrt die Eishockey-Vereine (Rene, 30.10.2026): dann die
+  // Liste aus der App.
+  if ((!result.ok || result.teams.length === 0) && league.fallbackTeams) {
+    return json({ league: key, season, teams: [...league.fallbackTeams], source: "app" });
+  }
   if (!result.ok) return NextResponse.json({ league: key, season, teams: [], error: result.error }, { headers: { "Cache-Control": "no-store" } });
-  return json({ league: key, season: result.season ?? season, teams: result.teams });
+  return json({ league: key, season: result.season ?? season, teams: result.teams, source: "api" });
 }

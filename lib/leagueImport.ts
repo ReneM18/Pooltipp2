@@ -1,4 +1,5 @@
 import type { Sport } from "./types";
+import type { LeagueTeam } from "./live/providers/apiSports";
 import { TABLE_LEAGUES } from "./standings";
 import { LIVE_LEAGUES } from "./liveConfig";
 
@@ -23,7 +24,34 @@ export interface ImportLeague {
   anyCountry?: boolean;
   footballId?: number;
   hockey?: { names: readonly string[]; apiCountry: string };
+  // Vereine aus der App, wenn die API sie nicht liefert (Gratis-Plan).
+  fallbackTeams?: readonly LeagueTeam[];
 }
+
+// ICE Hockey League ohne API (Rene, 30.10.2026: der Gratis-Plan für
+// Eishockey sperrt die Vereinslisten). Namen wie bei API-Sports, damit die
+// Verknüpfung später auch für Live-Stände passt. Neue Vereine einfach hier
+// ergänzen oder im Admin von Hand anlegen.
+const club = (apiName: string, country: string, arena: string): LeagueTeam => ({
+  apiName,
+  apiId: null,
+  country,
+  stadium: { name: arena, capacity: null, venueId: null },
+});
+const ICEHL_CLUBS: readonly LeagueTeam[] = [
+  club("EC KAC", "AT", "Heidi Horten Arena"),
+  club("EC VSV", "AT", "Stadthalle Villach"),
+  club("EC Red Bull Salzburg", "AT", "Eisarena Salzburg"),
+  club("Vienna Capitals", "AT", "Steffl Arena"),
+  club("Black Wings Linz", "AT", "Linz AG Eisarena"),
+  club("Graz 99ers", "AT", "Merkur Eisstadion"),
+  club("HC Innsbruck", "AT", "TIWAG Arena"),
+  club("Pioneers Vorarlberg", "AT", "Vorarlberghalle"),
+  club("HC Bolzano", "IT", "Sparkasse Arena"),
+  club("HC Pustertal", "IT", "Intercable Arena"),
+  club("Fehérvár AV19", "HU", "Ifjabb Ocskay Gábor Jégcsarnok"),
+  club("Olimpija Ljubljana", "SI", "Hala Tivoli"),
+];
 
 const SECOND_LEAGUE_GROUPS: Record<number, string> = {
   219: "2. Liga Österreich",
@@ -52,6 +80,7 @@ export const IMPORT_LEAGUES: readonly ImportLeague[] = [
     groupNames: ["ice hockey league", "icehl", "ebel", ...ICEHL_NAMES],
     anyCountry: true,
     hockey: { names: ICEHL_NAMES, apiCountry: "Austria" },
+    fallbackTeams: ICEHL_CLUBS,
   },
 ];
 
