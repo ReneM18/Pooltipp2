@@ -299,7 +299,9 @@ function LiveCenter() {
     <div className="mb-3 flex items-center gap-2">
       <div className="flex gap-2" role="tablist" aria-label="Sportart">
         {LIVE_SPORTS.map((s) => sportButton(s, sportLabel(s), SPORT_ICONS[s], !motorsport && sport === s, () => pick(s)))}
-        {sportButton("motorsport", "Motorsport", "🏎️", motorsport, () => {
+        {/* Zielflagge statt Rennauto (Rene, 30.10.2026: "nicht nur an Formel 1
+            denken, deswegen heißt es Motorsport"). */}
+        {sportButton("motorsport", "Motorsport", "🏁", motorsport, () => {
           setTargetId(null);
           setMotorsport(true);
         })}
@@ -1961,7 +1963,8 @@ function LcDetail({
 
 // ---------------------------------------------------------------------------
 // Motorsport (Rene, 30.10.2026: "Motorsport anlegen … neben American
-// Football"). Erst einmal die Formel 1, nur zum Anschauen, ohne Tippen.
+// Football"). Reiter Formel 1 und MotoGP (MotoGP noch ohne Daten), nur zum
+// Anschauen, ohne Tippen.
 // Daten von API-Sports über /api/formula1 (eigenes Kontingent, 100 pro Tag
 // im Gratis-Plan). "Wochenende": die Sessions eines Grand Prix (‹ › zum
 // Blättern), darunter bzw. am PC rechts die Wertung der gewählten Session,
@@ -2063,16 +2066,51 @@ function defaultSession(w: F1Weekend, now: number): number | null {
   return (started[started.length - 1] ?? w.sessions[0])?.id ?? null;
 }
 
+// Reiter je Rennserie (Rene, 30.10.2026: "ein Unterreiter mit Formel 1 und
+// MotoGP"). In der Formel 1 umschaltbar zwischen Wochenende und WM-Stand.
 function MotorsportCenter({ switcher }: { switcher: React.ReactNode }) {
+  const [series, setSeries] = useState<"f1" | "motogp">("f1");
   const [view, setView] = useState<"wochenende" | "wm">("wochenende");
   return (
     <section className="mb-6">
       {switcher}
       <div className="mb-3 flex border-b border-edge sm:mb-4 sm:items-center sm:gap-6">
-        <SubTab label="Wochenende" active={view === "wochenende"} onClick={() => setView("wochenende")} />
-        <SubTab label="WM-Stand" active={view === "wm"} onClick={() => setView("wm")} />
+        <SubTab label="Formel 1" active={series === "f1"} onClick={() => setSeries("f1")} />
+        <SubTab label="MotoGP" active={series === "motogp"} onClick={() => setSeries("motogp")} />
       </div>
-      {view === "wochenende" ? <F1WeekendView /> : <F1DriverStandings />}
+      {series === "motogp" ? (
+        <EmptyState
+          emoji="🏍️"
+          title="MotoGP kommt noch"
+          text="Für MotoGP haben wir noch keine Datenquelle. Sobald es eine gibt, stehen hier Rennen und WM-Stand."
+          className="border-none bg-transparent"
+        />
+      ) : (
+        <>
+          <div className="mb-3 flex gap-2" role="tablist" aria-label="Ansicht">
+            {(
+              [
+                ["wochenende", "Rennwochenende"],
+                ["wm", "WM-Stand"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={view === id}
+                onClick={() => setView(id)}
+                className={`min-h-10 rounded-full border px-4 text-sm font-semibold transition-colors ${
+                  view === id ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {view === "wochenende" ? <F1WeekendView /> : <F1DriverStandings />}
+        </>
+      )}
     </section>
   );
 }
