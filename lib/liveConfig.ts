@@ -30,31 +30,35 @@ export interface LiveLeague {
 // Hinweis: Abfrage per league=…&season=2026 ist im Gratis-Plan gesperrt –
 // deshalb wird weiter nach Datum abgefragt und hier nach Name + Land
 // gefiltert. Leere Liste = alle Ligen der Sportart.
+// Die Reihenfolge ist zugleich die Reihenfolge im Matchcenter (Rene,
+// 30.10.2026: nach Wichtigkeit, nicht nach Anstoß – sonst stand die 2. Liga
+// oben), siehe leagueRank.
 export const LIVE_LEAGUES: Partial<Record<Sport, readonly LiveLeague[]>> = {
   "Fußball": [
+    { label: "Weltmeisterschaft", names: ["world cup", "fifa weltmeisterschaft", "weltmeisterschaft"], country: null },
+    { label: "Europameisterschaft", names: ["euro championship", "europameisterschaft"], country: null },
     { label: "Champions League", names: ["champions league"], country: null },
     { label: "Europa League", names: ["europa league"], country: null },
     { label: "Conference League", names: ["conference league", "europa conference league"], country: null },
     { label: "Nations League", names: ["nations league"], country: null },
-    { label: "Weltmeisterschaft", names: ["world cup", "fifa weltmeisterschaft", "weltmeisterschaft"], country: null },
-    { label: "Europameisterschaft", names: ["euro championship", "europameisterschaft"], country: null },
     { label: "WM-Qualifikation", names: ["world cup - qualification europe", "wm-qualifikation"], country: null },
     { label: "EM-Qualifikation", names: ["euro championship - qualification", "em-qualifikation"], country: null },
-    { label: "Länderspiel", names: ["friendlies", "länderspiel"], country: null },
+    // AT vor DE: ohne Land zählt bei "Bundesliga" die erste Liga der Liste.
     { label: "Bundesliga", names: ["bundesliga", "österreichische bundesliga", "admiral bundesliga"], country: "AT" },
-    // 2. Liga (Rene, 30.10.2026). API-Sports: "2. Liga" · Austria.
-    { label: "2. Liga", names: ["2. liga", "2. liga österreich", "admiral 2. liga", "österreichische 2. liga"], country: "AT" },
-    { label: "ÖFB-Cup", names: ["cup", "öfb-cup", "öfb cup"], country: "AT" },
     { label: "Bundesliga", names: ["bundesliga"], country: "DE" },
-    { label: "2. Bundesliga", names: ["2. bundesliga"], country: "DE" },
-    { label: "DFB-Pokal", names: ["dfb pokal", "dfb-pokal"], country: "DE" },
     { label: "Premier League", names: ["premier league"], country: "GB-ENG" },
     { label: "La Liga", names: ["la liga", "laliga"], country: "ES" },
     { label: "Serie A", names: ["serie a"], country: "IT" },
+    { label: "ÖFB-Cup", names: ["cup", "öfb-cup", "öfb cup"], country: "AT" },
+    { label: "DFB-Pokal", names: ["dfb pokal", "dfb-pokal"], country: "DE" },
+    // 2. Liga (Rene, 30.10.2026). API-Sports: "2. Liga" · Austria.
+    { label: "2. Liga", names: ["2. liga", "2. liga österreich", "admiral 2. liga", "österreichische 2. liga"], country: "AT" },
+    { label: "2. Bundesliga", names: ["2. bundesliga"], country: "DE" },
+    { label: "Länderspiel", names: ["friendlies", "länderspiel"], country: null },
   ],
   NHL: [
-    { label: "NHL", names: ["nhl", "nhl regular season", "nhl playoffs", "stanley cup finale"], country: "US" },
     { label: "ICE Hockey League", names: ["ice hockey league", "win2day ice hockey league", "ebel"], country: "AT" },
+    { label: "NHL", names: ["nhl", "nhl regular season", "nhl playoffs", "stanley cup finale"], country: "US" },
   ],
   NBA: [{ label: "NBA", names: ["nba", "nba regular season", "nba playoffs", "nba finals"], country: "US" }],
   NFL: [{ label: "NFL", names: ["nfl", "nfl regular season", "nfl playoffs", "super bowl"], country: "US" }],
@@ -143,6 +147,15 @@ export function isLiveLeagueEnabled(
 export function liveGameCountry(league: string): string | null {
   const c = normalizeCountry(league.split(" · ")[1]);
   return c ?? null;
+}
+
+// Platz einer Liga im Matchcenter (Reihenfolge in LIVE_LEAGUES, kleiner =
+// weiter oben). Ohne Land zählt der Name allein; unbekannte Ligen ganz unten.
+export function leagueRank(sport: Sport, league: string): number {
+  const list = LIVE_LEAGUES[sport] ?? [];
+  const [name, country] = league.split(" · ");
+  const found = findLiveLeague(sport, name, country ?? null, Boolean(country));
+  return found ? list.indexOf(found) : list.length;
 }
 
 // Liga eines Live-Spiels (league "Name · Land").
