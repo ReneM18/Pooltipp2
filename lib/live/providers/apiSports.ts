@@ -1180,6 +1180,8 @@ export async function footballLeagueTeams(leagueId: number, season: number): Pro
       };
     })
     .filter((t): t is LeagueTeam => t !== null)
+    // Doppelte Namen nur einmal (die Liste ist nach Namen verschlüsselt).
+    .filter((t, i, all) => all.findIndex((x) => x.apiName === t.apiName) === i)
     .sort((a, b) => a.apiName.localeCompare(b.apiName, "de"));
   return { ok: true, teams };
 }
