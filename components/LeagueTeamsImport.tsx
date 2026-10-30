@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAppData } from "@/lib/AppDataContext";
 import { useFeedback } from "@/lib/FeedbackContext";
-import { countryName, flagEmoji } from "@/lib/flags";
+import { COUNTRIES, countryName, flagEmoji } from "@/lib/flags";
 import { normalizeTeamName } from "@/lib/teamName";
 import { teamMatchScore } from "@/lib/liveScores";
 import { appTeamForApiName, findApiNameLink, type ApiNameLink } from "@/lib/teamApiNames";
-import { groupTeams, isFixedGroup, teamGroup } from "@/lib/teamGroups";
-import { TABLE_LEAGUES, type TableLeague } from "@/lib/standings";
+import { autoTeamGroup, groupTeams, isFixedGroup, NATIONAL_GROUP, teamGroup } from "@/lib/teamGroups";
+import { IMPORT_LEAGUES, type ImportLeague } from "@/lib/leagueImport";
 import type { LeagueTeam } from "@/lib/live/providers/apiSports";
 import type { LeagueTeamsResponse } from "@/app/api/league-teams/route";
 import type { Team, TeamStadium } from "@/lib/types";
@@ -23,23 +23,39 @@ import Emoji from "@/components/Emoji";
 // Beim Übernehmen kommen alle in die Untergruppe, neue Vereine mit Stadion
 // von der API, und jeder API-Name wird mit seinem Team verknüpft (so bleibt
 // die Zuordnung, auch wenn der Admin den Namen später ändert).
+// Dazu die ICE Hockey League (Rene, 30.10.2026: "es spielen auch Teams wie
+// Bolzano aus Italien"): Untergruppe = Liga, jedes Team mit seinem Land von
+// der API (Bozen Italien, Fehérvár Ungarn …). Vorhandene Teams werden
+// erkannt, auch wenn sie noch unter ihrem Land stehen.
 
-const SPORT = "Fußball" as const;
 const NEW = "__neu__";
-const LEAGUES = TABLE_LEAGUES.filter((l): l is TableLeague & { country: string } => l.country !== null);
+const SPORT_LABEL: Record<string, string> = { "Fußball": "Fußball", NHL: "Eishockey" };
+const LEAGUE_SPORTS = IMPORT_LEAGUES.map((l) => l.sport).filter((s, i, all) => all.indexOf(s) === i);
 // Gleiche Grundfarben wie beim Anlegen von Hand (Admin -> Teams).
 const NEW_TEAM_COLORS = { primaryColor: "#3FA66B", secondaryColor: "#FFFFFF" };
 
-function leagueText(l: TableLeague & { country: string }): string {
-  return `${l.label} ${countryName(l.country)}`;
+function leagueText(l: ImportLeague): string {
+  return l.anyCountry ? l.label : `${l.label} ${countryName(l.country)}`;
 }
 
 // Untergruppe für eine Liga: eine vorhandene, deren Name mit dem Liganamen
-// beginnt und das Land enthält ("2. Liga Österreich"), sonst das Land.
-function defaultGroup(league: TableLeague & { country: string }, labels: string[]): string {
+// beginnt und das Land enthält ("2. Liga Österreich") bzw. die wie die Liga
+// heißt ("ICE Hockey League"), sonst league.group bzw. das Land.
+function defaultGroup(league: ImportLeague, labels: string[]): string {
   const name = normalizeTeamName(league.label);
   const country = normalizeTeamName(countryName(league.country));
-  return labels.find((g) => normalizeTeamName(g).startsWith(name) && normalizeTeamName(g).includes(country)) ?? countryName(league.country);
+  const names = (league.groupNames ?? []).map(normalizeTeamName).filter(Boolean);
+  return (
+    labels.find((g) => normalizeTeamName(g).startsWith(name) && normalizeTeamName(g).includes(country)) ??
+    labels.find((g) => names.some((n) => normalizeTeamName(g).includes(n))) ??
+    league.group ??
+    countryName(league.country)
+  );
+}
+
+// Land von der API nur, wenn die App es kennt.
+function apiCountry(t: LeagueTeam): string | null {
+  return t.country && COUNTRIES.some((c) => c.code === t.country) ? t.country : null;
 }
 
 function apiStadium(t: LeagueTeam): TeamStadium | undefined {
@@ -60,22 +76,32 @@ function sameSquad(a: string, b: string): boolean {
 }
 
 // Vorschläge: je API-Verein ein Team oder NEW, kein Team doppelt. Ähnliche
-// Namen nur aus einer eigenen Untergruppe (z. B. "2. Liga Österreich"), nie
-// aus einer Landesgruppe, wo auch die Bundesliga-Vereine stehen.
+// Namen aus der Ziel-Untergruppe und aus der Landesgruppe der Liga (dort
+// stehen z. B. 2.-Bundesliga-Vereine, die noch keine eigene Untergruppe
+// haben), bei der ICE Hockey League aus allen Ländern außer NHL.
+// Teams in einer anderen eigenen Untergruppe (z. B. "Bundesliga") nie.
 function suggest(
+  league: ImportLeague,
   apiTeams: LeagueTeam[],
   clubs: Team[],
   groupOf: Map<string, string>,
   links: ApiNameLink[],
   groupKey: string,
 ): Record<string, string> {
-  const inGroup = isFixedGroup(groupKey) ? [] : clubs.filter((t) => groupOf.get(t.id) === groupKey);
+  const nhlKey = normalizeTeamName("NHL");
+  const nationalKey = normalizeTeamName(NATIONAL_GROUP);
+  const pool = clubs.filter((t) => {
+    const key = groupOf.get(t.id);
+    if (key === groupKey) return true;
+    if (key !== autoTeamGroup(t).key || key === nhlKey || key === nationalKey) return false;
+    return league.anyCountry || t.countryCode === league.country;
+  });
   const candidates = apiTeams.map((a) => {
-    const sure = appTeamForApiName(clubs, links, SPORT, a.apiName);
+    const sure = appTeamForApiName(clubs, links, league.sport, a.apiName);
     if (sure) return { a, team: sure, score: 10 };
     let best: Team | undefined;
     let bestScore = 0;
-    for (const t of inGroup) {
+    for (const t of pool) {
       const s = sameSquad(t.name, a.apiName) ? teamMatchScore(t.name, a.apiName) : 0;
       if (s > bestScore) {
         best = t;
@@ -101,15 +127,16 @@ export default function LeagueTeamsImport() {
   const { teams, teamGroupDefs, saveTeamGroupDefs, apiNameLinks, saveApiNameLinks, addTeam, updateTeam } = useAppData();
   const { showToast } = useFeedback();
   const [open, setOpen] = useState(false);
-  const [leagueId, setLeagueId] = useState(LEAGUES.find((l) => l.label === "2. Liga")?.id ?? LEAGUES[0].id);
-  const league = LEAGUES.find((l) => l.id === leagueId) ?? LEAGUES[0];
-  const clubs = useMemo(() => teams.filter((t) => t.sport === SPORT && !t.isNationalTeam), [teams]);
-  const groupLabels = useMemo(() => groupTeams(clubs, SPORT).map((g) => g.label), [clubs]);
+  const [leagueId, setLeagueId] = useState(IMPORT_LEAGUES[0].key);
+  const league = IMPORT_LEAGUES.find((l) => l.key === leagueId) ?? IMPORT_LEAGUES[0];
+  const sport = league.sport;
+  const clubs = useMemo(() => teams.filter((t) => t.sport === sport && !t.isNationalTeam), [teams, sport]);
+  const groupLabels = useMemo(() => groupTeams(clubs, sport).map((g) => g.label), [clubs, sport]);
   // Untergruppe je Team einmal ausrechnen (teamGroup ist nicht billig).
   const groupOf = useMemo(() => new Map(clubs.map((t) => [t.id, teamGroup(t, clubs).key])), [clubs]);
   const [group, setGroup] = useState("");
   const [load, setLoad] = useState<
-    { state: "idle" | "loading" } | { state: "error"; error: string } | { state: "ready"; teams: LeagueTeam[] }
+    { state: "idle" | "loading" } | { state: "error"; error: string } | { state: "ready"; teams: LeagueTeam[]; season: number }
   >({
     state: "idle",
   });
@@ -120,11 +147,11 @@ export default function LeagueTeamsImport() {
   const groupName = group.trim();
   const groupKey = normalizeTeamName(groupName);
 
-  async function fetchTeams(id: number) {
+  async function fetchTeams(id: string) {
     setLoad({ state: "loading" });
     setDone(null);
     try {
-      const res = await fetch(`/api/league-teams?league=${id}`);
+      const res = await fetch(`/api/league-teams?league=${encodeURIComponent(id)}`);
       const body = (await res.json()) as LeagueTeamsResponse;
       if (body.error) return setLoad({ state: "error", error: body.error });
       if (body.teams.length === 0)
@@ -132,24 +159,28 @@ export default function LeagueTeamsImport() {
           state: "error",
           error: "Die API kennt für diese Saison keine Vereine.",
         });
-      setLoad({ state: "ready", teams: body.teams });
+      setLoad({ state: "ready", teams: body.teams, season: body.season });
     } catch {
       setLoad({ state: "error", error: "API nicht erreichbar" });
     }
   }
 
-  function start(l: TableLeague & { country: string }) {
-    const g = defaultGroup(l, groupLabels);
-    setLeagueId(l.id);
-    setGroup(g);
-    void fetchTeams(l.id);
+  function start(l: ImportLeague) {
+    // Untergruppen der Sportart dieser Liga (Fußball oder Eishockey).
+    const labels = groupTeams(
+      teams.filter((t) => t.sport === l.sport && !t.isNationalTeam),
+      l.sport,
+    ).map((g) => g.label);
+    setLeagueId(l.key);
+    setGroup(defaultGroup(l, labels));
+    void fetchTeams(l.key);
   }
 
   const apiTeams = useMemo(() => (load.state === "ready" ? load.teams : []), [load]);
   // Vorschläge neu, sobald die Vereine da sind oder die Untergruppe wechselt.
   useEffect(() => {
     if (saving) return;
-    setChoice(suggest(apiTeams, clubs, groupOf, apiNameLinks, groupKey));
+    setChoice(suggest(league, apiTeams, clubs, groupOf, apiNameLinks, groupKey));
     // Nur bei neuer Liste bzw. Untergruppe, nicht nach jedem Speichern.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiTeams, groupKey]);
@@ -186,8 +217,8 @@ export default function LeagueTeamsImport() {
           const res = await addTeam(
             {
               name: a.apiName,
-              sport: SPORT,
-              countryCode: league.country,
+              sport,
+              countryCode: apiCountry(a) ?? league.country,
               ...NEW_TEAM_COLORS,
               group: groupName,
               ...(stadium ? { stadium } : {}),
@@ -210,11 +241,15 @@ export default function LeagueTeamsImport() {
           const { id: _id, ...rest } = team;
           const needsGroup = teamGroup(team, clubs).key !== groupKey;
           const needsStadium = !team.stadium?.name.trim() && !!stadium;
-          if (needsGroup || needsStadium) {
+          // Land von der API (z. B. Bozen als Italien statt Österreich).
+          const country = apiCountry(a);
+          const needsCountry = !!country && country !== team.countryCode;
+          if (needsGroup || needsStadium || needsCountry) {
             const res = await updateTeam(team.id, {
               ...rest,
               ...(needsGroup ? { group: groupName } : {}),
               ...(needsStadium ? { stadium } : {}),
+              ...(needsCountry && country ? { countryCode: country } : {}),
             });
             if (!res.ok) {
               error = res.error;
@@ -224,8 +259,8 @@ export default function LeagueTeamsImport() {
           }
           updated++;
         }
-        const old = findApiNameLink(links, SPORT, a.apiName);
-        if (old?.teamId !== teamId) links = [...links.filter((l) => l !== old), { sport: SPORT, apiName: a.apiName, teamId }];
+        const old = findApiNameLink(links, sport, a.apiName);
+        if (old?.teamId !== teamId) links = [...links.filter((l) => l !== old), { sport, apiName: a.apiName, teamId }];
       }
       if (links !== apiNameLinks) saveApiNameLinks(links);
       // Eigene Untergruppe mit Flagge anlegen, falls es sie noch nicht gibt
@@ -233,9 +268,9 @@ export default function LeagueTeamsImport() {
       if (
         (created > 0 || updated > 0) &&
         !isFixedGroup(groupKey) &&
-        !teamGroupDefs.some((d) => d.sport === SPORT && normalizeTeamName(d.label) === groupKey)
+        !teamGroupDefs.some((d) => d.sport === sport && normalizeTeamName(d.label) === groupKey)
       ) {
-        saveTeamGroupDefs([...teamGroupDefs, { sport: SPORT, label: groupName, countryCode: league.country }]);
+        saveTeamGroupDefs([...teamGroupDefs, { sport, label: groupName, countryCode: league.country }]);
       }
     } catch (e) {
       error = e instanceof Error ? e.message : "Unbekannter Fehler";
@@ -271,21 +306,26 @@ export default function LeagueTeamsImport() {
       )}
       {open && (
         <div className="mt-3 flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
-            {LEAGUES.map((l) => (
-              <button
-                key={l.id}
-                type="button"
-                onClick={() => start(l)}
-                disabled={load.state === "loading" || saving}
-                className={`flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
-                  leagueId === l.id && load.state !== "idle" ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
-                }`}
-              >
-                <Emoji e={flagEmoji(l.country)} /> {l.label}
-              </button>
-            ))}
-          </div>
+          {LEAGUE_SPORTS.map((s) => (
+            <div key={s} className="flex flex-col gap-1.5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">{SPORT_LABEL[s] ?? s}</p>
+              <div className="flex flex-wrap gap-2">
+                {IMPORT_LEAGUES.filter((l) => l.sport === s).map((l) => (
+                  <button
+                    key={l.key}
+                    type="button"
+                    onClick={() => start(l)}
+                    disabled={load.state === "loading" || saving}
+                    className={`flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                      leagueId === l.key && load.state !== "idle" ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
+                    }`}
+                  >
+                    <Emoji e={flagEmoji(l.country)} /> {l.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
           {load.state === "idle" && (
             <p className="text-sm text-muted">
               Liga antippen – dann siehst du alle Vereine und was mit ihnen passiert, bevor etwas gespeichert wird.
@@ -303,7 +343,9 @@ export default function LeagueTeamsImport() {
           {load.state === "ready" && (
             <>
               <label className="flex flex-col gap-1 text-sm">
-                <span className="text-muted">Untergruppe für {leagueText(league)}</span>
+                <span className="text-muted">
+                  Untergruppe für {leagueText(league)} · Vereine der Saison {load.season}/{String((load.season + 1) % 100).padStart(2, "0")}
+                </span>
                 <input
                   value={group}
                   onChange={(e) => setGroup(e.target.value)}
@@ -319,11 +361,23 @@ export default function LeagueTeamsImport() {
               <ul className="flex flex-col divide-y divide-edge rounded-lg border border-edge">
                 {apiTeams.map((a) => {
                   const pick = choice[a.apiName] ?? NEW;
+                  const country = apiCountry(a);
+                  const picked = pick === NEW ? undefined : clubs.find((t) => t.id === pick);
+                  // Land ändert sich beim Zuordnen (z. B. Bozen: Österreich → Italien).
+                  const countryChange = picked && country && picked.countryCode !== country ? picked.countryCode : null;
+                  const info = [country && league.anyCountry ? `${flagEmoji(country)} ${countryName(country)}` : null, a.stadium?.name]
+                    .filter(Boolean)
+                    .join(" · ");
                   return (
                     <li key={a.apiName} className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
                         <p className="font-semibold text-ink">{a.apiName}</p>
-                        {a.stadium && <p className="text-xs text-muted">{a.stadium.name}</p>}
+                        {info && <p className="text-xs text-muted">{info}</p>}
+                        {countryChange && country && (
+                          <p className="text-xs font-semibold text-gold">
+                            Land wird {countryName(country)} (bisher {countryName(countryChange)})
+                          </p>
+                        )}
                       </div>
                       <select
                         value={pick}

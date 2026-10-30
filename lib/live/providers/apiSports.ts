@@ -1150,9 +1150,14 @@ export interface LeagueTeam {
   apiName: string;
   apiId: number | null;
   stadium: { name: string; capacity: number | null; venueId: number | null } | null;
+  // Land des Vereins (ISO, z. B. "IT" für Bozen), nur bei Eishockey – in der
+  // ICE Hockey League spielen Vereine aus mehreren Ländern.
+  country?: string | null;
 }
 
-export type LeagueTeamsResult = { ok: true; teams: LeagueTeam[] } | { ok: false; error: string };
+// season = Saison, aus der die Liste stammt (Eishockey: notfalls eine
+// ältere, siehe hockeyLeagueTeams).
+export type LeagueTeamsResult = { ok: true; teams: LeagueTeam[]; season?: number } | { ok: false; error: string };
 
 export async function footballLeagueTeams(leagueId: number, season: number): Promise<LeagueTeamsResult> {
   const key = process.env.API_SPORTS_KEY;
@@ -1184,4 +1189,68 @@ export async function footballLeagueTeams(leagueId: number, season: number): Pro
     .filter((t, i, all) => all.findIndex((x) => x.apiName === t.apiName) === i)
     .sort((a, b) => a.apiName.localeCompare(b.apiName, "de"));
   return { ok: true, teams };
+}
+
+// Vereine einer Eishockey-Liga (Rene, 30.10.2026: "die österreichische
+// Eishockey-Liga erweitern … es spielen auch Teams wie Bolzano aus Italien").
+// Die Liga-ID wird über leagues?country=… nach Namen gesucht (names wie in
+// LIVE_LEAGUES), dazu ihre aktuelle Saison. Dann teams?league=…&season=….
+// Der Gratis-Plan (Eishockey) sperrt evtl. neue Saisonen – dann die
+// nächstältere (höchstens 3 Versuche). Alles eine Woche gemerkt.
+const HOCKEY_URL = "https://v1.hockey.api-sports.io";
+
+// Falls country.code fehlt: englischer Name → ISO.
+const HOCKEY_COUNTRIES: Record<string, string> = {
+  austria: "AT", italy: "IT", hungary: "HU", slovenia: "SI", "czech-republic": "CZ", czechia: "CZ",
+  slovakia: "SK", germany: "DE", switzerland: "CH", croatia: "HR", poland: "PL",
+};
+
+function sameText(a: string, b: string): boolean {
+  return a.toLowerCase().replace(/\s+/g, " ").trim() === b.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+export async function hockeyLeagueTeams(names: readonly string[], apiCountry: string): Promise<LeagueTeamsResult> {
+  const key = process.env.API_SPORTS_KEY;
+  if (!key) return { ok: false, error: "Kein API_SPORTS_KEY gesetzt" };
+  const leagues = await load(`${HOCKEY_URL}/leagues?country=${encodeURIComponent(apiCountry)}`, key, VENUE_TTL);
+  if (!leagues.ok) return { ok: false, error: leagues.error };
+  const league = leagues.hit.value.find((l: Raw) => typeof l?.name === "string" && names.some((n) => sameText(n, l.name)));
+  const leagueId = toNumber(league?.id);
+  if (!league || leagueId === null) return { ok: false, error: "Liga bei der API nicht gefunden" };
+  const seasons: { season: number; current: boolean }[] = (Array.isArray(league.seasons) ? league.seasons : [])
+    .map((x: Raw) => ({ season: toNumber(x?.season), current: x?.current === true }))
+    .filter((x: { season: number | null }) => x.season !== null)
+    .sort((a: { season: number }, b: { season: number }) => b.season - a.season);
+  const current = seasons.findIndex((x) => x.current);
+  const tries = seasons.slice(Math.max(0, current), Math.max(0, current) + 3).map((x) => x.season);
+  if (tries.length === 0) return { ok: false, error: "Keine Saison bei der API" };
+  let error = "";
+  for (const season of tries) {
+    const res = await load(`${HOCKEY_URL}/teams?league=${leagueId}&season=${season}`, key, VENUE_TTL);
+    if (!res.ok) {
+      error ||= res.error;
+      continue;
+    }
+    const teams = res.hit.value
+      .map((t: Raw): LeagueTeam | null => {
+        const apiName = typeof t?.name === "string" ? t.name.trim() : "";
+        if (!apiName || t?.national === true || t?.nationnal === true) return null;
+        const arena = typeof t?.arena?.name === "string" ? t.arena.name.trim() : "";
+        const capacity = toNumber(t?.arena?.capacity);
+        const rawCode = typeof t?.country?.code === "string" ? t.country.code.trim().toUpperCase() : "";
+        const byName = typeof t?.country?.name === "string" ? HOCKEY_COUNTRIES[t.country.name.trim().toLowerCase()] : undefined;
+        const code = /^[A-Z]{2}$/.test(rawCode) ? rawCode : (byName ?? "");
+        return {
+          apiName,
+          apiId: toNumber(t?.id),
+          stadium: arena ? { name: arena, capacity: capacity !== null && capacity > 0 ? capacity : null, venueId: null } : null,
+          country: /^[A-Z]{2}$/.test(code) ? code : null,
+        };
+      })
+      .filter((t): t is LeagueTeam => t !== null)
+      .filter((t, i, all) => all.findIndex((x) => x.apiName === t.apiName) === i)
+      .sort((a, b) => a.apiName.localeCompare(b.apiName, "de"));
+    if (teams.length > 0) return { ok: true, teams, season };
+  }
+  return error ? { ok: false, error } : { ok: true, teams: [], season: tries[0] };
 }

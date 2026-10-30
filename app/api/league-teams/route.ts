@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
-import { footballSeason, isTableLeague } from "@/lib/standings";
-import { footballLeagueTeams, type LeagueTeam } from "@/lib/live/providers/apiSports";
+import { footballSeason } from "@/lib/standings";
+import { findImportLeague } from "@/lib/leagueImport";
+import { footballLeagueTeams, hockeyLeagueTeams, type LeagueTeam } from "@/lib/live/providers/apiSports";
 
-// Vereine einer Fußball-Liga (Rene, 30.10.2026), fürs Anlegen im Admin unter
-// Teams. GET /api/league-teams?league=<API-Sports-Liga-ID> – nur Ligen aus
-// lib/standings.ts. Der Anbieter merkt sich die Liste eine Woche.
+// Vereine einer Liga (Rene, 30.10.2026), fürs Anlegen im Admin unter Teams.
+// GET /api/league-teams?league=<key> – nur Ligen aus lib/leagueImport.ts
+// (Fußball: API-Sports-Liga-ID, Eishockey: "icehl"). Der Anbieter merkt sich
+// die Liste eine Woche.
 
 export interface LeagueTeamsResponse {
-  league: number;
+  league: string;
   season: number;
   teams: LeagueTeam[];
   error?: string;
@@ -21,12 +23,13 @@ function json(body: LeagueTeamsResponse, status = 200) {
 }
 
 export async function GET(request: Request) {
-  const league = Number(new URL(request.url).searchParams.get("league"));
+  const key = new URL(request.url).searchParams.get("league") ?? "";
+  const league = findImportLeague(key);
   const season = footballSeason();
-  if (!Number.isInteger(league) || !isTableLeague(league)) {
-    return json({ league, season, teams: [], error: "Ungültige Anfrage" }, 400);
-  }
-  const result = await footballLeagueTeams(league, season);
-  if (!result.ok) return NextResponse.json({ league, season, teams: [], error: result.error }, { headers: { "Cache-Control": "no-store" } });
-  return json({ league, season, teams: result.teams });
+  if (!league) return json({ league: key, season, teams: [], error: "Ungültige Anfrage" }, 400);
+  const result = league.hockey
+    ? await hockeyLeagueTeams(league.hockey.names, league.hockey.apiCountry)
+    : await footballLeagueTeams(league.footballId!, season);
+  if (!result.ok) return NextResponse.json({ league: key, season, teams: [], error: result.error }, { headers: { "Cache-Control": "no-store" } });
+  return json({ league: key, season: result.season ?? season, teams: result.teams });
 }
