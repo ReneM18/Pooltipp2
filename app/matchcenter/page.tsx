@@ -1,7 +1,7 @@
 "use client";
 
 import EmptyState from "@/components/EmptyState";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { SWIPE_EVENT, type SwipeDetail } from "@/components/SwipeNav";
 import AdBanner from "@/components/AdBanner";
 import FitText from "@/components/FitText";
@@ -242,7 +242,9 @@ function leagueName(g: LiveGame, sport: Sport): string {
 function liveLeagueFlag(sport: Sport, g: LiveGame, competitions: Parameters<typeof competitionFlag>[2]): string | null {
   if (!g.league.includes(" · ")) return competitionFlag(sport, leagueName(g, sport), competitions);
   const country = liveGameCountry(g.league);
-  return country ? flagEmoji(country) : null;
+  // Nur echte Ländercodes ("FR", "GB-SCT"); ein unbekannter Ländername der
+  // API ergäbe sonst kaputte Zeichen statt einer Flagge.
+  return country && /^[A-Z]{2}(-[A-Z]{3})?$/.test(country) ? flagEmoji(country) : null;
 }
 
 // Mehrere Sportarten (Rene, 16.10.2026): Umschalter ⚽/🏒 über dem
@@ -689,20 +691,38 @@ function LcError({ error, onRetry }: { error: string; onRetry: () => void }) {
   );
 }
 
-// Überschrift einer Liga mit Flagge (falls es eine passende gibt).
+// Kopf einer Liga (Rene, 30.10.2026, Variante A wie Livescore): Flagge im
+// Kreis und Liganame, ohne ausgeschriebenes Land ("es reicht die Flagge").
+// Ohne passende Flagge steht das Sport-Symbol im Kreis.
 function LeagueHeading({ sport, game }: { sport: Sport; game: LiveGame }) {
   const { competitions } = useAppData();
   const flag = liveLeagueFlag(sport, game, competitions);
   const name = leagueName(game, sport);
   return (
-    <p className="mb-2 flex items-center gap-2 font-display text-sm font-bold text-ink lg:text-base">
-      {flag && (
-        <span aria-hidden className="text-base lg:text-lg">
-          <Emoji e={flag} />
-        </span>
-      )}
-      {name}
+    <p className="mb-2.5 flex items-center gap-2.5 font-display text-[15px] font-bold leading-tight text-ink lg:text-base">
+      <span
+        aria-hidden
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-edge bg-surface-hover text-lg"
+      >
+        <Emoji e={flag ?? SPORT_ICONS[sport]} />
+      </span>
+      <span className="min-w-0">{name}</span>
     </p>
+  );
+}
+
+// Ligen untereinander, getrennt durch eine feine Linie über die ganze Breite
+// (Rene, 30.10.2026: "klare Abgrenzung zu einer neuen Liga").
+function LeagueGroups({ sport, games, renderRow }: { sport: Sport; games: LiveGame[]; renderRow: (g: LiveGame) => ReactNode }) {
+  return (
+    <div className="flex flex-col divide-y divide-edge">
+      {groupByLeague(games).map((group) => (
+        <div key={group.league} className="py-4 first:pt-0 last:pb-0">
+          <LeagueHeading sport={sport} game={group.games[0]} />
+          <div className="flex flex-col gap-2">{group.games.map(renderRow)}</div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -772,23 +792,14 @@ function LcLive({
       />
     );
   }
-  const rows = (list: LiveGame[]) => (
-    <div className="flex flex-col gap-2">
-      {list.map((g) => (
-        <GameRow key={g.id} game={g} dataAt={dataAt} {...listProps} />
-      ))}
-    </div>
-  );
-
   return (
     <div className="flex flex-col gap-4">
       {running.length > 0 && <LcLiveHeader sport={sport} count={running.length} dataAt={dataAt} source={source} />}
-      {groupByLeague([...running, ...upcoming, ...finished]).map((group) => (
-        <div key={group.league}>
-          <LeagueHeading sport={sport} game={group.games[0]} />
-          {rows(group.games)}
-        </div>
-      ))}
+      <LeagueGroups
+        sport={sport}
+        games={[...running, ...upcoming, ...finished]}
+        renderRow={(g) => <GameRow key={g.id} game={g} dataAt={dataAt} {...listProps} />}
+      />
       {loading && <p className="text-center text-[11px] text-muted">Aktualisiert…</p>}
     </div>
   );
@@ -852,18 +863,7 @@ function LcResults({
         <div key={day.label}>
           <p className="mb-2 text-xs font-semibold text-muted">{day.label}</p>
           {/* Je Liga zusammen (Rene, 27.10.2026). */}
-          <div className="flex flex-col gap-3">
-            {groupByLeague(day.games).map((group) => (
-              <div key={`${day.label}-${group.league}`}>
-                <LeagueHeading sport={list.sport} game={group.games[0]} />
-                <div className="flex flex-col gap-2">
-                  {group.games.map((g) => (
-                    <GameRow key={g.id} game={g} {...list} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          <LeagueGroups sport={list.sport} games={day.games} renderRow={(g) => <GameRow key={g.id} game={g} {...list} />} />
         </div>
       ))}
     </div>
@@ -901,18 +901,7 @@ function LcUpcoming({
       {withGames.map((day) => (
         <div key={day.date}>
           <p className="mb-2 text-xs font-semibold text-muted">{day.date === dates[0] ? "Morgen" : dayLabel(day.date)}</p>
-          <div className="flex flex-col gap-3">
-            {groupByLeague(day.games).map((group) => (
-              <div key={`${day.date}-${group.league}`}>
-                <LeagueHeading sport={list.sport} game={group.games[0]} />
-                <div className="flex flex-col gap-2">
-                  {group.games.map((g) => (
-                    <GameRow key={g.id} game={g} {...list} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          <LeagueGroups sport={list.sport} games={day.games} renderRow={(g) => <GameRow key={g.id} game={g} {...list} />} />
         </div>
       ))}
     </div>
@@ -1283,7 +1272,7 @@ function GameRow({ sport, game, dataAt = 0, links, selectedId, onSelect }: ListP
               : "border-muted/25 bg-surface hover:border-muted/50"
       }`}
     >
-      <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] items-center gap-x-2.5 text-sm">
+      <div className="grid grid-cols-[4.75rem_1px_minmax(0,1fr)] items-center gap-x-2.5 text-sm">
         {/* Feste Breite, nichts läuft in die Namen (Rene, 16.10.2026):
             Zeile 1 groß/fett, Zeile 2 klein muted. */}
         <span className="flex w-[4.75rem] min-w-0 flex-col gap-0.5 overflow-hidden tabular-nums">
@@ -1309,6 +1298,9 @@ function GameRow({ sport, game, dataAt = 0, links, selectedId, onSelect }: ListP
             </span>
           )}
         </span>
+        {/* Feiner senkrechter Strich zwischen Zeit und Vereinen (Rene,
+            30.10.2026, wie Livescore). */}
+        <span aria-hidden className="w-px self-stretch bg-muted/30" />
         {/* Namen und Tore in einem Raster (Rene, 27.10.2026): jede Tor-Zahl
             steht genau neben ihrem Verein, auch wenn ein Name zwei Zeilen
             braucht. Die Tore stehen mittig in einer festen Spalte, so liegen
