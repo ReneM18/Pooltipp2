@@ -136,7 +136,7 @@ export default function LeagueTeamsImport() {
   const groupOf = useMemo(() => new Map(clubs.map((t) => [t.id, teamGroup(t, clubs).key])), [clubs]);
   const [group, setGroup] = useState("");
   const [load, setLoad] = useState<
-    { state: "idle" | "loading" } | { state: "error"; error: string } | { state: "ready"; teams: LeagueTeam[]; season: number }
+    { state: "idle" | "loading" } | { state: "error"; error: string } | { state: "ready"; teams: LeagueTeam[]; season: number; fromApp: boolean }
   >({
     state: "idle",
   });
@@ -159,7 +159,7 @@ export default function LeagueTeamsImport() {
           state: "error",
           error: "Die API kennt für diese Saison keine Vereine.",
         });
-      setLoad({ state: "ready", teams: body.teams, season: body.season });
+      setLoad({ state: "ready", teams: body.teams, season: body.season, fromApp: body.source === "app" });
     } catch {
       setLoad({ state: "error", error: "API nicht erreichbar" });
     }
@@ -344,7 +344,10 @@ export default function LeagueTeamsImport() {
             <>
               <label className="flex flex-col gap-1 text-sm">
                 <span className="text-muted">
-                  Untergruppe für {leagueText(league)} · Vereine der Saison {load.season}/{String((load.season + 1) % 100).padStart(2, "0")}
+                  Untergruppe für {leagueText(league)} ·{" "}
+                  {load.fromApp
+                    ? "Vereinsliste aus der App (die API gibt sie im Gratis-Plan nicht her)"
+                    : `Vereine der Saison ${load.season}/${String((load.season + 1) % 100).padStart(2, "0")}`}
                 </span>
                 <input
                   value={group}
