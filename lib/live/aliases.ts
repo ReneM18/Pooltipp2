@@ -13,6 +13,16 @@ const ALIAS_GROUPS: readonly (readonly string[])[] = [
   ["Capitals", "Vienna Capitals", "spusu Vienna Capitals"],
   ["Black Wings", "Black Wings Linz", "Steinbach Black Wings Linz", "Steinbach Black Wings 1992", "EHC Linz"],
   ["Salzburg", "EC Red Bull Salzburg", "EC Salzburg", "Red Bull Salzburg"],
+  // Vereine aus dem Ausland und weitere Schreibweisen (Rene, 30.10.2026:
+  // ICE Hockey League von der API holen, vorhandene Teams erkennen).
+  ["Bozen", "HC Bozen", "Bolzano", "HC Bolzano", "HCB Südtirol", "HCB Südtirol Alperia", "HCB Suedtirol Alperia", "Bozen Foxes"],
+  ["Fehérvár", "Fehérvár AV19", "Hydro Fehérvár AV19", "Alba Volán", "Székesfehérvár", "Alba Volán Székesfehérvár"],
+  ["Olimpija", "Olimpija Ljubljana", "HK Olimpija", "HK Olimpija Ljubljana", "HKO Ljubljana", "Ljubljana"],
+  ["Pustertal", "HC Pustertal", "Pustertal Wölfe", "HC Pustertal Wölfe", "Val Pusteria", "HC Val Pusteria", "Brunico"],
+  ["Graz 99ers", "99ers", "Graz99ers", "Moser Medical Graz99ers", "EC Graz 99ers"],
+  ["HC Innsbruck", "Innsbruck Haie", "HC TWK Innsbruck", "HC TWK Innsbruck Die Haie"],
+  ["VSV", "EC VSV", "Villacher SV", "EC Villacher SV", "EC iDM Wärmepumpen VSV", "VSV Villach"],
+  ["Pioneers Vorarlberg", "Vorarlberg Pioneers", "Pioneers Feldkirch"],
   // Fußball
   ["Rapid", "Rapid Wien", "SK Rapid", "SK Rapid Wien"],
   ["Hartberg", "TSV Hartberg"],
