@@ -35,6 +35,7 @@ export interface TableLeague {
 
 export const TABLE_LEAGUES: readonly TableLeague[] = [
   { id: 218, label: "Bundesliga", country: "AT" },
+  { id: 219, label: "2. Liga", country: "AT" },
   { id: 78, label: "Bundesliga", country: "DE" },
   { id: 79, label: "2. Bundesliga", country: "DE" },
   { id: 39, label: "Premier League", country: "GB-ENG" },

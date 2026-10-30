@@ -1142,3 +1142,46 @@ export async function searchTeamStadiums(sport: Sport, term: string): Promise<St
     .filter((c): c is StadiumCandidate => c !== null);
   return { ok: true, candidates };
 }
+
+// Alle Vereine einer Liga (Rene, 30.10.2026: "die Mannschaften der 2. Liga
+// gleich im Admin anlegen"). Eine Abfrage teams?league=…&season=…, eine
+// Woche gemerkt. Fürs Anlegen im Admin unter Teams (components/LeagueTeamsImport).
+export interface LeagueTeam {
+  apiName: string;
+  apiId: number | null;
+  stadium: { name: string; capacity: number | null; venueId: number | null } | null;
+}
+
+export type LeagueTeamsResult = { ok: true; teams: LeagueTeam[] } | { ok: false; error: string };
+
+export async function footballLeagueTeams(leagueId: number, season: number): Promise<LeagueTeamsResult> {
+  const key = process.env.API_SPORTS_KEY;
+  if (!key) return { ok: false, error: "Kein API_SPORTS_KEY gesetzt" };
+  const res = await load(`${TEAM_SEARCH_URL["Fußball"]}?league=${leagueId}&season=${season}`, key, VENUE_TTL);
+  if (!res.ok) return { ok: false, error: res.error };
+  const teams = res.hit.value
+    .map((row: Raw): LeagueTeam | null => {
+      const apiName = typeof row?.team?.name === "string" ? row.team.name.trim() : "";
+      if (!apiName) return null;
+      const v = row?.venue;
+      const venueName = typeof v?.name === "string" ? v.name.trim() : "";
+      const capacity = toNumber(v?.capacity);
+      const venueId = toNumber(v?.id);
+      return {
+        apiName,
+        apiId: toNumber(row?.team?.id),
+        stadium: venueName
+          ? {
+              name: venueName,
+              capacity: capacity !== null && capacity > 0 ? capacity : null,
+              venueId: venueId !== null && venueId > 0 ? venueId : null,
+            }
+          : null,
+      };
+    })
+    .filter((t): t is LeagueTeam => t !== null)
+    // Doppelte Namen nur einmal (die Liste ist nach Namen verschlüsselt).
+    .filter((t, i, all) => all.findIndex((x) => x.apiName === t.apiName) === i)
+    .sort((a, b) => a.apiName.localeCompare(b.apiName, "de"));
+  return { ok: true, teams };
+}

@@ -16,6 +16,7 @@ import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
 import TeamPicker from "@/components/TeamPicker";
 import TeamGroupChips from "@/components/TeamGroupChips";
 import TeamGroupsEditor from "@/components/TeamGroupsEditor";
+import LeagueTeamsImport from "@/components/LeagueTeamsImport";
 import { autoTeamGroup, countryGroupByKey, groupTeams, hasTeamGroups, withSelectedGroup } from "@/lib/teamGroups";
 import { normalizeTeamName } from "@/lib/teamName";
 import TeamBadge, { helmetLogoColor, jerseyFor, matchJerseyProps, teamColorProps } from "@/components/TeamBadge";
@@ -1706,6 +1707,9 @@ function TeamManager() {
 
       {/* Untergruppen vorher anlegen und ordnen (Rene, 20.10.2026). */}
       <TeamGroupsEditor />
+
+      {/* Alle Vereine einer Liga von der API (Rene, 30.10.2026). */}
+      <LeagueTeamsImport />
 
       <form
         ref={formRef}

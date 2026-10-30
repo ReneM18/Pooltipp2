@@ -43,6 +43,7 @@ const DEFAULT_NAMES: Record<Sport, string[]> = {
     "2. Bundesliga",
     "DFB-Pokal",
     "Österreichische Bundesliga",
+    "2. Liga",
     "ÖFB-Cup",
     "Premier League",
     "La Liga",
