@@ -48,7 +48,9 @@ import { appTeamForApiName, appTeamName } from "@/lib/teamApiNames";
 import { fixtureJerseyFor, fixtureTvFor } from "@/lib/fixtureTv";
 import { GUEST_PRIMARY_COLOR, GUEST_SECONDARY_COLOR } from "@/lib/guestTeam";
 import { useUser } from "@/lib/UserContext";
-import { isNightKickoff, planDayRange, relativeDayLabel, sportDay, viennaCalendarDay } from "@/lib/matchcenterLink";
+import { COUNTDOWN_FROM } from "@/components/Countdown";
+import { deadlineText } from "@/lib/dayGroups";
+import { isMatchTippable, isNightKickoff, planDayRange, relativeDayLabel, sportDay, tipCardHref, viennaCalendarDay } from "@/lib/matchcenterLink";
 import Link from "next/link";
 import { useStartExperience } from "@/lib/useStartExperience";
 
@@ -456,6 +458,12 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     const link = links.get(g.id);
     return !!link && tippedMatchIds.has(link.match.id);
   };
+  // Tippspiel, das man noch tippen kann: in der Liste steht "Tippen" (Rene,
+  // 30.10.2026: "da war doch immer Tippen", kam mit #401 weg).
+  const canTip = (g: LiveGame) => {
+    const link = links.get(g.id);
+    return !!link && now !== null && isMatchTippable(link.match, now);
+  };
 
   // Von der Tippkarte: ein Spiel von heute steht unter "Heute", eines von
   // einem anderen Tag im Spielplan an seinem Tag (Rene, 30.10.2026).
@@ -515,7 +523,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   }
 
   const selected = selectedId ? allGames.find((g) => g.id === selectedId) ?? null : null;
-  const listProps = { sport, links, selectedId, onSelect: select };
+  const listProps = { sport, links, isTipped, canTip, selectedId, onSelect: select };
 
   const selectedLink = selected ? links.get(selected.id) ?? null : null;
   const runningCount = todayDay.games?.filter((g) => isLiveRunning(g.status)).length ?? 0;
@@ -674,6 +682,8 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
 interface ListProps {
   sport: Sport;
   links: Map<string, AppLink>;
+  isTipped: (g: LiveGame) => boolean;
+  canTip: (g: LiveGame) => boolean;
   selectedId: string | null;
   onSelect: (id: string) => void;
 }
@@ -1305,14 +1315,18 @@ function liveAwayFirst(sport: Sport, game: LiveGame): boolean {
 // Eine Zeile (Rene, 15.10.2026: Spieltag-Umbau): links Status (siehe
 // rowStatus, feste Breite seit 16.10.2026), Mitte Heim und Gast
 // untereinander, rechts die Tore untereinander, unten ein dünner Balken
-// (Minute/90). Kein "Getippt"/"Tippen" mehr (Rene, 29.10.2026: im Matchcenter
-// nur das echte Spiel).
+// (Minute/90). Tippspiele zeigen rechts "Tippen"/"Getippt" und ab 3 Std.
+// vor Tippschluss den Countdown (Rene, 30.10.2026: wieder da, nach #401).
 // Rahmen eine Spur heller als border-edge, neutral für alle Zustände.
-function GameRow({ sport, game, dataAt = 0, links, selectedId, onSelect }: ListProps & { game: LiveGame; dataAt?: number }) {
+function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId, onSelect }: ListProps & { game: LiveGame; dataAt?: number }) {
   const clock = useLiveClock(sport, game.statusShort, game.elapsed, dataAt);
   const running = isLiveRunning(game.status);
   const hasScore = game.homeScore !== null && game.awayScore !== null && game.status !== "NS";
   const flash = useGoalFlash(game.id, hasScore ? `${game.homeScore}:${game.awayScore}` : null);
+  const tipped = isTipped(game);
+  // Tippschluss noch nicht vorbei: "Tippen"/"Getippt" und Countdown rechts.
+  const open = canTip(game);
+  const tippable = !tipped && open;
   const selected = selectedId === game.id;
   const link = links.get(game.id);
   const teamName = useApiTeamName(sport);
@@ -1351,7 +1365,7 @@ function GameRow({ sport, game, dataAt = 0, links, selectedId, onSelect }: ListP
   // in der schmalen Status-Spalte (Rene, 29.10.2026: "du hast so viel platz
   // in der zeile"; am PC war es mit Sender als "Endstand i…" abgeschnitten):
   // am Handy neben den Toren, am PC unter der Ergebnis-Box.
-  const endNote = done ? sub : null;
+  const endNote = done && !(open && link) ? sub : null;
   const [endNoteMain, endNoteScore] = endNote ? splitEndNote(endNote) : [null, null];
   const statusSub = endNote ? null : sub;
 
@@ -1368,7 +1382,9 @@ function GameRow({ sport, game, dataAt = 0, links, selectedId, onSelect }: ListP
       } ${
         selected
           ? "border-ink/50 bg-surface-hover"
-          : done
+          : tippable
+            ? "border-gold/45 bg-surface hover:border-gold/70"
+            : done
               ? "border-muted/15 bg-surface/50 hover:border-muted/40"
               : "border-muted/25 bg-surface hover:border-muted/50"
       }`}
@@ -1398,6 +1414,8 @@ function GameRow({ sport, game, dataAt = 0, links, selectedId, onSelect }: ListP
               <span className="min-w-0 break-words">{tv}</span>
             </span>
           )}
+          {/* Nach Tippschluss steht "Getippt" klein unter der Zeit. */}
+          {tipped && !open && <span className="truncate text-[10px] font-semibold leading-tight text-gold">Getippt</span>}
         </span>
         {/* Feiner senkrechter Strich zwischen Zeit und Vereinen (Rene,
             30.10.2026, wie Livescore). */}
@@ -1411,14 +1429,20 @@ function GameRow({ sport, game, dataAt = 0, links, selectedId, onSelect }: ListP
         >
           <FitText text={firstName} maxLines={2} minPx={12} className={`col-start-1 row-start-1 leading-tight ${nameTone(firstWins)}`} />
           <FitText text={secondName} maxLines={2} minPx={12} className={`col-start-1 row-start-2 leading-tight ${nameTone(secondWins)}`} />
-          <span
-            className={`${endNote ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
-              flash ? "bg-gold/15 text-gold" : scoreColor
-            }`}
-          >
-            <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(firstWins)}`}>{hasScore ? firstScore : "–"}</span>
-            <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(secondWins)}`}>{hasScore ? secondScore : "–"}</span>
-          </span>
+          {open && link ? (
+            <span className="col-start-2 row-span-2 row-start-1 justify-self-end">
+              <TipStatus deadline={link.match.tipDeadline} kickoff={link.match.kickoff} tipped={tipped} />
+            </span>
+          ) : (
+            <span
+              className={`${endNote ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
+                flash ? "bg-gold/15 text-gold" : scoreColor
+              }`}
+            >
+              <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(firstWins)}`}>{hasScore ? firstScore : "–"}</span>
+              <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(secondWins)}`}>{hasScore ? secondScore : "–"}</span>
+            </span>
+          )}
           {endNote && (
             <span className="col-start-2 row-span-2 row-start-1 flex flex-col items-end text-right text-[11px] font-semibold leading-tight text-muted">
               <span className="whitespace-nowrap">{endNoteMain}</span>
@@ -1434,7 +1458,7 @@ function GameRow({ sport, game, dataAt = 0, links, selectedId, onSelect }: ListP
             das Ergebnis in jeder Zeile an derselben Stelle steht. */}
         {/* Ergebnisfelder mit Mindest- statt fester Breite, damit auch
             dreistellige Spielstände (NBA, z. B. 125:124) hineinpassen. */}
-        <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-4 lg:grid">
+        <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_6.5rem] items-center gap-x-4 lg:grid">
           <FitText text={firstName} maxLines={2} minPx={12} className={`text-right text-[15px] leading-tight ${nameTone(firstWins)}`} />
           <span className="flex flex-col items-center gap-0.5">
             <span
@@ -1449,9 +1473,61 @@ function GameRow({ sport, game, dataAt = 0, links, selectedId, onSelect }: ListP
             {endNote && <span className="whitespace-nowrap text-[12px] font-semibold leading-none text-muted">{endNote}</span>}
           </span>
           <FitText text={secondName} maxLines={2} minPx={12} className={`text-[15px] leading-tight ${nameTone(secondWins)}`} />
+          <span className="flex min-w-0 flex-col items-end">
+            {open && link && <TipStatus deadline={link.match.tipDeadline} kickoff={link.match.kickoff} tipped={tipped} />}
+          </span>
         </span>
       </div>
     </button>
+  );
+}
+
+// Tippspiel vor Tippschluss: rechts statt der Striche oben "Tippen" (bzw.
+// "Getippt"), ab 3 Std. vor Tippschluss darunter ein laufender Countdown,
+// gleiche Regel wie auf der Tippkarte (components/Countdown.tsx, Rene
+// 28.10.2026: "der Countdown muss zum Tippschluss passen"), letzte 30 Min.
+// orange mit ⏰. Davor nur das Schild, kein "bis 20:45" (Rene, 28.10.2026:
+// verwirrend neben der Anstoßzeit); nur wenn der Tippschluss vor dem
+// Anstoß liegt, steht "bis …" darunter.
+function TipStatus({ deadline, kickoff, tipped }: { deadline: string; kickoff: string; tipped: boolean }) {
+  const target = Date.parse(deadline);
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const label = tipped ? (
+    <span className="text-[10px] font-semibold leading-[1.4] text-gold">Getippt</span>
+  ) : (
+    // Goldenes Schild mit Glanz (Rene, 27.10.2026, Variante C; Glanz in globals.css).
+    <span className="tip-shine w-fit rounded-full bg-gold px-1.5 text-[10px] font-bold leading-[1.4] text-pitch">Tippen</span>
+  );
+  if (now === null) return label;
+  const ms = Math.max(0, target - now);
+  const left = Math.floor(ms / 1000);
+  const h = Math.floor(left / 3600);
+  const m = Math.floor((left % 3600) / 60);
+  const sec = left % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const counting = ms <= COUNTDOWN_FROM;
+  const soon = ms <= 30 * 60 * 1000;
+  return (
+    <span className="flex flex-col items-end gap-1">
+      {label}
+      {counting ? (
+        <span
+          className={`flex items-baseline gap-1 whitespace-nowrap leading-tight tabular-nums ${soon ? "text-[#FF9B5C]" : "text-gold"}`}
+          role="timer"
+          aria-label={`Noch ${h > 0 ? `${h} Std. ` : ""}${m} Min. bis Tippschluss`}
+        >
+          <span className="text-[10px] font-semibold opacity-80">{soon ? "⏰ noch" : "noch"}</span>
+          <span className="font-display text-[13px] font-bold">{h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`}</span>
+        </span>
+      ) : target < Date.parse(kickoff) ? (
+        <span className="whitespace-nowrap text-[11px] font-semibold leading-tight text-gold">bis {deadlineText(target, now)}</span>
+      ) : null}
+    </span>
   );
 }
 
@@ -1600,6 +1676,17 @@ function FixtureJerseyEditor({
   );
 }
 
+// Kann man das App-Spiel noch tippen? Minütlich neu geprüft.
+function useTippable(match: Match | null): boolean {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  return !!match && now !== null && isMatchTippable(match, now);
+}
+
 // Detail rechts: Liga + Pill, Anzeigetafel (dieselbe wie auf der Tippkarte),
 // "Dein Tipp", Spiel / Aufstellung / Statistik.
 function LcDetail({
@@ -1619,6 +1706,7 @@ function LcDetail({
   const clock = useBoardClock(sport, liveLike ? { ...game, dataAt, ...(link ? appSidePenalties(link.result) : {}) } : null);
   const match = link?.match ?? null;
   const tip = match ? myTips.find((t) => t.matchId === match.id && !t.refunded) ?? null : null;
+  const tippable = useTippable(match);
   const order: TeamOrder = match ? orderFor(match) : { sport, awayFirst: liveAwayFirst(sport, game) };
   const awayFirst = !!order.awayFirst;
 
@@ -1780,6 +1868,16 @@ function LcDetail({
         <p className="truncate rounded-lg border border-edge bg-pitch px-3 py-2 text-[13px] text-muted">
           Dein Tipp: <span className="font-semibold text-ink">{tipText}</span>
         </p>
+      )}
+      {/* Direkt zur Tippkarte, solange getippt werden kann (Rene, 30.10.2026:
+          "Tippen" wieder da). */}
+      {match && !tip && tippable && (
+        <Link
+          href={tipCardHref(match.id)}
+          className="flex items-center justify-center gap-1.5 rounded-full bg-action-hover py-2.5 text-center font-display text-sm font-semibold tracking-wide text-pitch transition-all hover:brightness-110"
+        >
+          🎯 Jetzt tippen
+        </Link>
       )}
 
       {hasInfo && (
