@@ -63,3 +63,21 @@ console.log("Matchcenter-Verknüpfung: alle Tests bestanden");
   assert.equal(cupZone(78, r(1), 18), null); // Bundesliga: wie bisher
   assert.equal(cupZone(2, r(1), 4), null); // keine Ligaphase
 }
+
+// Spielplan-Tage (Rene, 30.10.2026): Heute/Morgen/Gestern nach Kalendertag.
+{
+  const { relativeDayLabel, viennaCalendarDay, planDayRange, addDays } = await import("../lib/matchcenterLink.ts");
+  const early = Date.parse("2026-10-30T02:30:00Z"); // 30.10. 03:30 in Wien
+  assert.equal(viennaCalendarDay(early), "2026-10-30");
+  assert.equal(relativeDayLabel("2026-10-30", early), "Heute"); // nicht "Morgen"
+  assert.equal(relativeDayLabel("2026-10-31", early), "Morgen");
+  assert.equal(relativeDayLabel("2026-10-29", early), "Gestern");
+  assert.equal(relativeDayLabel("2026-11-01", early), null);
+  const late = Date.parse("2026-10-30T22:30:00Z"); // 30.10. 23:30 in Wien
+  assert.equal(relativeDayLabel("2026-10-30", late), "Heute");
+  assert.equal(relativeDayLabel("2026-10-31", Date.parse("2026-10-30T23:30:00Z")), "Heute"); // 00:30 Wien
+  assert.deepEqual(planDayRange(false), { back: 1, ahead: 1 });
+  assert.deepEqual(planDayRange(true), { back: 7, ahead: 7 });
+  assert.equal(addDays("2026-10-31", 1), "2026-11-01");
+  console.log("Spielplan-Tage: alle Tests bestanden");
+}

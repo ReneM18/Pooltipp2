@@ -19,7 +19,7 @@ import {
   type LiveSource,
   type LiveMatchResult,
 } from "@/lib/liveScores";
-import { reloadLiveDay, useLiveDay, useLiveDays, useLivePolling, useStadium, type LiveDay } from "@/lib/useLiveScores";
+import { reloadLiveDay, useLiveDay, useLivePolling, useStadium, type LiveDay } from "@/lib/useLiveScores";
 import { CUP_ZONES, cupZone, TABLE_LEAGUES, type CupZone, type StandingGroup, type StandingsResponse } from "@/lib/standings";
 import { LIVE_SPORTS, liveGameCountry, liveGameLeague } from "@/lib/liveConfig";
 import { flagEmoji } from "@/lib/flags";
@@ -47,7 +47,7 @@ import { appTeamForApiName, appTeamName } from "@/lib/teamApiNames";
 import { fixtureTvFor } from "@/lib/fixtureTv";
 import { GUEST_PRIMARY_COLOR, GUEST_SECONDARY_COLOR } from "@/lib/guestTeam";
 import { useUser } from "@/lib/UserContext";
-import { isNightKickoff, sportDay } from "@/lib/matchcenterLink";
+import { isNightKickoff, planDayRange, relativeDayLabel, sportDay, viennaCalendarDay } from "@/lib/matchcenterLink";
 import Link from "next/link";
 import { useStartExperience } from "@/lib/useStartExperience";
 
@@ -124,10 +124,10 @@ function SubTab({ label, active, onClick }: { label: React.ReactNode; active: bo
 // Live-Bereich (Rene, 15.10.2026: Spieltag-Umbau, vorher nur "UEFA Europa
 // League"). Live-Daten von API-Sports über /api/live, aus demselben Speicher
 // wie die Tippkarten (lib/useLiveScores.ts). Nur eingeschaltete Ligen laut
-// lib/liveConfig.ts (die Route filtert schon). "Ergebnisse" von heute und
-// gestern. Seit dem Pro-Plan für Fußball (Rene, 27.10.2026) dazu
-// "Spielplan" (nächste 7 Tage) und "Tabelle" (API-Sports, /api/standings);
-// bei den anderen Sportarten steht unter "Tabelle" ein Hinweis.
+// lib/liveConfig.ts (die Route filtert schon). "Spielplan" mit einem Tag
+// zum Blättern (Rene, 30.10.2026, statt "Ergebnisse" und der Liste der
+// nächsten 7 Tage) und "Tabelle" (API-Sports, /api/standings); bei den
+// anderen Sportarten steht unter "Tabelle" ein Hinweis.
 //
 // Am PC zweispaltig: links die Liste, rechts (400–460 px) das Detail des
 // gewählten Spiels. Am Handy steht das Detail unter der Liste, beim
@@ -139,14 +139,11 @@ function SubTab({ label, active, onClick }: { label: React.ReactNode; active: bo
 const LIVE_SPORT: Sport | null = LIVE_SPORTS[0] ?? null;
 const MAX_LIVE_MS = 4 * 60 * 60 * 1000;
 
-type LcView = "live" | "spielplan" | "ergebnisse" | "tabelle";
+type LcView = "live" | "spielplan" | "tabelle";
 
-// Spielplan (Rene, 27.10.2026: Pro-Plan): so viele Tage ab morgen.
-const UPCOMING_DAYS = 7;
 // Ab so vielen Abfragen pro Tag gilt der Pro-Plan (wie FAST_PLAN_LIMIT in
 // lib/live/providers/apiSports.ts).
 const PRO_PLAN_LIMIT = 1000;
-const NO_DATES: readonly string[] = [];
 
 // API-Spiel ↔ App-Spiel (für "GETIPPT", "Dein Tipp", Community, Kommentare).
 interface AppLink {
@@ -174,10 +171,6 @@ function addDays(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
-}
-
-function previousDate(date: string): string {
-  return addDays(date, -1);
 }
 
 // Sporttag aus zwei Kalendertagen (Rene, 28.10.2026: US-Spiele in der
@@ -324,6 +317,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     function backToToday() {
       setView("live");
       setOnlyLive(false);
+      setPlanDay(null);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
     window.addEventListener("pooltipp:logo", backToToday);
@@ -334,6 +328,12 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     };
   }, []);
   const [today, setToday] = useState<string | null>(null);
+  // Kalendertag in Wien: davon geht der Spielplan aus ("Heute", Rene
+  // 30.10.2026). Um 03:30 ist der Sporttag noch gestern, der Kalendertag
+  // schon heute.
+  const [calToday, setCalToday] = useState<string | null>(null);
+  // Gewählter Tag im Spielplan, null = heute.
+  const [planDay, setPlanDay] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Hat der Spieler selbst gewählt? Dann nichts mehr automatisch wählen.
@@ -347,29 +347,38 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   // today = Sporttag (06:00 bis 06:00 Wiener Zeit, Rene 28.10.2026).
   useEffect(() => {
     setToday(sportDay(Date.now()));
+    setCalToday(viennaCalendarDay(Date.now()));
     setNow(Date.now());
     const t = setInterval(() => {
       setNow(Date.now());
       setToday(sportDay(Date.now()));
+      setCalToday(viennaCalendarDay(Date.now()));
     }, 30 * 1000);
     return () => clearInterval(t);
   }, []);
 
-  const yesterday = today ? previousDate(today) : null;
   const tomorrow = today ? addDays(today, 1) : null;
-  // Heute immer (Kalendertag + Nacht danach), gestern erst mit "Ergebnisse"
-  // (1 h Cache auf dem Server; seine Nacht steckt im Kalendertag heute).
+  // Heute immer (Kalendertag + Nacht danach).
   const todayCal = useLiveDay(sport, today);
   const tomorrowCal = useLiveDay(sport, tomorrow);
-  const yesterdayCal = useLiveDay(sport, view === "ergebnisse" ? yesterday : null);
   const todayGames = useMemo(() => sportDayGames(todayCal.games, tomorrowCal.games), [todayCal.games, tomorrowCal.games]);
-  const yesterdayGames = useMemo(() => sportDayGames(yesterdayCal.games, todayCal.games), [yesterdayCal.games, todayCal.games]);
   const todayDay = mergeSportDay(todayCal, tomorrowCal, todayGames);
-  const yesterdayDay = mergeSportDay(yesterdayCal, todayCal, yesterdayGames);
-  // Spielplan nur für Fußball und nur mit Pro-Plan (Tageskontingent laut
-  // API-Sports ab PRO_PLAN_LIMIT); der Gratis-Plan kennt nur gestern bis
-  // morgen und hat 100 Abfragen pro Tag.
-  const hasPlan = sport === "Fußball" && (todayDay.quota?.limit ?? 0) >= PRO_PLAN_LIMIT;
+  // Spielplan (Rene, 30.10.2026): ein Tag, mit Pfeilen einen Tag zurück
+  // oder vor. Mit Pro-Plan (Tageskontingent laut API-Sports ab
+  // PRO_PLAN_LIMIT, Fußball) eine Woche in jede Richtung, im Gratis-Plan nur
+  // gestern bis morgen. Vergangene Tage zeigen die Ergebnisse.
+  const hasPlan = (todayDay.quota?.limit ?? 0) >= PRO_PLAN_LIMIT;
+  const planRange = planDayRange(hasPlan);
+  const planFirst = calToday ? addDays(calToday, -planRange.back) : null;
+  const planLast = calToday ? addDays(calToday, planRange.ahead) : null;
+  const inPlanRange = (date: string | null): date is string =>
+    !!date && !!planFirst && !!planLast && date >= planFirst && date <= planLast;
+  const shownPlanDay = planDay && inPlanRange(planDay) ? planDay : calToday;
+  // Je Tag auch die Nacht danach (Sporttag): ein Kalendertag mehr laden.
+  const planCal = useLiveDay(sport, view === "spielplan" ? shownPlanDay : null);
+  const planNightCal = useLiveDay(sport, view === "spielplan" && shownPlanDay ? addDays(shownPlanDay, 1) : null);
+  const planGames = useMemo(() => sportDayGames(planCal.games, planNightCal.games), [planCal.games, planNightCal.games]);
+  const planDayData = mergeSportDay(planCal, planNightCal, planGames);
 
   // Am Handy seitlich wischen = Nachbar-Reiter (Rene, 29.10.2026), statt zur
   // nächsten Menüseite. Am ersten/letzten Reiter passiert nichts. Wo nicht
@@ -378,7 +387,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   useEffect(() => {
     function onSwipe(e: Event) {
       e.preventDefault();
-      const tabs: string[] = ["heute", "live", "ergebnisse", ...(hasPlan ? ["spielplan"] : []), "tabelle"];
+      const tabs: string[] = ["heute", "live", "spielplan", "tabelle"];
       const cur = view === "live" ? (onlyLive ? "live" : "heute") : view;
       const { dir } = (e as CustomEvent<SwipeDetail>).detail;
       const next = tabs[tabs.indexOf(cur) + (dir === "next" ? 1 : -1)];
@@ -396,21 +405,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     }
     window.addEventListener(SWIPE_EVENT, onSwipe);
     return () => window.removeEventListener(SWIPE_EVENT, onSwipe);
-  }, [hasPlan, view, onlyLive]);
-  const upcomingDates = useMemo(
-    () => (today && hasPlan && view === "spielplan" ? Array.from({ length: UPCOMING_DAYS }, (_, i) => addDays(today, i + 1)) : NO_DATES),
-    [today, hasPlan, view],
-  );
-  // Je Spielplan-Tag auch die Nacht danach: ein Kalendertag mehr laden.
-  const upcomingCalDates = useMemo(
-    () => (upcomingDates.length > 0 ? [...upcomingDates, addDays(upcomingDates[upcomingDates.length - 1], 1)] : NO_DATES),
-    [upcomingDates],
-  );
-  const upcomingCalDays = useLiveDays(sport, upcomingCalDates);
-  const upcomingDays = upcomingDates.map((_, i) => mergeSportDay(upcomingCalDays[i], upcomingCalDays[i + 1]));
-  useEffect(() => {
-    if (!hasPlan && view === "spielplan" && todayDay.games !== null) setView("live");
-  }, [hasPlan, view, todayDay.games]);
+  }, [view, onlyLive]);
 
   // Automatisch aktualisieren – nur solange ein Spiel läuft, im 180-s-Takt
   // (gemeinsam mit den Tippkarten, pausiert im Hintergrund).
@@ -424,26 +419,24 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   const retry = () => {
     if (today) reloadLiveDay(sport, today);
     if (tomorrow) reloadLiveDay(sport, tomorrow);
-    if (view === "ergebnisse" && yesterday) reloadLiveDay(sport, yesterday);
-    for (const date of upcomingCalDates) reloadLiveDay(sport, date);
+    if (view === "spielplan" && shownPlanDay) {
+      reloadLiveDay(sport, shownPlanDay);
+      reloadLiveDay(sport, addDays(shownPlanDay, 1));
+    }
   };
 
   // App-Spiele den API-Spielen zuordnen (gleiche Zuordnung wie die Tippkarten).
-  const upcomingGames = upcomingDays.flatMap((d) => d.games ?? []);
-  const upcomingKey = upcomingGames.map((g) => `${g.id}|${g.kickoff}|${g.statusShort}`).join(",");
-  const allGames = useMemo(
-    () => [...(todayDay.games ?? []), ...(yesterdayDay.games ?? []), ...upcomingGames],
-    // upcomingKey: neue Liste nur, wenn sich die Spiele ändern.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [todayDay.games, yesterdayDay.games, upcomingKey],
-  );
+  const allGames = useMemo(() => {
+    const seen = new Set((todayDay.games ?? []).map((g) => g.id));
+    return [...(todayDay.games ?? []), ...(planDayData.games ?? []).filter((g) => !seen.has(g.id))];
+  }, [todayDay.games, planDayData.games]);
   const links = useMemo(() => {
     const map = new Map<string, AppLink>();
     if (allGames.length === 0) return map;
     for (const m of matches) {
       if (m.sport !== sport || m.draft || m.status === "cancelled") continue;
       const day = sportDay(m.kickoff);
-      if (day !== today && day !== yesterday && !upcomingDates.includes(day)) continue;
+      if (day !== today && !(view === "spielplan" && day === shownPlanDay)) continue;
       const home = getTeam(m.homeTeamId);
       const away = getTeam(m.awayTeamId);
       if (!home || !away) continue;
@@ -453,7 +446,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     return map;
     // apiNameLinks: verknüpfte Vereinsnamen zählen bei findLiveGame mit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allGames, matches, getTeam, sport, today, yesterday, upcomingDates, apiNameLinks]);
+  }, [allGames, matches, getTeam, sport, today, view, shownPlanDay, apiNameLinks]);
   const tippedMatchIds = useMemo(
     () => new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId)),
     [myTips],
@@ -463,13 +456,15 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     return !!link && tippedMatchIds.has(link.match.id);
   };
 
-  // Von der Tippkarte: Spiel von gestern steht unter "Ergebnisse", eines
-  // ab morgen unter "Spielplan" (Rene, 27.10.2026).
+  // Von der Tippkarte: ein Spiel von heute steht unter "Heute", eines von
+  // einem anderen Tag im Spielplan an seinem Tag (Rene, 30.10.2026).
   const targetDay = target ? sportDay(target.kickoff) : null;
+  const targetInPlan = targetDay !== today && inPlanRange(targetDay);
   useEffect(() => {
-    if (targetDay && yesterday && targetDay === yesterday) setView("ergebnisse");
-    else if (targetDay && today && hasPlan && targetDay > today) setView("spielplan");
-  }, [targetDay, yesterday, today, hasPlan]);
+    if (!targetDay || !targetInPlan) return;
+    setView("spielplan");
+    setPlanDay(targetDay);
+  }, [targetDay, targetInPlan]);
   // ... und sobald es zugeordnet ist, auswählen.
   const targetDoneRef = useRef(false);
   const targetGameId = useMemo(
@@ -484,11 +479,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   }, [targetGameId]);
   // Daten da, aber das Spiel ist nicht dabei (anderer Tag, andere Liga).
   const targetMissing =
-    !!target &&
-    !targetGameId &&
-    !!todayDay.games &&
-    (targetDay !== yesterday || !!yesterdayDay.games) &&
-    !(targetDay && today && targetDay > today && hasPlan && upcomingDays.some((d) => d.games === null));
+    !!target && !targetGameId && !!todayDay.games && (!targetInPlan || (shownPlanDay === targetDay && !!planDayData.games));
 
   // Standard: erstes getipptes laufendes Spiel, sonst das erste laufende
   // (Rene, 29.10.2026: rechts steht das echte Spiel, nicht der Tipp).
@@ -560,7 +551,10 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
         />
       ) : targetMissing ? (
         <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
-          Dieses Spiel ist (noch) nicht in den Live-Daten. {hasPlan ? `Das Matchcenter zeigt Spiele von gestern bis in ${UPCOMING_DAYS} Tagen.` : "Das Matchcenter zeigt Spiele von heute und gestern."}
+          Dieses Spiel ist (noch) nicht in den Live-Daten.{" "}
+          {hasPlan
+            ? `Der Spielplan reicht ${planRange.back} Tage zurück und ${planRange.ahead} Tage vor.`
+            : "Der Spielplan reicht von gestern bis morgen."}
         </p>
       ) : (
         <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
@@ -599,9 +593,16 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
             setOnlyLive(true);
           }}
         />
-        {/* Ergebnisse vor Spielplan (Rene, 27.10.2026). */}
-        <SubTab label="Ergebnisse" active={view === "ergebnisse"} onClick={() => setView("ergebnisse")} />
-        {hasPlan && <SubTab label="Spielplan" active={view === "spielplan"} onClick={() => setView("spielplan")} />}
+        {/* Kein Reiter "Ergebnisse" mehr (Rene, 30.10.2026): vergangene
+            Tage stehen im Spielplan. Nochmal antippen = zurück auf heute. */}
+        <SubTab
+          label="Spielplan"
+          active={view === "spielplan"}
+          onClick={() => {
+            if (view === "spielplan") setPlanDay(null);
+            setView("spielplan");
+          }}
+        />
         <SubTab label="Tabelle" active={view === "tabelle"} onClick={() => setView("tabelle")} />
       </div>
 
@@ -624,18 +625,20 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
                 verschiedene Karten sind"). */}
             <div className="min-w-0 rounded-card border border-muted/40 bg-surface p-3 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] lg:p-4">
               {view === "spielplan" ? (
-                <LcUpcoming dates={upcomingDates} days={upcomingDays} onRetry={retry} {...listProps} />
-              ) : view === "live" ? (
-                <LcLive onlyLive={onlyLive} games={todayDay.games} error={todayDay.error} dataAt={todayDay.dataAt} source={todayDay.source} loading={polling && todayDay.loading} onRetry={retry} {...listProps} />
+                <>
+                  {shownPlanDay && planFirst && planLast && (
+                    <DayNav
+                      date={shownPlanDay}
+                      now={now}
+                      canBack={shownPlanDay > planFirst}
+                      canAhead={shownPlanDay < planLast}
+                      onPick={(days) => setPlanDay(addDays(shownPlanDay, days))}
+                    />
+                  )}
+                  <LcDay key={shownPlanDay} games={planDayData.games} error={planDayData.error} onRetry={retry} {...listProps} />
+                </>
               ) : (
-                <LcResults
-                  today={today}
-                  todayGames={todayDay.games}
-                  yesterdayGames={yesterdayDay.games}
-                  error={todayDay.error ?? yesterdayDay.error}
-                  onRetry={retry}
-                  {...listProps}
-                />
+                <LcLive onlyLive={onlyLive} games={todayDay.games} error={todayDay.error} dataAt={todayDay.dataAt} source={todayDay.source} loading={polling && todayDay.loading} onRetry={retry} {...listProps} />
               )}
             </div>
             <div ref={detailRef} className="scroll-mt-32">
@@ -824,87 +827,74 @@ function LcLiveHeader({ sport, count, dataAt, source }: { sport: Sport; count: n
   );
 }
 
-function LcResults({
-  today,
-  todayGames,
-  yesterdayGames,
-  error,
-  onRetry,
-  ...list
-}: ListProps & {
-  today: string | null;
-  todayGames: LiveGame[] | null;
-  yesterdayGames: LiveGame[] | null;
-  error: string | null;
-  onRetry: () => void;
+// Spielplan-Kopf (Rene, 30.10.2026): "Heute" mit Pfeil links/rechts, je
+// einen Tag zurück oder vor. Pfeile 44 × 44 px, damit man sie am Handy gut
+// trifft. Am Rand des Bereichs ist der Pfeil ausgegraut.
+function DayNav({
+  date,
+  now,
+  canBack,
+  canAhead,
+  onPick,
+}: {
+  date: string;
+  now: number | null;
+  canBack: boolean;
+  canAhead: boolean;
+  onPick: (days: number) => void;
 }) {
-  if (!todayGames || !yesterdayGames) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
-  const finished = [...todayGames, ...yesterdayGames]
-    .filter((g) => isLiveFinished(g.status))
-    .sort((a, b) => byKickoff(b, a));
-  if (finished.length === 0) {
-    if (error) return <LcError error={error} onRetry={onRetry} />;
-    return (
-      <EmptyState
-        emoji="⚽"
-        title="Noch keine Ergebnisse"
-        text="Von gestern und heute gibt es noch keine beendeten Spiele."
-        className="border-none bg-transparent"
-      />
-    );
-  }
-  const days = [
-    { label: "Heute", games: finished.filter((g) => sportDay(g.kickoff) === today) },
-    { label: "Gestern", games: finished.filter((g) => sportDay(g.kickoff) !== today) },
-  ].filter((d) => d.games.length > 0);
+  const relative = now !== null ? relativeDayLabel(date, now) : null;
+  const weekday = new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC", weekday: "long" });
+  const short = new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC", day: "2-digit", month: "2-digit" });
+  const arrow = (dir: -1 | 1, enabled: boolean) => (
+    <button
+      type="button"
+      onClick={() => onPick(dir)}
+      disabled={!enabled}
+      aria-label={dir < 0 ? "Vorheriger Tag" : "Nächster Tag"}
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-edge text-ink transition-colors [@media(hover:hover)]:hover:border-gold [@media(hover:hover)]:hover:text-gold disabled:pointer-events-none disabled:opacity-30"
+    >
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d={dir < 0 ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
+      </svg>
+    </button>
+  );
   return (
-    <div className="flex flex-col gap-4">
-      {days.map((day) => (
-        <div key={day.label}>
-          <p className="mb-2 text-xs font-semibold text-muted">{day.label}</p>
-          {/* Je Liga zusammen (Rene, 27.10.2026). */}
-          <LeagueGroups sport={list.sport} games={day.games} renderRow={(g) => <GameRow key={g.id} game={g} {...list} />} />
-        </div>
-      ))}
+    <div className="mb-3 flex items-center justify-between gap-3 border-b border-edge pb-3">
+      {arrow(-1, canBack)}
+      <p className="min-w-0 text-center leading-tight" aria-live="polite">
+        <span className="block font-display text-base font-bold text-ink lg:text-lg">{relative ?? weekday}</span>
+        <span className="block text-xs text-muted">
+          {relative ? `${weekday}, ${short}` : short}
+        </span>
+      </p>
+      {arrow(1, canAhead)}
     </div>
   );
 }
 
-// Spielplan der nächsten Tage (Rene, 27.10.2026: Pro-Plan). Je Tag, darin je
-// Liga, nach Anstoß. Tippspiele mit "Tippen" und Countdown wie unter "Heute".
-function LcUpcoming({
-  dates,
-  days,
+// Spiele eines Tages im Spielplan (Rene, 30.10.2026): je Liga, nach Anstoß.
+// Vergangene Tage mit Endstand, heute auch laufende, später "Tippen".
+function LcDay({
+  games,
+  error,
   onRetry,
   ...list
-}: ListProps & { dates: readonly string[]; days: LiveDay[]; onRetry: () => void }) {
-  if (days.length === 0 || days.every((d) => d.games === null)) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
-  const loaded = days.filter((d) => d.games !== null);
-  const withGames = dates
-    .map((date, i) => ({ date, games: [...(days[i]?.games ?? [])].sort(byKickoff) }))
-    .filter((d) => d.games.length > 0);
-  if (withGames.length === 0) {
-    const error = loaded.find((d) => d.error)?.error;
-    if (error && loaded.length === days.length) return <LcError error={error} onRetry={onRetry} />;
-    if (loaded.length < days.length) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
+}: ListProps & { games: LiveGame[] | null; error: string | null; onRetry: () => void }) {
+  if (!games) return <p className="py-6 text-center text-sm text-muted">Lädt…</p>;
+  if (games.length === 0) {
+    if (error) return <LcError error={error} onRetry={onRetry} />;
     return (
       <EmptyState
         emoji={SPORT_ICONS[list.sport]}
-        title="Keine Spiele in den nächsten Tagen"
-        text={`In den nächsten ${UPCOMING_DAYS} Tagen stehen in unseren Bewerben keine Spiele an.`}
+        title="Keine Spiele an diesem Tag"
+        text="In unseren Bewerben ist an diesem Tag nichts los. Mit den Pfeilen zum nächsten Tag."
         className="border-none bg-transparent"
       />
     );
   }
   return (
-    <div className="flex flex-col gap-4">
-      {withGames.map((day) => (
-        <div key={day.date}>
-          <p className="mb-2 text-xs font-semibold text-muted">{day.date === dates[0] ? "Morgen" : dayLabel(day.date)}</p>
-          <LeagueGroups sport={list.sport} games={day.games} renderRow={(g) => <GameRow key={g.id} game={g} {...list} />} />
-        </div>
-      ))}
-    </div>
+    <LeagueGroups sport={list.sport} games={[...games].sort(byKickoff)} renderRow={(g) => <GameRow key={g.id} game={g} {...list} />} />
   );
 }
 
@@ -1150,7 +1140,9 @@ function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowS
   if (game.status === "NS") {
     // Nacht-Spiele (00:00 bis 05:59) gehören zum Vortag (Sporttag) und
     // stehen mit "Nacht" da (Rene, 28.10.2026).
-    const today = sportDay(Date.now());
+    // heute/morgen/gestern nach dem Kalendertag in Wien (Rene, 30.10.2026:
+    // um 03:30 stand bei den Spielen von heute "morgen").
+    const today = viennaCalendarDay(Date.now());
     const day = sportDay(game.kickoff);
     const sub = isNightKickoff(game.kickoff)
       ? "Nacht"
