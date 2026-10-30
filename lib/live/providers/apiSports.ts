@@ -1222,13 +1222,26 @@ export async function hockeyLeagueTeams(names: readonly string[], apiCountry: st
     .filter((x: { season: number | null }) => x.season !== null)
     .sort((a: { season: number }, b: { season: number }) => b.season - a.season);
   const current = seasons.findIndex((x) => x.current);
-  const tries = seasons.slice(Math.max(0, current), Math.max(0, current) + 3).map((x) => x.season);
-  if (tries.length === 0) return { ok: false, error: "Keine Saison bei der API" };
+  const start = seasons[Math.max(0, current)]?.season;
+  if (start === undefined) return { ok: false, error: "Keine Saison bei der API" };
+  // Gratis-Plan (Rene, 30.10.2026: "Eishockey geht nicht wegen dem Free
+  // Plan"): API-Sports antwortet z. B. "Free plans do not have access to
+  // this season, try from 2022 to 2024." – dann gleich die neueste erlaubte
+  // Saison (die Vereine der Liga ändern sich kaum). Sonst eine ältere.
+  const tried: number[] = [];
+  let season: number | undefined = start;
   let error = "";
-  for (const season of tries) {
+  while (season !== undefined && tried.length < 3) {
+    tried.push(season);
     const res = await load(`${HOCKEY_URL}/teams?league=${leagueId}&season=${season}`, key, VENUE_TTL);
     if (!res.ok) {
       error ||= res.error;
+      const range = /(\d{4})\D+(\d{4})\D*$/.exec(res.error);
+      const allowed = range ? Math.max(Number(range[1]), Number(range[2])) : null;
+      season =
+        allowed !== null && !tried.includes(allowed)
+          ? allowed
+          : seasons.map((x) => x.season).find((x) => x < tried[tried.length - 1] && !tried.includes(x));
       continue;
     }
     const teams = res.hit.value
@@ -1251,6 +1264,8 @@ export async function hockeyLeagueTeams(names: readonly string[], apiCountry: st
       .filter((t, i, all) => all.findIndex((x) => x.apiName === t.apiName) === i)
       .sort((a, b) => a.apiName.localeCompare(b.apiName, "de"));
     if (teams.length > 0) return { ok: true, teams, season };
+    season = seasons.map((x) => x.season).find((x) => x < tried[tried.length - 1] && !tried.includes(x));
   }
-  return error ? { ok: false, error } : { ok: true, teams: [], season: tries[0] };
+  if (!error) return { ok: true, teams: [], season: start };
+  return { ok: false, error: /free plan/i.test(error) ? "Der Gratis-Plan für Eishockey gibt diese Saison nicht frei" : error };
 }
