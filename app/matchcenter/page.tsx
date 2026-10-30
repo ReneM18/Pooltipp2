@@ -28,7 +28,7 @@ import { useAppData } from "@/lib/AppDataContext";
 import { competitionFlag } from "@/lib/competitionFlag";
 import { displayOrder, isAwayFirst, scoreText, type TeamOrder } from "@/lib/teamOrder";
 import { SPORT_ICONS, sportLabel, type Match, type Sport, type Team } from "@/lib/types";
-import TeamBadge, { matchJerseyProps, teamColorProps } from "@/components/TeamBadge";
+import TeamBadge, { jerseyFor, matchJerseyProps, teamColorProps } from "@/components/TeamBadge";
 import { LineupView, PreviewView, StatsView, useMatchInfo, useMatchPreview } from "@/components/MatchInfo";
 import Emoji from "@/components/Emoji";
 import LiveTvHeat, { type TvGame } from "@/components/LiveTvHeat";
@@ -44,7 +44,7 @@ import {
 } from "@/components/LiveMatch";
 import { liveTipLabel } from "@/lib/liveTipText";
 import { appTeamForApiName, appTeamName } from "@/lib/teamApiNames";
-import { fixtureTvFor } from "@/lib/fixtureTv";
+import { fixtureJerseyFor, fixtureTvFor } from "@/lib/fixtureTv";
 import { GUEST_PRIMARY_COLOR, GUEST_SECONDARY_COLOR } from "@/lib/guestTeam";
 import { useUser } from "@/lib/UserContext";
 import { isNightKickoff, planDayRange, relativeDayLabel, sportDay, viennaCalendarDay } from "@/lib/matchcenterLink";
@@ -1390,9 +1390,19 @@ function FixtureTvEditor({ sport, game }: { sport: Sport; game: LiveGame }) {
 // Admin: Trikots für ein Spiel ohne Tippspiel (Rene, 28.10.2026: "auch wenn
 // ich keinen Tipp erstelle"). Je Verein ein Link in den Admin: vorhandenes
 // Team bearbeiten oder neues Team mit Trikot anlegen (wird dann mit dem
-// API-Namen verknüpft). Reihenfolge wie auf der Anzeige.
-function FixtureJerseyEditor({ sport, game, apiNames }: { sport: Sport; game: LiveGame; apiNames: [string, string] }) {
+// API-Namen verknüpft). Darunter die Wahl Heim-/Auswärtstrikot für dieses
+// Spiel (Rene, 30.10.2026). Reihenfolge wie auf der Anzeige.
+function FixtureJerseyEditor({
+  sport,
+  game,
+  sides,
+}: {
+  sport: Sport;
+  game: LiveGame;
+  sides: ["home" | "away", "home" | "away"];
+}) {
   const { isAdmin } = useUser();
+  const { fixtureTv, saveFixtureJersey } = useAppData();
   const apiTeam = useApiTeam(sport);
   // Land für ein neues Team aus der Liga ("Premier League · England").
   const country = liveGameCountry(game.league);
@@ -1401,32 +1411,79 @@ function FixtureJerseyEditor({ sport, game, apiNames }: { sport: Sport; game: Li
     <div className="flex flex-col gap-1.5 rounded-lg border border-dashed border-edge px-3 py-2 text-[13px]">
       <span className="text-muted">Trikots (nur Admin)</span>
       <div className="grid grid-cols-2 gap-2">
-        {apiNames.map((apiName) => {
+        {sides.map((side) => {
+          const apiName = side === "home" ? game.home : game.away;
           const team = apiTeam(apiName);
+          const variant = fixtureJerseyFor(fixtureTv, sport, game.id, side);
+          // Nationalteams zeigen die Flagge, Football den Helm: nichts zu wählen.
+          const canPick = !!team && !team.isNationalTeam && sport !== "NFL";
           const href = team
             ? `/admin?tab=teams&team=${encodeURIComponent(team.id)}`
             : `/admin?tab=teams&neu=${encodeURIComponent(apiName)}&sport=${encodeURIComponent(sport)}${
                 country ? `&land=${encodeURIComponent(country)}` : ""
               }`;
           return (
-            <Link
-              key={apiName}
-              href={href}
-              className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-edge px-2.5 py-1.5 text-ink transition-colors hover:border-gold/60"
-            >
-              {team ? (
-                <TeamBadge sport={sport} {...teamColorProps(team)} jerseyStyle={team.jerseyStyle} size={22} />
-              ) : (
-                <span aria-hidden className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border border-dashed border-muted text-muted">
-                  +
+            <div key={side} className="flex min-w-0 flex-col gap-1.5">
+              <Link
+                href={href}
+                className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-edge px-2.5 py-1.5 text-ink transition-colors hover:border-gold/60"
+              >
+                {team ? (
+                  <TeamBadge
+                    sport={sport}
+                    {...teamColorProps(team)}
+                    jerseyStyle={jerseyFor(team, { variant, style: "solid" }).style}
+                    variant={variant}
+                    size={22}
+                  />
+                ) : (
+                  <span aria-hidden className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border border-dashed border-muted text-muted">
+                    +
+                  </span>
+                )}
+                {/* Name nie abschneiden: bis 2 Zeilen, darunter was der Link tut. */}
+                <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                  <span className="line-clamp-2 break-words">{team ? team.name : apiName}</span>
+                  <span className="text-xs font-semibold text-gold">{team ? "Trikot ändern" : "Trikot anlegen"}</span>
                 </span>
+              </Link>
+              {team && canPick && (
+                <div className="grid grid-cols-2 gap-1" role="group" aria-label={`Trikot ${team.name} in diesem Spiel`}>
+                  {(
+                    [
+                      ["heim", "Heim"],
+                      ["auswaerts", "Auswärts"],
+                    ] as const
+                  ).map(([v, label]) => {
+                    const active = variant === v;
+                    return (
+                      <button
+                        key={v}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => !active && saveFixtureJersey({ sport, fixtureId: game.id, kickoff: game.kickoff }, side, v)}
+                        className={`flex min-h-10 min-w-0 items-center justify-center gap-1 rounded-lg border px-1 text-xs transition-colors ${
+                          active ? "border-gold bg-gold/10 font-semibold text-gold" : "border-edge text-muted hover:border-muted"
+                        }`}
+                      >
+                        {/* Kleines Trikot nur am PC; am Handy ist es zu eng, das
+                            gewählte Trikot zeigt dort die Karte darüber. */}
+                        <span className="hidden shrink-0 sm:inline-flex">
+                          <TeamBadge
+                            sport={sport}
+                            {...teamColorProps(team)}
+                            jerseyStyle={jerseyFor(team, { variant: v, style: "solid" }).style}
+                            variant={v}
+                            size={16}
+                          />
+                        </span>
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
-              {/* Name nie abschneiden: bis 2 Zeilen, darunter was der Link tut. */}
-              <span className="flex min-w-0 flex-1 flex-col leading-tight">
-                <span className="line-clamp-2 break-words">{team ? team.name : apiName}</span>
-                <span className="text-xs font-semibold text-gold">{team ? "Trikot ändern" : "Trikot anlegen"}</span>
-              </span>
-            </Link>
+            </div>
           );
         })}
       </div>
@@ -1476,6 +1533,12 @@ function LcDetail({
   const teamOf = (s: "home" | "away") =>
     link ? (s === "home" ? link.home : link.away) : apiTeam(s === "home" ? game.home : game.away);
   const anyJersey = !!teamOf("home") || !!teamOf("away");
+  // Ohne Tippspiel: Heim-/Auswärtstrikot, wie der Admin es im Matchcenter wählt.
+  const { fixtureTv } = useAppData();
+  const fixtureJerseyProps = (team: Team, s: "home" | "away") => {
+    const j = jerseyFor(team, { variant: fixtureJerseyFor(fixtureTv, sport, game.id, s), style: "solid" });
+    return { ...teamColorProps(team), jerseyStyle: j.style, variant: j.variant };
+  };
   // Vereine in der Reihenfolge der API (fürs Stadion).
   const swappedSides = !!link?.result.swapped;
   const venue = useStadium(
@@ -1492,7 +1555,7 @@ function LcDetail({
     const badge = !anyJersey ? undefined : team ? (
       <TeamBadge
         sport={sport}
-        {...(match ? matchJerseyProps(match, team) : { ...teamColorProps(team), jerseyStyle: team.jerseyStyle })}
+        {...(match ? matchJerseyProps(match, team) : fixtureJerseyProps(team, s))}
         isNationalTeam={team.isNationalTeam}
         countryCode={team.countryCode}
         size={34}
@@ -1598,7 +1661,7 @@ function LcDetail({
         <FixtureJerseyEditor
           sport={sport}
           game={game}
-          apiNames={leftSide === "home" ? [game.home, game.away] : [game.away, game.home]}
+          sides={[leftSide, rightSide]}
         />
       )}
 

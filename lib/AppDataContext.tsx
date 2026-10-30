@@ -3,13 +3,20 @@
 import { AppSettingsRow, DEFAULT_TICKER_SPEED, SETTINGS_ROW_ID, TickerSpeed, readTickerSpeed } from "./appSettings";
 import { GROUPS_ROW_ID, setTeamGroupDefs, TeamGroupDef, TeamGroupsRow } from "./teamGroups";
 import { API_NAMES_ROW_ID, applyApiNameAliases, type ApiNameLink, type ApiNamesRow } from "./teamApiNames";
-import { FIXTURE_TV_ROW_ID, withFixtureTv, type FixtureTv, type FixtureTvRow } from "./fixtureTv";
+import {
+  FIXTURE_TV_ROW_ID,
+  withFixtureJersey,
+  withFixtureTv,
+  type FixtureRef,
+  type FixtureTv,
+  type FixtureTvRow,
+} from "./fixtureTv";
 import { createContext, useContext, useState, useEffect, useMemo, useRef, ReactNode } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { coinText } from "@/lib/coinText";
 import { useAppRefresh } from "./appRefresh";
 import type { NewsPoll } from "./newsPolls";
-import { Match, MatchJersey, NEWS_SPORT_ICONS, NewsSport, Sport, SPORT_ICONS, Team, TipMode } from "./types";
+import { JerseyVariant, Match, MatchJersey, NEWS_SPORT_ICONS, NewsSport, Sport, SPORT_ICONS, Team, TipMode } from "./types";
 import {
   Competition,
   CompetitionsRow,
@@ -451,6 +458,8 @@ interface AppDataContextValue {
   // TV-Sender der Matchcenter-Spiele ohne Tippspiel (lib/fixtureTv.ts).
   fixtureTv: FixtureTv[];
   saveFixtureTv: (entry: FixtureTv) => void;
+  // Heim-/Auswärtstrikot eines Vereins in so einem Spiel (Seite wie bei der API).
+  saveFixtureJersey: (ref: FixtureRef, side: "home" | "away", variant: JerseyVariant) => void;
   // Fehlgeschlagenes Speichern von Spielen/News/Wettbewerben (Admin-Meldung).
   saveProblem: SaveProblem | null;
   clearSaveProblem: () => void;
@@ -1166,13 +1175,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   // Sender eines API-Spiels setzen oder löschen (lib/fixtureTv.ts).
   function saveFixtureTv(entry: FixtureTv) {
+    saveFixtureList(withFixtureTv(fixtureTv, entry), "TV-Sender");
+  }
+
+  function saveFixtureJersey(ref: FixtureRef, side: "home" | "away", variant: JerseyVariant) {
+    saveFixtureList(withFixtureJersey(fixtureTv, ref, side, variant), "Trikot");
+  }
+
+  function saveFixtureList(list: FixtureTv[], what: string) {
     if (!loadedFromDb.teams) return;
-    const list = withFixtureTv(fixtureTv, entry);
     setFixtureTvState(list);
     const row: FixtureTvRow = { kind: "fixtureTv", list };
     adminWriteAtRef.current = Date.now();
     void upsertConfirmed("teams", [{ id: FIXTURE_TV_ROW_ID, data: row, updated_at: new Date().toISOString() }]).then((result) => {
-      if (!result.ok) reportSaveProblem("TV-Sender", result.error);
+      if (!result.ok) reportSaveProblem(what, result.error);
     });
   }
 
@@ -1865,6 +1881,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         saveApiNameLinks,
         fixtureTv,
         saveFixtureTv,
+        saveFixtureJersey,
         saveTeamGroupDefs,
         comments,
         getCommentsForMatch,
