@@ -5,7 +5,8 @@ import type { Sport } from "./types";
 // (Rene, 16.10.2026: dazu AT/DE-Bundesliga, Serie A und Eishockey – NHL und
 // ICE Hockey League.)
 // (Rene, 26.10.2026: "alles was wir anbieten" – alle Wettbewerbe aus der
-// Startliste in lib/competitions.ts, dazu NBA und NFL.) Handball ist fertig
+// Startliste in lib/competitions.ts, dazu NBA und NFL.)
+// (Rene, 30.10.2026: dazu die österreichische 2. Liga.) Handball ist fertig
 // im Code, aber abgeschaltet (keine Wettbewerbe in der App). Zum Einschalten
 // die Sportart in LIVE_SPORTS und ihre Ligen in LIVE_LEAGUES ergänzen.
 // Mehr Ligen kosten keine Abfragen: abgefragt wird je Sportart und Tag eine
@@ -41,6 +42,8 @@ export const LIVE_LEAGUES: Partial<Record<Sport, readonly LiveLeague[]>> = {
     { label: "EM-Qualifikation", names: ["euro championship - qualification", "em-qualifikation"], country: null },
     { label: "Länderspiel", names: ["friendlies", "länderspiel"], country: null },
     { label: "Bundesliga", names: ["bundesliga", "österreichische bundesliga", "admiral bundesliga"], country: "AT" },
+    // 2. Liga (Rene, 30.10.2026). API-Sports: "2. Liga" · Austria.
+    { label: "2. Liga", names: ["2. liga", "2. liga österreich", "admiral 2. liga", "österreichische 2. liga"], country: "AT" },
     { label: "ÖFB-Cup", names: ["cup", "öfb-cup", "öfb cup"], country: "AT" },
     { label: "Bundesliga", names: ["bundesliga"], country: "DE" },
     { label: "2. Bundesliga", names: ["2. bundesliga"], country: "DE" },
