@@ -2,6 +2,7 @@
 
 import EmptyState from "@/components/EmptyState";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { SWIPE_EVENT, type SwipeDetail } from "@/components/SwipeNav";
 import AdBanner from "@/components/AdBanner";
 import FitText from "@/components/FitText";
@@ -966,7 +967,8 @@ function LcTable() {
   const error = failed || !!data?.error;
   return (
     <div>
-      <div className="mb-4 flex flex-wrap gap-2">
+      <LeaguePicker leagueId={leagueId} onPick={setLeagueId} />
+      <div className="mb-4 hidden flex-wrap gap-2 lg:flex">
         {TABLE_LEAGUES.map((l) => (
           <button
             key={l.id}
@@ -1003,6 +1005,109 @@ function LcTable() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Liga-Auswahl der Tabelle am Handy (Rene, 30.10.2026: "die Ligaauswahl
+// nimmt zu viel Platz ein"): eine Zeile wie beim Spielplan, Pfeile blättern
+// zur Nachbar-Liga, Tippen auf den Namen öffnet unten die Liste aller Ligen.
+// Am PC (ab lg) bleiben die Knöpfe.
+function LeaguePicker({ leagueId, onPick }: { leagueId: number; onPick: (id: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const index = Math.max(0, TABLE_LEAGUES.findIndex((l) => l.id === leagueId));
+  const current = TABLE_LEAGUES[index];
+
+  useEffect(() => {
+    if (!open) return;
+    const body = document.body.style;
+    const prevOverflow = body.overflow;
+    body.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      body.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const label = (l: (typeof TABLE_LEAGUES)[number]) => (
+    <>
+      <span aria-hidden className="w-6 shrink-0 text-center">
+        <Emoji e={l.country ? flagEmoji(l.country) : "🏆"} />
+      </span>
+      <span className="truncate">{l.label}</span>
+    </>
+  );
+  const arrow = (dir: -1 | 1) => {
+    const next = TABLE_LEAGUES[index + dir];
+    return (
+      <button
+        type="button"
+        onClick={() => next && onPick(next.id)}
+        disabled={!next}
+        aria-label={dir < 0 ? "Vorherige Liga" : "Nächste Liga"}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-edge text-ink transition-colors [@media(hover:hover)]:hover:border-gold [@media(hover:hover)]:hover:text-gold disabled:pointer-events-none disabled:opacity-30"
+      >
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d={dir < 0 ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
+        </svg>
+      </button>
+    );
+  };
+
+  return (
+    <div className="mb-4 flex items-center gap-3 lg:hidden">
+      {arrow(-1)}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-edge bg-surface px-3 font-display text-base font-bold text-ink"
+      >
+        {label(current)}
+        <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-muted" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {arrow(1)}
+      {open &&
+        createPortal(
+          <div className="fixed inset-0 z-[60] flex items-end bg-pitch/70 backdrop-blur-[2px] lg:hidden" onClick={() => setOpen(false)}>
+            <div
+              role="dialog"
+              aria-label="Liga wählen"
+              onClick={(e) => e.stopPropagation()}
+              className="max-h-[80vh] w-full animate-[sheetUp_0.2s_ease-out] overflow-y-auto rounded-t-2xl border-t border-edge bg-surface px-2 pb-[calc(0.75rem+var(--safe-bottom))] pt-3"
+            >
+              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-edge" />
+              {TABLE_LEAGUES.map((l) => {
+                const active = l.id === leagueId;
+                return (
+                  <button
+                    key={l.id}
+                    type="button"
+                    onClick={() => {
+                      onPick(l.id);
+                      setOpen(false);
+                    }}
+                    className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] font-semibold transition-colors ${
+                      active ? "bg-gold/10 text-gold" : "text-ink active:bg-surface-hover"
+                    }`}
+                  >
+                    {label(l)}
+                    {active && (
+                      <svg viewBox="0 0 24 24" className="ml-auto h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M5 12l5 5 9-10" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
