@@ -32,6 +32,9 @@ import { SPORT_ICONS, sportLabel, type Match, type Sport, type Team } from "@/li
 import TeamBadge, { jerseyFor, matchJerseyProps, teamColorProps } from "@/components/TeamBadge";
 import { LineupView, PreviewView, StatsView, useMatchInfo, useMatchPreview } from "@/components/MatchInfo";
 import Emoji from "@/components/Emoji";
+import type { F1Session } from "@/lib/live/providers/apiSports";
+import { viennaDate } from "@/lib/liveScores";
+import type { Formula1Response } from "@/app/api/formula1/route";
 import LiveTvHeat, { type TvGame } from "@/components/LiveTvHeat";
 import MatchSheet from "@/components/MatchSheet";
 import {
@@ -247,6 +250,9 @@ function liveLeagueFlag(sport: Sport, g: LiveGame, competitions: Parameters<type
 // Live-Bereich; je Sportart eigener Bereich (key → Auswahl beginnt neu).
 function LiveCenter() {
   const [sport, setSport] = useState<Sport>(LIVE_SPORT ?? "Fußball");
+  // Motorsport (Rene, 30.10.2026) steht neben den Sportarten, ist aber
+  // (noch) keine Tipp-Sportart: eigener Bereich, siehe MotorsportCenter.
+  const [motorsport, setMotorsport] = useState(false);
   // Von der Tippkarte (/matchcenter?spiel=<App-Spiel>, Rene, 27.10.2026):
   // Sportart des Spiels wählen und das Spiel öffnen.
   const { matches } = useAppData();
@@ -256,12 +262,34 @@ function LiveCenter() {
   }, []);
   const target = targetId ? matches.find((m) => m.id === targetId) ?? null : null;
   useEffect(() => {
-    if (target && LIVE_SPORTS.includes(target.sport)) setSport(target.sport);
+    if (target && LIVE_SPORTS.includes(target.sport)) {
+      setSport(target.sport);
+      setMotorsport(false);
+    }
   }, [target]);
   const pick = (s: Sport) => {
     setTargetId(null);
     setSport(s);
+    setMotorsport(false);
   };
+  const sportButton = (key: string, label: string, icon: string, active: boolean, onClick: () => void) => (
+    <button
+      key={key}
+      type="button"
+      role="tab"
+      aria-selected={active}
+      aria-label={label}
+      onClick={onClick}
+      className={`flex min-h-11 min-w-12 items-center justify-center gap-1.5 rounded-full border px-3 font-semibold transition-colors lg:px-4 ${
+        active ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
+      }`}
+    >
+      <span className="text-xl leading-none">
+        <Emoji e={icon} />
+      </span>
+      <span className="hidden text-[15px] lg:inline">{label}</span>
+    </button>
+  );
   // Oben eine Reihe (Rene, 27.10.2026, Variante C): die Sportarten einzeln
   // (Namen erst ab lg:). Kein Tippspiel-Kästchen mehr (Rene, 29.10.2026:
   // im Matchcenter nur das echte Spiel).
@@ -269,30 +297,16 @@ function LiveCenter() {
   // trifft (Rene, 28.10.2026).
   const switcher = (
     <div className="mb-3 flex items-center gap-2">
-      {LIVE_SPORTS.length > 1 && (
-        <div className="flex gap-2" role="tablist" aria-label="Sportart">
-          {LIVE_SPORTS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              role="tab"
-              aria-selected={sport === s}
-              aria-label={sportLabel(s)}
-              onClick={() => pick(s)}
-              className={`flex min-h-11 min-w-12 items-center justify-center gap-1.5 rounded-full border px-3 font-semibold transition-colors lg:px-4 ${
-                sport === s ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
-              }`}
-            >
-              <span className="text-xl leading-none">
-                <Emoji e={SPORT_ICONS[s]} />
-              </span>
-              <span className="hidden text-[15px] lg:inline">{sportLabel(s)}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex gap-2" role="tablist" aria-label="Sportart">
+        {LIVE_SPORTS.map((s) => sportButton(s, sportLabel(s), SPORT_ICONS[s], !motorsport && sport === s, () => pick(s)))}
+        {sportButton("motorsport", "Motorsport", "🏎️", motorsport, () => {
+          setTargetId(null);
+          setMotorsport(true);
+        })}
+      </div>
     </div>
   );
+  if (motorsport) return <MotorsportCenter switcher={switcher} />;
   return (
     <LiveCenterSection key={sport} sport={sport} switcher={switcher} target={target?.sport === sport ? target : null} />
   );
@@ -1940,6 +1954,397 @@ function LcDetail({
           )}
 
         </>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Motorsport (Rene, 30.10.2026: "Motorsport anlegen … neben American
+// Football"). Erst einmal die Formel 1, nur zum Anschauen, ohne Tippen.
+// Daten von API-Sports über /api/formula1 (eigenes Kontingent, 100 pro Tag
+// im Gratis-Plan). "Wochenende": die Sessions eines Grand Prix (‹ › zum
+// Blättern), darunter bzw. am PC rechts die Wertung der gewählten Session,
+// die sich bei laufender Session alle 2 Min. neu lädt. "WM-Stand": Fahrer.
+// Sperrt der Gratis-Plan die laufende Saison, stehen nur die Sessions von
+// heute und morgen da (Abfrage nach Datum).
+
+const F1_TYPES: Record<string, string> = {
+  "1st practice": "1. Training",
+  "2nd practice": "2. Training",
+  "3rd practice": "3. Training",
+  "sprint shootout": "Sprint-Qualifying",
+  "sprint qualifying": "Sprint-Qualifying",
+  sprint: "Sprint",
+  "1st qualifying": "Qualifying 1",
+  "2nd qualifying": "Qualifying 2",
+  "3rd qualifying": "Qualifying 3",
+  qualifying: "Qualifying",
+  race: "Rennen",
+};
+
+const f1TypeLabel = (type: string) => F1_TYPES[type.toLowerCase()] ?? type;
+const F1_RANKING_POLL_MS = 120_000;
+// Ungefähre Dauer je Session (mit Puffer für Unterbrechungen). Die Liste
+// der Sessions wird nicht laufend neu geladen (gemerkt 6 Std.), darum gilt
+// eine Session in diesem Fenster ab Beginn als live – so lädt die Wertung
+// nicht länger als nötig alle 2 Min. neu.
+function f1DurationMs(type: string): number {
+  const t = type.toLowerCase();
+  const min = t === "race" ? 150 : t.includes("sprint") ? 60 : t.includes("qualifying") ? 75 : 70;
+  return min * 60 * 1000;
+}
+
+function f1IsLive(s: F1Session, now: number): boolean {
+  if (/complete|finished|cancel|postpone/i.test(s.status)) return false;
+  const start = Date.parse(s.start);
+  return now >= start && now - start < f1DurationMs(s.type);
+}
+
+const f1Done = (s: F1Session, now: number) =>
+  /complete|finished/i.test(s.status) || now - Date.parse(s.start) >= f1DurationMs(s.type);
+
+function f1When(iso: string): string {
+  return new Date(iso).toLocaleString("de-AT", {
+    timeZone: "Europe/Vienna",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function f1ErrorText(error: string): string {
+  if (/plan|season/i.test(error)) return "Der Gratis-Plan gibt diese Daten nicht frei.";
+  if (error.includes("Tageslimit")) return "Das Tageslimit der Formel-1-Daten ist erreicht. Morgen geht's weiter.";
+  return "Die Formel-1-Daten sind gerade nicht verfügbar. Schau später nochmal vorbei.";
+}
+
+async function loadF1(params: string): Promise<Formula1Response> {
+  try {
+    const res = await fetch(`/api/formula1?${params}`);
+    return (await res.json()) as Formula1Response;
+  } catch {
+    return { ok: false, error: "Nicht erreichbar", quota: null };
+  }
+}
+
+interface F1Weekend {
+  gp: string;
+  circuit: string | null;
+  place: string | null;
+  sessions: F1Session[];
+}
+
+function f1Weekends(sessions: F1Session[]): F1Weekend[] {
+  const map = new Map<string, F1Weekend>();
+  for (const s of [...sessions].sort((a, b) => Date.parse(a.start) - Date.parse(b.start))) {
+    let w = map.get(s.gp);
+    if (!w) {
+      w = { gp: s.gp, circuit: s.circuit, place: [s.city, s.country].filter(Boolean).join(", ") || null, sessions: [] };
+      map.set(s.gp, w);
+    }
+    w.sessions.push(s);
+  }
+  return Array.from(map.values());
+}
+
+// Aktuelles Wochenende: das erste, dessen letzte Session nicht länger als
+// einen Tag her ist; sonst das letzte.
+function currentWeekend(weekends: F1Weekend[], now: number): number {
+  const i = weekends.findIndex((w) => Date.parse(w.sessions[w.sessions.length - 1].start) > now - 24 * 60 * 60 * 1000);
+  return i >= 0 ? i : Math.max(0, weekends.length - 1);
+}
+
+// Standard-Session: laufende, sonst die zuletzt begonnene, sonst die erste.
+function defaultSession(w: F1Weekend, now: number): number | null {
+  const live = w.sessions.find((s) => f1IsLive(s, now));
+  if (live) return live.id;
+  const started = w.sessions.filter((s) => Date.parse(s.start) <= now);
+  return (started[started.length - 1] ?? w.sessions[0])?.id ?? null;
+}
+
+function MotorsportCenter({ switcher }: { switcher: React.ReactNode }) {
+  const [view, setView] = useState<"wochenende" | "wm">("wochenende");
+  return (
+    <section className="mb-6">
+      {switcher}
+      <div className="mb-3 flex border-b border-edge sm:mb-4 sm:items-center sm:gap-6">
+        <SubTab label="Wochenende" active={view === "wochenende"} onClick={() => setView("wochenende")} />
+        <SubTab label="WM-Stand" active={view === "wm"} onClick={() => setView("wm")} />
+      </div>
+      {view === "wochenende" ? <F1WeekendView /> : <F1DriverStandings />}
+    </section>
+  );
+}
+
+const F1_CARD = "min-w-0 rounded-card border border-muted/40 bg-surface p-3 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] lg:p-4";
+
+function F1WeekendView() {
+  const [sessions, setSessions] = useState<F1Session[] | null>(null);
+  const [onlyDays, setOnlyDays] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [weekendIdx, setWeekendIdx] = useState<number | null>(null);
+  const [sessionId, setSessionId] = useState<number | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Ganze Saison (eine Abfrage); gesperrt → heute und morgen nach Datum.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const season = await loadF1("kind=races-season");
+      if (!alive) return;
+      if (season.ok && season.data.kind === "sessions" && season.data.sessions.length > 0) {
+        setSessions(season.data.sessions);
+        setOnlyDays(false);
+        setWeekendIdx(null);
+        setError(null);
+        return;
+      }
+      const today = viennaDate(Date.now());
+      const days = await Promise.all([today, addDays(today, 1)].map((d) => loadF1(`kind=races-day&date=${d}`)));
+      if (!alive) return;
+      const list = days.flatMap((d) => (d.ok && d.data.kind === "sessions" ? d.data.sessions : []));
+      // Fehler nur zeigen, wenn auch die Tage nicht gehen; gesperrte Saison
+      // und heute/morgen nichts = "keine Formel 1".
+      const dayError = days.find((d) => !d.ok);
+      setSessions(list);
+      setOnlyDays(true);
+      setWeekendIdx(null);
+      setError(list.length === 0 && dayError && !dayError.ok ? dayError.error : null);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [reloadKey]);
+
+  const weekends = useMemo(() => (sessions ? f1Weekends(sessions) : []), [sessions]);
+  const shownIdx = weekendIdx ?? currentWeekend(weekends, now);
+  const weekend = weekends[shownIdx] ?? null;
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, []);
+  const shownSessionId =
+    weekend && sessionId !== null && weekend.sessions.some((s) => s.id === sessionId)
+      ? sessionId
+      : weekend
+        ? defaultSession(weekend, now)
+        : null;
+  const shownSession = weekend?.sessions.find((s) => s.id === shownSessionId) ?? null;
+
+  if (sessions === null) return <p className="py-8 text-center text-sm text-muted">Lädt…</p>;
+  if (error) {
+    return (
+      <div className={F1_CARD}>
+        <div className="flex flex-col items-center gap-3 py-6 text-center">
+          <p className="text-sm text-muted">{f1ErrorText(error)}</p>
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="rounded-full border border-edge px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-gold hover:text-gold"
+          >
+            Nochmal versuchen
+          </button>
+        </div>
+      </div>
+    );
+  }
+  if (!weekend) {
+    return (
+      <EmptyState
+        emoji="🏎️"
+        title="Heute und morgen keine Formel 1"
+        text="Sobald ein Grand Prix ansteht, stehen hier Training, Qualifying und Rennen."
+        className="border-none bg-transparent"
+      />
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start xl:grid-cols-[minmax(0,1fr)_460px]">
+      <div className={F1_CARD}>
+        <div className="mb-3 flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Voriger Grand Prix"
+            disabled={shownIdx <= 0}
+            onClick={() => {
+              setWeekendIdx(shownIdx - 1);
+              setSessionId(null);
+            }}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-edge text-lg text-muted transition-colors hover:text-ink disabled:opacity-30"
+          >
+            ‹
+          </button>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="truncate font-display text-base font-semibold text-ink">{weekend.gp}</p>
+            {(weekend.circuit || weekend.place) && (
+              <p className="truncate text-xs text-muted">{[weekend.circuit, weekend.place].filter(Boolean).join(" · ")}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            aria-label="Nächster Grand Prix"
+            disabled={shownIdx >= weekends.length - 1}
+            onClick={() => {
+              setWeekendIdx(shownIdx + 1);
+              setSessionId(null);
+            }}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-edge text-lg text-muted transition-colors hover:text-ink disabled:opacity-30"
+          >
+            ›
+          </button>
+        </div>
+        <ul className="flex flex-col">
+          {weekend.sessions.map((s) => {
+            const live = f1IsLive(s, now);
+            const active = s.id === shownSessionId;
+            return (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onClick={() => setSessionId(s.id)}
+                  aria-pressed={active}
+                  className={`flex min-h-12 w-full items-center gap-3 rounded-lg px-2 text-left transition-colors ${
+                    active ? "bg-gold/10" : "hover:bg-surface-hover"
+                  }`}
+                >
+                  <span className="w-20 shrink-0 border-r border-edge pr-3 text-xs tabular-nums text-muted">
+                    {live ? (
+                      <span className="flex items-center gap-1.5 font-semibold text-red-400">
+                        <StateDot state="live" /> LIVE
+                      </span>
+                    ) : (
+                      f1When(s.start)
+                    )}
+                  </span>
+                  <span className={`min-w-0 flex-1 truncate text-sm font-semibold ${active ? "text-gold" : "text-ink"}`}>
+                    {f1TypeLabel(s.type)}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted">
+                    {f1Done(s, now) ? "Beendet" : live && s.lapsCurrent && s.lapsTotal ? `Runde ${s.lapsCurrent}/${s.lapsTotal}` : ""}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {onlyDays && <p className="mt-3 text-center text-[11px] text-muted">Im Gratis-Plan nur die Sessions von heute und morgen.</p>}
+      </div>
+      <div className={F1_CARD}>
+        {shownSession ? (
+          <F1Ranking key={shownSession.id} session={shownSession} live={f1IsLive(shownSession, now)} />
+        ) : (
+          <p className="py-8 text-center text-sm text-muted">Session antippen, um die Wertung zu sehen.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function F1Ranking({ session, live }: { session: F1Session; live: boolean }) {
+  const [result, setResult] = useState<Formula1Response | null>(null);
+  const started = Date.parse(session.start) <= Date.now();
+
+  useEffect(() => {
+    if (!started) return;
+    let alive = true;
+    const load = () =>
+      loadF1(`kind=ranking&race=${session.id}`).then((r) => {
+        if (alive) setResult(r);
+      });
+    void load();
+    const t = live ? setInterval(load, F1_RANKING_POLL_MS) : null;
+    return () => {
+      alive = false;
+      if (t) clearInterval(t);
+    };
+  }, [session.id, live, started]);
+
+  const rows = result?.ok && result.data.kind === "ranking" ? result.data.rows : [];
+  const isRace = /race|sprint$/i.test(session.type);
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="min-w-0 truncate font-display text-base font-semibold text-ink">{f1TypeLabel(session.type)}</p>
+        {live ? (
+          <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-red-500/15 px-2.5 py-1 text-xs font-semibold text-red-400">
+            <StateDot state="live" /> LIVE
+          </span>
+        ) : (
+          <span className="shrink-0 text-xs text-muted">{f1Done(session, Date.now()) ? "Beendet" : f1When(session.start)}</span>
+        )}
+      </div>
+      {!started ? (
+        <p className="py-6 text-center text-sm text-muted">Beginnt {f1When(session.start)} Uhr.</p>
+      ) : !result ? (
+        <p className="py-6 text-center text-sm text-muted">Lädt…</p>
+      ) : !result.ok ? (
+        <p className="py-6 text-center text-sm text-muted">{f1ErrorText(result.error)}</p>
+      ) : rows.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted">Noch keine Wertung.</p>
+      ) : (
+        <ol className="flex flex-col divide-y divide-edge/60 text-sm">
+          {rows.map((r, i) => (
+            <li key={`${r.driver}-${i}`} className="flex min-h-10 items-center gap-2.5 py-1.5">
+              <span className="w-6 shrink-0 text-right font-display font-semibold tabular-nums text-muted">{r.position ?? "–"}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold text-ink">{r.driver}</span>
+                {r.team && <span className="block truncate text-xs text-muted">{r.team}</span>}
+              </span>
+              <span className="shrink-0 text-right text-xs tabular-nums">
+                <span className="block text-ink">{i === 0 ? r.time ?? "" : r.gap ?? r.time ?? ""}</span>
+                {isRace && r.pits !== null && <span className="block text-muted">{r.pits} Stopp{r.pits === 1 ? "" : "s"}</span>}
+                {!isRace && r.laps !== null && <span className="block text-muted">{r.laps} Runden</span>}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+      {live && <p className="mt-3 text-center text-[11px] text-muted">aktualisiert sich alle 2 Minuten</p>}
+    </div>
+  );
+}
+
+function F1DriverStandings() {
+  const [result, setResult] = useState<Formula1Response | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void loadF1("kind=drivers").then((r) => {
+      if (alive) setResult(r);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const rows = result?.ok && result.data.kind === "drivers" ? result.data.rows : [];
+  return (
+    <div className={`${F1_CARD} lg:max-w-2xl`}>
+      <p className="mb-3 font-display text-base font-semibold text-ink">Fahrer-WM {viennaDate(Date.now()).slice(0, 4)}</p>
+      {!result ? (
+        <p className="py-6 text-center text-sm text-muted">Lädt…</p>
+      ) : !result.ok ? (
+        <p className="py-6 text-center text-sm text-muted">{f1ErrorText(result.error)}</p>
+      ) : rows.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted">Noch kein WM-Stand.</p>
+      ) : (
+        <ol className="flex flex-col divide-y divide-edge/60 text-sm">
+          {rows.map((r, i) => (
+            <li key={`${r.driver}-${i}`} className="flex min-h-10 items-center gap-2.5 py-1.5">
+              <span className="w-6 shrink-0 text-right font-display font-semibold tabular-nums text-muted">{r.position ?? "–"}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold text-ink">{r.driver}</span>
+                {r.team && <span className="block truncate text-xs text-muted">{r.team}</span>}
+              </span>
+              <span className="shrink-0 text-right tabular-nums">
+                <span className="block font-semibold text-ink">{r.points ?? 0}</span>
+                <span className="block text-[11px] text-muted">Punkte</span>
+              </span>
+            </li>
+          ))}
+        </ol>
       )}
     </div>
   );

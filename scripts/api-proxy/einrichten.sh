@@ -52,7 +52,8 @@ for pair in football:v3.football.api-sports.io \
             hockey:v1.hockey.api-sports.io \
             basketball:v1.basketball.api-sports.io \
             american-football:v1.american-football.api-sports.io \
-            handball:v1.handball.api-sports.io; do
+            handball:v1.handball.api-sports.io \
+            formula-1:v1.formula-1.api-sports.io; do
   name="${pair%%:*}"
   host="${pair#*:}"
   routes+="
