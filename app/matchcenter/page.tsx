@@ -1985,17 +1985,24 @@ const F1_TYPES: Record<string, string> = {
 
 const f1TypeLabel = (type: string) => F1_TYPES[type.toLowerCase()] ?? type;
 const F1_RANKING_POLL_MS = 120_000;
-// So lange nach Beginn gilt eine Session ohne "Completed" noch als möglich live.
-const F1_SESSION_MAX_MS = 3 * 60 * 60 * 1000;
-
-function f1IsLive(s: F1Session, now: number): boolean {
-  if (/live|running|progress/i.test(s.status)) return true;
-  if (!/scheduled/i.test(s.status)) return false;
-  const start = Date.parse(s.start);
-  return now >= start && now - start < F1_SESSION_MAX_MS;
+// Ungefähre Dauer je Session (mit Puffer für Unterbrechungen). Die Liste
+// der Sessions wird nicht laufend neu geladen (gemerkt 6 Std.), darum gilt
+// eine Session in diesem Fenster ab Beginn als live – so lädt die Wertung
+// nicht länger als nötig alle 2 Min. neu.
+function f1DurationMs(type: string): number {
+  const t = type.toLowerCase();
+  const min = t === "race" ? 150 : t.includes("sprint") ? 60 : t.includes("qualifying") ? 75 : 70;
+  return min * 60 * 1000;
 }
 
-const f1Done = (s: F1Session) => /complete|finished/i.test(s.status);
+function f1IsLive(s: F1Session, now: number): boolean {
+  if (/complete|finished|cancel|postpone/i.test(s.status)) return false;
+  const start = Date.parse(s.start);
+  return now >= start && now - start < f1DurationMs(s.type);
+}
+
+const f1Done = (s: F1Session, now: number) =>
+  /complete|finished/i.test(s.status) || now - Date.parse(s.start) >= f1DurationMs(s.type);
 
 function f1When(iso: string): string {
   return new Date(iso).toLocaleString("de-AT", {
@@ -2085,11 +2092,12 @@ function F1WeekendView() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const season = await loadF1(`kind=races-season&season=${new Date().getFullYear()}`);
+      const season = await loadF1("kind=races-season");
       if (!alive) return;
       if (season.ok && season.data.kind === "sessions" && season.data.sessions.length > 0) {
         setSessions(season.data.sessions);
         setOnlyDays(false);
+        setWeekendIdx(null);
         setError(null);
         return;
       }
@@ -2097,10 +2105,13 @@ function F1WeekendView() {
       const days = await Promise.all([today, addDays(today, 1)].map((d) => loadF1(`kind=races-day&date=${d}`)));
       if (!alive) return;
       const list = days.flatMap((d) => (d.ok && d.data.kind === "sessions" ? d.data.sessions : []));
-      const firstError = [season, ...days].find((d) => !d.ok);
+      // Fehler nur zeigen, wenn auch die Tage nicht gehen; gesperrte Saison
+      // und heute/morgen nichts = "keine Formel 1".
+      const dayError = days.find((d) => !d.ok);
       setSessions(list);
       setOnlyDays(true);
-      setError(list.length === 0 && firstError && !firstError.ok ? firstError.error : null);
+      setWeekendIdx(null);
+      setError(list.length === 0 && dayError && !dayError.ok ? dayError.error : null);
     })();
     return () => {
       alive = false;
@@ -2212,7 +2223,7 @@ function F1WeekendView() {
                     {f1TypeLabel(s.type)}
                   </span>
                   <span className="shrink-0 text-xs text-muted">
-                    {f1Done(s) ? "Beendet" : live && s.lapsCurrent && s.lapsTotal ? `Runde ${s.lapsCurrent}/${s.lapsTotal}` : ""}
+                    {f1Done(s, now) ? "Beendet" : live && s.lapsCurrent && s.lapsTotal ? `Runde ${s.lapsCurrent}/${s.lapsTotal}` : ""}
                   </span>
                 </button>
               </li>
@@ -2263,7 +2274,7 @@ function F1Ranking({ session, live }: { session: F1Session; live: boolean }) {
             <StateDot state="live" /> LIVE
           </span>
         ) : (
-          <span className="shrink-0 text-xs text-muted">{f1Done(session) ? "Beendet" : f1When(session.start)}</span>
+          <span className="shrink-0 text-xs text-muted">{f1Done(session, Date.now()) ? "Beendet" : f1When(session.start)}</span>
         )}
       </div>
       {!started ? (
@@ -2301,7 +2312,7 @@ function F1DriverStandings() {
   const [result, setResult] = useState<Formula1Response | null>(null);
   useEffect(() => {
     let alive = true;
-    void loadF1(`kind=drivers&season=${new Date().getFullYear()}`).then((r) => {
+    void loadF1("kind=drivers").then((r) => {
       if (alive) setResult(r);
     });
     return () => {
@@ -2311,7 +2322,7 @@ function F1DriverStandings() {
   const rows = result?.ok && result.data.kind === "drivers" ? result.data.rows : [];
   return (
     <div className={`${F1_CARD} lg:max-w-2xl`}>
-      <p className="mb-3 font-display text-base font-semibold text-ink">Fahrer-WM {new Date().getFullYear()}</p>
+      <p className="mb-3 font-display text-base font-semibold text-ink">Fahrer-WM {viennaDate(Date.now()).slice(0, 4)}</p>
       {!result ? (
         <p className="py-6 text-center text-sm text-muted">Lädt…</p>
       ) : !result.ok ? (

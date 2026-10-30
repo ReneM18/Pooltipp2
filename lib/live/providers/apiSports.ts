@@ -1274,8 +1274,9 @@ export async function hockeyLeagueTeams(names: readonly string[], apiCountry: st
 // anlegen … neben American Football"). Nur Anzeige, kein Tippen. Geht wie
 // alles über den eigenen Server (Pfad /formula-1, scripts/api-proxy/).
 // Gratis-Plan: 100 Abfragen pro Tag (eigenes Kontingent). Darum lange
-// Ablaufzeiten; nur die Wertung einer Session 120 s (1 Std. Training ≈ 30
-// Abfragen, Rennen ≈ 60).
+// Ablaufzeiten; nur die Wertung einer Session 120 s. Die App fragt sie nur
+// im Zeitfenster der Session laufend ab (Training ≈ 35 Abfragen, Rennen
+// ≈ 75, siehe f1DurationMs in app/matchcenter/page.tsx).
 const F1_URL = "https://v1.formula-1.api-sports.io";
 const F1_TTL: Record<Formula1Query["kind"], number> = {
   "races-season": 6 * 3600,
@@ -1335,9 +1336,9 @@ export type Formula1Result =
 function formula1Url(q: Formula1Query): string {
   switch (q.kind) {
     case "races-day":
-      return `${F1_URL}/races?date=${q.date}&timezone=UTC`;
+      return `${F1_URL}/races?date=${q.date}&timezone=Europe/Vienna`;
     case "races-season":
-      return `${F1_URL}/races?season=${q.season}&timezone=UTC`;
+      return `${F1_URL}/races?season=${q.season}&timezone=Europe/Vienna`;
     case "ranking":
       return `${F1_URL}/rankings/races?race=${q.race}`;
     case "drivers":
@@ -1399,6 +1400,26 @@ function f1Data(q: Formula1Query, rows: Raw[]): Formula1Data {
 
 const F1_PLAN_BLOCKED = new Map<string, { error: string; at: number }>();
 
+// Wertung nur für Sessions, die wir aus einer Liste kennen – sonst könnte
+// jeder mit erfundenen IDs das Tageskontingent leerfragen.
+const F1_KNOWN_IDS = new Set<number>();
+
+function rememberF1(data: Formula1Data) {
+  if (data.kind !== "sessions") return;
+  if (F1_KNOWN_IDS.size > 2000) F1_KNOWN_IDS.clear();
+  for (const s of data.sessions) F1_KNOWN_IDS.add(s.id);
+}
+
+export async function isKnownF1Session(id: number, season: number, days: string[]): Promise<boolean> {
+  if (F1_KNOWN_IDS.has(id)) return true;
+  // Neue Server-Instanz: die (gemerkten) Listen laden.
+  for (const q of [{ kind: "races-season", season } as const, ...days.map((date) => ({ kind: "races-day", date }) as const)]) {
+    await formula1(q);
+    if (F1_KNOWN_IDS.has(id)) return true;
+  }
+  return false;
+}
+
 export async function formula1(q: Formula1Query): Promise<Formula1Result> {
   const key = process.env.API_SPORTS_KEY;
   const quota = () => QUOTA_BY_HOST.get(hostOf(F1_URL)) ?? null;
@@ -1413,5 +1434,7 @@ export async function formula1(q: Formula1Query): Promise<Formula1Result> {
     if (/plan/i.test(res.error)) F1_PLAN_BLOCKED.set(url, { error: res.error, at: Date.now() });
     return { ok: false, error: res.error, quota: quota() };
   }
-  return { ok: true, data: f1Data(q, res.hit.value), at: res.hit.at, quota: quota() };
+  const data = f1Data(q, res.hit.value);
+  rememberF1(data);
+  return { ok: true, data, at: res.hit.at, quota: quota() };
 }
