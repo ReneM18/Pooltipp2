@@ -64,3 +64,30 @@ export function inMatchcenterDays(kickoff: string, now: number): boolean {
   const day = sportDay(kickoff);
   return day === today || day === shiftDate(today, -1);
 }
+
+// Kalendertag in Wien (YYYY-MM-DD), ohne Sporttag-Verschiebung.
+export function viennaCalendarDay(t: number | string): string {
+  return viennaDay(t);
+}
+
+// Spielplan mit Tagen zum Blättern (Rene, 30.10.2026): "Heute", "Morgen",
+// "Gestern" gelten nach dem Kalendertag in Wien, nicht nach dem Sporttag.
+// Sonst stand um 03:30 bei den Spielen von heute "Morgen".
+export function relativeDayLabel(date: string, now: number): string | null {
+  const today = viennaDay(now);
+  if (date === today) return "Heute";
+  if (date === shiftDate(today, 1)) return "Morgen";
+  if (date === shiftDate(today, -1)) return "Gestern";
+  return null;
+}
+
+// Wie viele Tage der Spielplan zurück und vor blättern lässt. Der
+// Gratis-Plan von API-Sports kennt nur gestern bis morgen.
+export function planDayRange(pro: boolean): { back: number; ahead: number } {
+  return pro ? { back: 7, ahead: 7 } : { back: 1, ahead: 1 };
+}
+
+// Tag date um days verschieben ("2026-10-30", 1 → "2026-10-31").
+export function addDays(date: string, days: number): string {
+  return shiftDate(date, days);
+}
