@@ -21,7 +21,7 @@ import {
 } from "@/lib/liveScores";
 import { reloadLiveDay, useLiveDay, useLivePolling, useStadium, type LiveDay } from "@/lib/useLiveScores";
 import { CUP_ZONES, cupZone, TABLE_LEAGUES, type CupZone, type StandingGroup, type StandingsResponse } from "@/lib/standings";
-import { LIVE_SPORTS, liveGameCountry, liveGameLeague } from "@/lib/liveConfig";
+import { LIVE_SPORTS, leagueRank, liveGameCountry, liveGameLeague } from "@/lib/liveConfig";
 import { flagEmoji } from "@/lib/flags";
 import { useLiveClock, useMinuteTick } from "@/lib/useLiveMinute";
 import { useAppData } from "@/lib/AppDataContext";
@@ -719,7 +719,7 @@ function LeagueHeading({ sport, game }: { sport: Sport; game: LiveGame }) {
 function LeagueGroups({ sport, games, renderRow }: { sport: Sport; games: LiveGame[]; renderRow: (g: LiveGame) => ReactNode }) {
   return (
     <div className="flex flex-col divide-y divide-edge">
-      {groupByLeague(games).map((group) => (
+      {groupByLeague(sport, games).map((group) => (
         <div key={group.league} className="py-4 first:pt-0 last:pb-0">
           <LeagueHeading sport={sport} game={group.games[0]} />
           <div className="flex flex-col gap-2">{group.games.map(renderRow)}</div>
@@ -730,14 +730,18 @@ function LeagueGroups({ sport, games, renderRow }: { sport: Sport; games: LiveGa
 }
 
 // Gruppiert nach "Name · Land" (Rene, 16.10.2026: sonst landen AT- und
-// DE-Bundesliga in einer Gruppe). Reihenfolge = erstes Spiel der Liga.
-function groupByLeague(games: LiveGame[]): { league: string; games: LiveGame[] }[] {
+// DE-Bundesliga in einer Gruppe). Reihenfolge der Ligen nach Wichtigkeit
+// (Rene, 30.10.2026, siehe leagueRank), bei gleichem Platz (unbekannte
+// Ligen) wie bisher nach dem ersten Spiel der Liga.
+function groupByLeague(sport: Sport, games: LiveGame[]): { league: string; games: LiveGame[] }[] {
   const groups = new Map<string, LiveGame[]>();
   for (const g of games) {
     const key = g.league || "Weitere Spiele";
     groups.set(key, [...(groups.get(key) ?? []), g]);
   }
-  return Array.from(groups, ([league, list]) => ({ league, games: list }));
+  return Array.from(groups, ([league, list]) => ({ league, games: list, rank: leagueRank(sport, league) }))
+    .sort((a, b) => a.rank - b.rank)
+    .map(({ league, games: list }) => ({ league, games: list }));
 }
 
 function LcLive({
@@ -772,8 +776,8 @@ function LcLive({
     );
   }
   // Reihenfolge (Rene, 27.10.2026): je Liga zusammen (alle ÖFB-Cup-Spiele,
-  // alle Serie A …). Ligen mit laufenden Spielen zuerst, dann nach dem
-  // nächsten Anstoß. In der Liga: laufende, dann nicht begonnene nach
+  // alle Serie A …). Ligen nach Wichtigkeit (Rene, 30.10.2026, siehe
+  // groupByLeague). In der Liga: laufende, dann nicht begonnene nach
   // Anstoßzeit, dann beendete; sonstige Zustände (verschoben, abgesagt …)
   // am Ende. Die Auswahl hängt an der Spiel-ID und bleibt beim Wandern
   // erhalten. Reiter "Live" (onlyLive): nur die laufenden.
