@@ -432,17 +432,28 @@ export default function DashboardPage() {
       )}
 
       {/* Leerzustände je Reiter (Rene, 18.10.2026: Tippen/Live/Beendet). */}
-      {tab === "tippen" && split.offen.length === 0 && (
+      {/* Alles getippt, aber die Tipps stehen darunter: nur eine schmale
+          Leiste statt des großen Kastens, der am Handy fast eine ganze Seite
+          brauchte (Rene, 30.10.2026). "Bis Tippschluss änderbar" steht schon
+          bei "✓ Schon getippt". */}
+      {tab === "tippen" && split.offen.length === 0 && tippable.length > 0 && (
+        <div className="mb-5 flex items-center gap-2.5 rounded-card border border-edge bg-surface/60 px-3.5 py-2.5 lg:px-4 lg:py-3">
+          <span aria-hidden className="text-base leading-none lg:text-lg">
+            ✅
+          </span>
+          <p className="min-w-0 font-display text-sm font-semibold leading-snug text-ink lg:text-[15px]">
+            Alles getippt
+            {nextKickoffText && <span className="font-normal text-muted"> · <span className="whitespace-nowrap">nächstes Spiel {nextKickoffText}</span></span>}
+          </p>
+        </div>
+      )}
+      {tab === "tippen" && split.offen.length === 0 && tippable.length === 0 && (
         <EmptyState
           className="mb-7"
           emoji="✅"
-          title={nextKickoffText ? `Alles getippt – nächstes Spiel ${nextKickoffText}` : "Alles getippt"}
-          text={
-            tippable.length > 0
-              ? "Deine Tipps siehst du unten und kannst sie bis zum Tippschluss ändern. Neue Spiele erscheinen hier, sobald sie angesetzt sind."
-              : "Neue Spiele erscheinen hier, sobald sie angesetzt sind. Schau solange im Matchcenter vorbei."
-          }
-          action={tippable.length > 0 ? undefined : { href: "/matchcenter", label: "Zum Matchcenter" }}
+          title="Alles getippt"
+          text="Neue Spiele erscheinen hier, sobald sie angesetzt sind. Schau solange im Matchcenter vorbei."
+          action={{ href: "/matchcenter", label: "Zum Matchcenter" }}
         />
       )}
       {tab === "live" && sections.length === 0 && (
