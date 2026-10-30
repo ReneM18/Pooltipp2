@@ -1269,3 +1269,43 @@ export async function hockeyLeagueTeams(names: readonly string[], apiCountry: st
   if (!error) return { ok: true, teams: [], season: start };
   return { ok: false, error: /free plan/i.test(error) ? "Der Gratis-Plan für Eishockey gibt diese Saison nicht frei" : error };
 }
+
+// Formel-1-Test im Admin (Rene, 30.10.2026: "heute ist um 19:30 training").
+// Nur zum Ausprobieren: Ist die Saison im Gratis-Plan frei, läuft die
+// Wertung während einer Session mit? Feste Abfragen, je 60 s gemerkt, damit
+// die 100 Abfragen pro Tag reichen. Geht wie alles über den eigenen Server
+// (Pfad /formula-1, scripts/api-proxy/einrichten.sh).
+const F1_URL = "https://v1.formula-1.api-sports.io";
+const F1_TTL = 60;
+
+export type Formula1Query =
+  | { kind: "races-day"; date: string }
+  | { kind: "races-season"; season: number }
+  | { kind: "ranking"; race: number }
+  | { kind: "drivers"; season: number };
+
+export type Formula1TestResult =
+  | { ok: true; rows: Raw[]; at: number; quota: LiveQuota | null }
+  | { ok: false; error: string; quota: LiveQuota | null };
+
+function formula1Url(q: Formula1Query): string {
+  switch (q.kind) {
+    case "races-day":
+      return `${F1_URL}/races?date=${q.date}&timezone=Europe/Vienna`;
+    case "races-season":
+      return `${F1_URL}/races?season=${q.season}&timezone=Europe/Vienna`;
+    case "ranking":
+      return `${F1_URL}/rankings/races?race=${q.race}`;
+    case "drivers":
+      return `${F1_URL}/rankings/drivers?season=${q.season}`;
+  }
+}
+
+export async function formula1Test(q: Formula1Query): Promise<Formula1TestResult> {
+  const key = process.env.API_SPORTS_KEY;
+  const quota = () => QUOTA_BY_HOST.get(hostOf(F1_URL)) ?? null;
+  if (!key) return { ok: false, error: "Kein API_SPORTS_KEY gesetzt", quota: null };
+  const res = await load(formula1Url(q), key, F1_TTL);
+  if (!res.ok) return { ok: false, error: res.error, quota: quota() };
+  return { ok: true, rows: res.hit.value, at: res.hit.at, quota: quota() };
+}
