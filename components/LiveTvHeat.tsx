@@ -39,6 +39,12 @@ export interface TvGame {
 }
 
 const REFRESH_MS = 2 * 60 * 1000;
+// Viele Spiele gleichzeitig (Rene, 31.10.2026, Variante A): nur die 4
+// heißesten, der Rest per Knopf. Mehr Spiele als eine Abfrage erlaubt
+// (Fußball 20, NFL 8) werden weggelassen statt die Karte zu verlieren.
+const TOP_TILES = 4;
+const FOOTBALL_MAX_GAMES = 20;
+const NFL_MAX_GAMES = 8;
 // Für den Trend: Stände je Spiel (Spielminute + Aktionen), nur im Browser.
 const TREND_MINUTES = 10;
 const history = new Map<string, HeatSnapshot[]>();
@@ -209,7 +215,9 @@ export default function LiveTvHeat({
   onSelect: (id: string) => void;
 }) {
   const nfl = sport === "NFL";
-  const ids = games.map((g) => g.game.id);
+  // Höchstens so viele Spiele wie eine Abfrage erlaubt, sonst käme gar
+  // keine Karte (Rene, 31.10.2026: viele Spiele gleichzeitig auf Sky).
+  const ids = games.slice(0, nfl ? NFL_MAX_GAMES : FOOTBALL_MAX_GAMES).map((g) => g.game.id);
   const footballStats = useLiveHeat<HeatStats>("Fußball", nfl ? [] : ids);
   const nflStats = useLiveHeat<NflHeatRaw>("NFL", nfl ? ids : []);
   const tiles = useMemo(() => {
@@ -218,7 +226,9 @@ export default function LiveTvHeat({
   }, [nfl, games, footballStats, nflStats]);
 
   const [info, setInfo] = useState(false);
+  const [all, setAll] = useState(false);
   if (tiles.length === 0) return null;
+  const shown = all ? tiles : tiles.slice(0, TOP_TILES);
   // Empfehlung zum Einschalten am heißesten Spiel (Rene, 27.10.2026,
   // Variante B), aber nur, wenn dort wirklich etwas los ist.
   const recommend = tiles[0].heat >= 45;
@@ -280,7 +290,7 @@ export default function LiveTvHeat({
         </div>
       )}
       <div className={`grid grid-cols-2 gap-2 ${recommend ? "pt-2" : ""}`}>
-        {tiles.map((t, i) => {
+        {shown.map((t, i) => {
           const tip = recommend && i === 0;
           // US-Sport: "Gast @ Heim" wie überall (Rene, 28.10.2026).
           const [top, bottom] = nfl ? [t.away, `@ ${t.home}`] : [t.home, t.away];
@@ -329,6 +339,16 @@ export default function LiveTvHeat({
           );
         })}
       </div>
+      {tiles.length > TOP_TILES && (
+        <button
+          type="button"
+          onClick={() => setAll((v) => !v)}
+          aria-expanded={all}
+          className="mt-2.5 w-full rounded-xl border border-edge bg-pitch/60 px-3 py-2.5 text-[13px] font-bold text-gold transition-colors hover:bg-surface-hover"
+        >
+          {all ? "Nur die 4 heißesten zeigen ▴" : `Alle ${tiles.length} TV-Spiele zeigen ▾`}
+        </button>
+      )}
     </section>
   );
 }
