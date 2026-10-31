@@ -1,6 +1,6 @@
 import type { Sport } from "../../types";
 import { isLiveLeagueEnabled, sameLeague } from "../../liveConfig";
-import { isLiveFinished, liveIntervalSeconds, liveMaxIntervalSeconds, viennaDate } from "../../liveScores";
+import { isLiveFinished, isLiveRunning, liveIntervalSeconds, liveMaxIntervalSeconds, settleStuckGame, viennaDate } from "../../liveScores";
 import { cachedLoad, type LoadResult } from "../cache";
 import type { StandingGroup, StandingTeamRow } from "../../standings";
 import type { LineupPlayer, LineupTeam, PreviewGame, PreviewTeam, StatTeam } from "../../matchInfo";
@@ -377,9 +377,12 @@ function snapshotResult(
   liveError?: string,
 ): LiveProviderResult {
   diag.lastSource = source;
+  // Hängt ein Spiel 4 h nach Anpfiff noch auf "läuft", als beendet zeigen.
+  const now = Date.now();
+  const shown = games.map((g) => settleStuckGame(g, now));
   return {
     ok: true,
-    snapshot: { games, fetchedAt, source, ...(liveError ? { liveError } : {}) },
+    snapshot: { games: shown, fetchedAt, source, ...(liveError ? { liveError } : {}) },
     expiresAt,
   };
 }
@@ -467,6 +470,12 @@ async function football(date: string, league: string | null, key: string): Promi
 const WINDOW_BEFORE_MS = 5 * 60 * 1000;
 const WINDOW_AFTER_MS = 4 * 60 * 60 * 1000;
 const MAX_HOLD_MS = 3 * 60 * 60 * 1000;
+// Steht ein Spiel nach dem Fenster laut Anbieter noch auf "läuft" (Rene,
+// 31.10.2026: NHL hing morgens auf "3. Drittel 20'"), die Tagesliste nur
+// 30 Min. liegen lassen, damit der echte Endstand bald nachkommt – bis
+// höchstens 8 h nach Anpfiff (ca. 8 Abrufe mehr).
+const STUCK_HOLD_MS = 30 * 60 * 1000;
+const STUCK_RECHECK_MS = 8 * 60 * 60 * 1000;
 
 // Gemerkte Tagesliste außerhalb der Spielfenster: url → Daten + bis wann.
 const HOLD = new Map<string, { list: Raw[]; at: number; until: number }>();
@@ -480,6 +489,7 @@ function holdUntil(games: LiveGame[], now: number): number | null {
     const kickoff = new Date(g.kickoff).getTime();
     if (now >= kickoff - WINDOW_BEFORE_MS && now <= kickoff + WINDOW_AFTER_MS) return null;
     if (kickoff - WINDOW_BEFORE_MS > now) next = Math.min(next, kickoff - WINDOW_BEFORE_MS);
+    else if (isLiveRunning(g.status) && now <= kickoff + STUCK_RECHECK_MS) next = Math.min(next, now + STUCK_HOLD_MS);
   }
   return Math.min(next, now + MAX_HOLD_MS);
 }

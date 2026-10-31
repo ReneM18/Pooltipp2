@@ -94,6 +94,20 @@ export function isLiveRunning(status: LiveStatus): boolean {
   return status === "LIVE" || status === "HT" || status === "BREAK";
 }
 
+// Hängengebliebene Live-Spiele (Rene, 31.10.2026: NHL Devils – Vegas stand
+// morgens noch auf "3. Drittel 20'"): API-Sports stellt besonders bei
+// Eishockey den Status manchmal stundenlang nicht auf "Beendet". Läuft ein
+// Spiel laut Anbieter 4 Stunden nach Anpfiff noch, gilt es als beendet –
+// so lange dauert kein Spiel (wie das Spielfenster des Servers und das
+// Nachfragen im Browser). Der offizielle Endstand kommt weiter vom Admin.
+export const LIVE_STUCK_AFTER_MS = 4 * 60 * 60 * 1000;
+
+export function settleStuckGame(game: LiveGame, now: number): LiveGame {
+  if (!isLiveRunning(game.status)) return game;
+  if (now - new Date(game.kickoff).getTime() <= LIVE_STUCK_AFTER_MS) return game;
+  return { ...game, status: "FT", statusShort: "FT", statusText: "Beendet", elapsed: null, progress: undefined };
+}
+
 // Kalendertag des Anpfiffs in Wien (YYYY-MM-DD), so fragt die Route ab.
 export function viennaDate(iso: string | number | Date): string {
   return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Europe/Vienna" });
