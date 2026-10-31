@@ -12,6 +12,7 @@ import {
   isLiveRunning,
   liveIntervalSeconds,
   liveMaxIntervalSeconds,
+  settleStuckGame,
   viennaDate,
 } from "./liveScores";
 import type { LiveEvent, LiveGame, LiveQuota, LiveResponse, LiveSource, LiveStatus } from "./live/types";
@@ -370,7 +371,10 @@ export function useLiveScore(match: Match, homeName: string, awayName: string): 
 
   const kickedOff = relevant && now !== null && now >= kickoff;
   const entry = kickedOff ? entryFor(match.sport, date) : null;
-  const found = entry?.games ? findLiveGame(entry.games, match.kickoff, homeName, awayName) : null;
+  const raw = entry?.games ? findLiveGame(entry.games, match.kickoff, homeName, awayName) : null;
+  // Auch im Browser: hängt das Spiel 4 h nach Anpfiff noch auf "läuft"
+  // (ältere Daten im Speicher), als beendet zeigen (Rene, 31.10.2026).
+  const found = raw && now !== null ? { ...raw, game: settleStuckGame(raw.game, now) } : raw;
   const apiFinished = !!found && isLiveFinished(found.game.status);
   const shouldPoll = kickedOff && now !== null && now - kickoff < MAX_LIVE_MS && !apiFinished;
 
