@@ -549,7 +549,8 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   const gameTv = useGameTv(sport);
   const tvTeamName = useApiTeamName(sport);
   const tvGames = useMemo((): TvGame[] => {
-    if (sport !== "Fußball" || view !== "live") return [];
+    // Fußball und NFL (Rene, 31.10.2026: NBA/NHL laufen nie gleichzeitig im TV).
+    if ((sport !== "Fußball" && sport !== "NFL") || view !== "live") return [];
     return (todayDay.games ?? []).flatMap((g) => {
       const link = links.get(g.id);
       const tv = gameTv(g, link);
@@ -682,7 +683,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
                     </MatchSheet>
                   </>
                 )}
-                <LiveTvHeat games={tvGames} selectedId={selectedId} onSelect={select} />
+                <LiveTvHeat sport={sport} games={tvGames} selectedId={selectedId} onSelect={select} />
               </div>
             </div>
           </div>

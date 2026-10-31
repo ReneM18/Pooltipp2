@@ -133,3 +133,125 @@ export function liveHeat(game: LiveGame, stats: HeatStats, earlier: HeatSnapshot
   if (lastGoalAge <= 10 && !blowout) heat = Math.max(heat, 55);
   return { heat: Math.round(Math.max(0, Math.min(100, heat))), trend };
 }
+
+// ---------------------------------------------------------------------------
+// NFL (Rene, 31.10.2026, Variante B): gleiche Karte, eigene Zahlen. API-Sports
+// liefert bei American Football je Spiel die Team-Statistik (Yards, Spielzüge,
+// Turnover, Red Zone, 3rd/4th Down, Sacks), aber keine mitlaufende Uhr in
+// Minuten – gerechnet wird mit dem Viertel.
+
+export interface NflSide {
+  yards: number;
+  plays: number;
+  firstDowns: number;
+  turnovers: number;
+  sacks: number;
+  redZoneMade: number;
+  redZoneAtt: number;
+  thirdMade: number;
+  thirdAtt: number;
+  fourthAtt: number;
+}
+
+export interface NflTeamStats {
+  team: string; // Name laut API-Sports, zum Zuordnen Heim/Gast
+  stats: NflSide;
+}
+
+export interface NflHeatRaw {
+  id: string;
+  teams: NflTeamStats[];
+}
+
+export interface NflLiveHeatResponse {
+  stats: NflHeatRaw[];
+  error?: string;
+}
+
+export interface NflHeatStats {
+  id: string;
+  home: NflSide;
+  away: NflSide;
+}
+
+// Heim/Gast über den Teamnamen der Live-Liste, sonst Reihenfolge der API.
+export function nflSides(raw: NflHeatRaw, homeName: string, awayName: string): NflHeatStats | null {
+  if (raw.teams.length < 2) return null;
+  const norm = (s: string) => s.trim().toLowerCase();
+  const home = raw.teams.find((t) => norm(t.team) === norm(homeName)) ?? raw.teams.find((t) => norm(t.team) !== norm(awayName)) ?? raw.teams[0];
+  const away = raw.teams.find((t) => t !== home) ?? raw.teams[1];
+  return { id: raw.id, home: home.stats, away: away.stats };
+}
+
+export function nflSum(s: NflHeatStats, k: keyof NflSide): number {
+  return s.home[k] + s.away[k];
+}
+
+// Gespielte Minuten (von 60) grob aus dem Viertel: Mitte des Viertels.
+export function nflGameMinute(statusShort: string): number {
+  const s = statusShort.toUpperCase();
+  const q = /^Q([1-4])$/.exec(s);
+  if (q) return (Number(q[1]) - 1) * 15 + 7.5;
+  if (s === "HT") return 30;
+  if (s === "OT") return 62;
+  return 30;
+}
+
+// Früherer Stand (im Browser gemerkt, Uhrzeit statt Spielminute).
+export interface NflSnapshot {
+  at: number;
+  points: number;
+  turnovers: number;
+}
+
+const NFL_NORMAL_YPP = 5.3; // Yards pro Spielzug in einem normalen Spiel
+const NFL_NORMAL_POINTS = 45; // Punkte beider Teams in 60 Minuten
+
+// Spannung 0–100 aus
+//  - Tempo: Yards pro Spielzug (bis 24), am Anfang mit 20 normalen
+//    Spielzügen aufgefüllt,
+//  - Punkte-Tempo: Punkte je 60 Minuten (bis 16), am Anfang mit 15 Minuten
+//    normalem Spiel aufgefüllt,
+//  - Turnover (je +4, bis 15), Red-Zone-Besuchen, 4th-Down-Versuchen, Sacks,
+//  - frischen Punkten und Turnovern seit dem letzten Stand (~10 Min.),
+//  - Spielstand: bis 3 bzw. bis 8 Punkte (ein Touchdown) Abstand zählt,
+//    im 4. Viertel doppelt; ab 17 Punkten Abstand ist die Luft raus (fad),
+//  - Verlängerung +15; 4. Viertel mit höchstens 8 Punkten Abstand ist
+//    mindestens "Spannend".
+export function nflLiveHeat(game: LiveGame, stats: NflHeatStats, earlier: NflSnapshot | null = null): { heat: number; trend: HeatTrend } {
+  const minute = nflGameMinute(game.statusShort);
+  const yards = nflSum(stats, "yards");
+  const plays = nflSum(stats, "plays");
+  const ypp = (yards + NFL_NORMAL_YPP * 20) / (plays + 20);
+  const tempo = Math.max(0, Math.min(24, (ypp - 4) * 12));
+
+  const points = (game.homeScore ?? 0) + (game.awayScore ?? 0);
+  const points60 = ((points + (NFL_NORMAL_POINTS / 60) * 15) / (minute + 15)) * 60;
+  const scoring = Math.min(16, points60 * 0.3);
+
+  const turnovers = nflSum(stats, "turnovers");
+  const extras =
+    Math.min(15, 4 * turnovers) + Math.min(6, nflSum(stats, "redZoneAtt")) + Math.min(6, 2 * nflSum(stats, "fourthAtt")) + Math.min(4, 0.5 * nflSum(stats, "sacks"));
+
+  let recent = 0;
+  let trend: HeatTrend = null;
+  if (earlier) {
+    const newPoints = Math.max(0, points - earlier.points);
+    const newTurnovers = Math.max(0, turnovers - earlier.turnovers);
+    recent = Math.min(20, 10 * Math.min(2, Math.ceil(newPoints / 7)) + 8 * newTurnovers);
+    if (recent > 0) trend = "up";
+  }
+
+  const diff = Math.abs((game.homeScore ?? 0) - (game.awayScore ?? 0));
+  const s = game.statusShort.toUpperCase();
+  const late = s === "Q4" || s === "OT";
+  const blowout = diff >= 17;
+  const close = (diff <= 3 ? 10 : diff <= 8 ? 7 : 0) * (late ? 2 : 1);
+  // Bei 17+ Punkten Abstand zählen Yards und Punkte kaum noch.
+  let heat = blowout
+    ? 0.6 * (tempo + scoring + extras) - 15
+    : tempo + scoring + extras + recent + close + (s === "OT" ? 15 : 0);
+  if (late && diff <= 8) heat = Math.max(heat, 55);
+  if (blowout) trend = null;
+  return { heat: Math.round(Math.max(0, Math.min(100, heat))), trend };
+}

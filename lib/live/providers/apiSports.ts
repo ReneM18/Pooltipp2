@@ -4,7 +4,7 @@ import { isLiveFinished, isLiveRunning, liveIntervalSeconds, liveMaxIntervalSeco
 import { cachedLoad, type LoadResult } from "../cache";
 import type { StandingGroup, StandingTeamRow } from "../../standings";
 import type { LineupPlayer, LineupTeam, PreviewGame, PreviewTeam, StatTeam } from "../../matchInfo";
-import type { HeatSide, HeatStats } from "../../liveHeat";
+import type { HeatSide, HeatStats, NflHeatRaw, NflSide, NflTeamStats } from "../../liveHeat";
 import type {
   LiveDayStatus,
   LiveDiagnostics,
@@ -1062,6 +1062,90 @@ export async function footballLiveHeat(ids: number[]): Promise<LiveHeatResult> {
     })
     .filter((x: HeatStats | null): x is HeatStats => x !== null);
   return { ok: true, stats, expiresAt: res.hit.expiresAt };
+}
+
+// ---------------------------------------------------------------------------
+// NFL-Spannung (Rene, 31.10.2026): games/statistics/teams?id=… gibt es bei
+// American Football nur je Spiel, also eine Abfrage pro TV-Spiel. Mit dem
+// Pro-Plan alle 2 Min., mit dem Gratis-Plan (100 pro Tag) alle 10 Min., und
+// bei weniger als NFL_HEAT_RESERVE freien Abfragen gar nicht mehr, damit der
+// Spielstand der Live-Liste immer Vorrang hat.
+
+export type NflLiveHeatResult = { ok: true; stats: NflHeatRaw[]; expiresAt: number } | { ok: false; error: string; expiresAt: number };
+
+const NFL_STATS_URL = "https://v1.american-football.api-sports.io/games/statistics/teams";
+export const NFL_HEAT_MAX_IDS = 8;
+const NFL_HEAT_TTL_FAST = 120;
+const NFL_HEAT_TTL_FREE = 600;
+const NFL_HEAT_RESERVE = 40;
+
+// "6-13" / "6/13" → [6, 13]
+function madeAtt(v: unknown): [number, number] {
+  const m = /^\s*(\d+)\s*[-/]\s*(\d+)\s*$/.exec(String(v ?? ""));
+  return m ? [Number(m[1]), Number(m[2])] : [0, 0];
+}
+
+function num(v: unknown): number {
+  const n = typeof v === "number" ? v : typeof v === "string" ? parseFloat(v) : NaN;
+  return Number.isFinite(n) ? n : 0;
+}
+
+function nflSide(st: Raw): NflSide {
+  const [redZoneMade, redZoneAtt] = madeAtt(st?.red_zone?.made_att);
+  const [thirdMade, thirdAtt] = madeAtt(st?.first_downs?.third_down_efficiency);
+  const [, fourthAtt] = madeAtt(st?.first_downs?.fourth_down_efficiency);
+  return {
+    yards: num(st?.yards?.total),
+    plays: num(st?.plays?.total),
+    firstDowns: num(st?.first_downs?.total),
+    turnovers: num(st?.turnovers?.total),
+    sacks: num(st?.sacks?.total),
+    redZoneMade,
+    redZoneAtt,
+    thirdMade,
+    thirdAtt,
+    fourthAtt,
+  };
+}
+
+export async function nflLiveHeat(ids: number[]): Promise<NflLiveHeatResult> {
+  const key = process.env.API_SPORTS_KEY;
+  if (!key) return { ok: false, error: "Kein API_SPORTS_KEY gesetzt", expiresAt: Date.now() + 300 * 1000 };
+  const quota = quotaFor("NFL");
+  const fast = quota !== null && quota.limit >= FAST_PLAN_LIMIT;
+  const ttl = fast ? NFL_HEAT_TTL_FAST : NFL_HEAT_TTL_FREE;
+  const list = Array.from(new Set(ids)).sort((a, b) => a - b).slice(0, NFL_HEAT_MAX_IDS);
+  const stats: NflHeatRaw[] = [];
+  let expiresAt = Date.now() + ttl * 1000;
+  let error: string | null = null;
+  for (const id of list) {
+    const url = `${NFL_STATS_URL}?id=${id}`;
+    // Gratis-Plan fast aufgebraucht: keine Abfrage mehr, das Spiel fehlt
+    // dann auf der Karte (der Spielstand geht vor).
+    const q = QUOTA_BY_HOST.get(hostOf(url));
+    const sameUtcDay = q ? new Date(q.at ?? 0).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10) : false;
+    if (!fast && q !== undefined && sameUtcDay && q.limit - q.used <= NFL_HEAT_RESERVE) {
+      error = "Tageslimit der NFL-Daten fast erreicht";
+      continue;
+    }
+    const res = await load(url, key, ttl);
+    if (!res.ok) {
+      error = res.error;
+      expiresAt = Math.min(expiresAt, res.expiresAt);
+      continue;
+    }
+    expiresAt = Math.min(expiresAt, res.hit.expiresAt);
+    const teams = res.hit.value
+      .map((t: Raw): NflTeamStats | null => {
+        const name = t?.team?.name;
+        if (typeof name !== "string" || !t?.statistics) return null;
+        return { team: name, stats: nflSide(t.statistics) };
+      })
+      .filter((x: NflTeamStats | null): x is NflTeamStats => x !== null);
+    if (teams.length >= 2) stats.push({ id: String(id), teams });
+  }
+  if (stats.length === 0 && error) return { ok: false, error, expiresAt };
+  return { ok: true, stats, expiresAt };
 }
 
 // ---------------------------------------------------------------------------
