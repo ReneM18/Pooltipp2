@@ -267,6 +267,18 @@ function LiveCenter() {
       setMotorsport(false);
     }
   }, [target]);
+  // Logo = Anfangsseite (Rene, 01.11.2026): wieder Fußball (bzw. die
+  // erste Sportart), auch wenn man gerade NHL, NBA, NFL oder Motorsport
+  // offen hat. "Heute", nach oben usw. setzt LiveCenterSection zurück.
+  useEffect(() => {
+    function backToStart() {
+      setTargetId(null);
+      setSport(LIVE_SPORT ?? "Fußball");
+      setMotorsport(false);
+    }
+    window.addEventListener("pooltipp:logo", backToStart);
+    return () => window.removeEventListener("pooltipp:logo", backToStart);
+  }, []);
   const pick = (s: Sport) => {
     setTargetId(null);
     setSport(s);
@@ -337,6 +349,10 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
       setView("live");
       setOnlyLive(false);
       setPlanDay(null);
+      // Gewähltes Spiel vergessen: wie beim Öffnen wieder automatisch das
+      // erste laufende (getippte) Spiel zeigen (Rene, 01.11.2026).
+      pickedRef.current = false;
+      setSelectedId(null);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
     window.addEventListener("pooltipp:logo", backToToday);
