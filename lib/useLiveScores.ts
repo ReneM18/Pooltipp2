@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Match, Sport, Team } from "./types";
 import { matchStadium } from "./teamStadium";
 import {
+  apiAdminScore,
   appSideEvents,
   appSidePenalties,
   findLiveGame,
@@ -15,6 +16,7 @@ import {
   settleStuckGame,
   viennaDate,
 } from "./liveScores";
+import type { ApiAdminScore } from "./liveScores";
 import type { LiveEvent, LiveGame, LiveQuota, LiveResponse, LiveSource, LiveStatus } from "./live/types";
 import { isLiveLeagueEnabled } from "./liveConfig";
 
@@ -426,6 +428,47 @@ export function useFinishedEvents(match: Match, homeName: string, awayName: stri
   const found = findLiveGame(day.games, match.kickoff, homeName, awayName);
   // Ohne Ereignisse vom Anbieter (Eishockey) kein Spielverlauf.
   return found && found.game.events ? appSideEvents(found) : null;
+}
+
+// Endstand aus der API fürs Admin (Rene, 01.11.2026), siehe apiAdminScore.
+// Nur für Spiele ohne Endstand in der App, ab Anpfiff bis 7 Tage danach
+// (Endstände werden manchmal erst Tage später eingetragen). Lädt die
+// Tagesliste einmal (dieselbe Abfrage wie Tippkarten und Matchcenter, für
+// alle zwischengespeichert) und fragt im Takt nach, solange das Spiel laut
+// API noch läuft. reload = Tagesliste sofort neu holen.
+const ADMIN_SCORE_MS = 7 * 24 * 60 * 60 * 1000;
+
+export interface AdminApiScore {
+  score: ApiAdminScore | null;
+  // Tagesliste geladen, aber kein passendes Spiel gefunden.
+  notFound: boolean;
+  loading: boolean;
+  reload: () => void;
+}
+
+export function useApiAdminScore(match: Match, homeName: string, awayName: string): AdminApiScore {
+  const [now, setNow] = useState<number | null>(null);
+  const hasFinal = match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null;
+  const enabled = !hasFinal && match.status !== "cancelled" && isLiveLeagueEnabled(match.sport, match.competition);
+  useEffect(() => {
+    if (!enabled) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(t);
+  }, [enabled]);
+  const kickoff = new Date(match.kickoff).getTime();
+  const relevant = enabled && now !== null && now >= kickoff && now - kickoff < ADMIN_SCORE_MS;
+  const date = viennaDate(match.kickoff);
+  const day = useLiveDay(match.sport, relevant ? date : null);
+  const found = relevant && day.games ? findLiveGame(day.games, match.kickoff, homeName, awayName) : null;
+  const score = found && now !== null ? apiAdminScore(match.sport, found, now) : null;
+  useLivePolling(match.sport, relevant ? date : null, score?.state === "running");
+  return {
+    score,
+    notFound: relevant && !!day.games && day.loadedAt > 0 && !found,
+    loading: relevant && day.loading,
+    reload: () => reloadLiveDay(match.sport, date),
+  };
 }
 
 // Neu rendern, sobald irgendein Live-Eintrag neue Daten hat. enabled = false:

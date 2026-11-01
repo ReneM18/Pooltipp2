@@ -45,6 +45,12 @@ export interface LiveGame {
   // Elfmeterschießen (nur Fußball, nur wenn es eines gab).
   penaltyHome?: number;
   penaltyAway?: number;
+  // Stand nach 90 Minuten (nur Fußball, sobald der Anbieter ihn kennt).
+  // Gewertet wird im Fußball dieser Stand, ohne Verlängerung und
+  // Elfmeterschießen (Rene, 27.10.2026) – fürs Vorausfüllen des Endstands
+  // im Admin (Rene, 01.11.2026).
+  fulltimeHome?: number;
+  fulltimeAway?: number;
   status: LiveStatus;
   // Status-Kürzel. Für die mitlaufende Minute zählen "1H", "2H" und "HT"
   // (1./2. Halbzeit, Halbzeit) – ein neuer Anbieter bildet seine Kürzel

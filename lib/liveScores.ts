@@ -241,6 +241,66 @@ export function findLiveGame(
 }
 
 // ---------------------------------------------------------------------------
+// Endstand aus der API fürs Admin (Rene, 01.11.2026: "kannst du mir die
+// ausfüllen damit ich nur mehr auf beenden gehen muss"). Nur ein Vorschlag:
+// die Felder werden vorausgefüllt, gespeichert und gewertet wird erst mit
+// "Spiel beenden". Gewertet wird wie bisher (Rene, 27.10.2026): Fußball der
+// Stand nach 90 Minuten, NHL/NBA/NFL der Endstand inkl. Verlängerung.
+export type ApiAdminScore =
+  // Läuft laut API noch – nichts vorausfüllen, nur zeigen.
+  | { state: "running"; homeScore: number; awayScore: number; statusText: string }
+  // Fußball n. V./n. E., aber der Anbieter kennt den 90-Minuten-Stand nicht.
+  | { state: "no90"; fullHome: number; fullAway: number }
+  // Vorschlag zum Eintragen. stuck = hängt laut API seit über 4 h auf
+  // "läuft" (#418), Stand kann unvollständig sein. fullHome/fullAway nur,
+  // wenn der Endstand vom gewerteten abweicht (Fußball n. V./n. E.).
+  | {
+      state: "final";
+      homeScore: number;
+      awayScore: number;
+      stuck: boolean;
+      fullHome?: number;
+      fullAway?: number;
+      penaltyHome?: number;
+      penaltyAway?: number;
+      status: LiveStatus;
+    };
+
+export function apiAdminScore(sport: Sport, result: LiveMatchResult, now: number): ApiAdminScore | null {
+  // Handball: der Anbieter zählt die Verlängerung mit, gewertet wird aber
+  // die reguläre Spielzeit – lieber nichts vorschlagen.
+  if (sport === "Handball") return null;
+  const { game, swapped } = result;
+  if (result.homeScore === null || result.awayScore === null) return null;
+  const settled = settleStuckGame(game, now);
+  const stuck = settled !== game;
+  if (isLiveRunning(game.status) && !stuck) {
+    return { state: "running", homeScore: result.homeScore, awayScore: result.awayScore, statusText: game.statusText };
+  }
+  if (!isLiveFinished(settled.status)) return null;
+  if (sport !== "Fußball") {
+    return { state: "final", homeScore: result.homeScore, awayScore: result.awayScore, stuck, status: settled.status };
+  }
+  const side = (h: number | undefined, a: number | undefined) => (swapped ? [a, h] : [h, a]);
+  const [ftHome, ftAway] = side(game.fulltimeHome, game.fulltimeAway);
+  const [penHome, penAway] = side(game.penaltyHome, game.penaltyAway);
+  const extra = settled.status === "AET" || settled.status === "PEN";
+  if (ftHome === undefined || ftAway === undefined) {
+    if (extra) return { state: "no90", fullHome: result.homeScore, fullAway: result.awayScore };
+    return { state: "final", homeScore: result.homeScore, awayScore: result.awayScore, stuck, status: settled.status };
+  }
+  return {
+    state: "final",
+    homeScore: ftHome,
+    awayScore: ftAway,
+    stuck,
+    status: settled.status,
+    ...(extra ? { fullHome: result.homeScore, fullAway: result.awayScore } : {}),
+    ...(penHome !== undefined && penAway !== undefined ? { penaltyHome: penHome, penaltyAway: penAway } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Mitlaufende Spielminute (Rene, 15.10.2026: Live-Gefühl)
 //
 // Die API liefert die Minute nur alle 3 Minuten. Aus "elapsed" und dem
