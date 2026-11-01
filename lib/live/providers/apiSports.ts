@@ -655,6 +655,9 @@ function normalize(sport: Sport, g: Raw): LiveGame | null {
   // Elfmeterschießen getrennt (nur Fußball), z. B. "n. E. 4:3" im Matchcenter.
   const penaltyHome = isFootball ? toNumber(g?.score?.penalty?.home) : null;
   const penaltyAway = isFootball ? toNumber(g?.score?.penalty?.away) : null;
+  // Stand nach 90 Minuten (score.fulltime), ohne Verlängerung/Elfmeter.
+  const fulltimeHome = isFootball ? toNumber(g?.score?.fulltime?.home) : null;
+  const fulltimeAway = isFootball ? toNumber(g?.score?.fulltime?.away) : null;
   return {
     id: String(id ?? `${home}-${away}-${kickoff}`),
     kickoff,
@@ -663,6 +666,7 @@ function normalize(sport: Sport, g: Raw): LiveGame | null {
     homeScore,
     awayScore,
     ...(penaltyHome !== null && penaltyAway !== null ? { penaltyHome, penaltyAway } : {}),
+    ...(fulltimeHome !== null && fulltimeAway !== null ? { fulltimeHome, fulltimeAway } : {}),
     status,
     statusShort: short,
     statusText: text,

@@ -10,7 +10,8 @@
     "test:sterne": "node --experimental-strip-types --no-warnings scripts/sterne-test.mjs",
     "test:saison": "node --experimental-strip-types --no-warnings scripts/saison-test.mjs",
     "test:reiter": "node --experimental-strip-types --no-warnings scripts/reiter-test.mjs",
-    "test:matchcenter": "node --experimental-strip-types --no-warnings scripts/matchcenter-test.mjs"
+    "test:matchcenter": "node --experimental-strip-types --no-warnings scripts/matchcenter-test.mjs",
+    "test:endstand": "node --experimental-strip-types --no-warnings scripts/endstand-test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

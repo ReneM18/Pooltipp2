@@ -39,7 +39,14 @@ import { GuestTeamButton } from "@/components/GuestTeamButton";
 import { StadiumFillAll, TeamStadiumRow } from "@/components/TeamStadiumAdmin";
 import { appTeamForApiName, findApiNameLink } from "@/lib/teamApiNames";
 import Emoji from "@/components/Emoji";
-import { peekLiveDays, peekLiveSportDiagnostics, refreshLiveDays, useLiveStoreVersion } from "@/lib/useLiveScores";
+import {
+  peekLiveDays,
+  peekLiveSportDiagnostics,
+  refreshLiveDays,
+  useApiAdminScore,
+  useLiveStoreVersion,
+  type AdminApiScore,
+} from "@/lib/useLiveScores";
 import type { LiveDiagnostics, LiveGame, LiveSource } from "@/lib/live/types";
 import { findLiveLeague, liveGameLeague } from "@/lib/liveConfig";
 import { findLiveGame, viennaDate } from "@/lib/liveScores";
@@ -3495,9 +3502,33 @@ function LiveScoreEditor({
   // Gast zuerst nur in US-Ligen (Rene, 15.10.2026).
   const { orderFor } = useAppData();
   const awayFirst = orderFor(match).awayFirst;
-  const [homeScore, setHomeScore] = useState(match.liveHomeScore ?? 0);
-  const [awayScore, setAwayScore] = useState(match.liveAwayScore ?? 0);
+  const order = orderFor(match);
+  const [homeScore, setHomeScoreInput] = useState(match.liveHomeScore ?? 0);
+  const [awayScore, setAwayScoreInput] = useState(match.liveAwayScore ?? 0);
   const alreadyFinished = match.status === "finished";
+
+  // Endstand aus der API vorausfüllen (Rene, 01.11.2026: "damit ich nur mehr
+  // auf beenden gehen muss"). Nur solange niemand selbst etwas eingetippt
+  // hat; gespeichert und gewertet wird weiter erst mit "Spiel beenden".
+  const api = useApiAdminScore(match, homeName, awayName);
+  const suggestion = api.score?.state === "final" ? api.score : null;
+  const [touched, setTouched] = useState(false);
+  const setHomeScore = (v: number) => {
+    setTouched(true);
+    setHomeScoreInput(v);
+  };
+  const setAwayScore = (v: number) => {
+    setTouched(true);
+    setAwayScoreInput(v);
+  };
+  const suggestionKey = suggestion ? `${suggestion.homeScore}:${suggestion.awayScore}` : "";
+  useEffect(() => {
+    if (!suggestion || touched) return;
+    setHomeScoreInput(suggestion.homeScore);
+    setAwayScoreInput(suggestion.awayScore);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestionKey, touched]);
+  const suggestionApplied = !!suggestion && suggestion.homeScore === homeScore && suggestion.awayScore === awayScore;
 
   function handleFinish() {
     const verb = alreadyFinished ? "korrigieren" : "festlegen";
@@ -3580,6 +3611,16 @@ function LiveScoreEditor({
           Nur Zwischenstand speichern
         </button>
       )}
+      <ApiScoreHint
+        api={api}
+        order={order}
+        applied={suggestionApplied}
+        onApply={() => {
+          if (!suggestion) return;
+          setHomeScoreInput(suggestion.homeScore);
+          setAwayScoreInput(suggestion.awayScore);
+        }}
+      />
       {/* Pokal: gewertet wird der Stand nach 90 Minuten, Verlängerung und
           Elfmeterschießen zählen nicht (Rene, 27.10.2026). */}
       {(match.sport === "Fußball" || match.sport === "Handball") && (
@@ -3588,6 +3629,98 @@ function LiveScoreEditor({
         </p>
       )}
     </div>
+  );
+}
+
+// Hinweis unter den Endstand-Feldern, was die API zum Spiel weiß
+// (Rene, 01.11.2026). Zahlen in der Reihenfolge der Felder (US-Ligen: Gast
+// zuerst).
+function ApiScoreHint({
+  api,
+  order,
+  applied,
+  onApply,
+}: {
+  api: AdminApiScore;
+  order: TeamOrder;
+  applied: boolean;
+  onApply: () => void;
+}) {
+  const { score } = api;
+  const reload = (
+    <button
+      type="button"
+      onClick={api.reload}
+      disabled={api.loading}
+      className="ml-1 font-semibold text-muted underline underline-offset-2 hover:text-ink disabled:cursor-wait"
+    >
+      {api.loading ? "lädt…" : "neu laden"}
+    </button>
+  );
+  if (!score) {
+    if (!api.notFound) return null;
+    return (
+      <p className="basis-full text-xs text-muted">
+        📡 Kein passendes Spiel in den API-Daten – Endstand bitte selbst eintragen.{reload}
+      </p>
+    );
+  }
+  if (score.state === "running") {
+    return (
+      <p className="basis-full text-xs text-muted">
+        📡 Läuft laut API noch: {scoreText(order, score.homeScore, score.awayScore)}
+        {score.statusText ? ` (${score.statusText})` : ""} – der Endstand wird nach Abpfiff eingetragen.{reload}
+      </p>
+    );
+  }
+  if (score.state === "no90") {
+    return (
+      <p className="basis-full text-xs text-yellow-400">
+        ⚠️ Die API kennt nur den Endstand inkl. Verlängerung ({scoreText(order, score.fullHome, score.fullAway)}) – bitte den Stand
+        nach 90 Minuten selbst eintragen.{reload}
+      </p>
+    );
+  }
+  const value = scoreText(order, score.homeScore, score.awayScore);
+  const extra: string[] = [];
+  if (score.fullHome !== undefined && score.fullAway !== undefined) {
+    extra.push(`nach 90 Min.; n. V. ${scoreText(order, score.fullHome, score.fullAway)}`);
+    if (score.penaltyHome !== undefined && score.penaltyAway !== undefined) {
+      extra.push(`i. E. ${scoreText(order, score.penaltyHome, score.penaltyAway)}`);
+    }
+  } else if (score.status === "AET" || score.status === "PEN") {
+    // NHL/NBA/NFL: Verlängerung zählt mit (Rene, 27.10.2026).
+    extra.push("inkl. Verlängerung");
+  }
+  const extraText = extra.length > 0 ? ` (${extra.join(", ")})` : "";
+  if (!applied) {
+    return (
+      <p className="basis-full text-xs text-muted">
+        📡 Endstand laut API: <span className="font-semibold text-ink">{value}</span>
+        {extraText}
+        {score.stuck && <span className="text-yellow-400"> – API zeigt das Spiel noch als laufend</span>}
+        <button
+          type="button"
+          onClick={onApply}
+          className="ml-2 rounded-md border border-edge px-2 py-0.5 font-semibold text-ink transition-colors hover:border-gold/40"
+        >
+          Übernehmen
+        </button>
+      </p>
+    );
+  }
+  if (score.stuck) {
+    return (
+      <p className="basis-full text-xs text-yellow-400">
+        ⚠️ {value} aus der API eingetragen – die API zeigt das Spiel aber noch als laufend. Bitte genau prüfen.{reload}
+      </p>
+    );
+  }
+  return (
+    <p className="basis-full text-xs text-action-hover">
+      📡 Endstand aus der API eingetragen: <span className="font-semibold">{value}</span>
+      {extraText}. Prüfen und „Spiel beenden“ drücken.
+    </p>
   );
 }
 
