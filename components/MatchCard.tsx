@@ -781,10 +781,10 @@ export default function MatchCard({
   }
 
   // Kurzer Hinweis über den Vereins-Zeilen, solange noch getippt werden kann
-  // (Rene, 15.10.2026). Seit 29.10.2026 nur noch beim Sieger-Tipp, wo man die
-  // Zeilen antippt; beim Ergebnis-Tipp erklären die Zahlenfelder sich selbst.
+  // (Rene, 15.10.2026). Seit 01.11.2026 wieder bei jeder Tippart, auch beim
+  // Ergebnis-Tipp (Rene: "bei den Ergebnissen steht nichts dabei").
   const tipHint = !isOneXTwo
-    ? null
+    ? "Tippe das Ergebnis"
     : compactShowsDraw
       ? "Sieger oder Unentschieden antippen"
       : "Tippe auf den Sieger";
