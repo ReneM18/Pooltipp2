@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Sport, Team, TeamStadium } from "@/lib/types";
 import { sportLabel } from "@/lib/types";
 import type { ApiNameLink } from "@/lib/teamApiNames";
@@ -81,6 +81,10 @@ export function StadiumFillAll({
     | { state: "running"; done: number; total: number }
     | { state: "done"; filled: number; same: number; missing: string[]; manual: number; error: string | null }
   >({ state: "idle" });
+  // Immer der neueste Stand: trägt der Admin während des Füllens ein Stadion
+  // von Hand ein, darf das Füllen es danach nicht mehr überschreiben.
+  const latest = useRef(teams);
+  latest.current = teams;
   const clubs = teams.filter((t) => t.sport === sport && !t.isNationalTeam);
   const todo = clubs.filter((t) => !t.stadium?.manual);
   const withName = clubs.filter((t) => t.stadium?.name.trim()).length;
@@ -102,9 +106,11 @@ export function StadiumFillAll({
     const missing: string[] = [];
     setRun({ state: "running", done: 0, total: todo.length });
     for (let i = 0; i < todo.length; i++) {
-      const team = todo[i];
-      const res = await lookupStadium(team, links);
-      if (res.found) {
+      const res = await lookupStadium(todo[i], links);
+      const team = latest.current.find((t) => t.id === todo[i].id);
+      if (!team || team.stadium?.manual) {
+        // Inzwischen von Hand geändert oder gelöscht: nicht anfassen.
+      } else if (res.found) {
         const next = apiStadium(res.found);
         if (sameStadium(team.stadium, next)) same++;
         else {
@@ -206,8 +212,10 @@ export function TeamStadiumRow({
     const cleanName = name.replace(/\s+/g, " ").trim().slice(0, 80);
     const digits = capacity.replace(/\D/g, "");
     const cap = digits ? Math.min(Number(digits), 500000) : undefined;
-    const base = fromApi ?? (stadium && !stadium.manual ? stadium : undefined);
-    const asApi = !!base && base.name === cleanName && base.capacity === cap;
+    // Von Hand gespeichert = geschützt (Rene, 03.11.2026: "mit hand
+    // eingetragene nicht mehr ändern"). Nur wer gerade "Von der API" geholt
+    // und nichts geändert hat, lässt das Stadion wieder von der API füllen.
+    const asApi = !!fromApi && fromApi.name === cleanName && fromApi.capacity === cap;
     // Leerer Name = kein Stadion anzeigen; bleibt als "von Hand", damit die
     // API es beim Füllen nicht wieder einträgt.
     const next: TeamStadium = {
