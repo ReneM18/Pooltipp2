@@ -13,8 +13,9 @@ import { APP_READY_EVENT, waitsForReady } from "@/lib/appReady";
 // Nur beim echten Laden der Seite, nicht beim Wechseln im Menü (das
 // Root-Layout bleibt dabei stehen). Mindestens MIN_MS sichtbar, damit es
 // nicht nur aufblitzt, höchstens MAX_MS, falls eine Seite nie "fertig" meldet.
-// Rene, 03.11.2026: "kleines bissi länger" (vorher 0,7 s).
-const MIN_MS = 1200;
+// Rene, 03.11.2026: erst "kleines bissi länger" (0,7 → 1,2 s), dann wieder
+// eine Spur kürzer.
+const MIN_MS = 1000;
 const MAX_MS = 3500;
 const FADE_MS = 400;
 
@@ -68,8 +69,12 @@ export default function SplashScreen() {
           </filter>
         </defs>
         <circle cx="256" cy="256" r="178" fill="none" stroke="#EDB94A" strokeWidth="30" opacity=".35" filter="url(#pt-splash-glow)" />
-        <path d="M256 78 A178 178 0 1 1 130 130" fill="none" stroke="url(#pt-splash-gold)" strokeWidth="26" strokeLinecap="round" />
-        <circle cx="168" cy="104" r="20" fill="url(#pt-splash-gold)" />
+        {/* Ring mit Lücke und Ball drehen sich beim Laden, das P bleibt
+            stehen (Rene, 03.11.2026). */}
+        <g className="pt-splash-spin">
+          <path d="M256 78 A178 178 0 1 1 130 130" fill="none" stroke="url(#pt-splash-gold)" strokeWidth="26" strokeLinecap="round" />
+          <circle cx="168" cy="104" r="20" fill="url(#pt-splash-gold)" />
+        </g>
         <path
           fill="url(#pt-splash-white)"
           fillRule="evenodd"
