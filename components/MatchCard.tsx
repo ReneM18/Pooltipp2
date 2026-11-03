@@ -402,11 +402,16 @@ export default function MatchCard({
   // beim ersten Laden, jedes Tor nur einmal.
   const [goalFlash, setGoalFlash] = useState(false);
   const lastScoreRef = useRef<{ home: number; away: number } | null>(null);
-  const liveKey = live ? `${live.homeScore}:${live.awayScore}` : null;
+  // Mit Kennung für den Gerätespeicher: auch bei gleichem Stand läuft der
+  // Effekt beim Wechsel auf die frische Antwort einmal, damit er sich den
+  // Stand merkt.
+  const liveKey = live ? `${live.homeScore}:${live.awayScore}${live.fromDevice ? ":gerät" : ""}` : null;
   useEffect(() => {
     if (!live) return;
     const prev = lastScoreRef.current;
-    lastScoreRef.current = { home: live.homeScore, away: live.awayScore };
+    // Stand vom letzten Öffnen (Gerätespeicher) nicht merken: der Wechsel auf
+    // den frischen Stand ist kein neues Tor (Rene, 03.11.2026).
+    lastScoreRef.current = live.fromDevice ? null : { home: live.homeScore, away: live.awayScore };
     if (!prev || !myTip || myTip.refunded) return;
     const homeUp = live.homeScore > prev.home;
     const awayUp = live.awayScore > prev.away;

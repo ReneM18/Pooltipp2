@@ -75,6 +75,11 @@ export interface LiveGame {
   venue?: string;
   // Stadion-Nummer beim Anbieter (nur Fußball), für die Kapazität.
   venueId?: number;
+  // Nur im Browser: Stand aus dem Gerätespeicher vom letzten Öffnen
+  // (lib/useLiveScores.ts), bis die frische Antwort da ist. Kommt nie vom
+  // Server. Solche Stände lösen keine Tor-Meldung aus und füllen keinen
+  // Endstand im Admin vor.
+  fromDevice?: boolean;
 }
 
 // Woher die Spieldaten stammen (Rene, 16.10.2026: ehrliche Aktualität):

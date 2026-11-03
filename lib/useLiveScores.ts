@@ -75,6 +75,93 @@ function notify(entry: Entry) {
   globalListeners.forEach((l) => l());
 }
 
+// Letzter Stand auf dem Gerät (Rene, 03.11.2026: "warum braucht die Seite
+// beim Einsteigen 1–2 Sekunden"). Die Spieleliste kommt von /api/live, und
+// die muss auf einer frisch gestarteten Server-Instanz erst bei API-Sports
+// nachfragen. Damit beim Öffnen nicht jedes Mal "Lädt…" steht, merkt sich
+// der Browser die letzte Antwort je Sportart und Tag und zeigt sie sofort;
+// die frische Antwort wird trotzdem gleich geholt (loadedAt bleibt 0) und
+// ersetzt sie nach Sekundenbruchteilen. Die Spiele sind mit fromDevice
+// markiert: keine Tor-Meldung/kein Aufleuchten beim Wechsel auf den
+// frischen Stand, kein Vorausfüllen im Admin. Nur Stände der letzten
+// 12 Stunden, höchstens 6 Tage, nichts Riesiges.
+const DEVICE_KEY = "pooltipp_live_v1";
+const DEVICE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const DEVICE_MAX_DAYS = 6;
+const DEVICE_MAX_CHARS = 1_500_000;
+
+interface DeviceDay {
+  key: string;
+  savedAt: number;
+  games: LiveGame[];
+  dataAt: number;
+  source: LiveSource | null;
+  quota: LiveQuota | null;
+  providerName: string | null;
+  providerUrl: string | null;
+}
+
+let deviceDays: DeviceDay[] | null = null;
+
+function readDeviceDays(): DeviceDay[] {
+  if (deviceDays) return deviceDays;
+  deviceDays = [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DEVICE_KEY) ?? "null");
+    if (Array.isArray(parsed)) {
+      const now = Date.now();
+      deviceDays = parsed.filter(
+        (d: DeviceDay) =>
+          d && typeof d.key === "string" && Array.isArray(d.games) && typeof d.savedAt === "number" && now - d.savedAt < DEVICE_MAX_AGE_MS,
+      );
+    }
+  } catch {
+    // nicht lesbar (privates Fenster o. Ä.): dann eben ohne
+  }
+  return deviceDays;
+}
+
+function saveDeviceDay(entry: Entry) {
+  if (typeof window === "undefined" || !entry.games) return;
+  try {
+    const key = `${entry.sport}|${entry.date}`;
+    const day: DeviceDay = {
+      key,
+      savedAt: Date.now(),
+      games: entry.games,
+      dataAt: entry.dataAt,
+      source: entry.source,
+      quota: entry.quota,
+      providerName: entry.providerName,
+      providerUrl: entry.providerUrl,
+    };
+    const next = [day, ...readDeviceDays().filter((d) => d.key !== key)].slice(0, DEVICE_MAX_DAYS);
+    let text = JSON.stringify(next);
+    // Zu groß: nur diesen einen Tag behalten (oder gar nichts).
+    if (text.length > DEVICE_MAX_CHARS) {
+      next.length = 1;
+      text = JSON.stringify(next);
+      if (text.length > DEVICE_MAX_CHARS) return;
+    }
+    deviceDays = next;
+    localStorage.setItem(DEVICE_KEY, text);
+  } catch {
+    // Speicher voll oder gesperrt: nichts merken, die App läuft normal weiter.
+  }
+}
+
+function seedFromDevice(entry: Entry) {
+  if (typeof window === "undefined") return;
+  const day = readDeviceDays().find((d) => d.key === `${entry.sport}|${entry.date}`);
+  if (!day) return;
+  entry.games = day.games.map((g) => ({ ...g, fromDevice: true }));
+  entry.dataAt = day.dataAt;
+  entry.source = day.source;
+  entry.quota = day.quota;
+  entry.providerName = day.providerName;
+  entry.providerUrl = day.providerUrl;
+}
+
 function entryFor(sport: Sport, date: string): Entry {
   const key = `${sport}|${date}`;
   let entry = entries.get(key);
@@ -98,6 +185,7 @@ function entryFor(sport: Sport, date: string): Entry {
       pollers: new Set(),
       timer: null,
     };
+    seedFromDevice(entry);
     entries.set(key, entry);
   }
   return entry;
@@ -145,6 +233,7 @@ async function loadNow(entry: Entry) {
       entry.dataAt = typeof data.fetchedAt === "number" ? Math.min(data.fetchedAt, Date.now()) : 0;
       entry.source = data.source ?? null;
       entry.liveError = data.liveError ?? null;
+      saveDeviceDay(entry);
     } else if (!entry.games || entry.games.length === 0) {
       entry.games = [];
       entry.error = data.error ?? null;
@@ -340,6 +429,8 @@ export interface LiveScore {
   statusShort: string;
   elapsed: number | null;
   dataAt: number;
+  // Stand vom letzten Öffnen aus dem Gerätespeicher (frischer kommt gleich).
+  fromDevice: boolean;
   // Tore/Karten mit Heim/Gast wie in der App (Rene, 15.10.2026: Spieltag-Umbau).
   // null = der Anbieter liefert für diese Sportart keine Ereignisse
   // (Eishockey) → kein Knopf "Spielverlauf" (Rene, 16.10.2026).
@@ -397,6 +488,7 @@ export function useLiveScore(match: Match, homeName: string, awayName: string): 
     statusShort: found.game.statusShort,
     elapsed: found.game.elapsed,
     dataAt: entry?.dataAt ?? 0,
+    fromDevice: !!found.game.fromDevice,
     events: found.game.events ? appSideEvents(found) : null,
     ...(found.game.progress !== undefined ? { progress: found.game.progress } : {}),
     ...appSidePenalties(found),
@@ -461,7 +553,8 @@ export function useApiAdminScore(match: Match, homeName: string, awayName: strin
   const date = viennaDate(match.kickoff);
   const day = useLiveDay(match.sport, relevant ? date : null);
   const found = relevant && day.games ? findLiveGame(day.games, match.kickoff, homeName, awayName) : null;
-  const score = found && now !== null ? apiAdminScore(match.sport, found, now) : null;
+  // Stand vom letzten Öffnen (Gerätespeicher): nie vorausfüllen, erst die frische Antwort.
+  const score = found && !found.game.fromDevice && now !== null ? apiAdminScore(match.sport, found, now) : null;
   useLivePolling(match.sport, relevant ? date : null, score?.state === "running");
   return {
     score,
