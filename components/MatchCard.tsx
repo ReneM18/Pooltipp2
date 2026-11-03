@@ -308,11 +308,14 @@ export default function MatchCard({
     const bottom = (window.visualViewport?.height ?? window.innerHeight) - 8;
     const rect = card.getBoundingClientRect();
     if (rect.top >= top - 1 && rect.bottom <= bottom + 1) return;
-    // Passt die Karte ganz hinein: mittig darunter. Sonst Kartenanfang
-    // (Wettbewerb, Flaggen, Teams) knapp unter die Kopfzeile.
-    const space = bottom - top;
-    const targetTop = rect.height <= space ? top + (space - rect.height) / 2 : top;
-    window.scrollBy({ top: rect.top - targetTop, behavior: "smooth" });
+    // Nur so wenig wie nötig schieben, nicht mehr mittig ausrichten: das
+    // Zentrieren ließ die Seite nach jedem Tipp ein anderes Stück nach oben
+    // springen (Rene, 03.11.2026). Kartenanfang (Wettbewerb, Flaggen, Teams)
+    // verdeckt: knapp unter die Kopfzeile. Sonst ragt nur das Ende unten
+    // hinaus: so weit hoch, dass es zu sehen ist, der Anfang bleibt sichtbar.
+    const delta = rect.top < top ? rect.top - top : Math.min(rect.bottom - bottom, rect.top - top);
+    if (Math.abs(delta) < 2) return;
+    window.scrollBy({ top: delta, behavior: "smooth" });
   }
 
   // Tastatur zu, bevor das Eingabefeld verschwindet (iOS springt sonst).
