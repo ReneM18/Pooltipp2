@@ -290,13 +290,21 @@ export default function MatchCard({
     // Tastatur geht zu (iOS): sichtbarer Bereich wird größer.
     const viewport = window.visualViewport;
     viewport?.addEventListener("resize", run);
-    const stop = window.setTimeout(() => viewport?.removeEventListener("resize", run), 1500);
-    return () => {
+    // Sobald der Spieler selbst wischt, tippt oder scrollt (z. B. schon zum
+    // nächsten Spiel), sofort aufhören: sonst holte diese Karte die Seite
+    // noch bis zu 1,5 Sek. später zu sich zurück – bei mehreren Tipps
+    // hintereinander sprang die Seite hoch und runter (Rene, 03.11.2026).
+    const userEvents = ["touchstart", "pointerdown", "wheel", "keydown"] as const;
+    const stopAll = () => {
       timers.forEach((t) => window.clearTimeout(t));
       window.clearTimeout(stop);
       cancelAnimationFrame(frame);
       viewport?.removeEventListener("resize", run);
+      userEvents.forEach((e) => window.removeEventListener(e, stopAll, true));
     };
+    const stop = window.setTimeout(stopAll, 1500);
+    userEvents.forEach((e) => window.addEventListener(e, stopAll, { capture: true, passive: true }));
+    return stopAll;
   }, [hasTipped]);
 
   function keepCardInView() {
