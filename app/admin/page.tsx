@@ -52,7 +52,42 @@ import { findLiveLeague, liveGameLeague } from "@/lib/liveConfig";
 import { findLiveGame, viennaDate } from "@/lib/liveScores";
 import { competitionCountry } from "@/lib/competitionFlag";
 
-type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news" | "wachstum" | "steckbriefe" | "vereinsnamen";
+// Bereiche des Admin-Bereichs (Rene, 03.11.2026: vorher alles untereinander,
+// "ich kenn mich gar nicht mehr aus"). Variante B: 4 Hauptreiter (Gruppen),
+// darunter die Unterreiter. hash = Adresse /admin#…; short = kürzerer Name
+// am Handy, damit die Unterreiter in eine Zeile passen.
+const ADMIN_SECTIONS = {
+  spiele: { label: "Spiele & Ergebnisse", short: "Spiele" },
+  neu: { label: "Neues Spiel" },
+  live: { label: "Live-Daten" },
+  teams: { label: "Teams" },
+  import: { label: "Liga-Import", short: "Import" },
+  wettbewerbe: { label: "Wettbewerbe" },
+  vereinsnamen: { label: "Vereinsnamen", short: "Namen" },
+  news: { label: "News" },
+  turniere: { label: "Turniere" },
+  steckbriefe: { label: "Steckbriefe" },
+  duelle: { label: "Auffällige Duelle", short: "Duelle" },
+  wachstum: { label: "Wachstum" },
+  shop: { label: "Joker-Shop" },
+  vorschau: { label: "Vorschau für Spieler", short: "Vorschau" },
+} as const;
+type AdminSection = keyof typeof ADMIN_SECTIONS;
+const ADMIN_GROUPS: { title: string; icon: string; items: AdminSection[] }[] = [
+  { title: "Spieltag", icon: "⚽", items: ["spiele", "neu", "live"] },
+  { title: "Teams & Ligen", icon: "🛡️", items: ["teams", "import", "wettbewerbe", "vereinsnamen"] },
+  { title: "Community", icon: "📣", items: ["news", "turniere", "steckbriefe", "duelle"] },
+  { title: "App", icon: "⚙️", items: ["wachstum", "shop", "vorschau"] },
+];
+const isAdminSection = (s: string): s is AdminSection => s in ADMIN_SECTIONS;
+
+// Spiel läuft schon so lange, dass der Endstand da sein müsste: 2,5 Stunden
+// nach Anpfiff (Fußball mit Verlängerung, NFL/NBA/NHL meist darunter).
+const RESULT_DUE_MS = 150 * 60 * 1000;
+function needsResult(m: Match, now: number): boolean {
+  if (m.draft || m.status === "finished" || m.status === "cancelled") return false;
+  return new Date(m.kickoff).getTime() + RESULT_DUE_MS < now;
+}
 
 // Zugang nur für den eingeloggten Admin-Account – geprüft über die
 // Datenbank-Funktion is_admin() (siehe isAdmin in lib/UserContext.tsx).
@@ -61,16 +96,42 @@ type AdminTab = "spiele" | "wettbewerbe" | "teams" | "turniere" | "news" | "wach
 // (Row Level Security mit is_admin(), siehe supabase/social-features.sql).
 export default function AdminPage() {
   const { isAdmin, adminChecked, isRegistered } = useUser();
-  // "Spiele" ist bewusst der Start-Tab: das wird im Alltag am häufigsten
-  // gebraucht und soll sofort sichtbar sein, ohne erst scrollen zu müssen.
-  const [tab, setTab] = useState<AdminTab>("spiele");
-  // Direkt-Link aus dem Matchcenter (Trikot für Spiele ohne Tippspiel):
-  // /admin?tab=teams&team=<id> oder &neu=<API-Name>&sport=<Sportart>.
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("tab") === "teams") setTab("teams");
-  }, []);
+  // "Spiele & Ergebnisse" ist bewusst der Start: das wird im Alltag am
+  // häufigsten gebraucht und soll sofort sichtbar sein.
+  const [section, setSection] = useState<AdminSection>("spiele");
+  // Je Hauptreiter der zuletzt offene Unterreiter, damit man beim
+  // Zurückwechseln wieder dort landet.
+  const lastInGroup = useRef<Record<string, AdminSection>>({});
   const { teams, allMatches: matches, newsItems, competitions } = useAppData();
   const { tournaments } = useTournaments();
+  // Uhrzeit erst im Browser (sonst passt die Server-Ausgabe nicht).
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Bereich aus der Adresse: /admin#teams usw., damit Neuladen im selben
+  // Bereich bleibt. Direkt-Link aus dem Matchcenter (Trikot für Spiele ohne
+  // Tippspiel): /admin?tab=teams&team=<id> oder &neu=<API-Name>&sport=<Sportart>.
+  useEffect(() => {
+    function openFromHash() {
+      const id = window.location.hash.slice(1);
+      if (isAdminSection(id)) setSection(id);
+      else if (new URLSearchParams(window.location.search).get("tab") === "teams") setSection("teams");
+    }
+    openFromHash();
+    window.addEventListener("hashchange", openFromHash);
+    return () => window.removeEventListener("hashchange", openFromHash);
+  }, []);
+
+  function openSection(key: AdminSection) {
+    setSection(key);
+    const group = ADMIN_GROUPS.find((g) => g.items.includes(key));
+    if (group) lastInGroup.current[group.title] = key;
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}#${key}`);
+  }
 
   if (!adminChecked) {
     return (
@@ -84,99 +145,156 @@ export default function AdminPage() {
     return <NoAccess loggedIn={isRegistered} />;
   }
 
-  const tabs: { id: AdminTab; label: string; icon: string; count?: number }[] = [
-    { id: "spiele", label: "Spiele", icon: "⚽", count: matches.length },
-    { id: "wettbewerbe", label: "Wettbewerbe", icon: "🏅", count: competitions.length },
-    { id: "teams", label: "Teams", icon: "🛡️", count: teams.length },
-    // Eigene Namen statt API-Namen (Rene, 27.10.2026).
-    { id: "vereinsnamen", label: "Vereinsnamen", icon: "🏷️" },
-    { id: "turniere", label: "Turniere", icon: "🏆", count: tournaments.length },
-    { id: "news", label: "News", icon: "📰", count: newsItems.length },
-    // Ohne Zahl: die Werte stehen im Reiter selbst (Rene, 14.10.2026).
-    { id: "wachstum", label: "Wachstum", icon: "📈" },
-    // Sport-Steckbriefe: Vereine freigeben, Angaben bestätigen.
-    { id: "steckbriefe", label: "Steckbriefe", icon: "🏟️" },
-  ];
+  const missingResults = now === null ? 0 : matches.filter((m) => needsResult(m, now)).length;
+  const drafts = matches.filter((m) => m.draft).length;
+  const upcomingCount = matches.filter((m) => m.status !== "finished" && m.status !== "cancelled").length;
+
+  // Zahl im Unterreiter; rot = da ist etwas zu tun (Endstand fehlt).
+  // Zahl 0 bleibt weg, die sagt nichts.
+  const count = (n: number) => (n > 0 ? { text: String(n) } : undefined);
+  const badges: Partial<Record<AdminSection, { text: string; todo?: boolean }>> = {
+    spiele: missingResults > 0 ? { text: String(missingResults), todo: true } : count(upcomingCount),
+    teams: count(teams.length),
+    wettbewerbe: count(competitions.length),
+    news: count(newsItems.length),
+    turniere: count(tournaments.length),
+  };
+  const activeGroup = ADMIN_GROUPS.find((g) => g.items.includes(section)) ?? ADMIN_GROUPS[0];
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-8 lg:max-w-6xl">
-      <h1 className="mb-1 font-display text-3xl font-bold text-ink sm:text-4xl">Admin-Bereich</h1>
-      <p className="mb-7 text-sm text-muted">
-        Spiele, Wettbewerbe, Teams, Turniere und News anlegen. Änderungen werden gespeichert und
-        sind sofort für alle sichtbar.
-      </p>
+    <main className="mx-auto max-w-3xl px-4 py-6 sm:px-5 sm:py-8 lg:max-w-6xl">
+      <h1 className="mb-4 font-display text-2xl font-bold text-ink sm:text-3xl">Admin-Bereich</h1>
 
       <SaveProblemBanner />
 
-      <ShopSwitch />
-
-      <LiveDataInfo />
-
-      <DuelReport />
-
-      {/* Vorschau der Spieler-Seiten fürs Dranbleiben: ändern nichts. */}
-      <div className="-mt-4 mb-7 flex flex-col gap-3 rounded-card border border-edge bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="font-display text-base font-semibold text-ink">👀 Vorschau für Spieler</p>
-          <p className="text-sm text-muted">So sehen Spieler den Start nach der Registrierung und ihren Wochenrückblick.</p>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <Link
-            href="/start?vorschau=1"
-            className="rounded-full border border-gold/50 px-4 py-2 text-sm font-semibold text-gold transition-colors hover:bg-gold/10"
-          >
-            Start-Erlebnis
-          </Link>
-          <Link
-            href="/rueckblick"
-            className="rounded-full border border-gold/50 px-4 py-2 text-sm font-semibold text-gold transition-colors hover:bg-gold/10"
-          >
-            Wochenrückblick
-          </Link>
-        </div>
-      </div>
-
-      {/* Klar getrennte Bereiche statt alles untereinander gestapelt – ein
-          Klick auf einen Reiter zeigt nur noch genau diesen Bereich, auf
-          voller Breite. Bewusst groß und mit Zahl, damit auf einen Blick klar
-          ist, wo man ist und wie viel schon angelegt wurde. */}
-      <div className="mb-9 grid grid-cols-2 gap-2.5 md:grid-cols-6">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex flex-col items-center justify-center gap-1 rounded-card border px-4 py-5 font-display transition-colors ${
-              tab === t.id
-                ? "border-gold bg-gold/15 text-gold"
-                : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
-            }`}
-          >
-            <span className="text-2xl">{t.icon}</span>
-            <span className="text-base font-semibold">{t.label}</span>
-            {t.count !== undefined && (
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                  tab === t.id ? "bg-gold/20 text-gold" : "bg-surface-hover text-muted"
-                }`}
-              >
-                {t.count}
+      {/* Admin-Bereich geordnet (Rene, 03.11.2026, Variante B: vorher alles
+          untereinander). Oben 4 Hauptreiter, darunter die Unterreiter der
+          Gruppe; es ist immer genau ein Bereich offen. */}
+      <div role="tablist" aria-label="Admin-Gruppen" className="mb-3 grid grid-cols-4 gap-1.5 sm:gap-3">
+        {ADMIN_GROUPS.map((g) => {
+          const active = g === activeGroup;
+          const todo = g.items.some((k) => badges[k]?.todo);
+          return (
+            <button
+              key={g.title}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => openSection(lastInGroup.current[g.title] ?? g.items[0])}
+              className={`relative flex min-h-[64px] flex-col items-center justify-center gap-0.5 rounded-card border px-1 py-2 font-display transition-colors sm:flex-row sm:gap-2 sm:py-3 ${
+                active
+                  ? "border-gold bg-gold/15 text-gold"
+                  : "border-edge bg-surface text-muted hover:border-gold/40 hover:text-ink"
+              }`}
+            >
+              <span aria-hidden className="text-xl sm:text-2xl">
+                <Emoji e={g.icon} />
               </span>
-            )}
-          </button>
-        ))}
+              <span className="text-center text-[11px] font-semibold leading-tight sm:text-base">{g.title}</span>
+              {todo && !active && (
+                <span aria-label="Etwas zu tun" className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-red-500" />
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      <div>
-        {tab === "spiele" && <MatchManager />}
-        {tab === "wettbewerbe" && <CompetitionManager />}
-        {tab === "teams" && <TeamManager />}
-        {tab === "turniere" && <TournamentManager />}
-        {tab === "news" && <NewsManager />}
-        {tab === "wachstum" && <GrowthReport />}
-        {tab === "steckbriefe" && <SportBioAdmin />}
-        {tab === "vereinsnamen" && <ApiTeamNamesAdmin />}
+      {/* Unterreiter: am Handy seitlich wischbar, falls es mal nicht passt. */}
+      <div role="tablist" aria-label={activeGroup.title} className="-mx-4 mb-5 flex overflow-x-auto overscroll-contain touch-pan-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border-b border-edge px-4 sm:mx-0 sm:px-0">
+        {activeGroup.items.map((key) => {
+          const s = ADMIN_SECTIONS[key];
+          const active = key === section;
+          const badge = badges[key];
+          return (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => openSection(key)}
+              className={`-mb-px flex min-h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 text-sm sm:px-3 font-semibold transition-colors ${
+                active ? "border-gold text-gold" : "border-transparent text-muted hover:text-ink"
+              }`}
+            >
+              {"short" in s ? (
+                <>
+                  <span className="sm:hidden">{s.short}</span>
+                  <span className="hidden sm:inline">{s.label}</span>
+                </>
+              ) : (
+                s.label
+              )}
+              {badge && (
+                <span
+                  className={`rounded-full px-1.5 py-px text-xs font-semibold ${
+                    badge.todo ? "bg-red-500/20 text-red-300" : active ? "bg-gold/20 text-gold" : "bg-surface-hover text-muted"
+                  }`}
+                >
+                  {badge.text}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
+
+      {drafts > 0 && section !== "spiele" && activeGroup.title === "Spieltag" && (
+        <button
+          type="button"
+          onClick={() => openSection("spiele")}
+          className="mb-5 flex w-full items-center gap-3 rounded-card border border-gold/50 bg-gold/10 px-4 py-2.5 text-left text-sm font-semibold text-ink transition-colors hover:bg-gold/15"
+        >
+          <span aria-hidden>📝</span>
+          <span className="min-w-0 flex-1">
+            {drafts} {drafts === 1 ? "Entwurf ist" : "Entwürfe sind"} noch nicht online
+          </span>
+          <span className="shrink-0 text-gold">Zu den Spielen ›</span>
+        </button>
+      )}
+
+      {/* Spiele & Ergebnisse und Neues Spiel teilen sich eine Instanz an
+          derselben Stelle, damit ein halb ausgefülltes Formular beim
+          Umschalten erhalten bleibt. */}
+      {(section === "spiele" || section === "neu") && <MatchManager view={section} />}
+      {section === "live" && <LiveDataInfo />}
+      {section === "teams" && <TeamManager />}
+      {section === "import" && <LeagueTeamsImport />}
+      {section === "wettbewerbe" && <CompetitionManager />}
+      {section === "vereinsnamen" && <ApiTeamNamesAdmin />}
+      {section === "news" && <NewsManager />}
+      {section === "turniere" && <TournamentManager />}
+      {section === "steckbriefe" && <SportBioAdmin />}
+      {section === "duelle" && <DuelReport />}
+      {section === "wachstum" && <GrowthReport />}
+      {section === "shop" && <ShopSwitch />}
+      {section === "vorschau" && <PlayerPreview />}
     </main>
+  );
+}
+
+// Vorschau der Spieler-Seiten fürs Dranbleiben: ändert nichts.
+function PlayerPreview() {
+  return (
+    <div className="mb-7 flex flex-col gap-3 rounded-card border border-edge bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="font-display text-base font-semibold text-ink">👀 Vorschau für Spieler</p>
+        <p className="text-sm text-muted">So sehen Spieler den Start nach der Registrierung und ihren Wochenrückblick.</p>
+      </div>
+      <div className="flex shrink-0 flex-wrap gap-2">
+        <Link
+          href="/start?vorschau=1"
+          className="rounded-full border border-gold/50 px-4 py-2 text-sm font-semibold text-gold transition-colors hover:bg-gold/10"
+        >
+          Start-Erlebnis
+        </Link>
+        <Link
+          href="/rueckblick"
+          className="rounded-full border border-gold/50 px-4 py-2 text-sm font-semibold text-gold transition-colors hover:bg-gold/10"
+        >
+          Wochenrückblick
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -609,7 +727,6 @@ function NewsManager() {
 
   return (
     <section>
-      <h2 className="mb-1 font-display text-2xl font-semibold text-ink">News-Ticker</h2>
       <p className="mb-4 text-sm text-muted">
         Die Headline läuft oben im Laufband durch. Tippt ein User sie an, öffnet sich der
         Artikeltext (falls vorhanden). Wählst du eine Sportart aus, wird deren Icon automatisch
@@ -1181,8 +1298,6 @@ function CompetitionManager() {
 
   return (
     <section>
-      <h2 className="mb-4 font-display text-2xl font-semibold text-ink">Wettbewerbe</h2>
-
       <form
         onSubmit={handleSubmit}
         className="mb-6 flex flex-col gap-4 rounded-card border border-edge bg-surface p-5 sm:p-6"
@@ -1710,13 +1825,8 @@ function TeamManager() {
 
   return (
     <section>
-      <h2 className="mb-4 font-display text-2xl font-semibold text-ink">Teams</h2>
-
       {/* Untergruppen vorher anlegen und ordnen (Rene, 20.10.2026). */}
       <TeamGroupsEditor />
-
-      {/* Alle Vereine einer Liga von der API (Rene, 30.10.2026). */}
-      <LeagueTeamsImport />
 
       <form
         ref={formRef}
@@ -2237,7 +2347,10 @@ function TeamManager() {
   );
 }
 
-function MatchManager() {
+// view: "spiele" = Liste (Bevorstehend/Beendet, Endstand eintragen),
+// "neu" = Spiel anlegen (von Hand oder aus der API). Eigene Unterreiter
+// im Admin-Bereich (Rene, 03.11.2026).
+function MatchManager({ view }: { view: "spiele" | "neu" }) {
   const {
     teams,
     allMatches: matches,
@@ -2456,8 +2569,8 @@ function MatchManager() {
 
   return (
     <section>
-      <h2 className="mb-4 font-display text-2xl font-semibold text-ink">Spiele</h2>
-
+      {view === "neu" && (
+      <>
       <ApiFixturePicker onPick={applyApiPick} />
 
       {/* noValidate: Safari meldete beim Datumsfeld sonst "Ungültiger Wert"
@@ -2731,8 +2844,10 @@ function MatchManager() {
           </p>
         )}
       </form>
+      </>
+      )}
 
-      {(() => {
+      {view === "spiele" && (() => {
         // Abgesagte Spiele stehen bei "Beendet" (nichts mehr zu tun).
         const isDone = (m: (typeof matches)[number]) => m.status === "finished" || m.status === "cancelled";
         const upcomingMatches = matches
@@ -3773,7 +3888,6 @@ function TournamentManager() {
 
   return (
     <section>
-      <h2 className="mb-1 font-display text-2xl font-semibold text-ink">Turniere</h2>
       <p className="mb-4 text-sm text-muted">
         Zeitlich begrenzter Sonder-Bereich (z. B. WM, EM), der eine Auswahl bestehender Spiele
         bündelt und eine eigene, öffentliche Mini-Rangliste zeigt. Spiele werden unten je Turnier
