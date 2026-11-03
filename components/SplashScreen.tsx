@@ -13,8 +13,9 @@ import { APP_READY_EVENT, waitsForReady } from "@/lib/appReady";
 // Nur beim echten Laden der Seite, nicht beim Wechseln im Menü (das
 // Root-Layout bleibt dabei stehen). Mindestens MIN_MS sichtbar, damit es
 // nicht nur aufblitzt, höchstens MAX_MS, falls eine Seite nie "fertig" meldet.
-const MIN_MS = 700;
-const MAX_MS = 3000;
+// Rene, 03.11.2026: "kleines bissi länger" (vorher 0,7 s).
+const MIN_MS = 1200;
+const MAX_MS = 3500;
 const FADE_MS = 400;
 
 export default function SplashScreen() {

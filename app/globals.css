@@ -595,7 +595,9 @@ html[data-season-design] .match-card-rand.match-card-zu {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 22px;
+    gap: 26px;
+    /* Etwas über der Mitte (Rene, 03.11.2026: "weiter hinauf"). */
+    padding-bottom: 18vh;
     background: #0d0d0d;
     transition: opacity 400ms ease;
     animation: pt-splash-away 400ms ease 5s forwards;
@@ -606,11 +608,11 @@ html[data-season-design] .match-card-rand.match-card-zu {
   pointer-events: none;
 }
 .pt-splash-logo {
-  width: 112px;
-  height: 112px;
+  width: 136px;
+  height: 136px;
 }
 .pt-splash-word {
-  font-size: 28px;
+  font-size: 34px;
   font-weight: 700;
   letter-spacing: 0.5px;
   color: #fff;
