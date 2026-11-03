@@ -284,6 +284,13 @@ function needsEvents(g: LiveGame): boolean {
   return !g.events || g.events.length === 0 || (g.status === "PEN" && g.penaltyHome !== undefined && !g.shootout);
 }
 
+// Spiel ohne Ereignisse: letzte bekannte aus dem Live-Stand ergänzen.
+function withLastEvents(g: LiveGame): LiveGame {
+  if (g.events && g.events.length > 0) return g;
+  const cached = LAST_EVENTS.get(g.id);
+  return { ...g, events: cached ? cached.events : [], ...(cached?.shootout ? { shootout: cached.shootout } : {}) };
+}
+
 async function fillFinishedEvents(games: LiveGame[], key: string) {
   const missing = games.filter(
     (g) => isLiveFinished(g.status) && needsEvents(g) && /^\d+$/.test(g.id),
@@ -416,6 +423,12 @@ async function football(date: string, league: string | null, key: string): Promi
   let expiresAt = day.hit.expiresAt;
   let liveError: string | undefined;
   let liveList: Raw[] | null = null;
+  // Schneller beim Öffnen (Rene, 03.11.2026): Torschützen beendeter Spiele
+  // (laut Tagesliste) schon jetzt holen, gleichzeitig mit dem Live-Stand,
+  // statt erst danach – auf einer frisch gestarteten Server-Instanz spart
+  // das eine ganze Runde zu API-Sports. Gleiche Abfragen wie vorher; was
+  // erst durch den Live-Stand beendet ist, holt fillFinishedEvents unten.
+  const finishedPrefetch = fillFinishedEvents(games.map(withLastEvents), key);
   if (needLive) {
     const live = await load(`${ENDPOINTS[sport]}?live=all&timezone=Europe/Vienna`, key, liveTtl(sport));
     expiresAt = Math.min(expiresAt, live.ok ? live.hit.expiresAt : live.expiresAt);
@@ -446,11 +459,8 @@ async function football(date: string, league: string | null, key: string): Promi
     }
   }
   // Tagesliste ohne Ereignisse: letzte bekannte aus dem Live-Stand ergänzen.
-  for (let i = 0; i < games.length; i++) {
-    if (games[i].events && games[i].events!.length > 0) continue;
-    const cached = LAST_EVENTS.get(games[i].id);
-    games[i] = { ...games[i], events: cached ? cached.events : [], ...(cached?.shootout ? { shootout: cached.shootout } : {}) };
-  }
+  for (let i = 0; i < games.length; i++) games[i] = withLastEvents(games[i]);
+  await finishedPrefetch;
   await fillFinishedEvents(games, key);
   rememberDay(sport, date, league, games, fetchedAt);
   return snapshotResult(games, fetchedAt, source, expiresAt, liveError);

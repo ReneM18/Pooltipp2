@@ -1245,17 +1245,19 @@ const OTHER_STATUS: Record<string, string> = {
 const GOAL_FLASH_MS = 8000;
 const lastScore = new Map<string, string>();
 
-function useGoalFlash(id: string, score: string | null): boolean {
+// fromDevice: Stand vom letzten Öffnen (Gerätespeicher) – nicht merken, der
+// Wechsel auf den frischen Stand ist kein neues Tor (Rene, 03.11.2026).
+function useGoalFlash(id: string, score: string | null, fromDevice = false): boolean {
   const [flash, setFlash] = useState(false);
   useEffect(() => {
-    if (score === null) return;
+    if (score === null || fromDevice) return;
     const prev = lastScore.get(id);
     lastScore.set(id, score);
     if (prev === undefined || prev === score) return;
     setFlash(true);
     const t = setTimeout(() => setFlash(false), GOAL_FLASH_MS);
     return () => clearTimeout(t);
-  }, [id, score]);
+  }, [id, score, fromDevice]);
   return flash;
 }
 
@@ -1357,7 +1359,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const clock = useLiveClock(sport, game.statusShort, game.elapsed, dataAt);
   const running = isLiveRunning(game.status);
   const hasScore = game.homeScore !== null && game.awayScore !== null && game.status !== "NS";
-  const flash = useGoalFlash(game.id, hasScore ? `${game.homeScore}:${game.awayScore}` : null);
+  const flash = useGoalFlash(game.id, hasScore ? `${game.homeScore}:${game.awayScore}` : null, !!game.fromDevice);
   const tipped = isTipped(game);
   // Tippschluss noch nicht vorbei: "Tippen"/"Getippt" und Countdown rechts.
   const open = canTip(game);
