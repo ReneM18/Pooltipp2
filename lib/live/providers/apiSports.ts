@@ -1,5 +1,5 @@
 import type { Sport } from "../../types";
-import { isLiveLeagueEnabled, sameLeague } from "../../liveConfig";
+import { isLiveLeagueEnabled, isYouthTeam, sameLeague } from "../../liveConfig";
 import { isLiveFinished, isLiveRunning, liveIntervalSeconds, liveMaxIntervalSeconds, settleStuckGame, viennaDate } from "../../liveScores";
 import { cachedLoad, type LoadResult } from "../cache";
 import type { StandingGroup, StandingTeamRow } from "../../standings";
@@ -345,7 +345,12 @@ function leagueFilter(sport: Sport, league: string | null) {
   return (g: Raw) => {
     const name = typeof g?.league?.name === "string" ? g.league.name : null;
     const country = rawCountry(g);
-    return isLiveLeagueEnabled(sport, name, country, true) && (!league || (!!name && sameLeague(league, name)));
+    return (
+      isLiveLeagueEnabled(sport, name, country, true) &&
+      (!league || (!!name && sameLeague(league, name))) &&
+      !isYouthTeam(g?.teams?.home?.name) &&
+      !isYouthTeam(g?.teams?.away?.name)
+    );
   };
 }
 

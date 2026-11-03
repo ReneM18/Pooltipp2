@@ -64,6 +64,16 @@ export const LIVE_LEAGUES: Partial<Record<Sport, readonly LiveLeague[]>> = {
   NFL: [{ label: "NFL", names: ["nfl", "nfl regular season", "nfl playoffs", "super bowl"], country: "US" }],
 };
 
+// Nur A-Nationalteams (Rene, 3.11.2026: U17/U18 tauchten bei den
+// Länderspielen auf). API-Sports führt Jugendteams in derselben Liga
+// "Friendlies" wie die A-Teams, erkennbar nur am Namen: "Germany U17",
+// "Austria U-21", "Spain U19 W". Solche Spiele fallen überall raus.
+const YOUTH_TEAM = /(^|[\s(-])U[\s-]?(1[4-9]|2[0-3])(\b|$)/i;
+
+export function isYouthTeam(name: unknown): boolean {
+  return typeof name === "string" && YOUTH_TEAM.test(name);
+}
+
 // league.country der API (bzw. country.name bei Eishockey) → ISO-Land.
 // "World" = international.
 const API_COUNTRY: Record<string, string | null> = {
