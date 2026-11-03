@@ -120,7 +120,6 @@ export function ApiTeamNamesAdmin() {
 
   return (
     <div>
-      <h2 className="mb-1 font-display text-2xl font-semibold text-ink">Vereinsnamen</h2>
       <p className="mb-4 text-sm text-muted">
         Namen von der API (Live-Spiele und Tabellen im Matchcenter) mit deinen Teams verknüpfen. Dann steht überall dein
         Name, z. B. „Rapid Wien“ statt „Rapid Vienna“. Gleiche Namen erkennt die App selbst. Fehlt ein Verein, leg ihn
