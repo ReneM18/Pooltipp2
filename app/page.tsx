@@ -87,6 +87,11 @@ export default function DashboardPage() {
   async function handleSubmitTip(match: Match, homeScore: number, awayScore: number, booster = false) {
     // Den Einsatz (nur mit eingeschaltetem Booster, fest 20) zieht die Datenbank ab.
     const withBooster = !!match.booster && booster;
+    // Schon VOR dem Speichern anheften: der Tipp steht sofort in myTips, die
+    // Antwort der Datenbank kommt erst später. Sonst rutschte die Karte so
+    // lange nach unten zu "Schon getippt" und kam danach zurück – die Seite
+    // sprang dabei jedes Mal woandershin (Rene, 03.11.2026).
+    setPinned((p) => ({ [match.id]: "offen", ...p }));
     const saved = await placeTip(match.id, homeScore, awayScore, withBooster);
     if (!saved) {
       showToast(
@@ -97,7 +102,6 @@ export default function DashboardPage() {
       );
       return;
     }
-    setPinned((p) => ({ [match.id]: "offen", ...p }));
     celebrate();
     showToast(withBooster ? `✓ Booster-Tipp gespeichert – ${BOOSTER_STAKE} Coins eingesetzt, viel Glück!` : "✓ Tipp gespeichert – viel Glück!");
   }
@@ -105,12 +109,14 @@ export default function DashboardPage() {
   // "Ändern": der Tipp wird in der Datenbank zurückgenommen, die Karte ist
   // danach auf jedem Gerät leer. Einsatz und Joker kommen zurück.
   async function handleWithdrawTip(matchId: string) {
+    // Wie beim Tippen schon vorher anheften, damit die Karte nicht zwischen
+    // den Gruppen hin- und herspringt.
+    setPinned((p) => ({ [matchId]: "getippt", ...p }));
     const result = await withdrawTip(matchId);
     if (!result) {
       showToast("Tippschluss – der Tipp kann nicht mehr geändert werden.", "info");
       return false;
     }
-    setPinned((p) => ({ [matchId]: "getippt", ...p }));
     refreshStars();
     void reloadJokers();
     const extras = [
@@ -436,7 +442,10 @@ export default function DashboardPage() {
           Leiste statt des großen Kastens, der am Handy fast eine ganze Seite
           brauchte (Rene, 30.10.2026). "Bis Tippschluss änderbar" steht schon
           bei "✓ Schon getippt". */}
-      {tab === "tippen" && split.offen.length === 0 && tippable.length > 0 && (
+      {/* Erst wenn auch keine gerade getippte Karte mehr unter "Noch offen"
+          steht: sonst schob die Leiste beim letzten Tipp alles darunter ein
+          Stück nach unten (Rene, 03.11.2026). */}
+      {tab === "tippen" && split.offen.length === 0 && offenList.length === 0 && tippable.length > 0 && (
         <div className="mb-5 flex items-center gap-2.5 rounded-card border border-edge bg-surface/60 px-3.5 py-2.5 lg:px-4 lg:py-3">
           <span aria-hidden className="text-base leading-none lg:text-lg">
             ✅
