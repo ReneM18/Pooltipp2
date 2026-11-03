@@ -26,6 +26,7 @@ import { useStartExperience } from "@/lib/useStartExperience";
 import { useMyClubs } from "@/lib/clubs";
 import { peekLiveScore, useLiveStoreVersion } from "@/lib/useLiveScores";
 import { isLiveFinished } from "@/lib/liveScores";
+import { signalAppReady } from "@/lib/appReady";
 
 export default function DashboardPage() {
   const { placeTip, refreshStars, authUserId, sessionChecked } = useUser();
@@ -169,6 +170,10 @@ export default function DashboardPage() {
     return () => window.clearTimeout(timer);
   }, []);
   const ready = contentLoaded && now !== null && (tipsWaitOver || (sessionChecked && (!authUserId || myTipsLoaded)));
+  // Startbild am Handy ausblenden, sobald die Tipps stehen (lib/appReady.ts).
+  useEffect(() => {
+    if (ready || matchesLoadFailed) signalAppReady();
+  }, [ready, matchesLoadFailed]);
   // Vom Start-Erlebnis vorgeschlagenes Spiel: dessen Reiter zuerst.
   const autoTab =
     highlightId && shownMatches.some((m) => m.id === highlightId) ? homeTabOf(split, highlightId) : autoHomeTab(split);
