@@ -1433,6 +1433,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       style={glow ? { boxShadow: GLOW[glow] } : undefined}
       // Gewählt: hellerer Hintergrund und weißlicher Rahmen statt Gold, damit
       // der rote Live-Rand klar bleibt (Rene, 27.10.2026).
+      // Kein Goldrand an offenen Tippspielen, der Knopf "Tippen" reicht
+      // (Rene, 03.11.2026: "mach die goldene umrandung weg").
       // Alle Zeilen gleich hoch, auch mit Tipp, "Dein Tipp" oder Countdown
       // (Rene, 03.11.2026: Abstände wirkten unruhig).
       className={`relative flex min-h-[3.875rem] w-full flex-col justify-center overflow-hidden rounded-card border px-3 py-2 text-left lg:min-h-[3.6875rem] transition-[color,background-color,border-color,box-shadow] sm:pl-4 ${
@@ -1440,9 +1442,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       } ${
         selected
           ? "border-ink/50 bg-surface-hover"
-          : tippable
-            ? "border-gold/45 bg-surface hover:border-gold/70"
-            : done
+          : done
               ? "border-muted/15 bg-surface/50 hover:border-muted/40"
               : "border-muted/25 bg-surface hover:border-muted/50"
       }`}
