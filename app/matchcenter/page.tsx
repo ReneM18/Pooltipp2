@@ -55,6 +55,7 @@ import { COUNTDOWN_FROM } from "@/components/Countdown";
 import { deadlineText } from "@/lib/dayGroups";
 import { isMatchTippable, isNightKickoff, planDayRange, relativeDayLabel, sportDay, tipCardHref, viennaCalendarDay } from "@/lib/matchcenterLink";
 import Link from "next/link";
+import { signalAppReady } from "@/lib/appReady";
 import { useStartExperience } from "@/lib/useStartExperience";
 
 // TV-Sender eines Spiels: beim Tippspiel der Sender am Spiel, sonst der im
@@ -398,6 +399,12 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   const tomorrowCal = useLiveDay(sport, tomorrow);
   const todayGames = useMemo(() => sportDayGames(todayCal.games, tomorrowCal.games), [todayCal.games, tomorrowCal.games]);
   const todayDay = mergeSportDay(todayCal, tomorrowCal, todayGames);
+  // Startbild am Handy ausblenden, sobald die Spiele von heute da sind
+  // (lib/appReady.ts). Anderer Reiter beim Öffnen: gleich.
+  const todayShown = todayDay.games !== null || !!todayDay.error || view !== "live";
+  useEffect(() => {
+    if (todayShown) signalAppReady();
+  }, [todayShown]);
   // Spielplan (Rene, 30.10.2026): ein Tag, mit Pfeilen einen Tag zurück
   // oder vor. Mit Pro-Plan (Tageskontingent laut API-Sports ab
   // PRO_PLAN_LIMIT, Fußball) eine Woche in jede Richtung, im Gratis-Plan nur
@@ -2230,6 +2237,10 @@ function F1WeekendView() {
   }, [reloadKey]);
 
   const weekends = useMemo(() => (sessions ? f1Weekends(sessions) : []), [sessions]);
+  // Startbild am Handy ausblenden (lib/appReady.ts).
+  useEffect(() => {
+    if (sessions !== null || error) signalAppReady();
+  }, [sessions, error]);
   const shownIdx = weekendIdx ?? currentWeekend(weekends, now);
   const weekend = weekends[shownIdx] ?? null;
 

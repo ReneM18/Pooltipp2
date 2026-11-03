@@ -579,3 +579,45 @@ html[data-season-design] .match-card-rand.match-card-zu {
     display: none;
   }
 }
+
+/* Startbild am Handy (components/SplashScreen.tsx, Rene 03.11.2026). Nur
+   schmaler Schirm mit Finger-Bedienung, sonst gar nicht da. Hängt JavaScript,
+   blendet es nach 5 s von selbst aus, damit es nie stehen bleibt. */
+.pt-splash {
+  display: none;
+}
+@media (max-width: 1023px) and (pointer: coarse) {
+  .pt-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    background: #0d0d0d;
+    transition: opacity 400ms ease;
+    animation: pt-splash-away 400ms ease 5s forwards;
+  }
+}
+.pt-splash-fade {
+  opacity: 0;
+  pointer-events: none;
+}
+.pt-splash-logo {
+  width: 112px;
+  height: 112px;
+}
+.pt-splash-word {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #fff;
+}
+@keyframes pt-splash-away {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}

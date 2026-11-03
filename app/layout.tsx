@@ -12,6 +12,7 @@ import { FeedbackProvider } from "@/lib/FeedbackContext";
 import { ChatProvider } from "@/lib/ChatContext";
 import { OnlineProvider } from "@/lib/OnlineContext";
 import AppChrome from "@/components/AppChrome";
+import SplashScreen from "@/components/SplashScreen";
 import { seasonDesignBootScript } from "@/lib/seasons/design";
 import { startPageBootScript } from "@/lib/startPage";
 import { INSTALL_PROMPT_BOOT } from "@/lib/installApp";
@@ -95,6 +96,8 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: INSTALL_PROMPT_BOOT }} />
       </head>
       <body className="font-body min-h-screen bg-pitch text-ink antialiased">
+        {/* Startbild beim Öffnen, nur am Handy (components/SplashScreen.tsx). */}
+        <SplashScreen />
         <AppDataProvider>
           <UserProvider>
             <JokerProvider>
