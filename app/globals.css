@@ -617,6 +617,21 @@ html[data-season-design] .match-card-rand.match-card-zu {
   letter-spacing: 0.5px;
   color: #fff;
 }
+.pt-splash-spin {
+  transform-box: view-box;
+  transform-origin: 256px 256px;
+  animation: pt-splash-spin 1.1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pt-splash-spin {
+    animation: none;
+  }
+}
+@keyframes pt-splash-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 @keyframes pt-splash-away {
   to {
     opacity: 0;
