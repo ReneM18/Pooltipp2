@@ -70,7 +70,7 @@ export default function ProfilPage() {
 }
 
 function formatNameDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("de-AT", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return new Date(iso).toLocaleDateString("de-AT", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Vienna" });
 }
 
 function ProfilInhalt() {
@@ -327,7 +327,7 @@ function ProfilInhalt() {
     }
     if (res.needsPay) {
       setNameAskPay(true);
-      if (res.nextFreeAt !== undefined) setNameInfo((cur) => (cur ? { ...cur, nextFreeAt: res.nextFreeAt ?? null } : cur));
+      setNameInfo((cur) => ({ price: cur?.price ?? 500, nextFreeAt: res.nextFreeAt ?? cur?.nextFreeAt ?? null }));
       return;
     }
     setNameError(res.error);
@@ -1293,9 +1293,11 @@ function ProfilInhalt() {
                     <input
                       id="profil-name"
                       value={nameInput}
+                      maxLength={40}
                       onChange={(e) => {
                         setNameInput(e.target.value);
                         setSaved(false);
+                        setNameError(null);
                       }}
                       className="w-full rounded-lg border border-edge bg-pitch px-3 py-2 text-sm text-ink outline-none focus:border-gold"
                     />
@@ -1309,10 +1311,16 @@ function ProfilInhalt() {
                 </form>
                 {isRegistered && nameInfo && (
                   <div className="mt-2 text-xs text-muted">
-                    {nameAskPay && nameInfo.nextFreeAt ? (
+                    {nameAskPay ? (
                       <div className="rounded-card border border-gold/40 bg-gold/10 p-3 text-ink">
                         <p>
-                          Gratis kannst du deinen Namen erst wieder ab <b>{formatNameDate(nameInfo.nextFreeAt)}</b> ändern.
+                          {nameInfo.nextFreeAt ? (
+                            <>
+                              Gratis kannst du deinen Namen erst wieder ab <b>{formatNameDate(nameInfo.nextFreeAt)}</b> ändern.
+                            </>
+                          ) : (
+                            "Deine Gratis-Änderung für dieses Quartal ist schon verbraucht."
+                          )}
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <button
@@ -1327,6 +1335,7 @@ function ProfilInhalt() {
                             type="button"
                             onClick={() => {
                               setNameAskPay(false);
+                              setNameError(null);
                               setNameInput(displayName);
                             }}
                             className="min-h-[40px] rounded-full border border-edge px-4 py-1.5 text-sm text-muted hover:text-ink"

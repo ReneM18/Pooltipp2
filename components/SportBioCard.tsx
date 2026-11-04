@@ -494,7 +494,8 @@ export function SportCard({
                 title={periodText(stat.firstTip, stat.lastTip)}
                 className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5 rounded-lg border border-edge bg-white/[0.04] px-2 py-1 text-[10px] text-muted"
               >
-                <span aria-label={`Tipp-Statistik ${sportLabel(sport)}`}>{SPORT_ICONS[sport]}</span>
+                <span aria-hidden>{SPORT_ICONS[sport]}</span>
+                <span className="sr-only">Tipp-Statistik {sportLabel(sport)}, {periodText(stat.firstTip, stat.lastTip)}</span>
                 {statTiles(stat).map(([v, l]) => (
                   <span key={l} className="whitespace-nowrap">
                     <b className="font-display text-[11.5px] text-gold">{v}</b> {l}

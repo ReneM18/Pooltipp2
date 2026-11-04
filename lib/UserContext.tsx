@@ -562,20 +562,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
   async function changeName(name: string, pay = false): Promise<NameChangeResult> {
     const clean = name.trim();
     if (!clean) return { ok: false, error: "Bitte einen Namen eingeben." };
-    if (!isRegistered || !authUserId || !profileLoaded) {
+    if (!isRegistered || !authUserId) {
       setDisplayName(clean);
       return { ok: true, paid: 0 };
     }
+    if (!profileLoaded) return { ok: false, error: "Dein Profil lädt noch, bitte gleich noch einmal." };
     const { data, error } = await supabase.rpc("change_display_name", { p_name: clean, p_pay: pay });
     if (error) {
       // SQL noch nicht ausgeführt: wie bisher direkt speichern.
-      if (error.code === "PGRST202" || /change_display_name/.test(error.message)) {
+      if (error.code === "PGRST202") {
         setDisplayName(clean);
         return { ok: true, paid: 0 };
       }
       if (error.message.includes("Nicht genug Sterne")) return { ok: false, error: "Nicht genug Coins." };
-      const info = await loadNameChangeInfo();
       if (error.message.startsWith("Name erst wieder")) {
+        const info = await loadNameChangeInfo();
         return { ok: false, error: error.message, needsPay: true, nextFreeAt: info?.nextFreeAt ?? null };
       }
       return { ok: false, error: error.message || "Name konnte nicht gespeichert werden." };

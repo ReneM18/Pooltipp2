@@ -25,7 +25,7 @@ export function AdminNames() {
     const q = query.trim();
     if (!q) return;
     setMsg(null);
-    const esc = q.replace(/[\\%_]/g, (c) => `\\${c}`);
+    const esc = q.replace(/[\\%_*]/g, (c) => `\\${c}`);
     const { data, error } = await supabase
       .from("profiles")
       .select("id, display_name, user_number")
