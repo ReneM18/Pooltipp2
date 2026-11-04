@@ -78,6 +78,8 @@ function ProfilInhalt() {
     displayName,
     changeName,
     loadNameChangeInfo,
+    unlockPhotoChange,
+    loadPhotoChangeInfo,
     freeStars,
     passXP,
     passClaims,
@@ -149,11 +151,17 @@ function ProfilInhalt() {
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameAskPay, setNameAskPay] = useState(false);
   const [nameBusy, setNameBusy] = useState(false);
+  // Profilbild wie der Name: 1× pro Quartal gratis, sonst Coins (profilbild-aendern.sql).
+  const [photoInfo, setPhotoInfo] = useState<NameChangeInfo | null>(null);
+  const [pendingPhoto, setPendingPhoto] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [profileTab, setProfileTab] = useState<ProfileTab>("Übersicht");
   useEffect(() => {
     if (!isRegistered) return;
     let alive = true;
     loadNameChangeInfo().then((info) => alive && setNameInfo(info));
+    loadPhotoChangeInfo().then((info) => alive && setPhotoInfo(info));
     return () => {
       alive = false;
     };
@@ -338,6 +346,28 @@ function ProfilInhalt() {
     void saveName(false);
   }
 
+  async function savePhoto(dataUrl: string, pay: boolean) {
+    if (photoBusy) return;
+    setPhotoBusy(true);
+    setPhotoError(null);
+    const res = await unlockPhotoChange(pay);
+    setPhotoBusy(false);
+    if (res.ok) {
+      setPendingPhoto(null);
+      setPhoto(0, dataUrl);
+      if (res.paid > 0) showToast(`🖼️ Profilbild geändert für ${res.paid} Coins.`, "gold");
+      // Erst nach dem Speichern des Bilds ist die Freigabe verbraucht.
+      window.setTimeout(() => loadPhotoChangeInfo().then(setPhotoInfo), 3000);
+      return;
+    }
+    if (res.needsPay) {
+      setPendingPhoto(dataUrl);
+      setPhotoInfo((cur) => ({ price: cur?.price ?? 500, nextFreeAt: res.nextFreeAt ?? cur?.nextFreeAt ?? null }));
+      return;
+    }
+    setPhotoError(res.error);
+  }
+
   function handlePhotoChange(index: number, e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -352,7 +382,10 @@ function ProfilInhalt() {
       canvas.height = Math.round(img.height * scale);
       canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
-      setPhoto(index, canvas.toDataURL("image/jpeg", 0.8));
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+      // Nur das Profilbild (Foto 1) ist begrenzt, die anderen Fotos nicht.
+      if (index === 0) void savePhoto(dataUrl, false);
+      else setPhoto(index, dataUrl);
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
@@ -949,7 +982,55 @@ function ProfilInhalt() {
 
       {/* Fotos klein statt drei großer Felder (Rene, 19.10.2026). */}
       <section className="mb-8">
-        <h2 className="mb-3 font-display text-lg font-semibold text-ink">Deine Fotos</h2>
+        <h2 className="mb-1 font-display text-lg font-semibold text-ink">Deine Fotos</h2>
+        {isRegistered && photoInfo && (
+          <p className="mb-3 max-w-md text-xs text-muted">
+            {photoInfo.nextFreeAt
+              ? `Profilbild: nächste Änderung gratis ab ${formatNameDate(photoInfo.nextFreeAt)}, früher für `
+              : "Profilbild: 1× pro Quartal gratis ändern, jede weitere Änderung kostet "}
+            <b className="text-gold">{photoInfo.price.toLocaleString("de-DE")} Coins</b>.
+          </p>
+        )}
+        {!(isRegistered && photoInfo) && <div className="mb-2" />}
+        {pendingPhoto && photoInfo && (
+          <div className="mb-3 flex max-w-md items-start gap-3 rounded-card border border-gold/40 bg-gold/10 p-3 text-xs text-ink">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={pendingPhoto} alt="Neues Profilbild" className="h-14 w-14 shrink-0 rounded-full object-cover" />
+            <div className="min-w-0">
+              <p>
+                {photoInfo.nextFreeAt ? (
+                  <>
+                    Gratis geht das Profilbild erst wieder ab <b>{formatNameDate(photoInfo.nextFreeAt)}</b>.
+                  </>
+                ) : (
+                  "Deine Gratis-Änderung für dieses Quartal ist schon verbraucht."
+                )}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={photoBusy || freeStars < photoInfo.price}
+                  onClick={() => savePhoto(pendingPhoto, true)}
+                  className="min-h-[40px] rounded-full bg-gold px-4 py-1.5 text-sm font-semibold text-pitch disabled:opacity-50"
+                >
+                  Für {photoInfo.price.toLocaleString("de-DE")} Coins ändern
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPendingPhoto(null)}
+                  className="min-h-[40px] rounded-full border border-edge px-4 py-1.5 text-sm text-muted hover:text-ink"
+                >
+                  Abbrechen
+                </button>
+              </div>
+              {freeStars < photoInfo.price && (
+                <p className="mt-2 text-red-300">Dir fehlen noch {(photoInfo.price - freeStars).toLocaleString("de-DE")} Coins.</p>
+              )}
+              <p className="mt-2 text-muted">Oder stell eine Anfrage beim Support.</p>
+            </div>
+          </div>
+        )}
+        {photoError && <p className="mb-2 text-xs text-red-300">{photoError}</p>}
         <div className="grid max-w-md grid-cols-3 gap-2">
           {photos.map((photo, index) => (
             <div
@@ -961,7 +1042,18 @@ function ProfilInhalt() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={photo} alt={`Foto ${index + 1}`} className="h-full w-full object-cover" />
                   <button
-                    onClick={() => removePhoto(index)}
+                    onClick={() => {
+                      // Profilbild löschen ist gratis, ein neues kostet in der Sperrzeit Coins.
+                      if (
+                        index === 0 &&
+                        photoInfo?.nextFreeAt &&
+                        !window.confirm(
+                          `Ein neues Profilbild kostet bis ${formatNameDate(photoInfo.nextFreeAt)} ${photoInfo.price.toLocaleString("de-DE")} Coins. Trotzdem löschen?`
+                        )
+                      )
+                        return;
+                      removePhoto(index);
+                    }}
                     aria-label={`Foto ${index + 1} entfernen`}
                     className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-pitch/80 text-xs text-ink"
                   >
@@ -1311,7 +1403,7 @@ function ProfilInhalt() {
                 </form>
                 {isRegistered && nameInfo && (
                   <div className="mt-2 text-xs text-muted">
-                    {nameAskPay ? (
+                    {nameAskPay || (nameInfo.nextFreeAt && nameInput.trim() && nameInput.trim() !== displayName) ? (
                       <div className="rounded-card border border-gold/40 bg-gold/10 p-3 text-ink">
                         <p>
                           {nameInfo.nextFreeAt ? (
@@ -1349,10 +1441,13 @@ function ProfilInhalt() {
                     ) : nameInfo.nextFreeAt ? (
                       <p className="px-1">
                         Nächste Änderung gratis ab {formatNameDate(nameInfo.nextFreeAt)}. Früher geht es für{" "}
-                        {nameInfo.price.toLocaleString("de-DE")} Coins oder über eine Anfrage beim Support.
+                        <b className="text-gold">{nameInfo.price.toLocaleString("de-DE")} Coins</b> oder über eine Anfrage beim Support.
                       </p>
                     ) : (
-                      <p className="px-1">Deinen Namen kannst du 1× pro Quartal gratis ändern. Er steht auch auf deiner Sportlerkarte.</p>
+                      <p className="px-1">
+                        Deinen Namen kannst du 1× pro Quartal gratis ändern, jede weitere Änderung kostet{" "}
+                        <b className="text-gold">{nameInfo.price.toLocaleString("de-DE")} Coins</b>. Er steht auch auf deiner Sportlerkarte.
+                      </p>
                     )}
                   </div>
                 )}

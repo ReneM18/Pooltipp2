@@ -40,6 +40,20 @@ export function AdminNames() {
     setPlayers((data ?? []) as Player[]);
   }
 
+  async function grantPhoto(p: Player) {
+    if (busy) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("admin_grant_photo_change", { p_user: p.id });
+    setBusy(false);
+    setMsg(
+      error
+        ? error.code === "PGRST202"
+          ? "Fehlt noch das SQL „profilbild-aendern.sql“."
+          : `Nicht freigegeben: ${error.message}`
+        : `✓ ${p.display_name} darf sein Profilbild jetzt einmal gratis ändern.`
+    );
+  }
+
   async function save(p: Player) {
     const name = newName.trim();
     if (!name || busy) return;
@@ -61,10 +75,10 @@ export function AdminNames() {
 
   return (
     <section className="rounded-card border border-edge bg-surface p-4">
-      <h2 className="font-display text-lg font-semibold text-ink">Spielernamen ändern</h2>
+      <h2 className="font-display text-lg font-semibold text-ink">Name und Profilbild</h2>
       <p className="mt-1 text-xs text-muted">
-        Für Anfragen beim Support. Spieler selbst dürfen 1× pro Quartal gratis, früher nur gegen Coins. Hier geht es jederzeit,
-        ohne Coins und ohne dass die Gratis-Änderung des Spielers verbraucht wird.
+        Für Anfragen beim Support. Spieler dürfen Name und Profilbild 1× pro Quartal gratis ändern, früher nur gegen Coins. Hier
+        änderst du den Namen jederzeit oder gibst eine Profilbild-Änderung frei, ohne Coins.
       </p>
       <form onSubmit={search} className="mt-3 flex gap-2">
         <input
@@ -83,12 +97,21 @@ export function AdminNames() {
         <ul className="mt-3 flex flex-col gap-2">
           {players.map((p) => (
             <li key={p.id} className="rounded-card border border-edge bg-pitch px-3 py-2.5">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="min-w-0 truncate text-sm font-semibold text-ink">
                   {p.display_name}
                   {p.user_number != null && <span className="ml-1.5 text-xs font-normal text-muted">#{p.user_number}</span>}
                 </p>
                 {editing !== p.id && (
+                  <span className="flex shrink-0 gap-1.5">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => grantPhoto(p)}
+                    className="min-h-[36px] shrink-0 rounded-full border border-edge px-3 text-xs text-muted hover:text-ink"
+                  >
+                    🖼️ Bild freigeben
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -97,8 +120,9 @@ export function AdminNames() {
                     }}
                     className="min-h-[36px] shrink-0 rounded-full border border-edge px-3 text-xs text-muted hover:text-ink"
                   >
-                    ✏️ Ändern
+                    ✏️ Name ändern
                   </button>
+                  </span>
                 )}
               </div>
               {editing === p.id && (
