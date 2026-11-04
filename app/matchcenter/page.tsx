@@ -1682,16 +1682,16 @@ function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowS
     if (s === "PT") return { dot: "live", main: "Penalty" };
   }
   if (sport === "Fußball") {
-    // Halbzeit kurz "HZ" statt "Pause Halbzeit", das am Handy und am PC als
-    // "Pause Ha…" abgeschnitten war (Rene, 04.11.2026: "nimm HZ").
-    if (game.status === "HT") return { dot: "pause", main: "HZ" };
+    // Halbzeit nur "Pause" statt "Pause Halbzeit", das am Handy und am PC
+    // als "Pause Ha…" abgeschnitten war (Rene, 04.11.2026: "eigentlich
+    // können wir Pause nehmen").
+    if (game.status === "HT") return { dot: "pause", main: "Pause" };
     if (s === "ET") return { dot: "live", main: "Verl.", sub: minute };
     if (s === "P") return { dot: "live", main: "Elfmeter" };
     if (game.status === "LIVE") return { dot: "live", main: clockText ?? minute ?? "Live" };
   }
-  // Halbzeit auch in NBA/NFL "HZ", andere Pausen nur "Pause" (Rene, 04.11.2026).
-  if (game.status === "HT") return { dot: "pause", main: "HZ" };
-  if (game.status === "BREAK") return { dot: "pause", main: "Pause" };
+  // Halbzeit und andere Pausen nur "Pause", ohne Zusatz (Rene, 04.11.2026).
+  if (game.status === "HT" || game.status === "BREAK") return { dot: "pause", main: "Pause" };
   if (game.status === "LIVE") {
     // "Verlängerung" passt nicht in die Spalte, kurz wie im Fußball und im
     // Eishockey "Verl." (Rene, 04.11.2026).
