@@ -489,17 +489,18 @@ export function SportCard({
               </BackSection>
             )}
             {stat && stat.tips != null && stat.tips > 0 && sport && (
-              <BackSection title={`Tipp-Statistik ${sportLabel(sport)}`}>
-                <p className="-mt-1 text-[10.5px] text-muted">{periodText(stat.firstTip, stat.lastTip)}</p>
-                <div className={`grid gap-1.5 ${hasExakt(stat.sport) ? "grid-cols-3" : "grid-cols-2"}`}>
-                  {statTiles(stat).map(([v, l]) => (
-                    <div key={l} className="min-w-0 rounded-lg border border-edge bg-white/[0.04] px-1.5 py-1.5 text-center">
-                      <b className="block truncate font-display text-[15px] text-gold">{v}</b>
-                      <i className="block text-[8.5px] uppercase not-italic tracking-wider text-muted">{l}</i>
-                    </div>
-                  ))}
-                </div>
-              </BackSection>
+              // Klein, eine Zeile: mehr Platz für Erfolge und Laufbahn (Rene, 04.11.2026).
+              <div
+                title={periodText(stat.firstTip, stat.lastTip)}
+                className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5 rounded-lg border border-edge bg-white/[0.04] px-2 py-1 text-[10px] text-muted"
+              >
+                <span aria-label={`Tipp-Statistik ${sportLabel(sport)}`}>{SPORT_ICONS[sport]}</span>
+                {statTiles(stat).map(([v, l]) => (
+                  <span key={l} className="whitespace-nowrap">
+                    <b className="font-display text-[11.5px] text-gold">{v}</b> {l}
+                  </span>
+                ))}
+              </div>
             )}
             {sportHonors.length > 0 && (
               <BackSection title="Erfolge">

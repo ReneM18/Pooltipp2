@@ -13,7 +13,7 @@ import SaveButton, { SavedHint, useDraft } from "@/components/SaveButton";
 import RivalCompareButton from "@/components/RivalCompare";
 import { StatsVisibility, useStatsVisibility } from "@/lib/rivals";
 import { useOnline } from "@/lib/OnlineContext";
-import { useUser } from "@/lib/UserContext";
+import { NameChangeInfo, useUser } from "@/lib/UserContext";
 import { useAppData } from "@/lib/AppDataContext";
 import { useMyOverallRank } from "@/lib/myOverallRank";
 import RankBadge from "@/components/RankBadge";
@@ -69,10 +69,15 @@ export default function ProfilPage() {
   return <ProfilInhalt />;
 }
 
+function formatNameDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("de-AT", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
 function ProfilInhalt() {
   const {
     displayName,
-    setDisplayName,
+    changeName,
+    loadNameChangeInfo,
     freeStars,
     passXP,
     passClaims,
@@ -138,7 +143,22 @@ function ProfilInhalt() {
     setNameInput(displayName);
   }, [displayName]);
   const [saved, setSaved] = useState(false);
+  // Name 1× pro Quartal gratis, früher gegen Coins oder über den Support
+  // (Rene, 04.11.2026; supabase/name-aendern.sql).
+  const [nameInfo, setNameInfo] = useState<NameChangeInfo | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [nameAskPay, setNameAskPay] = useState(false);
+  const [nameBusy, setNameBusy] = useState(false);
   const [profileTab, setProfileTab] = useState<ProfileTab>("Übersicht");
+  useEffect(() => {
+    if (!isRegistered) return;
+    let alive = true;
+    loadNameChangeInfo().then((info) => alive && setNameInfo(info));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRegistered, authUserId]);
   // Offener Bereich der Einstellungen; null = am Handy die Liste der Bereiche
   // (am PC steht dann der erste Bereich rechts daneben).
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
@@ -290,12 +310,32 @@ function ProfilInhalt() {
       .catch(() => showToast("Kopieren nicht möglich – bitte manuell markieren.", "info"));
   }
 
+  async function saveName(pay: boolean) {
+    const name = nameInput.trim();
+    if (!name || nameBusy) return;
+    setNameBusy(true);
+    setNameError(null);
+    const res = await changeName(name, pay);
+    setNameBusy(false);
+    if (res.ok) {
+      setNameAskPay(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      if (res.paid > 0) showToast(`✏️ Name geändert für ${res.paid} Coins.`, "gold");
+      setNameInfo(await loadNameChangeInfo());
+      return;
+    }
+    if (res.needsPay) {
+      setNameAskPay(true);
+      if (res.nextFreeAt !== undefined) setNameInfo((cur) => (cur ? { ...cur, nextFreeAt: res.nextFreeAt ?? null } : cur));
+      return;
+    }
+    setNameError(res.error);
+  }
+
   function handleSaveName(e: FormEvent) {
     e.preventDefault();
-    if (!nameInput.trim()) return;
-    setDisplayName(nameInput.trim());
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    void saveName(false);
   }
 
   function handlePhotoChange(index: number, e: ChangeEvent<HTMLInputElement>) {
@@ -1267,6 +1307,47 @@ function ProfilInhalt() {
                     className="self-start py-2 sm:self-auto"
                   />
                 </form>
+                {isRegistered && nameInfo && (
+                  <div className="mt-2 text-xs text-muted">
+                    {nameAskPay && nameInfo.nextFreeAt ? (
+                      <div className="rounded-card border border-gold/40 bg-gold/10 p-3 text-ink">
+                        <p>
+                          Gratis kannst du deinen Namen erst wieder ab <b>{formatNameDate(nameInfo.nextFreeAt)}</b> ändern.
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={nameBusy || freeStars < nameInfo.price}
+                            onClick={() => saveName(true)}
+                            className="min-h-[40px] rounded-full bg-gold px-4 py-1.5 text-sm font-semibold text-pitch disabled:opacity-50"
+                          >
+                            Jetzt für {nameInfo.price.toLocaleString("de-DE")} Coins ändern
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNameAskPay(false);
+                              setNameInput(displayName);
+                            }}
+                            className="min-h-[40px] rounded-full border border-edge px-4 py-1.5 text-sm text-muted hover:text-ink"
+                          >
+                            Abbrechen
+                          </button>
+                        </div>
+                        {freeStars < nameInfo.price && <p className="mt-2 text-red-300">Dir fehlen noch {(nameInfo.price - freeStars).toLocaleString("de-DE")} Coins.</p>}
+                        <p className="mt-2 text-muted">Oder stell eine Anfrage beim Support, dort kann der Name auch geändert werden.</p>
+                      </div>
+                    ) : nameInfo.nextFreeAt ? (
+                      <p className="px-1">
+                        Nächste Änderung gratis ab {formatNameDate(nameInfo.nextFreeAt)}. Früher geht es für{" "}
+                        {nameInfo.price.toLocaleString("de-DE")} Coins oder über eine Anfrage beim Support.
+                      </p>
+                    ) : (
+                      <p className="px-1">Deinen Namen kannst du 1× pro Quartal gratis ändern. Er steht auch auf deiner Sportlerkarte.</p>
+                    )}
+                  </div>
+                )}
+                {nameError && <p className="mt-2 px-1 text-xs text-red-300">{nameError}</p>}
                 {isRegistered ? (
                   <>
                     <div className="mt-3 flex items-center justify-between gap-3 rounded-card border border-edge bg-surface p-4">

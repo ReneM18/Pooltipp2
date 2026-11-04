@@ -89,11 +89,24 @@ function friendlyFriendsError(error: { code?: string; message?: string } | null 
   return "Das hat gerade nicht geklappt. Bitte versuch es gleich noch einmal.";
 }
 
+export interface NameChangeInfo {
+  // Ab wann wieder gratis; null = jetzt gratis.
+  nextFreeAt: string | null;
+  price: number;
+}
+export type NameChangeResult =
+  | { ok: true; paid: number }
+  | { ok: false; error: string; needsPay?: boolean; nextFreeAt?: string | null };
+
 interface UserContextValue {
   // Stabile Sitzungs-ID, unabhängig vom (änderbaren) Anzeigenamen.
   userId: string;
   displayName: string;
   setDisplayName: (name: string) => void;
+  // Name ändern mit Quartals-Grenze (supabase/name-aendern.sql). pay = vorzeitig
+  // gegen Coins. Gäste und Konten ohne das SQL: wie bisher sofort.
+  changeName: (name: string, pay?: boolean) => Promise<NameChangeResult>;
+  loadNameChangeInfo: () => Promise<NameChangeInfo | null>;
   freeStars: number;
   // Saison-Pass-XP – steigt AUSSCHLIESSLICH über den täglichen Bonus
   // (claimDailyBonus), niemals durch Tipp-Ergebnisse. Siehe PoolScore-Konzept:
@@ -535,6 +548,45 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   function refreshStars() {
     void reloadWallet();
+  }
+
+  async function loadNameChangeInfo(): Promise<NameChangeInfo | null> {
+    if (!authUserId) return null;
+    const { data, error } = await supabase.rpc("name_change_info");
+    if (error || !data) return null;
+    const row = data as { next_free_at: string | null; price: number };
+    const next = row.next_free_at && new Date(row.next_free_at).getTime() > Date.now() ? row.next_free_at : null;
+    return { nextFreeAt: next, price: Number(row.price ?? 0) };
+  }
+
+  async function changeName(name: string, pay = false): Promise<NameChangeResult> {
+    const clean = name.trim();
+    if (!clean) return { ok: false, error: "Bitte einen Namen eingeben." };
+    if (!isRegistered || !authUserId || !profileLoaded) {
+      setDisplayName(clean);
+      return { ok: true, paid: 0 };
+    }
+    const { data, error } = await supabase.rpc("change_display_name", { p_name: clean, p_pay: pay });
+    if (error) {
+      // SQL noch nicht ausgeführt: wie bisher direkt speichern.
+      if (error.code === "PGRST202" || /change_display_name/.test(error.message)) {
+        setDisplayName(clean);
+        return { ok: true, paid: 0 };
+      }
+      if (error.message.includes("Nicht genug Sterne")) return { ok: false, error: "Nicht genug Coins." };
+      const info = await loadNameChangeInfo();
+      if (error.message.startsWith("Name erst wieder")) {
+        return { ok: false, error: error.message, needsPay: true, nextFreeAt: info?.nextFreeAt ?? null };
+      }
+      return { ok: false, error: error.message || "Name konnte nicht gespeichert werden." };
+    }
+    // Schon gespeichert: der Abgleich unten soll ihn nicht noch einmal schreiben.
+    syncedNameRef.current = clean;
+    nameWriteRef.current++;
+    setDisplayName(clean);
+    const paid = Number((data as { paid?: number } | null)?.paid ?? 0);
+    if (paid > 0) void reloadWallet();
+    return { ok: true, paid };
   }
 
   // Profil laden, sobald eine echte Sitzung erkannt wird (oder einmalig
@@ -1458,6 +1510,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         userId,
         displayName,
         setDisplayName,
+        changeName,
+        loadNameChangeInfo,
         photos,
         setPhoto,
         removePhoto,
