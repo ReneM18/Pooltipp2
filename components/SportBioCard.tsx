@@ -454,7 +454,7 @@ export function SportCard({
             <span className="shrink-0 text-[10px] font-semibold text-muted">Sportlerkarte · {SEASON_THEME.name}</span>
           </p>
           <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pl-1.5">
-            {showImmortal && all && all.some((x) => x.tips != null) && (
+            {showImmortal && all && (all.some((x) => x.tips != null) || cardPoints != null) && (
               <BackSection title="PoolTipp-Statistik alle Sportarten">
                 {cardPoints != null && (
                   <p className="-mt-0.5 text-[10px] text-muted">
@@ -499,10 +499,10 @@ export function SportCard({
                 </table>
               </BackSection>
             )}
-            {sport && !showImmortal && ((stat?.tips ?? 0) > 0 || cardPoints != null) && (
+            {!showImmortal && ((stat?.tips ?? 0) > 0 || cardPoints != null) && (
               // Klein, eine Zeile: mehr Platz für Erfolge und Laufbahn. Überschrift
               // wie die anderen Bereiche, sonst weiß man nicht, was es ist (Rene, 04.11.2026).
-              <BackSection title={`PoolTipp-Statistik ${sportLabel(sport)}`}>
+              <BackSection title={`PoolTipp-Statistik${sport ? ` ${sportLabel(sport)}` : ""}`}>
                 <div
                   title={stat ? periodText(stat.firstTip, stat.lastTip) : undefined}
                   className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5 rounded-lg border border-edge bg-white/[0.04] px-2 py-1 text-[10px] text-muted"
