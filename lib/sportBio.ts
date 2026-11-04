@@ -38,7 +38,14 @@ export interface BioData {
   // Eigenes Kartenfoto (quadratisches JPEG als data-URL, components/CardPhotoEditor.tsx).
   // Fehlt es, zeigt die Karte das Profilbild.
   photo?: string;
+  // Welche Karte oben im Profil steht (Sportart oder "unsterblich"); fehlt es,
+  // die mit dem stärksten Rang (Rene, 04.11.2026). Wählbar unter
+  // Einstellungen → Sportlerkarte.
+  shownCard?: CardChoice;
 }
+
+/** Eine Karte der Sportlerkarte: pro Sportart oder Unsterblich (alle Sportarten). */
+export type CardChoice = Sport | "unsterblich";
 
 // Erfolg mit Verein und Jahr (Karte v5, Rene 20.10.2026: "Erfolge mit wem und das Jahr").
 export interface Honor {
@@ -330,6 +337,8 @@ export function normalizeBio(raw: unknown): BioData {
       palette: d.palette,
       cardStyle: d.cardStyle,
       photo,
+      shownCard:
+        d.shownCard === "unsterblich" || ALL_SPORTS.includes(d.shownCard as Sport) ? d.shownCard : undefined,
     };
   }
   const sport = LEGACY_SPORT[d.sports?.[0] ?? ""] ?? "fb";

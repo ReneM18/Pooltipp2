@@ -3,22 +3,23 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
-import { RankIconOption } from "@/lib/rankTiers";
+import { getSportRankIcon, RankIconOption, unsterblichIcon } from "@/lib/rankTiers";
+import RankBadge from "@/components/RankBadge";
+import { SPORT_ICONS, sportLabel } from "@/lib/types";
 import { SavedHint } from "@/components/SaveButton";
-import { SportCard } from "@/components/SportBioCard";
+import { cardChoices, SportCard } from "@/components/SportBioCard";
 import CardPhotoEditor from "@/components/CardPhotoEditor";
 import {
   BIO_SPORTS,
   BioData,
   BioVisibility,
+  CardChoice,
   CLUB_MAX,
   COUNTRIES,
-  FAV_MAX,
   Honor,
   honorIcon,
   HONOR_TYPES,
   MAX_HONORS,
-  MAX_INTERESTS,
   sortedHonors,
   isFanRole,
   leaguesFor,
@@ -32,6 +33,7 @@ import {
   stationPlace,
   stationTitle,
   stationYears,
+  useSportCardStats,
 } from "@/lib/sportBio";
 
 const MAX_STATIONS = 15;
@@ -73,6 +75,7 @@ export default function SportBioEditor({
   const [savedWhere, setSavedWhere] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
+  const cardStats = useSportCardStats(userId);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const touched = useRef(false);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -154,6 +157,11 @@ export default function SportBioEditor({
       : stations.map((st, j) => (j === editing.index ? editing.draft : st))
     : stations;
   const preview: SportBio = { data: { ...data, stations: previewStations }, verified: bio?.verified ?? false, visibility };
+  // Welche Karte oben im Profil steht (Rene, 04.11.2026): nur hier wählbar,
+  // ohne Auswahl die mit dem stärksten Rang.
+  const choices = cardChoices(preview, cardStats);
+  const shownChoice = data.shownCard && choices.resolve(data.shownCard) === data.shownCard ? data.shownCard : null;
+  const choiceCount = choices.cardSports.length + (choices.immortal ? 1 : 0);
   const hasKnownClub = stations.some((st) => knownClub(st.club));
 
   return (
@@ -168,9 +176,48 @@ export default function SportBioEditor({
 
       {previewStations.length > 0 && (
         <div className="mt-4">
-          <SportCard bio={preview} own userId={userId} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} />
+          <SportCard bio={preview} own picker={false} userId={userId} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} />
           <p className="mt-1 text-center text-[11px] text-muted">Vorschau</p>
         </div>
+      )}
+
+      {choiceCount > 1 && (
+        <Card
+          title="Welche Karte im Profil?"
+          text="Diese Karte steht oben in deinem Profil. Ohne Auswahl immer die mit deinem stärksten Rang."
+          saved={savedAt("anzeige")}
+        >
+          <div role="radiogroup" aria-label="Karte im Profil" className="mt-3 flex flex-wrap gap-2">
+            <ChoiceChip active={!shownChoice} onClick={() => shownChoice && commit({ ...data, shownCard: undefined }, "anzeige")}>
+              <span className="grid h-6 w-6 place-items-center text-sm">⭐</span>
+              Stärkster Rang
+            </ChoiceChip>
+            {choices.immortal && (
+              <ChoiceChip
+                active={shownChoice === "unsterblich"}
+                onClick={() => shownChoice !== "unsterblich" && commit({ ...data, shownCard: "unsterblich" }, "anzeige")}
+              >
+                <RankBadge option={unsterblichIcon("-wahl")} size="sm" />
+                Unsterblich
+              </ChoiceChip>
+            )}
+            {choices.cardSports.map((sp) => {
+              const st = cardStats?.find((x) => x.sport === sp);
+              const icon = st && st.points > 0 ? getSportRankIcon(sp, st.points, "-wahl", st.prestige) : null;
+              return (
+                <ChoiceChip key={sp} active={shownChoice === sp} onClick={() => shownChoice !== sp && commit({ ...data, shownCard: sp }, "anzeige")}>
+                  {icon ? <RankBadge option={icon} size="sm" /> : <span className="grid h-6 w-6 place-items-center text-sm">{SPORT_ICONS[sp]}</span>}
+                  {sportLabel(sp)}
+                </ChoiceChip>
+              );
+            })}
+          </div>
+          {!shownChoice && choices.strongest && (
+            <p className="mt-2 text-xs text-muted">
+              Gerade: {choices.strongest === "unsterblich" ? "Unsterblich" : sportLabel(choices.strongest)}
+            </p>
+          )}
+        </Card>
       )}
 
       <Card
@@ -314,56 +361,7 @@ export default function SportBioEditor({
         />
       </Card>
 
-      <Card
-        title="Interessen"
-        text="Andere Sportarten, die du verfolgst oder selbst machst. Antippen speichert sofort. Lieblingsverein oder Sportler optional (wird vom Admin geprüft)."
-        saved={savedAt("interessen")}
-      >
-        <div className="mt-3 flex flex-wrap gap-2">
-          {BIO_SPORTS.map((sp) => {
-            const on = (data.interests ?? []).some((i) => i.k === sp.key);
-            const full = !on && (data.interests ?? []).length >= MAX_INTERESTS;
-            return (
-              <Chip
-                key={sp.key}
-                small
-                active={on}
-                onClick={() =>
-                  !full &&
-                  commit(
-                    {
-                      ...data,
-                      interests: on ? (data.interests ?? []).filter((i) => i.k !== sp.key) : [...(data.interests ?? []), { k: sp.key }],
-                    },
-                    "interessen"
-                  )
-                }
-              >
-                <span aria-hidden>{sp.icon}</span>
-                {sp.label}
-              </Chip>
-            );
-          })}
-        </div>
-        {(data.interests ?? []).length > 0 && (
-          <div className="mt-3 flex flex-col gap-2">
-            {(data.interests ?? []).map((it) => (
-              <FavRow
-                key={it.k}
-                label={bioSportLabel(it.k)}
-                value={it.fav ?? ""}
-                onSave={(fav) =>
-                  commit(
-                    { ...data, interests: (data.interests ?? []).map((i) => (i.k === it.k ? { ...i, fav: fav || undefined } : i)) },
-                    "interessen"
-                  )
-                }
-              />
-            ))}
-          </div>
-        )}
-      </Card>
-
+      {/* Interessen nicht mehr auf der Karte (Rene, 04.11.2026: sonst kein Platz). */}
       <Card
         title="Kartenfoto"
         text="Eigenes Foto für die Karte, z. B. im Vereinsdress. Ausschnitt verschieben und zoomen. Sieht jeder, der deine Karte sehen darf."
@@ -702,34 +700,6 @@ function HonorsEditor({
   );
 }
 
-// Lieblingsverein/-sportler zu einem Interesse, mit eigenem Speichern-Knopf.
-function FavRow({ label, value, onSave }: { label: string; value: string; onSave: (fav: string) => Promise<boolean> }) {
-  const [text, setText] = useState(value);
-  useEffect(() => setText(value), [value]);
-  const dirty = text.trim() !== value;
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border border-edge bg-pitch px-3 py-2 sm:flex-row sm:items-center">
-      <span className="shrink-0 text-sm text-ink sm:w-36">{label}</span>
-      <input
-        value={text}
-        maxLength={FAV_MAX}
-        list="sport-bio-clubs"
-        placeholder="Lieblingsverein oder Sportler (optional)"
-        onChange={(e) => setText(e.target.value)}
-        className={`${INPUT} min-w-0 flex-1`}
-      />
-      <button
-        type="button"
-        disabled={!dirty}
-        onClick={() => onSave(text.trim())}
-        className="shrink-0 rounded-full bg-action px-4 py-1.5 text-xs font-semibold text-pitch hover:bg-action-hover disabled:cursor-default disabled:bg-transparent disabled:text-muted disabled:ring-1 disabled:ring-edge"
-      >
-        Speichern
-      </button>
-    </div>
-  );
-}
-
 function TextInput({
   value,
   maxLength,
@@ -770,6 +740,23 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</p>
       {children}
     </div>
+  );
+}
+
+// Auswahl-Knopf wie überall: goldener Rand, wenn gewählt (pooltipp2-profil-einstellungen).
+function ChoiceChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className={`flex min-h-[40px] items-center gap-1.5 rounded-full border py-1 pl-1 pr-3.5 font-display text-sm font-semibold transition-colors ${
+        active ? "border-gold bg-gold/15 text-gold" : "border-edge bg-surface text-muted hover:text-ink"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
