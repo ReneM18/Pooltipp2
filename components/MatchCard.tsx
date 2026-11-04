@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Match, Sport, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { TipResultTier, classifyRankingTip, compareWithOthers, BEGINNER_SHIELD_TIPS, BOOSTER_STAKE, RANKING_BONUS_CAP, RANKING_POINTS, boosterPayouts, gutscheinPayouts, rankingPointsTable } from "@/lib/poolScore";
 import { MatchTipper, useMatchTips } from "@/lib/matchTips";
+import { holdCardPosition } from "@/lib/holdCardPosition";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
 import { useFeedback } from "@/lib/FeedbackContext";
@@ -174,10 +175,9 @@ export default function MatchCard({
   const [submitting, setSubmitting] = useState(false);
   // "Ändern" läuft gerade (Tipp wird in der Datenbank zurückgenommen).
   const [withdrawing, setWithdrawing] = useState(false);
-  // Nach "Tipp abgeben"/"Ändern" bleibt die Karte im Blick, siehe keepCardInView.
+  // Nach "Tipp abgeben"/"Ändern" bleibt die Karte genau an ihrem Platz,
+  // siehe lib/holdCardPosition.ts.
   const cardRef = useRef<HTMLDivElement>(null);
-  const keepInViewRef = useRef(false);
-  const hasTippedRef = useRef(false);
   // Startet mit "false" statt sofort mit Date.now() zu vergleichen – Server
   // und Browser haben beim allerersten Rendern nie exakt dieselbe Uhrzeit,
   // das würde sonst zu einem Hydration-Fehler führen (siehe
@@ -259,7 +259,6 @@ export default function MatchCard({
   });
 
   const hasTipped = !!myTip;
-  hasTippedRef.current = hasTipped;
   // Kurze Bestätigungs-Animation, sobald ein gerade abgegebener Tipp
   // gespeichert ist (nicht beim normalen Laden der Seite).
   const [justSaved, setJustSaved] = useState(false);
@@ -271,60 +270,6 @@ export default function MatchCard({
     const t = window.setTimeout(() => setJustSaved(false), 1600);
     return () => window.clearTimeout(t);
   }, [hasTipped]);
-
-  // Am Handy springt die Seite nach "Tipp abgeben" sonst weg: die Karte wird
-  // kleiner/größer, und schließt sich gleichzeitig die Tastatur, verschiebt
-  // iOS die Seite. Darum nach dem Umschalten (auch nach "Ändern") prüfen, ob
-  // die GANZE Karte (Wettbewerb, Flaggen, Teams und "Dein Tipp") unter der
-  // angehefteten Kopfzeile zu sehen ist, und sie sonst dorthin holen –
-  // mehrmals, bis die Tastatur sicher zu ist und die Höhe feststeht.
-  useEffect(() => {
-    if (!keepInViewRef.current) return;
-    keepInViewRef.current = false;
-    let frame = 0;
-    const run = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(keepCardInView);
-    };
-    const timers = [0, 350, 700, 1100].map((delay) => window.setTimeout(run, delay));
-    // Tastatur geht zu (iOS): sichtbarer Bereich wird größer.
-    const viewport = window.visualViewport;
-    viewport?.addEventListener("resize", run);
-    // Sobald der Spieler selbst wischt, tippt oder scrollt (z. B. schon zum
-    // nächsten Spiel), sofort aufhören: sonst holte diese Karte die Seite
-    // noch bis zu 1,5 Sek. später zu sich zurück – bei mehreren Tipps
-    // hintereinander sprang die Seite hoch und runter (Rene, 03.11.2026).
-    const userEvents = ["touchstart", "pointerdown", "wheel", "keydown"] as const;
-    const stopAll = () => {
-      timers.forEach((t) => window.clearTimeout(t));
-      window.clearTimeout(stop);
-      cancelAnimationFrame(frame);
-      viewport?.removeEventListener("resize", run);
-      userEvents.forEach((e) => window.removeEventListener(e, stopAll, true));
-    };
-    const stop = window.setTimeout(stopAll, 1500);
-    userEvents.forEach((e) => window.addEventListener(e, stopAll, { capture: true, passive: true }));
-    return stopAll;
-  }, [hasTipped]);
-
-  function keepCardInView() {
-    const card = cardRef.current;
-    if (!card) return;
-    // Unterkante der angehefteten Kopfzeile (Logo + Reiter, components/AppChrome.tsx).
-    const header = document.querySelector("[data-pull-anchor]");
-    const top = Math.max(0, header?.getBoundingClientRect().bottom ?? 0) + 8;
-    const bottom = (window.visualViewport?.height ?? window.innerHeight) - 8;
-    const rect = card.getBoundingClientRect();
-    if (rect.top >= top - 1 && rect.bottom <= bottom + 1) return;
-    // Nur so wenig wie nötig schieben, nicht mehr mittig ausrichten: das
-    // Zentrieren ließ die Seite nach jedem Tipp ein anderes Stück nach oben
-    // springen (Rene, 03.11.2026). Kartenanfang (Wettbewerb, Flaggen, Teams)
-    // verdeckt: knapp unter die Kopfzeile. Sonst ragt nur das Ende unten
-    // hinaus: so weit hoch, dass es zu sehen ist, der Anfang bleibt sichtbar.
-    const delta = rect.top < top ? rect.top - top : Math.min(rect.bottom - bottom, rect.top - top);
-    if (Math.abs(delta) < 2) return;
-    window.scrollBy({ top: delta, behavior: "smooth" });
-  }
 
   // Tastatur zu, bevor das Eingabefeld verschwindet (iOS springt sonst).
   function closeKeyboard() {
@@ -572,10 +517,9 @@ export default function MatchCard({
   async function withdrawMyTip() {
     if (!myTip || !onWithdrawTip || withdrawing) return;
     setWithdrawing(true);
-    keepInViewRef.current = true;
+    holdCardPosition(cardRef.current);
     try {
       const ok = await onWithdrawTip();
-      if (!ok) keepInViewRef.current = false;
       if (ok) {
         setHomeScore(null);
         setAwayScore(null);
@@ -606,15 +550,15 @@ export default function MatchCard({
       return;
     }
     const [h, a] = isOneXTwo && nflPick ? oneXTwoToScore(nflPick) : [homeScore ?? 0, awayScore ?? 0];
+    // Position merken, solange die Karte noch so dasteht, wie der Spieler
+    // sie sieht (vor dem Schließen der Tastatur).
+    holdCardPosition(cardRef.current);
     closeKeyboard();
-    keepInViewRef.current = true;
     awaitingSaveRef.current = true;
 
     Promise.resolve(onSubmitTip(h, a, boosting)).finally(() => {
       submittedRef.current = false;
       setSubmitting(false);
-      // Nicht gespeichert: Karte bleibt offen, nichts zu verschieben.
-      if (!hasTippedRef.current) keepInViewRef.current = false;
     });
   }
 
