@@ -1782,10 +1782,12 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const [endNoteMain, endNoteScore] = endNote ? splitEndNote(endNote) : [null, null];
   const statusSub = endNote ? null : sub;
 
-  // Offenes Tippspiel: schmaler Balken "Tippen" rechts hinter der Zeile,
-  // getipptes: rechts daneben klein "✓ Getippt". Am Handy werden die Namen
-  // dann eher etwas kleiner statt zweizeilig.
-  const tipTab = (tippable || tipped) && link ? link : null;
+  // Offenes Tippspiel: schmaler Balken "Tippen" rechts hinter der Zeile.
+  // Am Handy werden die Namen dann eher etwas kleiner statt zweizeilig.
+  // Getippt: kein Balken mehr, nur der rechte Rand der Zeile bleibt gold.
+  // Nicht getippt und Tippschluss vorbei: nichts (Rene, 04.11.2026).
+  const tipTab = tippable && link ? link : null;
+  const tippedEdge = tipped && !!link;
   const row = (
     <button
       type="button"
@@ -1802,7 +1804,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       // Balken breit ist: so steht das Ergebnis in jeder Zeile genau gleich.
       className={`relative z-[1] flex min-h-[3.875rem] w-full flex-col justify-center overflow-hidden rounded-card border px-3 py-2 text-left lg:min-h-[3.6875rem] transition-[color,background-color,border-color,box-shadow] sm:pl-4 ${
         tipTab ? "" : "lg:pr-[4.375rem]"
-      } ${
+      } ${tippedEdge ? "border-r-[2.5px] border-r-gold" : ""} ${
         moved ? "motion-safe:animate-lc-row-in" : ""
       } ${
         selected
@@ -1815,9 +1817,9 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       <div className="grid grid-cols-[4.75rem_1px_minmax(0,1fr)] items-center gap-x-2.5 text-sm">
         {/* Feste Breite, nichts läuft in die Namen (Rene, 16.10.2026):
             Zeile 1 groß/fett, Zeile 2 klein muted. */}
-        {/* Drei Zeilen (Zeit, Sender, Tippen/Getippt) mit knappem Abstand, damit
+        {/* Zwei Zeilen (Zeit, Sender) mit knappem Abstand, damit
             die Zeile nicht höher wird als die anderen. */}
-        <span className={`flex w-[4.75rem] min-w-0 flex-col ${tipped && !link ? "gap-px" : "gap-0.5"} overflow-hidden tabular-nums`}>
+        <span className={`flex w-[4.75rem] min-w-0 flex-col gap-0.5 overflow-hidden tabular-nums`}>
           <span className={`flex min-w-0 items-center gap-1 text-[13px] font-semibold leading-tight ${status.muted ? "text-muted" : "text-ink"}`}>
             {status.dot && <StateDot state={status.dot} />}
             <span className={`min-w-0 ${statusSub && tv ? "shrink-0" : "truncate"}`}>{status.main}</span>
@@ -1839,9 +1841,6 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
               <span className="min-w-0 break-words">{tv}</span>
             </span>
           )}
-          {/* "Tippen" und "Getippt" stehen im schmalen Balken rechts neben
-              der Zeile (Rene, 04.11.2026: "das getippt muss wo anders hin"). */}
-          {tipped && !link && <span className="truncate text-[10px] font-semibold leading-none text-gold">✓ Getippt</span>}
         </span>
         {/* Feiner senkrechter Strich zwischen Zeit und Vereinen (Rene,
             30.10.2026, wie Livescore). */}
@@ -1912,22 +1911,6 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
     </button>
   );
   if (!tipTab) return row;
-  // Schon getippt: kein Balken, nur rechts daneben klein und ruhig "✓
-  // Getippt", an derselben Stelle wie "Tippen" (Rene, 04.11.2026: "mach
-  // einfach rechts unscheinbar getippt"). Führt zur Tippkarte.
-  if (tipped)
-    return (
-      <div className="relative pr-[3.25rem] lg:pr-[3.625rem]">
-        <Link
-          href={tipCardHref(tipTab.match.id)}
-          className="absolute inset-y-0 right-0 flex w-[3.25rem] flex-col items-center justify-center gap-1 whitespace-nowrap leading-none text-gold/70 transition-colors hover:text-gold lg:w-[3.625rem]"
-        >
-          <span className="text-[12px] font-bold">✓</span>
-          <span className="text-[10px] font-semibold">Getippt</span>
-        </Link>
-        {row}
-      </div>
-    );
   // "Tippen" als schmaler Balken rechts, immer sichtbar, aber ruhig: grau
   // wie die Zeile, nur der rechte Rand gold. Die runde Ecke der Zeile ragt
   // in den Balken (Rene, 04.11.2026: "der balken hatte eine coole form",
