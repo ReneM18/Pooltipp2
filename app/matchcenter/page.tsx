@@ -1710,7 +1710,7 @@ function liveAwayFirst(sport: Sport, game: LiveGame): boolean {
 // untereinander, rechts die Tore untereinander, unten ein dünner Balken
 // (Minute/90). Tippspiele zeigen vor Tippschluss klein "Tippen" und ab 3 Std.
 // vor Tippschluss den Countdown (Rene, 30.10.2026: wieder da, nach #401),
-// getippte Spiele vor Anpfiff nur "Getippt" (nie den Tipp selbst), neben den
+// getippte nur "Getippt" (nie den Tipp selbst), beides klein unter der Uhrzeit (Rene, 04.11.2026), neben den
 // Namen kleine Trikots (Rene, 03.11.2026, Variante A).
 // Rahmen eine Spur heller als border-edge, neutral für alle Zustände.
 function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId, onSelect }: ListProps & { game: LiveGame; dataAt?: number }) {
@@ -1748,9 +1748,6 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
         })();
     return <TeamBadge sport={sport} {...props} isNationalTeam={team.isNationalTeam} countryCode={team.countryCode} size={size} />;
   };
-  // Getippt vor Anpfiff: nur "Getippt", nie der Tipp selbst (Rene,
-  // 03.11.2026: "nur halt getippt oder tippen aber nicht was getippt wurde").
-  const showTipped = tipped && game.status === "NS" && !hasScore;
 
   const status = rowStatus(sport, game, clock?.text ?? null);
   const sub = status.sub && status.sub !== "heute" ? status.sub : null;
@@ -1810,7 +1807,9 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       <div className="grid grid-cols-[4.75rem_1px_minmax(0,1fr)] items-center gap-x-2.5 text-sm">
         {/* Feste Breite, nichts läuft in die Namen (Rene, 16.10.2026):
             Zeile 1 groß/fett, Zeile 2 klein muted. */}
-        <span className="flex w-[4.75rem] min-w-0 flex-col gap-0.5 overflow-hidden tabular-nums">
+        {/* Drei Zeilen (Zeit, Sender, Tippen/Getippt) mit knappem Abstand, damit
+            die Zeile nicht höher wird als die anderen. */}
+        <span className={`flex w-[4.75rem] min-w-0 flex-col ${tipped || (tippable && link) ? "gap-px" : "gap-0.5"} overflow-hidden tabular-nums`}>
           <span className={`flex min-w-0 items-center gap-1 text-[13px] font-semibold leading-tight ${status.muted ? "text-muted" : "text-ink"}`}>
             {status.dot && <StateDot state={status.dot} />}
             <span className={`min-w-0 ${statusSub && tv ? "shrink-0" : "truncate"}`}>{status.main}</span>
@@ -1832,8 +1831,15 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
               <span className="min-w-0 break-words">{tv}</span>
             </span>
           )}
-          {/* Nach Tippschluss steht "Getippt" klein unter der Zeit. */}
-          {tipped && !open && !showTipped && <span className="truncate text-[10px] font-semibold leading-tight text-gold">Getippt</span>}
+          {/* Tippen bzw. Getippt klein unter der Zeit, nie in der Mitte
+              (Rene, 04.11.2026: "muss weg von der mitte und kleiner und
+              unscheinbar sein"). Ergebnis bzw. "– : –" bleibt so in jeder
+              Zeile gleich, auch für alle, die nur Ergebnisse anschauen. */}
+          {tippable && link ? (
+            <TipStatus deadline={link.match.tipDeadline} kickoff={link.match.kickoff} />
+          ) : (
+            tipped && <span className="truncate text-[10px] font-semibold leading-none text-gold">✓ Getippt</span>
+          )}
         </span>
         {/* Feiner senkrechter Strich zwischen Zeit und Vereinen (Rene,
             30.10.2026, wie Livescore). */}
@@ -1853,22 +1859,14 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             {jersey(secondTeam, secondSide, 18)}
             <FitText text={secondName} maxLines={2} minPx={12} className={`leading-tight ${nameTone(secondWins)}`} />
           </span>
-          {showTipped ? (
-            <span className="col-start-2 row-span-2 row-start-1 justify-self-end text-[11px] font-semibold leading-tight text-gold">✓ Getippt</span>
-          ) : tippable && link ? (
-            <span className="col-start-2 row-span-2 row-start-1 justify-self-end">
-              <TipStatus deadline={link.match.tipDeadline} kickoff={link.match.kickoff} />
-            </span>
-          ) : (
-            <span
-              className={`${endNote ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
-                flash ? "bg-gold/15 text-gold" : scoreColor
-              }`}
-            >
-              <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(firstWins)}`}>{hasScore ? firstScore : "–"}</span>
-              <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(secondWins)}`}>{hasScore ? secondScore : "–"}</span>
-            </span>
-          )}
+          <span
+            className={`${endNote ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
+              flash ? "bg-gold/15 text-gold" : scoreColor
+            }`}
+          >
+            <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(firstWins)}`}>{hasScore ? firstScore : "–"}</span>
+            <span className={`min-w-7 whitespace-nowrap text-center ${scoreTone(secondWins)}`}>{hasScore ? secondScore : "–"}</span>
+          </span>
           {endNote && (
             <span className="col-start-2 row-span-2 row-start-1 flex flex-col items-end text-right text-[11px] font-semibold leading-tight text-muted">
               <span className="whitespace-nowrap">{endNoteMain}</span>
@@ -1889,12 +1887,9 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             <FitText text={firstName} maxLines={2} minPx={12} className={`text-right text-[15px] leading-tight ${nameTone(firstWins)}`} />
             {jersey(firstTeam, firstSide, 20)}
           </span>
-          {/* Ergebnisfeld bleibt in jeder Zeile gleich, offene Tippspiele haben
-              darunter klein "Tippen" im goldenen Rahmen (Rene, 04.11.2026,
-              Variante A: der große Knopf war zu viel für alle, die nur
-              Ergebnisse anschauen). Knapper Abstand, damit die Zeile nicht
-              höher wird als die anderen. */}
-          <span className={`flex flex-col items-center ${tippable && link ? "gap-px" : "gap-0.5"}`}>
+          {/* Ergebnisfeld bleibt in jeder Zeile gleich, Tippen/Getippt steht
+              links unter der Uhrzeit (Rene, 04.11.2026). */}
+          <span className="flex flex-col items-center gap-0.5">
             <span
               className={`flex min-w-[4.75rem] items-center justify-center rounded-md border border-edge bg-pitch px-2 py-1 font-display text-lg font-bold leading-none tabular-nums transition-colors duration-700 ${
                 flash ? "border-gold/50 bg-gold/15 text-gold" : scoreColor
@@ -1905,9 +1900,6 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
               <span className={`min-w-6 whitespace-nowrap text-center ${scoreTone(secondWins)}`}>{hasScore ? secondScore : "–"}</span>
             </span>
             {endNote && <span className="whitespace-nowrap text-[12px] font-semibold leading-none text-muted">{endNote}</span>}
-            {/* Getippt: unter dem leeren Ergebnisfeld, ohne den Tipp selbst. */}
-            {showTipped && <span className="whitespace-nowrap text-[10px] font-semibold leading-none text-gold">✓ Getippt</span>}
-            {tippable && link && <TipStatus deadline={link.match.tipDeadline} kickoff={link.match.kickoff} wide />}
           </span>
           <span className="flex min-w-0 items-center gap-2">
             {jersey(secondTeam, secondSide, 20)}
@@ -1919,17 +1911,16 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   );
 }
 
-// Tippspiel vor Tippschluss, noch nicht getippt: kleines "Tippen" im
-// goldenen Rahmen, ohne Füllung und Glanz, so groß wie "Getippt" (Rene,
-// 04.11.2026, Variante A: der große goldene Knopf aus #428 war für alle, die
-// nur Ergebnisse anschauen, zu viel). Am Handy rechts statt der Striche, am PC
-// unter dem Ergebnisfeld. Ab 3 Std. vor Tippschluss läuft der Countdown mit,
-// gleiche Regel wie auf der Tippkarte (components/Countdown.tsx, Rene
-// 28.10.2026: "der Countdown muss zum Tippschluss passen"), letzte 30 Min.
-// orange mit ⏰. Davor nur "Tippen", kein "bis 20:45" (Rene, 28.10.2026:
-// verwirrend neben der Anstoßzeit); nur wenn der Tippschluss vor dem Anstoß
-// liegt, steht "bis …" dabei.
-function TipStatus({ deadline, kickoff, wide = false }: { deadline: string; kickoff: string; wide?: boolean }) {
+// Tippspiel vor Tippschluss, noch nicht getippt: klein "Tippen" in Gold
+// unter der Uhrzeit, ohne Knopf und ohne Rahmen, wie "Getippt" (Rene,
+// 04.11.2026: der Knopf in der Mitte stand "viel zu viel im vordergrund").
+// Ab 3 Std. vor Tippschluss läuft der Countdown dahinter mit, gleiche Regel
+// wie auf der Tippkarte (components/Countdown.tsx, Rene 28.10.2026: "der
+// Countdown muss zum Tippschluss passen"), letzte 30 Min. orange. Davor nur
+// "Tippen", kein "bis 20:45" (Rene, 28.10.2026: verwirrend neben der
+// Anstoßzeit); nur wenn der Tippschluss vor dem Anstoß liegt, steht "bis …"
+// dabei.
+function TipStatus({ deadline, kickoff }: { deadline: string; kickoff: string }) {
   const target = Date.parse(deadline);
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => {
@@ -1949,35 +1940,20 @@ function TipStatus({ deadline, kickoff, wide = false }: { deadline: string; kick
     const sec = left % 60;
     const pad = (n: number) => String(n).padStart(2, "0");
     if (counting) {
-      extra = `${soon ? "⏰ " : ""}noch ${h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`}`;
+      extra = h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
       label = `Tippen, noch ${h > 0 ? `${h} Std. ` : ""}${m} Min. bis Tippschluss`;
     } else if (target < Date.parse(kickoff)) {
       extra = `bis ${deadlineText(target, now)}`;
     }
   }
-  const tone = soon ? "text-[#FF9B5C]" : "text-gold";
-  // Am PC eine Zeile unter dem Ergebnisfeld: "Tippen · noch 2:34:54" im
-  // Rahmen, flach genug, dass die Zeile nicht höher wird.
-  if (wide) {
-    return (
-      <span
-        className={`flex h-3 items-center gap-1 whitespace-nowrap rounded-full border border-gold/55 px-2 font-display text-[10px] font-semibold leading-none tabular-nums ${tone}`}
-        role={counting ? "timer" : undefined}
-        aria-label={label}
-      >
-        <span className="text-gold">Tippen</span>
-        {extra && <span className="font-normal opacity-85">· {extra}</span>}
-      </span>
-    );
-  }
   return (
-    <span className="flex flex-col items-end gap-0.5">
-      <span className="rounded-full border border-gold/55 px-2.5 py-0.5 font-display text-[11px] font-semibold leading-tight text-gold">Tippen</span>
-      {extra && (
-        <span className={`whitespace-nowrap text-[10px] font-semibold leading-tight tabular-nums opacity-85 ${tone}`} role={counting ? "timer" : undefined} aria-label={label}>
-          {extra}
-        </span>
-      )}
+    <span
+      className={`flex min-w-0 items-baseline gap-1 whitespace-nowrap text-[10px] font-semibold leading-none tabular-nums ${soon ? "text-[#FF9B5C]" : "text-gold"}`}
+      role={counting ? "timer" : undefined}
+      aria-label={label}
+    >
+      <span>Tippen</span>
+      {extra && <span className="min-w-0 truncate font-normal opacity-80">{extra}</span>}
     </span>
   );
 }
