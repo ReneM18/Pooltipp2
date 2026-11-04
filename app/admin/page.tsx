@@ -33,6 +33,7 @@ import { useJokers } from "@/lib/JokerContext";
 import { DuelReport } from "@/components/DuelReport";
 import { GrowthReport } from "@/components/GrowthReport";
 import { SportBioAdmin } from "@/components/SportBioAdmin";
+import { AdminNames } from "@/components/AdminNames";
 import { ApiTeamNamesAdmin } from "@/components/ApiTeamNamesAdmin";
 import { ApiFixturePicker, type ApiFixturePick } from "@/components/ApiFixturePicker";
 import { GuestTeamButton } from "@/components/GuestTeamButton";
@@ -67,6 +68,7 @@ const ADMIN_SECTIONS = {
   news: { label: "News" },
   turniere: { label: "Turniere" },
   steckbriefe: { label: "Steckbriefe" },
+  spielernamen: { label: "Spielernamen", short: "Spielernamen" },
   duelle: { label: "Auffällige Duelle", short: "Duelle" },
   wachstum: { label: "Wachstum" },
   shop: { label: "Joker-Shop" },
@@ -76,7 +78,7 @@ type AdminSection = keyof typeof ADMIN_SECTIONS;
 const ADMIN_GROUPS: { title: string; icon: string; items: AdminSection[] }[] = [
   { title: "Spieltag", icon: "⚽", items: ["spiele", "neu", "live"] },
   { title: "Teams & Ligen", icon: "🛡️", items: ["teams", "import", "wettbewerbe", "vereinsnamen"] },
-  { title: "Community", icon: "📣", items: ["news", "turniere", "steckbriefe", "duelle"] },
+  { title: "Community", icon: "📣", items: ["news", "turniere", "steckbriefe", "spielernamen", "duelle"] },
   { title: "App", icon: "⚙️", items: ["wachstum", "shop", "vorschau"] },
 ];
 const isAdminSection = (s: string): s is AdminSection => s in ADMIN_SECTIONS;
@@ -264,6 +266,7 @@ export default function AdminPage() {
       {section === "news" && <NewsManager />}
       {section === "turniere" && <TournamentManager />}
       {section === "steckbriefe" && <SportBioAdmin />}
+      {section === "spielernamen" && <AdminNames />}
       {section === "duelle" && <DuelReport />}
       {section === "wachstum" && <GrowthReport />}
       {section === "shop" && <ShopSwitch />}
