@@ -1782,7 +1782,10 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const [endNoteMain, endNoteScore] = endNote ? splitEndNote(endNote) : [null, null];
   const statusSub = endNote ? null : sub;
 
-  return (
+  // Offenes Tippspiel: schmaler Balken "Tippen" rechts hinter der Zeile. Am
+  // Handy werden die Namen dann eher etwas kleiner statt zweizeilig.
+  const tipTab = tippable && link ? link : null;
+  const row = (
     <button
       type="button"
       onClick={() => onSelect(game.id)}
@@ -1794,7 +1797,11 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       // (Rene, 03.11.2026: "mach die goldene umrandung weg").
       // Alle Zeilen gleich hoch, auch mit Tipp, "Dein Tipp" oder Countdown
       // (Rene, 03.11.2026: Abstände wirkten unruhig).
-      className={`relative flex min-h-[3.875rem] w-full flex-col justify-center overflow-hidden rounded-card border px-3 py-2 text-left lg:min-h-[3.6875rem] transition-[color,background-color,border-color,box-shadow] sm:pl-4 ${
+      // Am PC haben Zeilen ohne Balken rechts so viel Innenabstand, wie der
+      // Balken breit ist: so steht das Ergebnis in jeder Zeile genau gleich.
+      className={`relative z-[1] flex min-h-[3.875rem] w-full flex-col justify-center overflow-hidden rounded-card border px-3 py-2 text-left lg:min-h-[3.6875rem] transition-[color,background-color,border-color,box-shadow] sm:pl-4 ${
+        tipTab ? "" : "lg:pr-[4.375rem]"
+      } ${
         moved ? "motion-safe:animate-lc-row-in" : ""
       } ${
         selected
@@ -1809,7 +1816,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             Zeile 1 groß/fett, Zeile 2 klein muted. */}
         {/* Drei Zeilen (Zeit, Sender, Tippen/Getippt) mit knappem Abstand, damit
             die Zeile nicht höher wird als die anderen. */}
-        <span className={`flex w-[4.75rem] min-w-0 flex-col ${tipped || (tippable && link) ? "gap-px" : "gap-0.5"} overflow-hidden tabular-nums`}>
+        <span className={`flex w-[4.75rem] min-w-0 flex-col ${tipped ? "gap-px" : "gap-0.5"} overflow-hidden tabular-nums`}>
           <span className={`flex min-w-0 items-center gap-1 text-[13px] font-semibold leading-tight ${status.muted ? "text-muted" : "text-ink"}`}>
             {status.dot && <StateDot state={status.dot} />}
             <span className={`min-w-0 ${statusSub && tv ? "shrink-0" : "truncate"}`}>{status.main}</span>
@@ -1831,15 +1838,9 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
               <span className="min-w-0 break-words">{tv}</span>
             </span>
           )}
-          {/* Tippen bzw. Getippt klein unter der Zeit, nie in der Mitte
-              (Rene, 04.11.2026: "muss weg von der mitte und kleiner und
-              unscheinbar sein"). Ergebnis bzw. "– : –" bleibt so in jeder
-              Zeile gleich, auch für alle, die nur Ergebnisse anschauen. */}
-          {tippable && link ? (
-            <TipStatus deadline={link.match.tipDeadline} kickoff={link.match.kickoff} />
-          ) : (
-            tipped && <span className="truncate text-[10px] font-semibold leading-none text-gold">✓ Getippt</span>
-          )}
+          {/* "Getippt" klein unter der Zeit. "Tippen" steht im schmalen
+              Balken rechts neben der Zeile (Rene, 04.11.2026, siehe unten). */}
+          {tipped && <span className="truncate text-[10px] font-semibold leading-none text-gold">✓ Getippt</span>}
         </span>
         {/* Feiner senkrechter Strich zwischen Zeit und Vereinen (Rene,
             30.10.2026, wie Livescore). */}
@@ -1852,12 +1853,12 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           className={`grid min-w-0 ${endNote ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"} grid-rows-[auto_auto] items-center gap-x-2 gap-y-0.5 lg:hidden`}
         >
           <span className="col-start-1 row-start-1 flex min-w-0 items-center gap-1.5">
-            {jersey(firstTeam, firstSide, 18)}
-            <FitText text={firstName} maxLines={2} minPx={12} className={`leading-tight ${nameTone(firstWins)}`} />
+            <span className="flex shrink-0">{jersey(firstTeam, firstSide, 18)}</span>
+            <FitText text={firstName} maxLines={2} minPx={12} shrinkFirst={!!tipTab} className={`leading-tight ${nameTone(firstWins)}`} />
           </span>
           <span className="col-start-1 row-start-2 flex min-w-0 items-center gap-1.5">
-            {jersey(secondTeam, secondSide, 18)}
-            <FitText text={secondName} maxLines={2} minPx={12} className={`leading-tight ${nameTone(secondWins)}`} />
+            <span className="flex shrink-0">{jersey(secondTeam, secondSide, 18)}</span>
+            <FitText text={secondName} maxLines={2} minPx={12} shrinkFirst={!!tipTab} className={`leading-tight ${nameTone(secondWins)}`} />
           </span>
           <span
             className={`${endNote ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
@@ -1909,17 +1910,32 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       </div>
     </button>
   );
+  if (!tipTab) return row;
+  // "Tippen" als schmaler Balken rechts, immer sichtbar, aber ruhig: grau
+  // wie die Zeile, nur der rechte Rand gold. Die runde Ecke der Zeile ragt
+  // in den Balken (Rene, 04.11.2026: "der balken hatte eine coole form",
+  // "nur der rechte rand gold", "nicht so breit"). Mitte und links bleiben
+  // frei für alle, die nur Ergebnisse anschauen. Führt direkt zur Tippkarte.
+  return (
+    <div className="relative pr-[3.25rem] lg:pr-[3.625rem]">
+      <Link
+        href={tipCardHref(tipTab.match.id)}
+        className="absolute inset-y-0 right-0 flex w-[5rem] items-center justify-center lg:w-[5.375rem] rounded-card border border-r-[2.5px] border-muted/25 border-r-gold bg-surface pl-7 transition-colors hover:bg-surface-hover"
+      >
+        <TipStatus deadline={tipTab.match.tipDeadline} kickoff={tipTab.match.kickoff} />
+      </Link>
+      {row}
+    </div>
+  );
 }
 
-// Tippspiel vor Tippschluss, noch nicht getippt: klein "Tippen" in Gold
-// unter der Uhrzeit, ohne Knopf und ohne Rahmen, wie "Getippt" (Rene,
-// 04.11.2026: der Knopf in der Mitte stand "viel zu viel im vordergrund").
-// Ab 3 Std. vor Tippschluss läuft der Countdown dahinter mit, gleiche Regel
-// wie auf der Tippkarte (components/Countdown.tsx, Rene 28.10.2026: "der
-// Countdown muss zum Tippschluss passen"), letzte 30 Min. orange. Davor nur
-// "Tippen", kein "bis 20:45" (Rene, 28.10.2026: verwirrend neben der
-// Anstoßzeit); nur wenn der Tippschluss vor dem Anstoß liegt, steht "bis …"
-// dabei.
+// Inhalt des Balkens "Tippen" rechts neben offenen Tippspielen (Rene,
+// 04.11.2026). Ab 3 Std. vor Tippschluss läuft darunter der Countdown mit,
+// gleiche Regel wie auf der Tippkarte (components/Countdown.tsx, Rene
+// 28.10.2026: "der Countdown muss zum Tippschluss passen"), letzte 30 Min.
+// orange. Davor nur "Tippen", kein "bis 20:45" (Rene, 28.10.2026:
+// verwirrend neben der Anstoßzeit); nur wenn der Tippschluss vor dem Anstoß
+// liegt, steht "bis …" darunter.
 function TipStatus({ deadline, kickoff }: { deadline: string; kickoff: string }) {
   const target = Date.parse(deadline);
   const [now, setNow] = useState<number | null>(null);
@@ -1947,13 +1963,9 @@ function TipStatus({ deadline, kickoff }: { deadline: string; kickoff: string })
     }
   }
   return (
-    <span
-      className={`flex min-w-0 items-baseline gap-1 whitespace-nowrap text-[10px] font-semibold leading-none tabular-nums ${soon ? "text-[#FF9B5C]" : "text-gold"}`}
-      role={counting ? "timer" : undefined}
-      aria-label={label}
-    >
-      <span>Tippen</span>
-      {extra && <span className="min-w-0 truncate font-normal opacity-80">{extra}</span>}
+    <span className="flex flex-col items-center gap-0.5 whitespace-nowrap leading-none" role={counting ? "timer" : undefined} aria-label={label}>
+      <span className="font-display text-[12px] font-bold text-gold">Tippen</span>
+      {extra && <span className={`text-[10px] font-medium tabular-nums opacity-85 ${soon ? "text-[#FF9B5C]" : "text-gold"}`}>{extra}</span>}
     </span>
   );
 }
