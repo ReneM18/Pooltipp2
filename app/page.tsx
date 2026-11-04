@@ -3,14 +3,12 @@
 import EmptyState from "@/components/EmptyState";
 import { viennaDateKey } from "@/lib/seasons/schedule";
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import MatchCard from "@/components/MatchCard";
 import { SPORT_BADGE } from "@/lib/cardStyle";
 import AdBanner from "@/components/AdBanner";
 import WeeklyReviewCard from "@/components/WeeklyReviewCard";
 import HomeGreeting from "@/components/HomeGreeting";
 import LiveStrip from "@/components/LiveStrip";
-import { matchcenterHref } from "@/lib/matchcenterLink";
 import HomeTipBar from "@/components/HomeTipBar";
 import { useUser } from "@/lib/UserContext";
 import { useJokers } from "@/lib/JokerContext";
@@ -38,7 +36,6 @@ export default function DashboardPage() {
   // Herzensvereine EINMAL für die ganze Seite laden (nicht pro Karte: jeder
   // Aufruf holt die Daten und öffnet einen eigenen Realtime-Kanal).
   const { clubs: myClubs, playForClubs } = useMyClubs(authUserId);
-  const router = useRouter();
 
   // Neue Spieler: einmal zum Start-Erlebnis.
   useStartExperience();
@@ -305,11 +302,9 @@ export default function DashboardPage() {
     };
   }
   const liveItems = tab === "live" ? [] : split.laeuft.filter((m) => m.status === "live").map(toLiveItem);
-  // Im Reiter Live: Spiele, auf die man nicht getippt hat, nur als schmale
-  // Zeile mit Spielstand statt großer Karte; groß nur, wo man mitfiebert.
-  // Antippen öffnet das Spiel im Matchcenter (Rene, 27.10.2026).
-  const slimLive = (sectionKey: string, m: Match) =>
-    tab === "live" && sectionKey === "laeuft" && !findTipForMatch(m.id) && !!getTeam(m.homeTeamId) && !!getTeam(m.awayTeamId);
+  // Im Reiter Live haben auch ungetippte Spiele die normale Karte ("Nicht
+  // getippt"). Die schmale Zeile über die ganze Breite vom 27.10. sah zu
+  // länglich aus (Rene, 04.11.2026).
 
   function renderCard(match: Match, stage = false) {
     const homeTeam = getTeam(match.homeTeamId);
@@ -513,19 +508,9 @@ export default function DashboardPage() {
                 {/* Am PC wieder drei Karten nebeneinander: Seit die Vereine
                     untereinander stehen (Variante B), passen die Namen auch in
                     schmalere Karten (Rene, 15.10.2026). */}
-                {day.matches.some((m) => !slimLive(section.key, m)) && (
-                  <div className="flex flex-col gap-5 lg:grid lg:grid-cols-3 lg:gap-5">
-                    {day.matches.filter((m) => !slimLive(section.key, m)).map((m) => renderCard(m))}
-                  </div>
-                )}
-                {day.matches.some((m) => slimLive(section.key, m)) && (
-                  <div className={day.matches.some((m) => !slimLive(section.key, m)) ? "mt-5" : ""}>
-                    <LiveStrip
-                      items={day.matches.filter((m) => slimLive(section.key, m)).map(toLiveItem)}
-                      onSelect={(id) => router.push(matchcenterHref(id))}
-                    />
-                  </div>
-                )}
+                <div className="flex flex-col gap-5 lg:grid lg:grid-cols-3 lg:gap-5">
+                  {day.matches.map((m) => renderCard(m))}
+                </div>
               </div>
             ))}
           </section>
