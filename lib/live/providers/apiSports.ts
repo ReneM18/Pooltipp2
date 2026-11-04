@@ -34,7 +34,7 @@ import type {
 // (fixtures?date=…) 3–4 Min. hinter fixtures?live=all herhinkt:
 //  (a) Tagesliste, Ablauf 900 s (vergangene Tage 3600 s) – Anstoßzeiten,
 //      nicht begonnene und beendete Spiele.
-//  (b) live=all, Ablauf 60 s (Pro-Plan) bzw. 180 s – nur abgerufen, wenn laut Tagesliste ein Spiel
+//  (b) live=all, Ablauf 15 s (Pro-Plan) bzw. 180 s – nur abgerufen, wenn laut Tagesliste ein Spiel
 //      im Fenster Anpfiff −5 Min. bis Anpfiff +150 Min. liegt und noch nicht
 //      beendet ist. Spiele aus (b) überschreiben die aus (a) (über die
 //      fixture.id); ist ein Spiel laut Tagesliste schon beendet, gilt (a).
@@ -74,7 +74,7 @@ const ENDPOINTS: Record<Sport, string> = {
 type Raw = any;
 
 // Ablaufzeiten in Sekunden (Rene, 16.10.2026). Live = Takt der Sportart
-// (Fußball 60 s mit Pro-Plan, 180 s im Gratis-Plan, sonst 300 s, siehe
+// (Fußball 15 s mit Pro-Plan, 180 s im Gratis-Plan, sonst 300 s, siehe
 // liveTtl).
 const DAY_TTL = 900;
 const PAST_TTL = 3600;

@@ -55,13 +55,16 @@ export function scorerLine(events: LiveEvent[] | undefined, side: "home" | "away
   return Array.from(byPlayer, ([name, minutes]) => `${name} ${minutes.join(", ")}`).join(" · ");
 }
 
-// Abfrage-Takt in Sekunden: Fußball 60 s, sonst 300 s. So oft fragt der
+// Abfrage-Takt in Sekunden: Fußball 15 s, sonst 300 s. So oft fragt der
 // Browser nach (und so lange teilt das CDN eine Antwort). Wie oft der Server
 // wirklich bei API-Sports nachfragt, entscheidet er selbst nach dem
-// Tageskontingent (Rene, 27.10.2026: Pro-Plan mit 7.500 Abfragen → 60 s,
+// Tageskontingent (Rene, 27.10.2026: Pro-Plan mit 7.500 Abfragen,
 // Gratis-Plan mit 100 → weiter 180 s, siehe liveMaxIntervalSeconds).
+// 15 s statt 60 s (Rene, 04.11.2026: "wieso steht noch immer Pause, die
+// spielen seit 2 min"): API-Sports rechnet Live-Daten alle 15 s neu, öfter
+// bringt nichts. Live-Liste nur während Spielen: 24 h × 240 = 5.760 < 7.500.
 export function liveIntervalSeconds(sport: Sport): number {
-  return sport === "Fußball" ? 60 : 300;
+  return sport === "Fußball" ? 15 : 300;
 }
 
 // Längster Takt des Servers (Gratis-Plan: 100 Abfragen pro Tag und

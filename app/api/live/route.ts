@@ -14,7 +14,7 @@ import type { LiveDiagnostics, LiveResponse } from "@/lib/live/types";
 // die Abfrage beim Anbieter bleibt dieselbe.
 //
 // Caching (Rene, 16.10.2026: ohne stilles Festhängen): Der Anbieter hält
-// seine Abrufe in einem eigenen Cache mit festen Ablaufzeiten (live 60 s mit
+// seine Abrufe in einem eigenen Cache mit festen Ablaufzeiten (live 15 s mit
 // Pro-Plan bzw. 180 s,
 // Tagesliste 900 s, vergangene Tage 3600 s) und meldet, wann sie ablaufen.
 // Diese Antwort darf das CDN genau so lange für alle Nutzer teilen
