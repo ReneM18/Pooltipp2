@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useAppData } from "@/lib/AppDataContext";
 import { useUser } from "@/lib/UserContext";
+import { BioIcon } from "@/components/BioIcon";
 import { getSportRankIcon, RankIconOption, unsterblichIcon } from "@/lib/rankTiers";
 import RankBadge from "@/components/RankBadge";
 import { SPORT_ICONS, sportLabel } from "@/lib/types";
@@ -20,6 +21,7 @@ import {
   honorIcon,
   HONOR_TYPES,
   MAX_HONORS,
+  TEAM_TYPES,
   sortedHonors,
   isFanRole,
   leaguesFor,
@@ -27,6 +29,7 @@ import {
   POSITIONS,
   ROLE_CATS,
   roleDef,
+  stationIcon,
   saveSportBio,
   SportBio,
   Station,
@@ -245,11 +248,11 @@ export default function SportBioEditor({
               <div key={i} className="flex flex-col gap-2 rounded-card border border-edge bg-pitch px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-display text-sm font-bold text-ink">
-                    {roleDef(st.role).icon} {stationTitle(st)}
+                    <BioIcon icon={stationIcon(st)} /> {stationTitle(st)}
                     {i === 0 && <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-gold">Hauptrolle</span>}
                   </p>
                   <p className="truncate text-xs text-muted">
-                    {[bioSportLabel(st.sport), stationPlace(st), stationYears(st)].filter(Boolean).join(" · ") || "Noch keine Details"}
+                    {[bioSportLabel(st.sport), stationPlace(st), st.team, stationYears(st)].filter(Boolean).join(" · ") || "Noch keine Details"}
                   </p>
                 </div>
                 {confirmDelete === i ? (
@@ -445,7 +448,7 @@ function StationEditor({
     <div className="flex flex-col gap-3 rounded-card border-2 border-gold/60 bg-pitch p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="min-w-0 font-display text-[15px] font-bold text-ink">
-          {roleDef(st.role).icon} {stationTitle(st)}
+          <BioIcon icon={stationIcon(st)} /> {stationTitle(st)}
           {isMain && <span className="ml-2 font-display text-[10px] font-bold uppercase tracking-wider text-gold">Hauptrolle</span>}
         </p>
         <span className="shrink-0 rounded-full bg-gold/15 px-2.5 py-0.5 text-[11px] font-semibold text-gold">
@@ -530,7 +533,7 @@ function StationEditor({
         </Field>
       </div>
       {!fan && (
-        <div className="max-w-xs">
+        <div className="grid max-w-xl gap-3 sm:grid-cols-2">
           <Field label="Niveau">
             <select
               value={st.league ?? ""}
@@ -541,6 +544,20 @@ function StationEditor({
               {leaguesFor(st.sport, st.land).map((l) => (
                 <option key={l} value={l}>
                   {l}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Team-Typ">
+            <select
+              value={st.team ?? ""}
+              onChange={(e) => onPatch({ team: e.target.value || undefined })}
+              className="w-full rounded-lg border border-edge bg-surface px-3 py-2 text-sm text-ink"
+            >
+              <option value="">–</option>
+              {TEAM_TYPES.map((x) => (
+                <option key={x} value={x}>
+                  {x}
                 </option>
               ))}
             </select>
@@ -610,6 +627,7 @@ function HonorsEditor({
 }) {
   const [t, setT] = useState(HONOR_TYPES[0].t);
   const [league, setLeague] = useState("");
+  const [team, setTeam] = useState("");
   const [club, setClub] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [confirmIdx, setConfirmIdx] = useState<number | null>(null);
@@ -619,9 +637,11 @@ function HonorsEditor({
     setErr(null);
     const h: Honor = { t };
     if (league) h.league = league;
+    if (team) h.team = team;
     if (club) h.club = club;
     if (await onChange([...honors, h])) {
       setLeague("");
+      setTeam("");
     }
   }
 
@@ -634,7 +654,7 @@ function HonorsEditor({
             <p className="min-w-0 flex-1 text-sm text-ink">
               {honorIcon(h.t)} <b>{h.t}</b>
               {h.league ? ` · ${h.league}` : ""}
-              <span className="text-muted">{h.club ? ` · ${h.club}` : ""}</span>
+              <span className="text-muted">{[h.club, h.team].filter(Boolean).map((x) => ` · ${x}`).join("")}</span>
             </p>
             {confirmIdx === idx ? (
               <span className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
@@ -664,7 +684,7 @@ function HonorsEditor({
             {honors.length ? "Weiteren Erfolg eintragen" : "Neuer Erfolg"}
             <span className="font-normal"> · bis zu {MAX_HONORS}</span>
           </p>
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2">
             <select value={t} onChange={(e) => setT(e.target.value)} aria-label="Art des Erfolgs" className={INPUT}>
               {HONOR_TYPES.map((h) => (
                 <option key={h.t} value={h.t}>
@@ -677,6 +697,14 @@ function HonorsEditor({
               {leagues.map((l) => (
                 <option key={l} value={l}>
                   {l}
+                </option>
+              ))}
+            </select>
+            <select value={team} onChange={(e) => setTeam(e.target.value)} aria-label="Team-Typ" className={INPUT}>
+              <option value="">Team-Typ (optional)</option>
+              {TEAM_TYPES.map((x) => (
+                <option key={x} value={x}>
+                  {x}
                 </option>
               ))}
             </select>

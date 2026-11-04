@@ -109,7 +109,7 @@ export function SportBioAdmin() {
                         .join(" · ") || "Nur Erfolge/Fan seit"}
                       {(data.honors?.length ?? 0) > 0 && (
                         <span className="block">
-                          {data.honors!.map((h) => [h.t, h.league, h.club, h.year].filter(Boolean).join(" ")).join(" · ")}
+                          {data.honors!.map((h) => [h.t, h.league, h.team, h.club, h.year].filter(Boolean).join(" ")).join(" · ")}
                         </span>
                       )}
                       {(data.interests?.length ?? 0) > 0 && (

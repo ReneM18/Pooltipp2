@@ -24,6 +24,7 @@ export interface Station {
   from?: string;
   to?: string;
   league?: string;
+  team?: string; // Team-Typ, siehe TEAM_TYPES
   clubApproved?: boolean; // nur beim eigenen Steckbrief (von sport_bio_of)
 }
 
@@ -51,6 +52,7 @@ export type CardChoice = Sport | "unsterblich";
 export interface Honor {
   t: string; // Art, z. B. "Meister" (siehe HONOR_TYPES)
   league?: string; // z. B. "Unterliga"
+  team?: string; // Team-Typ, siehe TEAM_TYPES
   club?: string; // mit wem
   year?: string;
 }
@@ -206,9 +208,18 @@ export const POSITIONS: Record<string, string[]> = {
 
 // Nur wenige Stufen (Rene, 20.10.2026: "die Landesligen weg, nur ganz wenig für Profis").
 // "Nachwuchs" für Jugend/Akademie dazu (Rene, 04.11.2026).
-// "Zweite Mannschaft" und "ÖFB Jugendliga" dazu (Rene, 04.11.2026).
-const LEVELS = ["Profi", "Halbprofi", "Amateur", "Zweite Mannschaft", "ÖFB Jugendliga", "Nachwuchs", "Hobby"];
-const YOUTH_LEVELS = ["Nachwuchs", "ÖFB Jugendliga"];
+const LEVELS = ["Profi", "Halbprofi", "Amateur", "Nachwuchs", "Hobby"];
+// Team-Typ als eigene Auswahl neben dem Niveau (Rene, 04.11.2026).
+// "Zweite Mannschaft" und "ÖFB Jugendliga" waren kurz Niveaus (#440) und
+// werden beim Laden hierher verschoben.
+export const TEAM_ACADEMY = "Nachwuchs-Akademie (ÖFB Jugendliga)";
+export const TEAM_TYPES = [TEAM_ACADEMY, "Zweite Mannschaft", "Regionaler Nachwuchs", "Erste Mannschaft"];
+const YOUTH_TEAMS = [TEAM_ACADEMY, "Regionaler Nachwuchs"];
+const LEVEL_TO_TEAM: Record<string, string> = { "Zweite Mannschaft": "Zweite Mannschaft", "ÖFB Jugendliga": TEAM_ACADEMY };
+function moveLevelToTeam<T extends { league?: string; team?: string }>(x: T): T {
+  const team = x.league ? LEVEL_TO_TEAM[x.league] : undefined;
+  return team ? { ...x, league: undefined, team: x.team ?? team } : x;
+}
 export function leaguesFor(_sport?: string, _land?: string): string[] {
   return LEVELS;
 }
@@ -275,7 +286,7 @@ export function stationTitle(st: Station): string {
   let base = r.label;
   if (st.role === "spieler") {
     const level =
-      st.league === "Hobby" ? "hobby" : YOUTH_LEVELS.includes(st.league ?? "") ? "nachwuchs" : PRO_LEAGUES.includes(st.league ?? "") ? "profi" : "verein";
+      st.league === "Hobby" ? "hobby" : st.league === "Nachwuchs" || YOUTH_TEAMS.includes(st.team ?? "") ? "nachwuchs" : PRO_LEAGUES.includes(st.league ?? "") ? "profi" : "verein";
     if (level === "nachwuchs") base = st.sport === "fb" ? "Nachwuchsfußballer" : st.sport === "ih" ? "Nachwuchs-Eishockeyspieler" : "Nachwuchsspieler";
     else if (st.sport === "fb") base = level === "profi" ? "Profifußballer" : level === "hobby" ? "Hobbykicker" : "Vereinsfußballer";
     else if (st.sport === "ih") base = level === "hobby" ? "Hobby-Eishockeyspieler" : level === "profi" ? "Eishockeyprofi" : "Eishockeyspieler";
@@ -283,6 +294,14 @@ export function stationTitle(st: Station): string {
   }
   if (isFanRole(st.role)) return sport && st.role === "fan" ? `${sport.label}-Fan` : base;
   return `${st.ex ? "Ex-" : ""}${base}`;
+}
+
+/** Icon einer Station. Spieler: aktiv = Ball der Sportart, ehemalig = Fußballschuh am Haken (Rene, 04.11.2026). */
+// Platzhalter für das gezeichnete Icon "Schuh am Haken" (components/BioIcon.tsx).
+export const EX_PLAYER_ICON = "ex-schuh";
+export function stationIcon(st: Station): string {
+  if (st.role === "spieler") return st.ex ? EX_PLAYER_ICON : bioSport(st.sport)?.icon ?? roleDef(st.role).icon;
+  return roleDef(st.role).icon;
 }
 
 // Jahreszahlen werden nicht mehr gezeigt (Rene, 20.10.2026); alte Angaben bleiben gespeichert.
@@ -304,7 +323,7 @@ export function isBioEmpty(data: BioData | null | undefined): boolean {
 export function mainRole(data: BioData | null | undefined): [string, string] | null {
   const st = data?.stations?.[0];
   if (!st) return null;
-  return [roleDef(st.role).icon, stationTitle(st)];
+  return [stationIcon(st), stationTitle(st)];
 }
 
 // Erfolge aus #299 waren nur Texte wie "🏆 Meister" – in Einträge umwandeln.
@@ -334,8 +353,8 @@ export function normalizeBio(raw: unknown): BioData {
   if (Array.isArray(d.stations) || !d.roles) {
     const photo = typeof d.photo === "string" && d.photo.startsWith("data:image/jpeg;base64,") ? d.photo : undefined;
     return {
-      stations: d.stations ?? [],
-      honors: normalizeHonors(d.honors),
+      stations: (d.stations ?? []).map(moveLevelToTeam),
+      honors: normalizeHonors(d.honors).map(moveLevelToTeam),
       interests: Array.isArray(d.interests) ? d.interests.filter((i) => i && typeof i.k === "string") : [],
       nr: d.nr,
       since: d.since,
