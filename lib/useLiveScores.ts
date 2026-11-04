@@ -30,7 +30,7 @@ import { isLiveLeagueEnabled } from "./liveConfig";
 // (Rene, 15.10.2026: Tippkarte und Matchcenter synchron) Dieser Speicher ist
 // die EINE Datenquelle für Tippkarten UND Matchcenter: gleiche URL
 // (/api/live?sport=…&date=…, ohne league – gefiltert wird im Browser),
-// gleicher Stand, gleiche Minute. Takt 60 s (Fußball, siehe liveIntervalSeconds), solange jemand
+// gleicher Stand, gleiche Minute. Takt 15 s (Fußball, siehe liveIntervalSeconds), solange jemand
 // abfragen will; im Hintergrund (Tab nicht sichtbar) Pause, beim
 // Zurückkommen sofort neu holen.
 
