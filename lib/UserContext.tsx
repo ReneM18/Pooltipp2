@@ -107,6 +107,10 @@ interface UserContextValue {
   // gegen Coins. Gäste und Konten ohne das SQL: wie bisher sofort.
   changeName: (name: string, pay?: boolean) => Promise<NameChangeResult>;
   loadNameChangeInfo: () => Promise<NameChangeInfo | null>;
+  // Profilbild 1× pro Quartal gratis, sonst gegen Coins (supabase/profilbild-aendern.sql).
+  // Vor dem Setzen eines neuen Profilbilds aufrufen.
+  unlockPhotoChange: (pay?: boolean) => Promise<NameChangeResult>;
+  loadPhotoChangeInfo: () => Promise<NameChangeInfo | null>;
   freeStars: number;
   // Saison-Pass-XP – steigt AUSSCHLIESSLICH über den täglichen Bonus
   // (claimDailyBonus), niemals durch Tipp-Ergebnisse. Siehe PoolScore-Konzept:
@@ -557,6 +561,33 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const row = data as { next_free_at: string | null; price: number };
     const next = row.next_free_at && new Date(row.next_free_at).getTime() > Date.now() ? row.next_free_at : null;
     return { nextFreeAt: next, price: Number(row.price ?? 0) };
+  }
+
+  async function loadPhotoChangeInfo(): Promise<NameChangeInfo | null> {
+    if (!authUserId) return null;
+    const { data, error } = await supabase.rpc("photo_change_info");
+    if (error || !data) return null;
+    const row = data as { next_free_at: string | null; price: number; credit?: boolean };
+    const next = !row.credit && row.next_free_at && new Date(row.next_free_at).getTime() > Date.now() ? row.next_free_at : null;
+    return { nextFreeAt: next, price: Number(row.price ?? 0) };
+  }
+
+  async function unlockPhotoChange(pay = false): Promise<NameChangeResult> {
+    if (!isRegistered || !authUserId) return { ok: true, paid: 0 };
+    const { data, error } = await supabase.rpc("unlock_photo_change", { p_pay: pay });
+    if (error) {
+      // SQL noch nicht ausgeführt: wie bisher ohne Grenze.
+      if (error.code === "PGRST202") return { ok: true, paid: 0 };
+      if (error.message.includes("Nicht genug Sterne")) return { ok: false, error: "Nicht genug Coins." };
+      if (error.message.startsWith("Profilbild erst wieder")) {
+        const info = await loadPhotoChangeInfo();
+        return { ok: false, error: error.message, needsPay: true, nextFreeAt: info?.nextFreeAt ?? null };
+      }
+      return { ok: false, error: error.message || "Profilbild konnte nicht freigegeben werden." };
+    }
+    const paid = Number((data as { paid?: number } | null)?.paid ?? 0);
+    if (paid > 0) void reloadWallet();
+    return { ok: true, paid };
   }
 
   async function changeName(name: string, pay = false): Promise<NameChangeResult> {
@@ -1179,6 +1210,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
         extrasPendingRef.current--;
         if (!error) return;
         console.warn("Profil-Einstellungen konnten nicht gespeichert werden:", error.message);
+        // Neues Profilbild ohne Freigabe abgelehnt: altes Bild wieder zeigen.
+        if (error.message.includes("Profilbild") && previous.photos !== undefined) {
+          try {
+            setPhotos(JSON.parse(previous.photos) as (string | null)[]);
+          } catch {
+            // altes Bild unbekannt: so lassen
+          }
+        }
         // Beim nächsten Ändern nochmal versuchen.
         for (const key of Object.keys(changed)) {
           if (previous[key] === undefined) delete synced[key];
@@ -1513,6 +1552,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setDisplayName,
         changeName,
         loadNameChangeInfo,
+        unlockPhotoChange,
+        loadPhotoChangeInfo,
         photos,
         setPhoto,
         removePhoto,
