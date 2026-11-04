@@ -356,7 +356,8 @@ function ProfilInhalt() {
       setPendingPhoto(null);
       setPhoto(0, dataUrl);
       if (res.paid > 0) showToast(`🖼️ Profilbild geändert für ${res.paid} Coins.`, "gold");
-      setPhotoInfo(await loadPhotoChangeInfo());
+      // Erst nach dem Speichern des Bilds ist die Freigabe verbraucht.
+      window.setTimeout(() => loadPhotoChangeInfo().then(setPhotoInfo), 3000);
       return;
     }
     if (res.needsPay) {
@@ -1041,7 +1042,18 @@ function ProfilInhalt() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={photo} alt={`Foto ${index + 1}`} className="h-full w-full object-cover" />
                   <button
-                    onClick={() => removePhoto(index)}
+                    onClick={() => {
+                      // Profilbild löschen ist gratis, ein neues kostet in der Sperrzeit Coins.
+                      if (
+                        index === 0 &&
+                        photoInfo?.nextFreeAt &&
+                        !window.confirm(
+                          `Ein neues Profilbild kostet bis ${formatNameDate(photoInfo.nextFreeAt)} ${photoInfo.price.toLocaleString("de-DE")} Coins. Trotzdem löschen?`
+                        )
+                      )
+                        return;
+                      removePhoto(index);
+                    }}
                     aria-label={`Foto ${index + 1} entfernen`}
                     className="absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-pitch/80 text-xs text-ink"
                   >

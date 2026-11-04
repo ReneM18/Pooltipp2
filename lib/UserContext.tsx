@@ -1210,14 +1210,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
         extrasPendingRef.current--;
         if (!error) return;
         console.warn("Profil-Einstellungen konnten nicht gespeichert werden:", error.message);
-        // Neues Profilbild ohne Freigabe abgelehnt: altes Bild wieder zeigen.
-        if (error.message.includes("Profilbild") && previous.photos !== undefined) {
-          try {
-            setPhotos(JSON.parse(previous.photos) as (string | null)[]);
-          } catch {
-            // altes Bild unbekannt: so lassen
-          }
-        }
         // Beim nächsten Ändern nochmal versuchen.
         for (const key of Object.keys(changed)) {
           if (previous[key] === undefined) delete synced[key];

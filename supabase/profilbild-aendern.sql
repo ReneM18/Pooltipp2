@@ -18,6 +18,9 @@
 -- 1) Wann zuletzt gratis geändert, und ob gerade eine Änderung freigegeben ist
 alter table public.profile_extras add column if not exists photo_changed_at timestamptz;
 alter table public.profile_extras add column if not exists photo_change_credit boolean not null default false;
+-- Wann das Profilbild zuletzt wirklich gewechselt hat: nur kurz danach darf
+-- die kleine Vorschau (photo_thumb, die andere sehen) neu gesetzt werden.
+alter table public.profile_extras add column if not exists photo_set_at timestamptz;
 
 -- 2) Preis einer vorzeitigen Änderung in Coins
 create or replace function public.photo_change_price()
@@ -29,24 +32,45 @@ as $$
 $$;
 
 -- 3) Neues Profilbild aus dem Browser nur mit Freigabe; die Freigabe wird
---    dabei verbraucht. Zeitpunkt und Freigabe darf der Browser nicht setzen.
+--    dabei verbraucht. Ohne Freigabe bleibt das alte Profilbild stehen, der
+--    Rest der Änderung (andere Fotos, Einstellungen) wird trotzdem gespeichert.
+--    Zeitpunkt und Freigabe darf der Browser nicht setzen. Die Vorschau
+--    (photo_thumb) darf sich nur kurz nach einem echten Bildwechsel ändern,
+--    sonst könnte man über sie das Bild für andere gratis tauschen.
 create or replace function public.protect_profile_photo()
 returns trigger
 language plpgsql
 as $$
 begin
-  if not public.is_client_write() then
+  if tg_op = 'INSERT' then
+    if public.is_client_write() then
+      new.photo_change_credit := false;
+      new.photo_changed_at := null;
+    end if;
+    new.photo_set_at := case when jsonb_typeof(new.photos -> 0) = 'string' then now() else null end;
     return new;
   end if;
-  new.photo_changed_at := old.photo_changed_at;
-  new.photo_change_credit := old.photo_change_credit;
-  if (new.photos -> 0) is distinct from (old.photos -> 0)
-     and jsonb_typeof(new.photos -> 0) = 'string' then
-    if old.photo_change_credit then
-      new.photo_change_credit := false;
-    else
-      raise exception 'Profilbild-Änderung nicht freigegeben';
+
+  if public.is_client_write() then
+    new.photo_changed_at := old.photo_changed_at;
+    new.photo_change_credit := old.photo_change_credit;
+    new.photo_set_at := old.photo_set_at;
+    if (new.photos -> 0) is distinct from (old.photos -> 0)
+       and jsonb_typeof(new.photos -> 0) = 'string' then
+      if old.photo_change_credit then
+        new.photo_change_credit := false;
+      else
+        new.photos := jsonb_set(new.photos, '{0}', coalesce(old.photos -> 0, 'null'::jsonb));
+      end if;
     end if;
+  end if;
+
+  if (new.photos -> 0) is distinct from (old.photos -> 0) then
+    new.photo_set_at := now();
+  elsif new.photo_thumb is distinct from old.photo_thumb
+        and not (old.photo_set_at is null and old.photo_thumb is null)
+        and (old.photo_set_at is null or old.photo_set_at < now() - interval '10 minutes') then
+    new.photo_thumb := old.photo_thumb;
   end if;
   return new;
 end;
@@ -54,7 +78,7 @@ $$;
 
 drop trigger if exists protect_profile_photo on public.profile_extras;
 create trigger protect_profile_photo
-  before update on public.profile_extras
+  before insert or update on public.profile_extras
   for each row execute procedure public.protect_profile_photo();
 
 -- 4) Stand für das Profil
