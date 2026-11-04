@@ -1782,9 +1782,10 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const [endNoteMain, endNoteScore] = endNote ? splitEndNote(endNote) : [null, null];
   const statusSub = endNote ? null : sub;
 
-  // Offenes Tippspiel: schmaler Balken "Tippen" rechts hinter der Zeile. Am
-  // Handy werden die Namen dann eher etwas kleiner statt zweizeilig.
-  const tipTab = tippable && link ? link : null;
+  // Offenes Tippspiel: schmaler Balken "Tippen" rechts hinter der Zeile,
+  // getipptes: rechts daneben klein "✓ Getippt". Am Handy werden die Namen
+  // dann eher etwas kleiner statt zweizeilig.
+  const tipTab = (tippable || tipped) && link ? link : null;
   const row = (
     <button
       type="button"
@@ -1816,7 +1817,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             Zeile 1 groß/fett, Zeile 2 klein muted. */}
         {/* Drei Zeilen (Zeit, Sender, Tippen/Getippt) mit knappem Abstand, damit
             die Zeile nicht höher wird als die anderen. */}
-        <span className={`flex w-[4.75rem] min-w-0 flex-col ${tipped ? "gap-px" : "gap-0.5"} overflow-hidden tabular-nums`}>
+        <span className={`flex w-[4.75rem] min-w-0 flex-col ${tipped && !link ? "gap-px" : "gap-0.5"} overflow-hidden tabular-nums`}>
           <span className={`flex min-w-0 items-center gap-1 text-[13px] font-semibold leading-tight ${status.muted ? "text-muted" : "text-ink"}`}>
             {status.dot && <StateDot state={status.dot} />}
             <span className={`min-w-0 ${statusSub && tv ? "shrink-0" : "truncate"}`}>{status.main}</span>
@@ -1838,9 +1839,9 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
               <span className="min-w-0 break-words">{tv}</span>
             </span>
           )}
-          {/* "Getippt" klein unter der Zeit. "Tippen" steht im schmalen
-              Balken rechts neben der Zeile (Rene, 04.11.2026, siehe unten). */}
-          {tipped && <span className="truncate text-[10px] font-semibold leading-none text-gold">✓ Getippt</span>}
+          {/* "Tippen" und "Getippt" stehen im schmalen Balken rechts neben
+              der Zeile (Rene, 04.11.2026: "das getippt muss wo anders hin"). */}
+          {tipped && !link && <span className="truncate text-[10px] font-semibold leading-none text-gold">✓ Getippt</span>}
         </span>
         {/* Feiner senkrechter Strich zwischen Zeit und Vereinen (Rene,
             30.10.2026, wie Livescore). */}
@@ -1911,6 +1912,22 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
     </button>
   );
   if (!tipTab) return row;
+  // Schon getippt: kein Balken, nur rechts daneben klein und ruhig "✓
+  // Getippt", an derselben Stelle wie "Tippen" (Rene, 04.11.2026: "mach
+  // einfach rechts unscheinbar getippt"). Führt zur Tippkarte.
+  if (tipped)
+    return (
+      <div className="relative pr-[3.25rem] lg:pr-[3.625rem]">
+        <Link
+          href={tipCardHref(tipTab.match.id)}
+          className="absolute inset-y-0 right-0 flex w-[3.25rem] flex-col items-center justify-center gap-1 whitespace-nowrap leading-none text-gold/70 transition-colors hover:text-gold lg:w-[3.625rem]"
+        >
+          <span className="text-[12px] font-bold">✓</span>
+          <span className="text-[10px] font-semibold">Getippt</span>
+        </Link>
+        {row}
+      </div>
+    );
   // "Tippen" als schmaler Balken rechts, immer sichtbar, aber ruhig: grau
   // wie die Zeile, nur der rechte Rand gold. Die runde Ecke der Zeile ragt
   // in den Balken (Rene, 04.11.2026: "der balken hatte eine coole form",
@@ -1920,7 +1937,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
     <div className="relative pr-[3.25rem] lg:pr-[3.625rem]">
       <Link
         href={tipCardHref(tipTab.match.id)}
-        className="absolute inset-y-0 right-0 flex w-[5rem] items-center justify-center lg:w-[5.375rem] rounded-card border border-r-[2.5px] border-muted/25 border-r-gold bg-surface pl-7 transition-colors hover:bg-surface-hover"
+        className={`absolute inset-y-0 right-0 flex w-[5rem] items-center justify-center rounded-card border border-r-[2.5px] border-muted/25 bg-surface pl-7 transition-colors hover:bg-surface-hover lg:w-[5.375rem] border-r-gold`}
       >
         <TipStatus deadline={tipTab.match.tipDeadline} kickoff={tipTab.match.kickoff} />
       </Link>
@@ -1963,7 +1980,8 @@ function TipStatus({ deadline, kickoff }: { deadline: string; kickoff: string })
     }
   }
   return (
-    <span className="flex flex-col items-center gap-0.5 whitespace-nowrap leading-none" role={counting ? "timer" : undefined} aria-label={label}>
+    // Countdown mit etwas Luft unter "Tippen" (Rene, 04.11.2026: "zu knapp").
+    <span className="flex flex-col items-center gap-1.5 whitespace-nowrap leading-none" role={counting ? "timer" : undefined} aria-label={label}>
       <span className="font-display text-[12px] font-bold text-gold">Tippen</span>
       {extra && <span className={`text-[10px] font-medium tabular-nums opacity-85 ${soon ? "text-[#FF9B5C]" : "text-gold"}`}>{extra}</span>}
     </span>
