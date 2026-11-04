@@ -11,6 +11,7 @@ export default function FitText({
   className = "",
   minPx = 10,
   maxLines,
+  shrinkFirst = false,
 }: {
   text: string;
   className?: string;
@@ -18,6 +19,11 @@ export default function FitText({
   // Höchstens so viele Zeilen (Rene, 15.10.2026): wären es mehr, wird
   // ebenfalls verkleinert; ganz zum Schluss schneidet line-clamp ab.
   maxLines?: 2;
+  // Erst in einer Zeile verkleinern (bis minPx), nur wenn es dann immer noch
+  // nicht passt, an Leerzeichen umbrechen (Matchcenter-Zeilen mit
+  // Tippen-Balken, 04.11.2026: dort ist es schmaler, Namen sollen nicht
+  // unnötig zweizeilig werden).
+  shrinkFirst?: boolean;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
 
@@ -26,8 +32,21 @@ export default function FitText({
     if (!el) return;
     const fit = () => {
       el.style.fontSize = "";
+      el.style.whiteSpace = shrinkFirst ? "nowrap" : "";
       let size = parseFloat(getComputedStyle(el).fontSize);
       const tooBig = () => el.scrollWidth > el.clientWidth || (!!maxLines && el.scrollHeight > el.clientHeight + 1);
+      if (shrinkFirst) {
+        const start = size;
+        while (tooBig() && size > minPx) {
+          size -= 0.5;
+          el.style.fontSize = `${size}px`;
+        }
+        if (!tooBig()) return;
+        // Passt einzeilig nicht: normal umbrechen, wieder ab voller Größe.
+        el.style.whiteSpace = "";
+        size = start;
+        el.style.fontSize = "";
+      }
       while (tooBig() && size > minPx) {
         size -= 0.5;
         el.style.fontSize = `${size}px`;
@@ -37,7 +56,7 @@ export default function FitText({
     const observer = new ResizeObserver(fit);
     observer.observe(el.parentElement ?? el);
     return () => observer.disconnect();
-  }, [text, minPx, maxLines]);
+  }, [text, minPx, maxLines, shrinkFirst]);
 
   return (
     <span
