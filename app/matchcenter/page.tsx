@@ -1783,6 +1783,8 @@ function useTippable(match: Match | null): boolean {
   return !!match && now !== null && isMatchTippable(match, now);
 }
 
+type DetailTab = "spiel" | "aufstellung" | "statistik";
+
 // Detail rechts: Liga + Pill, Anzeigetafel (dieselbe wie auf der Tippkarte),
 // "Dein Tipp", Spiel / Aufstellung / Statistik.
 function LcDetail({
@@ -1876,9 +1878,20 @@ function LcDetail({
   const [leftKick, rightKick] = displayOrder(order, appHome, appAway);
   // Reiter Spiel / Aufstellung / Statistik (Rene, 27.10.2026: Pro-Plan),
   // nur Fußball. Daten erst laden, wenn ein Reiter offen ist.
-  const [tab, setTab] = useState<"spiel" | "aufstellung" | "statistik">("spiel");
+  // Welcher Reiter offen ist (Rene, 04.11.2026): vor Anpfiff Statistik, sobald
+  // die Aufstellung da ist Aufstellung, ab Anpfiff (auch nach Schluss) Spiel.
+  // Tippt man selbst einen Reiter an, bleibt der offen.
   const hasInfo = sport === "Fußball";
-  const info = useMatchInfo(hasInfo && tab !== "spiel" ? game.id : null, isLiveRunning(game.status));
+  const [pickedTab, setTab] = useState<DetailTab | null>(null);
+  // Bis 90 Min. vor Anpfiff alle 2 Min. nachsehen, ob die Aufstellung da ist.
+  const lineupSoon = !started && Date.parse(game.kickoff) - Date.now() < 90 * 60 * 1000;
+  const autoTab: DetailTab = !hasInfo || started ? "spiel" : "statistik";
+  const info = useMatchInfo(
+    hasInfo && (pickedTab ?? autoTab) !== "spiel" ? game.id : null,
+    isLiveRunning(game.status) || lineupSoon,
+  );
+  const hasLineup = !!info.data?.lineups.some((t) => t.startXI.length > 0);
+  const tab: DetailTab = pickedTab ?? (autoTab === "statistik" && hasLineup ? "aufstellung" : autoTab);
   const preview = useMatchPreview(hasInfo && tab === "statistik" ? game.id : null);
   const swapped = !!link?.result.swapped;
   const firstApiName = (leftSide === "home") !== swapped ? game.home : game.away;
