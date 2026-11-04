@@ -660,7 +660,10 @@ function HonorsEditor({
       })}
       {honors.length < MAX_HONORS && (
         <div className="flex flex-col gap-2 rounded-lg border border-dashed border-edge p-3">
-          <p className="text-xs font-semibold text-muted">Neuer Erfolg</p>
+          <p className="text-xs font-semibold text-muted">
+            {honors.length ? "Weiteren Erfolg eintragen" : "Neuer Erfolg"}
+            <span className="font-normal"> · bis zu {MAX_HONORS}</span>
+          </p>
           <div className="grid gap-2 sm:grid-cols-3">
             <select value={t} onChange={(e) => setT(e.target.value)} aria-label="Art des Erfolgs" className={INPUT}>
               {HONOR_TYPES.map((h) => (
