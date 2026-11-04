@@ -1672,9 +1672,9 @@ function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowS
   }
   if (sport === "NHL") {
     if (game.status === "BREAK") {
-      // Welches Drittel vorbei ist, steckt im Fortschritt (1/3, 2/3, 3/3).
-      const done = game.progress !== undefined ? Math.round(game.progress * 3) : 0;
-      return { dot: "pause", main: "Pause", sub: done >= 1 && done <= 3 ? `nach ${done}. Dr.` : undefined };
+      // Nur ein Wort, ohne Zusatz (Rene, 04.11.2026: "für was brauchen wir
+      // beides", "Pause Ha…" war abgeschnitten).
+      return { dot: "pause", main: "Pause" };
     }
     const period = /^P([1-3])$/.exec(s);
     if (period) return { dot: "live", main: `${period[1]}. Drittel`, sub: minute };
@@ -1682,13 +1682,22 @@ function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowS
     if (s === "PT") return { dot: "live", main: "Penalty" };
   }
   if (sport === "Fußball") {
-    if (game.status === "HT") return { dot: "pause", main: "Pause", sub: "Halbzeit" };
+    // Halbzeit kurz "HZ" statt "Pause Halbzeit", das am Handy und am PC als
+    // "Pause Ha…" abgeschnitten war (Rene, 04.11.2026: "nimm HZ").
+    if (game.status === "HT") return { dot: "pause", main: "HZ" };
     if (s === "ET") return { dot: "live", main: "Verl.", sub: minute };
     if (s === "P") return { dot: "live", main: "Elfmeter" };
     if (game.status === "LIVE") return { dot: "live", main: clockText ?? minute ?? "Live" };
   }
-  if (game.status === "HT" || game.status === "BREAK") return { dot: "pause", main: "Pause", sub: game.statusText && game.statusText !== "Pause" ? game.statusText : undefined };
-  if (game.status === "LIVE") return { dot: "live", main: game.statusText || "Live", sub: minute && !game.statusText.includes(minute) ? minute : undefined };
+  // Halbzeit auch in NBA/NFL "HZ", andere Pausen nur "Pause" (Rene, 04.11.2026).
+  if (game.status === "HT") return { dot: "pause", main: "HZ" };
+  if (game.status === "BREAK") return { dot: "pause", main: "Pause" };
+  if (game.status === "LIVE") {
+    // "Verlängerung" passt nicht in die Spalte, kurz wie im Fußball und im
+    // Eishockey "Verl." (Rene, 04.11.2026).
+    const main = game.statusText === "Verlängerung" ? "Verl." : game.statusText || "Live";
+    return { dot: "live", main, sub: minute && !game.statusText.includes(minute) ? minute : undefined };
+  }
   return { main: OTHER_STATUS[s] ?? "—", muted: true };
 }
 
@@ -1781,6 +1790,10 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const endNote = done && !(open && link) ? sub : null;
   const [endNoteMain, endNoteScore] = endNote ? splitEndNote(endNote) : [null, null];
   const statusSub = endNote ? null : sub;
+  // Mit Sender steht der Zusatz in derselben Zeile. Neben langen Texten
+  // ("2. Drittel", "3. Viertel") ist dafür kein Platz, dann fällt die Minute
+  // weg statt abgeschnitten zu werden (Rene, 04.11.2026: "Pause Ha…").
+  const inlineSub = statusSub && tv && status.main.length <= 5 ? statusSub : null;
 
   // Offenes Tippspiel: schmaler Balken "Tippen" rechts hinter der Zeile.
   // Am Handy werden die Namen dann eher etwas kleiner statt zweizeilig.
@@ -1822,11 +1835,11 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
         <span className={`flex w-[4.75rem] min-w-0 flex-col gap-0.5 overflow-hidden tabular-nums`}>
           <span className={`flex min-w-0 items-center gap-1 text-[13px] font-semibold leading-tight ${status.muted ? "text-muted" : "text-ink"}`}>
             {status.dot && <StateDot state={status.dot} />}
-            <span className={`min-w-0 ${statusSub && tv ? "shrink-0" : "truncate"}`}>{status.main}</span>
+            <span className={`min-w-0 ${inlineSub ? "shrink-0" : "truncate"}`}>{status.main}</span>
             {/* Mit Sender darunter steht der Zusatz in derselben Zeile
                 ("Verl. 122'"), damit jede Zeile höchstens zwei Zeilen hoch
                 ist (Rene, 27.10.2026: "die Spalte ist höher"). */}
-            {statusSub && tv && <span className="min-w-0 truncate text-[10px] font-normal text-muted">{statusSub}</span>}
+            {inlineSub && <span className="min-w-0 truncate text-[10px] font-normal text-muted">{inlineSub}</span>}
           </span>
           {/* "heute" steht schon im Reiter, nur "morgen"/"gestern" zeigen (Rene, 27.10.2026: flachere Zeilen). */}
           {statusSub && !tv && <span className="truncate text-[10px] leading-tight text-muted">{statusSub}</span>}
