@@ -24,6 +24,14 @@ import { reloadLiveDay, useLiveDay, useLivePolling, useStadium, type LiveDay } f
 import { CUP_ZONES, cupZone, TABLE_LEAGUES, type CupZone, type StandingGroup, type StandingsResponse } from "@/lib/standings";
 import { LIVE_SPORTS, leagueRank, liveGameCountry, liveGameLeague } from "@/lib/liveConfig";
 import { flagEmoji } from "@/lib/flags";
+import {
+  currentRoundIndex,
+  FIXTURE_LEAGUES,
+  groupRounds,
+  type FixtureLeague,
+  type FixtureRound,
+  type FixturesResponse,
+} from "@/lib/competitionFixtures";
 import { useLiveClock, useMinuteTick } from "@/lib/useLiveMinute";
 import { useAppData } from "@/lib/AppDataContext";
 import { competitionFlag } from "@/lib/competitionFlag";
@@ -350,6 +358,8 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
       setView("live");
       setOnlyLive(false);
       setPlanDay(null);
+      setPlanMode("tag");
+      setRoundKey(null);
       // Gewähltes Spiel vergessen: wie beim Öffnen wieder automatisch das
       // erste laufende (getippte) Spiel zeigen (Rene, 01.11.2026).
       pickedRef.current = false;
@@ -370,6 +380,11 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   const [calToday, setCalToday] = useState<string | null>(null);
   // Gewählter Tag im Spielplan, null = heute.
   const [planDay, setPlanDay] = useState<string | null>(null);
+  // Spielplan "Nach Tag" oder "Nach Bewerb" (Rene, 04.11.2026, Variante A),
+  // dazu der gewählte Bewerb und Spieltag (null = aktueller Spieltag).
+  const [planMode, setPlanMode] = useState<PlanMode>("tag");
+  const [fixtureLeagueId, setFixtureLeagueId] = useState(FIXTURE_LEAGUES[0].id);
+  const [roundKey, setRoundKey] = useState<string | null>(null);
   const [now, setNow] = useState<number | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Hat der Spieler selbst gewählt? Dann nichts mehr automatisch wählen.
@@ -416,11 +431,41 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   const inPlanRange = (date: string | null): date is string =>
     !!date && !!planFirst && !!planLast && date >= planFirst && date <= planLast;
   const shownPlanDay = planDay && inPlanRange(planDay) ? planDay : calToday;
+  // Spielplan nach Bewerb: nur Fußball und nur mit Pro-Plan (die
+  // Saison-Abfrage ist im Gratis-Plan gesperrt). Solange die Quote noch
+  // unbekannt ist (erste Antwort), bleibt es angeboten.
+  const hasBewerb = sport === "Fußball" && (!todayDay.quota || hasPlan);
+  // Tag-Ansicht des Spielplans (sonst nach Bewerb, dann keine Tage laden).
+  const dayPlanActive = view === "spielplan" && !(hasBewerb && planMode === "bewerb");
   // Je Tag auch die Nacht danach (Sporttag): ein Kalendertag mehr laden.
-  const planCal = useLiveDay(sport, view === "spielplan" ? shownPlanDay : null);
-  const planNightCal = useLiveDay(sport, view === "spielplan" && shownPlanDay ? addDays(shownPlanDay, 1) : null);
+  const planCal = useLiveDay(sport, dayPlanActive ? shownPlanDay : null);
+  const planNightCal = useLiveDay(sport, dayPlanActive && shownPlanDay ? addDays(shownPlanDay, 1) : null);
   const planGames = useMemo(() => sportDayGames(planCal.games, planNightCal.games), [planCal.games, planNightCal.games]);
   const planDayData = mergeSportDay(planCal, planNightCal, planGames);
+
+  const bewerbActive = hasBewerb && view === "spielplan" && planMode === "bewerb";
+  const fixtures = useFixtures(bewerbActive ? fixtureLeagueId : null);
+  const rounds = useMemo(() => groupRounds(fixtures.data?.games ?? []), [fixtures.data]);
+  const currentRound = now !== null ? currentRoundIndex(rounds, now) : -1;
+  const pickedRound = roundKey ? rounds.findIndex((r) => r.key === roundKey) : -1;
+  const roundIndex = pickedRound >= 0 ? pickedRound : currentRound;
+  const shownRound: FixtureRound | null = bewerbActive ? rounds[roundIndex] ?? null : null;
+  // Laufende Spiele von heute mit dem frischen Stand aus der Tagesliste
+  // (der Spielplan selbst ist bis zu 30 Min. alt).
+  const roundGames = useMemo(() => {
+    if (!shownRound) return null;
+    const fresh = new Map((todayDay.games ?? []).map((g) => [g.id, g]));
+    return shownRound.games.map((g) => fresh.get(g.id) ?? g);
+  }, [shownRound, todayDay.games]);
+  const roundDays = useMemo(() => new Set((roundGames ?? []).map((g) => sportDay(g.kickoff))), [roundGames]);
+
+  function openLeague(id: number) {
+    setFixtureLeagueId(id);
+    setRoundKey(null);
+    setPlanMode("bewerb");
+    setView("spielplan");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   // Am Handy seitlich wischen = Nachbar-Reiter (Rene, 29.10.2026), statt zur
   // nächsten Menüseite. Am ersten/letzten Reiter passiert nichts. Wo nicht
@@ -461,24 +506,31 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   const retry = () => {
     if (today) reloadLiveDay(sport, today);
     if (tomorrow) reloadLiveDay(sport, tomorrow);
-    if (view === "spielplan" && shownPlanDay) {
+    if (dayPlanActive && shownPlanDay) {
       reloadLiveDay(sport, shownPlanDay);
       reloadLiveDay(sport, addDays(shownPlanDay, 1));
     }
+    if (bewerbActive) fixtures.reload();
   };
 
   // App-Spiele den API-Spielen zuordnen (gleiche Zuordnung wie die Tippkarten).
   const allGames = useMemo(() => {
     const seen = new Set((todayDay.games ?? []).map((g) => g.id));
-    return [...(todayDay.games ?? []), ...(planDayData.games ?? []).filter((g) => !seen.has(g.id))];
-  }, [todayDay.games, planDayData.games]);
+    const list = [...(todayDay.games ?? [])];
+    for (const g of [...(planDayData.games ?? []), ...(roundGames ?? [])]) {
+      if (seen.has(g.id)) continue;
+      seen.add(g.id);
+      list.push(g);
+    }
+    return list;
+  }, [todayDay.games, planDayData.games, roundGames]);
   const links = useMemo(() => {
     const map = new Map<string, AppLink>();
     if (allGames.length === 0) return map;
     for (const m of matches) {
       if (m.sport !== sport || m.draft || m.status === "cancelled") continue;
       const day = sportDay(m.kickoff);
-      if (day !== today && !(view === "spielplan" && day === shownPlanDay)) continue;
+      if (day !== today && !(view === "spielplan" && day === shownPlanDay) && !roundDays.has(day)) continue;
       const home = getTeam(m.homeTeamId);
       const away = getTeam(m.awayTeamId);
       if (!home || !away) continue;
@@ -488,7 +540,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
     return map;
     // apiNameLinks: verknüpfte Vereinsnamen zählen bei findLiveGame mit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allGames, matches, getTeam, sport, today, view, shownPlanDay, apiNameLinks]);
+  }, [allGames, matches, getTeam, sport, today, view, shownPlanDay, roundDays, apiNameLinks]);
   const tippedMatchIds = useMemo(
     () => new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId)),
     [myTips],
@@ -511,6 +563,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   useEffect(() => {
     if (!targetDay || !targetInPlan) return;
     setView("spielplan");
+    setPlanMode("tag");
     setPlanDay(targetDay);
   }, [targetDay, targetInPlan]);
   // ... und sobald es zugeordnet ist, auswählen.
@@ -562,7 +615,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
   }
 
   const selected = selectedId ? allGames.find((g) => g.id === selectedId) ?? null : null;
-  const listProps = { sport, links, isTipped, canTip, selectedId, onSelect: select };
+  const listProps = { sport, links, isTipped, canTip, selectedId, onSelect: select, onLeague: hasBewerb ? openLeague : undefined };
 
   const selectedLink = selected ? links.get(selected.id) ?? null : null;
   const runningCount = todayDay.games?.filter((g) => isLiveRunning(g.status)).length ?? 0;
@@ -648,7 +701,11 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
           label="Spielplan"
           active={view === "spielplan"}
           onClick={() => {
-            if (view === "spielplan") setPlanDay(null);
+            // Nochmal antippen: zurück auf heute bzw. den aktuellen Spieltag.
+            if (view === "spielplan") {
+              setPlanDay(null);
+              setRoundKey(null);
+            }
             setView("spielplan");
           }}
         />
@@ -675,6 +732,27 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
             <div className="min-w-0 rounded-card border border-muted/40 bg-surface p-3 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] lg:p-4">
               {view === "spielplan" ? (
                 <>
+                  {hasBewerb && <PlanModeSwitch mode={planMode} onPick={setPlanMode} />}
+                  {bewerbActive ? (
+                    <LcCompetition
+                      leagueId={fixtureLeagueId}
+                      onLeaguePick={(id) => {
+                        setFixtureLeagueId(id);
+                        setRoundKey(null);
+                      }}
+                      rounds={rounds}
+                      roundIndex={roundIndex}
+                      currentRound={currentRound}
+                      games={roundGames}
+                      loading={!fixtures.data && !fixtures.failed}
+                      error={fixtures.failed ? "" : fixtures.data?.error ?? null}
+                      now={now}
+                      onRound={(i) => rounds[i] && setRoundKey(rounds[i].key)}
+                      onRetry={retry}
+                      {...listProps}
+                    />
+                  ) : (
+                  <>
                   {shownPlanDay && planFirst && planLast && (
                     <DayNav
                       date={shownPlanDay}
@@ -685,6 +763,8 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
                     />
                   )}
                   <LcDay key={shownPlanDay} games={planDayData.games} error={planDayData.error} onRetry={retry} {...listProps} />
+                  </>
+                  )}
                 </>
               ) : (
                 <LcLive onlyLive={onlyLive} games={todayDay.games} error={todayDay.error} dataAt={todayDay.dataAt} source={todayDay.source} loading={polling && todayDay.loading} onRetry={retry} {...listProps} />
@@ -726,6 +806,8 @@ interface ListProps {
   canTip: (g: LiveGame) => boolean;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  // Liganame antippen → Spielplan des Bewerbs (nur Fußball).
+  onLeague?: (id: number) => void;
 }
 
 function LcError({ error, onRetry }: { error: string; onRetry: () => void }) {
@@ -748,12 +830,20 @@ function LcError({ error, onRetry }: { error: string; onRetry: () => void }) {
 // Kopf einer Liga (Rene, 30.10.2026, Variante A wie Livescore): Flagge im
 // Kreis und Liganame, ohne ausgeschriebenes Land ("es reicht die Flagge").
 // Ohne passende Flagge steht das Sport-Symbol im Kreis.
-function LeagueHeading({ sport, game }: { sport: Sport; game: LiveGame }) {
+// Bewerb zur Liga eines Spiels aus der Tagesliste ("Bundesliga · Austria"),
+// null = kein Spielplan (z. B. Länderspiel).
+function fixtureLeagueOf(league: string): FixtureLeague | null {
+  const live = liveGameLeague("Fußball", league);
+  if (!live) return null;
+  return FIXTURE_LEAGUES.find((l) => l.label === live.label && l.country === live.country) ?? null;
+}
+
+function LeagueHeading({ sport, game, onLeague }: { sport: Sport; game: LiveGame; onLeague?: (id: number) => void }) {
   const { competitions } = useAppData();
   const flag = liveLeagueFlag(sport, game, competitions);
   const name = leagueName(game, sport);
-  return (
-    <p className="mb-2.5 flex items-center gap-2.5 font-display text-[15px] font-bold leading-tight text-ink lg:text-base">
+  const inner = (
+    <>
       <span
         aria-hidden
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-edge bg-surface-hover text-lg"
@@ -761,18 +851,51 @@ function LeagueHeading({ sport, game }: { sport: Sport; game: LiveGame }) {
         <Emoji e={flag ?? SPORT_ICONS[sport]} />
       </span>
       <span className="min-w-0">{name}</span>
-    </p>
+    </>
   );
+  // Überschrift antippen = Spielplan des Bewerbs (Rene, 04.11.2026: "wenn
+  // man drauf klickt, dass sich der Spielplan öffnet"). Nur Bewerbe mit
+  // Spielplan (lib/competitionFixtures.ts), sonst bleibt es reiner Text.
+  const fixtureLeague = onLeague && sport === "Fußball" ? fixtureLeagueOf(game.league) : null;
+  if (onLeague && fixtureLeague) {
+    return (
+      <button
+        type="button"
+        onClick={() => onLeague(fixtureLeague.id)}
+        aria-label={`Spielplan ${name}`}
+        className="group mb-2.5 flex min-h-11 w-full items-center gap-2.5 text-left font-display text-[15px] font-bold leading-tight text-ink lg:text-base"
+      >
+        {inner}
+        <span className="ml-auto flex shrink-0 items-center gap-0.5 pl-2 font-body text-xs font-semibold text-muted transition-colors [@media(hover:hover)]:group-hover:text-gold">
+          Spielplan
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </span>
+      </button>
+    );
+  }
+  return <p className="mb-2.5 flex items-center gap-2.5 font-display text-[15px] font-bold leading-tight text-ink lg:text-base">{inner}</p>;
 }
 
 // Ligen untereinander, getrennt durch eine feine Linie über die ganze Breite
 // (Rene, 30.10.2026: "klare Abgrenzung zu einer neuen Liga").
-function LeagueGroups({ sport, games, renderRow }: { sport: Sport; games: LiveGame[]; renderRow: (g: LiveGame) => ReactNode }) {
+function LeagueGroups({
+  sport,
+  games,
+  renderRow,
+  onLeague,
+}: {
+  sport: Sport;
+  games: LiveGame[];
+  renderRow: (g: LiveGame) => ReactNode;
+  onLeague?: (id: number) => void;
+}) {
   return (
     <div className="flex flex-col divide-y divide-edge">
       {groupByLeague(sport, games).map((group) => (
         <div key={group.league} className="py-4 first:pt-0 last:pb-0">
-          <LeagueHeading sport={sport} game={group.games[0]} />
+          <LeagueHeading sport={sport} game={group.games[0]} onLeague={onLeague} />
           <div className="flex flex-col gap-2">{group.games.map(renderRow)}</div>
         </div>
       ))}
@@ -855,6 +978,7 @@ function LcLive({
       {running.length > 0 && <LcLiveHeader sport={sport} count={running.length} dataAt={dataAt} source={source} />}
       <LeagueGroups
         sport={sport}
+        onLeague={listProps.onLeague}
         games={[...running, ...upcoming, ...finished]}
         renderRow={(g) => <GameRow key={g.id} game={g} dataAt={dataAt} {...listProps} />}
       />
@@ -882,6 +1006,23 @@ function LcLiveHeader({ sport, count, dataAt, source }: { sport: Sport; count: n
   );
 }
 
+// Pfeil zum Blättern (Tag, Spieltag), 44 × 44 px, am Rand ausgegraut.
+function NavArrow({ dir, enabled, label, onClick }: { dir: -1 | 1; enabled: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!enabled}
+      aria-label={label}
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-edge text-ink transition-colors [@media(hover:hover)]:hover:border-gold [@media(hover:hover)]:hover:text-gold disabled:pointer-events-none disabled:opacity-30"
+    >
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d={dir < 0 ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
+      </svg>
+    </button>
+  );
+}
+
 // Spielplan-Kopf (Rene, 30.10.2026): "Heute" mit Pfeil links/rechts, je
 // einen Tag zurück oder vor. Pfeile 44 × 44 px, damit man sie am Handy gut
 // trifft. Am Rand des Bereichs ist der Pfeil ausgegraut.
@@ -902,17 +1043,7 @@ function DayNav({
   const weekday = new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC", weekday: "long" });
   const short = new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC", day: "2-digit", month: "2-digit" });
   const arrow = (dir: -1 | 1, enabled: boolean) => (
-    <button
-      type="button"
-      onClick={() => onPick(dir)}
-      disabled={!enabled}
-      aria-label={dir < 0 ? "Vorheriger Tag" : "Nächster Tag"}
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-edge text-ink transition-colors [@media(hover:hover)]:hover:border-gold [@media(hover:hover)]:hover:text-gold disabled:pointer-events-none disabled:opacity-30"
-    >
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d={dir < 0 ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
-      </svg>
-    </button>
+    <NavArrow dir={dir} enabled={enabled} label={dir < 0 ? "Vorheriger Tag" : "Nächster Tag"} onClick={() => onPick(dir)} />
   );
   return (
     <div className="mb-3 flex items-center justify-between gap-3 border-b border-edge pb-3">
@@ -949,7 +1080,208 @@ function LcDay({
     );
   }
   return (
-    <LeagueGroups sport={list.sport} games={[...games].sort(byKickoff)} renderRow={(g) => <GameRow key={g.id} game={g} {...list} />} />
+    <LeagueGroups
+      sport={list.sport}
+      onLeague={list.onLeague}
+      games={[...games].sort(byKickoff)}
+      renderRow={(g) => <GameRow key={g.id} game={g} {...list} />}
+    />
+  );
+}
+
+type PlanMode = "tag" | "bewerb";
+
+// Umschalter oben im Spielplan (Rene, 04.11.2026, Variante A): wie bisher
+// ein Tag mit Pfeilen, oder ein Bewerb mit seinen Spieltagen.
+function PlanModeSwitch({ mode, onPick }: { mode: PlanMode; onPick: (m: PlanMode) => void }) {
+  const item = (m: PlanMode, label: string) => (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={mode === m}
+      onClick={() => onPick(m)}
+      className={`h-10 flex-1 rounded-full text-sm font-bold transition-colors ${
+        mode === m ? "bg-gold text-pitch" : "text-muted [@media(hover:hover)]:hover:text-ink"
+      }`}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div role="tablist" aria-label="Spielplan" className="mb-3 flex gap-1 rounded-full border border-edge bg-pitch p-1 lg:max-w-sm">
+      {item("tag", "Nach Tag")}
+      {item("bewerb", "Nach Bewerb")}
+    </div>
+  );
+}
+
+// Spielplan eines Bewerbs über /api/fixtures, im Browser je Bewerb 30 Min.
+// gemerkt (so lange wie auf dem Server).
+const FIXTURES_KEEP_MS = 30 * 60 * 1000;
+const fixturesCache = new Map<number, { body: FixturesResponse; at: number }>();
+
+function cachedFixtures(leagueId: number): FixturesResponse | null {
+  const hit = fixturesCache.get(leagueId);
+  return hit && Date.now() - hit.at < FIXTURES_KEEP_MS ? hit.body : null;
+}
+
+function useFixtures(leagueId: number | null): { data: FixturesResponse | null; failed: boolean; reload: () => void } {
+  const [data, setData] = useState<FixturesResponse | null>(() => (leagueId === null ? null : cachedFixtures(leagueId)));
+  const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    if (leagueId === null) return;
+    const cached = cachedFixtures(leagueId);
+    setData(cached);
+    setFailed(false);
+    if (cached) return;
+    let cancelled = false;
+    fetch(`/api/fixtures?league=${leagueId}`)
+      .then((res) => res.json() as Promise<FixturesResponse>)
+      .then((body) => {
+        if (cancelled) return;
+        if (!body.error) fixturesCache.set(leagueId, { body, at: Date.now() });
+        setData(body);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [leagueId, retry]);
+  return {
+    data: leagueId !== null && data?.league === leagueId ? data : null,
+    failed,
+    reload: () => {
+      if (leagueId !== null) fixturesCache.delete(leagueId);
+      setRetry((r) => r + 1);
+    },
+  };
+}
+
+// "04.11." bzw. "04.–05.11." bzw. "28.11.–02.12." (Wiener Zeit).
+function roundDates(first: string, last: string): string {
+  const fmt = (iso: string) => {
+    const [, m, d] = viennaCalendarDay(iso).split("-");
+    return { d, m };
+  };
+  const a = fmt(first);
+  const b = fmt(last);
+  if (a.d === b.d && a.m === b.m) return `${a.d}.${a.m}.`;
+  if (a.m === b.m) return `${a.d}.–${b.d}.${b.m}.`;
+  return `${a.d}.${a.m}.–${b.d}.${b.m}.`;
+}
+
+// Spielplan nach Bewerb (Rene, 04.11.2026: "wer als nächstes gegeneinander
+// spielt"): Bewerb wählen (Handy eine Zeile wie bei der Tabelle, PC
+// Knöpfe), darunter ein Spieltag mit Pfeilen, Spiele je Tag.
+function LcCompetition({
+  leagueId,
+  onLeaguePick,
+  rounds,
+  roundIndex,
+  currentRound,
+  games,
+  loading,
+  error,
+  now,
+  onRound,
+  onRetry,
+  ...list
+}: ListProps & {
+  leagueId: number;
+  onLeaguePick: (id: number) => void;
+  rounds: FixtureRound[];
+  roundIndex: number;
+  currentRound: number;
+  games: LiveGame[] | null;
+  loading: boolean;
+  error: string | null;
+  now: number | null;
+  onRound: (index: number) => void;
+  onRetry: () => void;
+}) {
+  const round = rounds[roundIndex] ?? null;
+  const byDay = useMemo(() => {
+    const map = new Map<string, LiveGame[]>();
+    for (const g of games ?? []) {
+      const day = sportDay(g.kickoff);
+      map.set(day, [...(map.get(day) ?? []), g]);
+    }
+    return Array.from(map).sort(([a], [b]) => a.localeCompare(b));
+  }, [games]);
+  const arrow = (dir: -1 | 1) => (
+    <NavArrow
+      dir={dir}
+      enabled={!!rounds[roundIndex + dir]}
+      label={dir < 0 ? "Vorheriger Spieltag" : "Nächster Spieltag"}
+      onClick={() => onRound(roundIndex + dir)}
+    />
+  );
+  return (
+    <div>
+      <LeaguePicker leagues={FIXTURE_LEAGUES} leagueId={leagueId} onPick={onLeaguePick} arrows={false} />
+      <LeaguePills leagues={FIXTURE_LEAGUES} leagueId={leagueId} onPick={onLeaguePick} />
+      {error !== null ? (
+        <LcError error={error} onRetry={onRetry} />
+      ) : loading ? (
+        <p className="py-6 text-center text-sm text-muted">Lädt…</p>
+      ) : !round ? (
+        <EmptyState
+          emoji="🗓️"
+          title="Noch kein Spielplan"
+          text="Für diesen Bewerb gibt es in dieser Saison noch keine Spiele. Schau später nochmal vorbei."
+          className="border-none bg-transparent"
+        />
+      ) : (
+        <>
+          <div className="mb-3 flex items-center justify-between gap-3 border-y border-edge py-3">
+            {arrow(-1)}
+            <p className="min-w-0 text-center leading-tight" aria-live="polite">
+              <span className="block font-display text-base font-bold text-ink lg:text-lg">{round.title}</span>
+              <span className="block text-xs text-muted">
+                {round.phase ? `${round.phase} · ` : ""}
+                {roundDates(round.first, round.last)}
+              </span>
+            </p>
+            {arrow(1)}
+          </div>
+          {roundIndex !== currentRound && currentRound >= 0 && (
+            <button
+              type="button"
+              onClick={() => onRound(currentRound)}
+              className="mx-auto mb-3 flex min-h-9 items-center rounded-full border border-edge px-4 text-xs font-semibold text-muted transition-colors [@media(hover:hover)]:hover:text-ink"
+            >
+              Zum aktuellen Spieltag
+            </button>
+          )}
+          <div className="flex flex-col gap-4">
+            {byDay.map(([day, dayGames]) => {
+              const relative = now !== null ? relativeDayLabel(day, now) : null;
+              // "Di 03.11."
+              const weekday = new Date(`${day}T12:00:00Z`)
+                .toLocaleDateString("de-AT", { timeZone: "UTC", weekday: "short" })
+                .replace(".", "");
+              const [, mm, dd] = day.split("-");
+              const label = `${weekday} ${dd}.${mm}.`;
+              return (
+                <div key={day}>
+                  <p className="mb-2 px-0.5 text-xs font-bold uppercase tracking-wide text-muted">
+                    {relative ? `${relative} · ${label}` : label}
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {[...dayGames].sort(byKickoff).map((g) => (
+                      <GameRow key={g.id} game={g} {...list} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -1017,26 +1349,8 @@ function LcTable() {
   const error = failed || !!data?.error;
   return (
     <div>
-      <LeaguePicker leagueId={leagueId} onPick={setLeagueId} />
-      <div className="mb-4 hidden flex-wrap gap-2 lg:flex">
-        {TABLE_LEAGUES.map((l) => (
-          <button
-            key={l.id}
-            type="button"
-            onClick={() => setLeagueId(l.id)}
-            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
-              leagueId === l.id ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
-            }`}
-          >
-            {l.country && (
-              <span aria-hidden>
-                <Emoji e={flagEmoji(l.country)} />
-              </span>
-            )}
-            {l.label}
-          </button>
-        ))}
-      </div>
+      <LeaguePicker leagues={TABLE_LEAGUES} leagueId={leagueId} onPick={setLeagueId} />
+      <LeaguePills leagues={TABLE_LEAGUES} leagueId={leagueId} onPick={setLeagueId} />
       {error ? (
         <LcError error={data?.error ?? ""} onRetry={() => setRetry((r) => r + 1)} />
       ) : !data ? (
@@ -1063,10 +1377,28 @@ function LcTable() {
 // nimmt zu viel Platz ein"): eine Zeile wie beim Spielplan, Pfeile blättern
 // zur Nachbar-Liga, Tippen auf den Namen öffnet unten die Liste aller Ligen.
 // Am PC (ab lg) bleiben die Knöpfe.
-function LeaguePicker({ leagueId, onPick }: { leagueId: number; onPick: (id: number) => void }) {
+interface PickLeague {
+  id: number;
+  label: string;
+  country: string | null;
+}
+
+// arrows=false: nur der Knopf mit der Liste, über die ganze Breite (im
+// Spielplan nach Bewerb blättern die Pfeile schon durch die Spieltage).
+function LeaguePicker({
+  leagues,
+  leagueId,
+  onPick,
+  arrows = true,
+}: {
+  leagues: readonly PickLeague[];
+  leagueId: number;
+  onPick: (id: number) => void;
+  arrows?: boolean;
+}) {
   const [open, setOpen] = useState(false);
-  const index = Math.max(0, TABLE_LEAGUES.findIndex((l) => l.id === leagueId));
-  const current = TABLE_LEAGUES[index];
+  const index = Math.max(0, leagues.findIndex((l) => l.id === leagueId));
+  const current = leagues[index];
 
   useEffect(() => {
     if (!open) return;
@@ -1081,7 +1413,7 @@ function LeaguePicker({ leagueId, onPick }: { leagueId: number; onPick: (id: num
     };
   }, [open]);
 
-  const label = (l: (typeof TABLE_LEAGUES)[number]) => (
+  const label = (l: PickLeague) => (
     <>
       <span aria-hidden className="w-6 shrink-0 text-center">
         <Emoji e={l.country ? flagEmoji(l.country) : "🏆"} />
@@ -1090,7 +1422,7 @@ function LeaguePicker({ leagueId, onPick }: { leagueId: number; onPick: (id: num
     </>
   );
   const arrow = (dir: -1 | 1) => {
-    const next = TABLE_LEAGUES[index + dir];
+    const next = leagues[index + dir];
     return (
       <button
         type="button"
@@ -1107,8 +1439,8 @@ function LeaguePicker({ leagueId, onPick }: { leagueId: number; onPick: (id: num
   };
 
   return (
-    <div className="mb-4 flex items-center gap-3 lg:hidden">
-      {arrow(-1)}
+    <div className={`flex items-center gap-3 lg:hidden ${arrows ? "mb-4" : "mb-3"}`}>
+      {arrows && arrow(-1)}
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -1120,7 +1452,7 @@ function LeaguePicker({ leagueId, onPick }: { leagueId: number; onPick: (id: num
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>
-      {arrow(1)}
+      {arrows && arrow(1)}
       {open &&
         createPortal(
           <div className="fixed inset-0 z-[60] flex items-end bg-pitch/70 backdrop-blur-[2px] lg:hidden" onClick={() => setOpen(false)}>
@@ -1131,7 +1463,7 @@ function LeaguePicker({ leagueId, onPick }: { leagueId: number; onPick: (id: num
               className="max-h-[80vh] w-full animate-[sheetUp_0.2s_ease-out] overflow-y-auto rounded-t-2xl border-t border-edge bg-surface px-2 pb-[calc(0.75rem+var(--safe-bottom))] pt-3"
             >
               <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-edge" />
-              {TABLE_LEAGUES.map((l) => {
+              {leagues.map((l) => {
                 const active = l.id === leagueId;
                 return (
                   <button
@@ -1158,6 +1490,29 @@ function LeaguePicker({ leagueId, onPick }: { leagueId: number; onPick: (id: num
           </div>,
           document.body,
         )}
+    </div>
+  );
+}
+
+// Bewerbe am PC (ab lg) als Knöpfe.
+function LeaguePills({ leagues, leagueId, onPick }: { leagues: readonly PickLeague[]; leagueId: number; onPick: (id: number) => void }) {
+  return (
+    <div className="mb-4 hidden flex-wrap gap-2 lg:flex">
+      {leagues.map((l) => (
+        <button
+          key={l.id}
+          type="button"
+          onClick={() => onPick(l.id)}
+          className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+            leagueId === l.id ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
+          }`}
+        >
+          <span aria-hidden>
+            <Emoji e={l.country ? flagEmoji(l.country) : "🏆"} />
+          </span>
+          {l.label}
+        </button>
+      ))}
     </div>
   );
 }
