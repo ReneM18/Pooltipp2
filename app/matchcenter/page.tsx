@@ -1782,9 +1782,12 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const [endNoteMain, endNoteScore] = endNote ? splitEndNote(endNote) : [null, null];
   const statusSub = endNote ? null : sub;
 
-  // Offenes Tippspiel: schmaler Balken "Tippen" rechts hinter der Zeile. Am
-  // Handy werden die Namen dann eher etwas kleiner statt zweizeilig.
+  // Offenes Tippspiel: schmaler Balken "Tippen" rechts hinter der Zeile.
+  // Am Handy werden die Namen dann eher etwas kleiner statt zweizeilig.
+  // Getippt: kein Balken mehr, nur der rechte Rand der Zeile bleibt gold.
+  // Nicht getippt und Tippschluss vorbei: nichts (Rene, 04.11.2026).
   const tipTab = tippable && link ? link : null;
+  const tippedEdge = tipped && !!link;
   const row = (
     <button
       type="button"
@@ -1801,7 +1804,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       // Balken breit ist: so steht das Ergebnis in jeder Zeile genau gleich.
       className={`relative z-[1] flex min-h-[3.875rem] w-full flex-col justify-center overflow-hidden rounded-card border px-3 py-2 text-left lg:min-h-[3.6875rem] transition-[color,background-color,border-color,box-shadow] sm:pl-4 ${
         tipTab ? "" : "lg:pr-[4.375rem]"
-      } ${
+      } ${tippedEdge ? "border-r-[2.5px] border-r-gold" : ""} ${
         moved ? "motion-safe:animate-lc-row-in" : ""
       } ${
         selected
@@ -1814,9 +1817,9 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       <div className="grid grid-cols-[4.75rem_1px_minmax(0,1fr)] items-center gap-x-2.5 text-sm">
         {/* Feste Breite, nichts läuft in die Namen (Rene, 16.10.2026):
             Zeile 1 groß/fett, Zeile 2 klein muted. */}
-        {/* Drei Zeilen (Zeit, Sender, Tippen/Getippt) mit knappem Abstand, damit
+        {/* Zwei Zeilen (Zeit, Sender) mit knappem Abstand, damit
             die Zeile nicht höher wird als die anderen. */}
-        <span className={`flex w-[4.75rem] min-w-0 flex-col ${tipped ? "gap-px" : "gap-0.5"} overflow-hidden tabular-nums`}>
+        <span className={`flex w-[4.75rem] min-w-0 flex-col gap-0.5 overflow-hidden tabular-nums`}>
           <span className={`flex min-w-0 items-center gap-1 text-[13px] font-semibold leading-tight ${status.muted ? "text-muted" : "text-ink"}`}>
             {status.dot && <StateDot state={status.dot} />}
             <span className={`min-w-0 ${statusSub && tv ? "shrink-0" : "truncate"}`}>{status.main}</span>
@@ -1838,9 +1841,6 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
               <span className="min-w-0 break-words">{tv}</span>
             </span>
           )}
-          {/* "Getippt" klein unter der Zeit. "Tippen" steht im schmalen
-              Balken rechts neben der Zeile (Rene, 04.11.2026, siehe unten). */}
-          {tipped && <span className="truncate text-[10px] font-semibold leading-none text-gold">✓ Getippt</span>}
         </span>
         {/* Feiner senkrechter Strich zwischen Zeit und Vereinen (Rene,
             30.10.2026, wie Livescore). */}
@@ -1920,7 +1920,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
     <div className="relative pr-[3.25rem] lg:pr-[3.625rem]">
       <Link
         href={tipCardHref(tipTab.match.id)}
-        className="absolute inset-y-0 right-0 flex w-[5rem] items-center justify-center lg:w-[5.375rem] rounded-card border border-r-[2.5px] border-muted/25 border-r-gold bg-surface pl-7 transition-colors hover:bg-surface-hover"
+        className={`absolute inset-y-0 right-0 flex w-[5rem] items-center justify-center rounded-card border border-r-[2.5px] border-muted/25 bg-surface pl-7 transition-colors hover:bg-surface-hover lg:w-[5.375rem] border-r-gold`}
       >
         <TipStatus deadline={tipTab.match.tipDeadline} kickoff={tipTab.match.kickoff} />
       </Link>
@@ -1963,7 +1963,8 @@ function TipStatus({ deadline, kickoff }: { deadline: string; kickoff: string })
     }
   }
   return (
-    <span className="flex flex-col items-center gap-0.5 whitespace-nowrap leading-none" role={counting ? "timer" : undefined} aria-label={label}>
+    // Countdown mit etwas Luft unter "Tippen" (Rene, 04.11.2026: "zu knapp").
+    <span className="flex flex-col items-center gap-1.5 whitespace-nowrap leading-none" role={counting ? "timer" : undefined} aria-label={label}>
       <span className="font-display text-[12px] font-bold text-gold">Tippen</span>
       {extra && <span className={`text-[10px] font-medium tabular-nums opacity-85 ${soon ? "text-[#FF9B5C]" : "text-gold"}`}>{extra}</span>}
     </span>
