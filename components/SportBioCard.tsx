@@ -3,11 +3,21 @@
 import { CSSProperties, ReactNode, useMemo, useState } from "react";
 import { useAppData } from "@/lib/AppDataContext";
 import RankBadge from "@/components/RankBadge";
-import { getSportRankIcon, isUnsterblich, PrestigeBySport, RANK_COLORS, RankIconOption, unsterblichIcon } from "@/lib/rankTiers";
+import {
+  getSportRankIcon,
+  getTierForPoints,
+  isUnsterblich,
+  PrestigeBySport,
+  RANK_COLORS,
+  rankLadder,
+  RankIconOption,
+  unsterblichIcon,
+} from "@/lib/rankTiers";
 import { SEASON_THEME } from "@/lib/seasonTheme";
 import { Sport, SPORT_ICONS, sportLabel, SPORTS } from "@/lib/types";
 import {
   bioSport,
+  CardChoice,
   COUNTRIES,
   honorIcon,
   isBioEmpty,
@@ -86,7 +96,7 @@ export default function SportBioCard({
     <section aria-label="Sportlerkarte" className={`${compact ? "" : "mb-8"} ${className}`}>
       {/* Klein: ganze Karte verkleinert, damit Schrift und Abstände stimmen. */}
       <div style={compact ? { zoom: 0.78 } : undefined}>
-        <SportCard bio={bio ?? EMPTY_BIO} own={own} userId={userId} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} />
+        <SportCard bio={bio ?? EMPTY_BIO} own={own} picker={!own} userId={userId} name={name} photo={photo} rankIcon={rankIcon} place={place} points={points} />
       </div>
       {own && (
         <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-muted">
@@ -100,10 +110,44 @@ export default function SportBioCard({
   );
 }
 
+/**
+ * Welche Karten jemand hat und welche davon die stärkste ist. Karte pro
+ * Sportart (Rene, 20.10.2026): alle Sportarten mit Rangpunkten oder Tipps,
+ * dazu die aus der Laufbahn. Unsterblich (GOAT in allen Sportarten) ist eine
+ * eigene Karte mit allen Sportarten.
+ * Stärkster Rang (Rene, 04.11.2026): Unsterblich, dann meiste Prestige-Sterne,
+ * dann höchste Stufe. Nach Stufe statt nach Punkten, weil Football kleinere
+ * Grenzen hat (lib/rankTiers.ts).
+ */
+export function cardChoices(bio: SportBio | null, all: SportCardStat[] | null) {
+  const stations = bio?.data.stations ?? [];
+  const bioSports = stations.map((st) => APP_SPORT_OF_BIO[st.sport ?? ""]).filter((x): x is Sport => !!x);
+  const statSports = (all ?? []).filter((x) => x.points > 0 || (x.tips ?? 0) > 0).map((x) => x.sport);
+  const cardSports = SPORTS.filter((sp) => statSports.includes(sp) || bioSports.includes(sp));
+  const pointsBySport = Object.fromEntries((all ?? []).map((x) => [x.sport, x.points])) as Partial<Record<Sport, number>>;
+  const prestigeBySport = Object.fromEntries((all ?? []).map((x) => [x.sport, x.prestige])) as PrestigeBySport;
+  const immortal = !!all && isUnsterblich(pointsBySport, prestigeBySport);
+  const strength = (x: SportCardStat) => {
+    const ladder = rankLadder(x.sport);
+    return (x.prestige || 0) * 1000 + ladder.indexOf(getTierForPoints(x.points, x.sport));
+  };
+  const bestSport = (all ?? [])
+    .filter((x) => cardSports.includes(x.sport))
+    .sort((a, b) => strength(b) - strength(a) || b.points - a.points)[0]?.sport;
+  const strongest: CardChoice | null = immortal ? "unsterblich" : bestSport ?? bioSports[0] ?? cardSports[0] ?? null;
+  // Gewählte Karte, wenn es sie (noch) gibt, sonst die stärkste.
+  const resolve = (c: CardChoice | null | undefined): CardChoice | null => {
+    if (c === "unsterblich") return immortal ? c : strongest;
+    if (c && cardSports.includes(c)) return c;
+    return strongest;
+  };
+  return { cardSports, immortal, bioSports, strongest, resolve };
+}
+
 /** Die Karte selbst, auch als Live-Vorschau im Baukasten. */
 // v5 (Rene, 20.10.2026): vorne alles Wichtige ohne Jahre, unten die
 // PoolTipp-Zahlen; hinten Erfolge mit Verein und Jahr, Laufbahn mit Rolle
-// und Verein, Interessen an anderen Sportarten.
+// und Verein. Interessen nicht mehr auf der Karte (Rene, 04.11.2026: kein Platz).
 export function SportCard({
   bio,
   own = false,
@@ -113,8 +157,16 @@ export function SportCard({
   rankIcon,
   place,
   points,
+  picker = true,
+  choice,
 }: {
   bio: SportBio;
+  // Sportarten-Auswahl über der Karte. Im eigenen Profil aus: dort zeigt die
+  // Karte die unter Einstellungen gewählte bzw. die mit dem stärksten Rang
+  // (Rene, 04.11.2026).
+  picker?: boolean;
+  // Vorgabe von außen (Baukasten-Vorschau), sonst bio.data.shownCard.
+  choice?: CardChoice | null;
   // Eigene Karte: zeigt den Hinweis "Bald kaufbar".
   own?: boolean;
   userId?: string | null;
@@ -125,28 +177,19 @@ export function SportCard({
   points?: number | null;
 }) {
   const [flipped, setFlipped] = useState(false);
-  // Gewählte Karte: eine Sportart oder die Unsterblich-Karte (alle Sportarten).
-  const [chosen, setChosen] = useState<Sport | "unsterblich" | null>(null);
+  // Am PC/Handy gewechselte Karte (nur mit Auswahl, z. B. bei Freunden).
+  const [picked, setPicked] = useState<CardChoice | null>(null);
   const all = useSportCardStats(userId);
   const data = bio.data;
   const stations = data.stations ?? [];
   const honors = sortedHonors(data);
-  const interests = data.interests ?? [];
 
-  // Karte pro Sportart (Rene, 20.10.2026): alle Sportarten mit Rangpunkten
-  // oder Tipps, dazu die aus der Laufbahn. Start: die mit den meisten Punkten.
-  const bioSports = stations.map((st) => APP_SPORT_OF_BIO[st.sport ?? ""]).filter((x): x is Sport => !!x);
-  const statSports = (all ?? []).filter((x) => x.points > 0 || (x.tips ?? 0) > 0).map((x) => x.sport);
-  const cardSports = SPORTS.filter((sp) => statSports.includes(sp) || bioSports.includes(sp));
-  const best = (all ?? []).filter((x) => cardSports.includes(x.sport)).sort((a, b) => b.points - a.points)[0]?.sport;
-  // Unsterblich (GOAT in allen Sportarten, lib/rankTiers.ts): eigene Karte mit
-  // allen Sportarten (Rene, 20.10.2026: "einheitliches System").
-  const pointsBySport = Object.fromEntries((all ?? []).map((x) => [x.sport, x.points])) as Partial<Record<Sport, number>>;
-  const prestigeBySport = Object.fromEntries((all ?? []).map((x) => [x.sport, x.prestige])) as PrestigeBySport;
-  const immortal = !!all && isUnsterblich(pointsBySport, prestigeBySport);
-  const showImmortal = immortal && (chosen === "unsterblich" || chosen === null);
-  const sport: Sport | null =
-    showImmortal ? null : chosen && chosen !== "unsterblich" && cardSports.includes(chosen) ? chosen : best ?? bioSports[0] ?? null;
+  const { cardSports, immortal, bioSports, resolve } = cardChoices(bio, all);
+  // Gezeigt wird: hier gewechselt > unter Einstellungen gewählt > stärkster Rang.
+  const shown = resolve(picked ?? choice ?? data.shownCard ?? null);
+  const showImmortal = shown === "unsterblich";
+  const sport: Sport | null = showImmortal ? null : shown ?? bioSports[0] ?? null;
+  const setChosen = (c: CardChoice) => setPicked(c);
   const stat = all?.find((x) => x.sport === sport) ?? null;
   const bioKey = sport ? BIO_SPORT_OF_APP[sport] : undefined;
   const sportStations = bioKey && !showImmortal ? stations.filter((st) => st.sport === bioKey) : stations;
@@ -209,7 +252,7 @@ export function SportCard({
   return (
     <div className="mx-auto w-full max-w-[320px] [perspective:1200px]">
       {/* Sportart wechseln: je Sportart das eigene Rang-Abzeichen. */}
-      {cardSports.length + (immortal ? 1 : 0) > 1 && (
+      {picker && cardSports.length + (immortal ? 1 : 0) > 1 && (
         <div role="tablist" aria-label="Karte für Sportart" className="mb-3 flex flex-wrap justify-center gap-1.5">
           {immortal && (
             <button
@@ -390,7 +433,7 @@ export function SportCard({
           </div>
         </div>
 
-        {/* Rückseite: Erfolge, Laufbahn, Interessen */}
+        {/* Rückseite: Erfolge, Laufbahn. Interessen weg, kein Platz (Rene, 04.11.2026). */}
         <div
           className="absolute inset-0 flex flex-col gap-2.5 overflow-hidden rounded-[18px] border-[3px] bg-surface p-3.5 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.7)] [backface-visibility:hidden] [transform:rotateY(180deg)]"
           style={{
@@ -490,18 +533,6 @@ export function SportCard({
                 </ul>
               </BackSection>
             )}
-            {interests.length > 0 && (
-              <BackSection title="Interessen">
-                <div className="flex flex-wrap gap-1.5">
-                  {interests.map((it) => (
-                    <span key={it.k} className="rounded-full border border-edge bg-white/[0.06] px-2.5 py-1 text-[11.5px] font-semibold text-ink">
-                      {bioSport(it.k)?.icon} {bioSport(it.k)?.label}
-                      {it.fav ? ` · ${it.fav}` : ""}
-                    </span>
-                  ))}
-                </div>
-              </BackSection>
-            )}
           </div>
           <div className="flex items-center justify-between gap-2 border-t border-edge pt-1.5 text-[10px] text-muted">
             <span />
@@ -546,12 +577,15 @@ export function SportCard({
         <div className="mt-2 rounded-card border border-edge bg-surface p-3 text-left text-xs leading-relaxed text-muted">
           <ul className="flex flex-col gap-1.5">
             <li>
-              <b className="text-ink">Pro Sportart eine Karte:</b> Oben wechselst du die Sportart. Jede Karte zeigt deinen Rang, Platz
-              und deine Punkte in dieser Sportart.
+              <b className="text-ink">Pro Sportart eine Karte:</b>{" "}
+              {picker
+                ? "Oben wechselst du die Sportart."
+                : "Welche Karte im Profil steht, wählst du unter Einstellungen → Sportlerkarte. Ohne Auswahl die mit deinem stärksten Rang."}{" "}
+              Jede Karte zeigt deinen Rang, Platz und deine Punkte in dieser Sportart.
             </li>
             <li>
               <b className="text-ink">Rückseite:</b> deine Tipp-Statistik dieser Sportart (Treffer, exakt, Tipps) vom ersten Tipp bis
-              heute, dazu Erfolge, Laufbahn und Interessen.
+              heute, dazu Erfolge und Laufbahn.
             </li>
             <li>
               <b className="text-ink">Eigene Angaben:</b> Laufbahn und Erfolge trägst du selbst ein, sie bringen keine Punkte. „✓
