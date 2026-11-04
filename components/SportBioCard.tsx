@@ -208,6 +208,11 @@ export function SportCard({
         ? getSportRankIcon(sport, stat.points, "-karte", stat.prestige)
         : null
       : rankIcon ?? null;
+  const rankShort = cardRank
+    ? cardRank.kind === "sport" && cardRank.rank
+      ? [cardRank.rank, cardRank.sub].filter(Boolean).join(" ")
+      : cardRank.label.replace(sport ? `${sportLabel(sport)} ` : "", "")
+    : "";
   const cardPlace = showImmortal ? place : stat ? stat.place : place;
   // Tipps dieser Karte (für "Kaufbar ab 500 Tipps"); null = unbekannt.
   const cardTips = showImmortal
@@ -337,14 +342,18 @@ export function SportCard({
             <div className="absolute inset-x-3 top-2.5 z-[3] flex items-start justify-between">
               <div className="font-display text-[42px] font-black leading-[0.9] text-white [text-shadow:0_2px_0_rgba(0,0,0,0.35)]">
                 {data.nr}
-                <span className="mt-1 block text-[10px] font-bold uppercase tracking-widest opacity-90">
-                  {[sportShort, main?.pos && !showImmortal ? posShort(main.pos) : ""].filter(Boolean).join(" · ")}
-                </span>
+                {/* Nur die Sportart, die Position steht ausgeschrieben unten im Feld
+                    "Position" (Rene, 04.11.2026: verständlich statt Kürzel). */}
+                <span className="mt-1 block text-[10px] font-bold uppercase tracking-widest opacity-90">{sportShort}</span>
               </div>
               {cardRank && (
-                <span className="flex items-center gap-1.5 rounded-full bg-black/50 py-0.5 pl-0.5 pr-2.5 ring-1 ring-white/20">
+                <span className="flex items-center gap-1.5 rounded-full bg-black/55 py-0.5 pl-0.5 pr-3 ring-1 ring-white/20 backdrop-blur-sm">
                   <RankBadge option={cardRank} size="md" />
-                  {cardPlace ? <span className="font-display text-xs font-bold text-white">#{cardPlace}</span> : null}
+                  {/* Rang und Platz ausgeschrieben statt nur "#1" (Rene, 04.11.2026). */}
+                  <span className="flex flex-col leading-tight">
+                    <span className="font-display text-[11px] font-extrabold uppercase tracking-wide text-white">{rankShort}</span>
+                    {cardPlace ? <span className="text-[9.5px] font-semibold text-white/75">Platz {cardPlace}</span> : null}
+                  </span>
                 </span>
               )}
             </div>
@@ -407,17 +416,14 @@ export function SportCard({
                   ))}
                 </div>
               )}
-              {/* PoolTipp-Rangpunkte, beschriftet wie die Felder darüber. Die
-                  Tipp-Serie gehört nicht auf die Karte, sie ändert sich täglich
-                  (Rene, 20.10.2026). */}
-              {cardPoints != null && (
-                <div className="mt-1.5 flex items-baseline justify-center gap-1.5 border-t border-white/10 pt-1.5">
-                  <b className="font-display text-[13px] text-gold">{cardPoints.toLocaleString("de-DE")}</b>
-                  <i className="text-[8.5px] uppercase not-italic tracking-wider text-[#aab8b1]">
-                    Punkte{showImmortal ? " gesamt" : sport ? ` ${sportLabel(sport)}` : ""} bei PoolTipp
-                  </i>
-                </div>
-              )}
+              {/* PoolTipp-Punkte stehen hinten bei der PoolTipp-Statistik (Rene,
+                  04.11.2026). Unten nur das Markenzeichen der Karte. */}
+              <p className="mt-2 flex items-center justify-between border-t border-white/10 pt-1.5 text-[8.5px] font-bold uppercase tracking-[0.18em] text-[#aab8b1]">
+                <span>
+                  Pool<span className="text-gold">Tipp</span>
+                </span>
+                <span>Sportlerkarte · {SEASON_THEME.name}</span>
+              </p>
             </div>
             {foil && (
               <div
@@ -448,8 +454,13 @@ export function SportCard({
             <span className="shrink-0 text-[10px] font-semibold text-muted">Sportlerkarte · {SEASON_THEME.name}</span>
           </p>
           <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto pl-1.5">
-            {showImmortal && all && all.some((x) => x.tips != null) && (
-              <BackSection title="Tipp-Statistik alle Sportarten">
+            {showImmortal && all && (all.some((x) => x.tips != null) || cardPoints != null) && (
+              <BackSection title="PoolTipp-Statistik alle Sportarten">
+                {cardPoints != null && (
+                  <p className="-mt-0.5 text-[10px] text-muted">
+                    <b className="font-display text-[11.5px] text-gold">{cardPoints.toLocaleString("de-DE")}</b> Punkte gesamt
+                  </p>
+                )}
                 <p className="-mt-1 text-[10.5px] text-muted">
                   {periodText(
                     all.map((x) => x.firstTip).filter((d): d is string => !!d).sort()[0] ?? null,
@@ -488,20 +499,24 @@ export function SportCard({
                 </table>
               </BackSection>
             )}
-            {stat && stat.tips != null && stat.tips > 0 && sport && (
-              // Klein, eine Zeile: mehr Platz für Erfolge und Laufbahn (Rene, 04.11.2026).
-              <div
-                title={periodText(stat.firstTip, stat.lastTip)}
-                className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5 rounded-lg border border-edge bg-white/[0.04] px-2 py-1 text-[10px] text-muted"
-              >
-                <span aria-hidden>{SPORT_ICONS[sport]}</span>
-                <span className="sr-only">Tipp-Statistik {sportLabel(sport)}, {periodText(stat.firstTip, stat.lastTip)}</span>
-                {statTiles(stat).map(([v, l]) => (
-                  <span key={l} className="whitespace-nowrap">
-                    <b className="font-display text-[11.5px] text-gold">{v}</b> {l}
-                  </span>
-                ))}
-              </div>
+            {!showImmortal && ((stat?.tips ?? 0) > 0 || cardPoints != null) && (
+              // Klein, eine Zeile: mehr Platz für Erfolge und Laufbahn. Überschrift
+              // wie die anderen Bereiche, sonst weiß man nicht, was es ist (Rene, 04.11.2026).
+              <BackSection title={`PoolTipp-Statistik${sport ? ` ${sportLabel(sport)}` : ""}`}>
+                <div
+                  title={stat ? periodText(stat.firstTip, stat.lastTip) : undefined}
+                  className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-0.5 rounded-lg border border-edge bg-white/[0.04] px-2 py-1 text-[10px] text-muted"
+                >
+                  {[
+                    ...(cardPoints != null ? [[cardPoints.toLocaleString("de-DE"), "Punkte"] as [string, string]] : []),
+                    ...(stat && (stat.tips ?? 0) > 0 ? statTiles(stat) : []),
+                  ].map(([v, l]) => (
+                    <span key={l} className="whitespace-nowrap">
+                      <b className="font-display text-[11.5px] text-gold">{v}</b> {l}
+                    </span>
+                  ))}
+                </div>
+              </BackSection>
             )}
             {sportHonors.length > 0 && (
               <BackSection title="Erfolge">
@@ -541,8 +556,11 @@ export function SportCard({
             )}
           </div>
           <div className="flex items-center justify-between gap-2 border-t border-edge pt-1.5 text-[10px] text-muted">
+            <span>
+              Erfolge und Laufbahn:{" "}
+              {bio.verified ? <b className="font-bold text-action">✓ bestätigt von PoolTipp</b> : "Angaben vom Spieler selbst"}
+            </span>
             <span />
-            {bio.verified ? <b className="font-bold text-action">✓ bestätigt von PoolTipp</b> : <span>Angaben vom Spieler selbst</span>}
           </div>
         </div>
       </div>
@@ -587,11 +605,11 @@ export function SportCard({
               {picker
                 ? "Oben wechselst du die Sportart."
                 : "Welche Karte im Profil steht, wählst du unter Einstellungen → Sportlerkarte. Ohne Auswahl die mit deinem stärksten Rang."}{" "}
-              Jede Karte zeigt deinen Rang, Platz und deine Punkte in dieser Sportart.
+              Vorne stehen dein Rang und Platz in dieser Sportart.
             </li>
             <li>
-              <b className="text-ink">Rückseite:</b> deine Tipp-Statistik dieser Sportart (Treffer, exakt, Tipps) vom ersten Tipp bis
-              heute, dazu Erfolge und Laufbahn.
+              <b className="text-ink">Rückseite:</b> deine PoolTipp-Statistik dieser Sportart (Punkte, Treffer, exakt, Tipps) vom ersten
+              Tipp bis heute, dazu Erfolge und Laufbahn.
             </li>
             <li>
               <b className="text-ink">Eigene Angaben:</b> Laufbahn und Erfolge trägst du selbst ein, sie bringen keine Punkte. „✓
@@ -657,16 +675,6 @@ function BackSection({ title, children }: { title: string; children: ReactNode }
       {children}
     </div>
   );
-}
-
-// Kurzform der Position für den Kopf: "Mittelfeld" -> "MF".
-const POS_SHORT: Record<string, string> = {
-  Tor: "TW", Abwehr: "AB", Mittelfeld: "MF", Sturm: "ST", Verteidigung: "VT", Rückraum: "RR", Kreis: "KR", Außen: "AU",
-  Aufbau: "PG", Flügel: "F", Center: "C", Quarterback: "QB", "Running Back": "RB", Receiver: "WR", Line: "OL",
-  Linebacker: "LB", "Defensive Back": "DB", Kicker: "K", Zuspiel: "ZU", Mitte: "MI", Diagonal: "DI", Libero: "LI",
-};
-function posShort(pos: string): string {
-  return POS_SHORT[pos] ?? pos.slice(0, 2).toUpperCase();
 }
 
 /** Kleines Abzeichen mit der Hauptrolle unter dem Namen. */
