@@ -248,7 +248,7 @@ export function SportCard({
       : []
     : // Erfolge nicht mehr vorne, nur noch auf der Rückseite und als Zahl im
       // Feld "Erfolg" (Rene, 04.11.2026: "reicht wenn das auf der Rückseite ist").
-      [second ? <>Auch: <BioIcon icon={stationIcon(second)} /> {stationTitle(second)}</> : null].filter(Boolean);
+      [second ? <><BioIcon icon={stationIcon(second)} /> {stationTitle(second)}</> : null].filter(Boolean);
   const alsoLine: ReactNode = alsoParts.length
     ? alsoParts.map((x, i) => <span key={i}>{i > 0 && " · "}{x}</span>)
     : null;
