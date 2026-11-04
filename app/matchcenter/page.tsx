@@ -856,6 +856,8 @@ function LeagueHeading({ sport, game, onLeague }: { sport: Sport; game: LiveGame
   // Überschrift antippen = Spielplan des Bewerbs (Rene, 04.11.2026: "wenn
   // man drauf klickt, dass sich der Spielplan öffnet"). Nur Bewerbe mit
   // Spielplan (lib/competitionFixtures.ts), sonst bleibt es reiner Text.
+  // Ohne "Spielplan ›" rechts (Rene, 04.11.2026: "brauchen wir nicht, weil
+  // es oben steht"); am PC wird der Name beim Drüberfahren gold.
   const fixtureLeague = onLeague && sport === "Fußball" ? fixtureLeagueOf(game.league) : null;
   if (onLeague && fixtureLeague) {
     return (
@@ -863,15 +865,9 @@ function LeagueHeading({ sport, game, onLeague }: { sport: Sport; game: LiveGame
         type="button"
         onClick={() => onLeague(fixtureLeague.id)}
         aria-label={`Spielplan ${name}`}
-        className="group mb-2.5 flex min-h-11 w-full items-center gap-2.5 text-left font-display text-[15px] font-bold leading-tight text-ink lg:text-base"
+        className="mb-2.5 flex min-h-11 w-full items-center gap-2.5 text-left font-display text-[15px] font-bold leading-tight text-ink transition-colors [@media(hover:hover)]:hover:text-gold"
       >
         {inner}
-        <span className="ml-auto flex shrink-0 items-center gap-0.5 pl-2 font-body text-xs font-semibold text-muted transition-colors [@media(hover:hover)]:group-hover:text-gold">
-          Spielplan
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M9 6l6 6-6 6" />
-          </svg>
-        </span>
       </button>
     );
   }
