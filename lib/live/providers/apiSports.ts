@@ -847,6 +847,32 @@ export async function footballStandings(leagueId: number, season: number): Promi
 }
 
 // ---------------------------------------------------------------------------
+// Spielplan eines Bewerbs (Rene, 04.11.2026): alle Spiele einer Saison in
+// EINER Abfrage fixtures?league=…&season=…, je Spiel mit league.round.
+// 30 Min. gemerkt (wie die Tabellen); laufende Spielstände kommen im
+// Matchcenter aus der Tagesliste dazu.
+
+export type SeasonFixturesResult =
+  | { ok: true; games: LiveGame[]; fetchedAt: number; expiresAt: number }
+  | { ok: false; error: string; expiresAt: number };
+
+const SEASON_FIXTURES_TTL = 1800;
+
+export async function footballSeasonFixtures(leagueId: number, season: number): Promise<SeasonFixturesResult> {
+  const key = process.env.API_SPORTS_KEY;
+  if (!key) return { ok: false, error: "Kein API_SPORTS_KEY gesetzt", expiresAt: Date.now() + 300 * 1000 };
+  const res = await load(
+    `${ENDPOINTS["Fußball"]}?league=${leagueId}&season=${season}&timezone=Europe/Vienna`,
+    key,
+    SEASON_FIXTURES_TTL,
+  );
+  if (!res.ok) return { ok: false, error: res.error, expiresAt: res.expiresAt };
+  const now = Date.now();
+  const games = normalizeAll("Fußball", res.hit.value, null).map((g) => settleStuckGame(g, now));
+  return { ok: true, games, fetchedAt: res.hit.at, expiresAt: res.hit.expiresAt };
+}
+
+// ---------------------------------------------------------------------------
 // Aufstellungen und Statistik eines Fußballspiels (Rene, 27.10.2026: Pro-Plan).
 // fixtures/lineups und fixtures/statistics – je eine Abfrage pro Spiel.
 // Aufstellungen ändern sich nach der Bekanntgabe nicht mehr (10 Min.
