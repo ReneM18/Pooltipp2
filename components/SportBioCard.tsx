@@ -237,15 +237,13 @@ export function SportCard({
     [main?.league ?? "", "Niveau"],
     [sportHonors.length ? `🏆 ${sportHonors.length}` : "", sportHonors.length === 1 ? "Erfolg" : "Erfolge"],
   ] as [string, string][]).filter(([v]) => v);
-  const top = sportHonors[0];
   const alsoParts: ReactNode[] = showImmortal
     ? main
       ? [<><BioIcon icon={stationIcon(main)} /> {stationTitle(main)}</>]
       : []
-    : [
-        second ? <>+ <BioIcon icon={stationIcon(second)} /> {stationTitle(second)}</> : null,
-        top ? `${honorIcon(top.t)} ${top.t}` : null,
-      ].filter(Boolean);
+    : // Erfolge nicht mehr vorne, nur noch auf der Rückseite und als Zahl im
+      // Feld "Erfolg" (Rene, 04.11.2026: "reicht wenn das auf der Rückseite ist").
+      [second ? <>+ <BioIcon icon={stationIcon(second)} /> {stationTitle(second)}</> : null].filter(Boolean);
   const alsoLine: ReactNode = alsoParts.length
     ? alsoParts.map((x, i) => <span key={i}>{i > 0 && " · "}{x}</span>)
     : null;
