@@ -14,6 +14,7 @@ import {
   unsterblichIcon,
 } from "@/lib/rankTiers";
 import { SEASON_THEME } from "@/lib/seasonTheme";
+import { BioIcon } from "@/components/BioIcon";
 import { Sport, SPORT_ICONS, sportLabel, SPORTS } from "@/lib/types";
 import {
   bioSport,
@@ -25,6 +26,7 @@ import {
   isFanRole,
   mainRole,
   roleDef,
+  stationIcon,
   APP_SPORT_OF_BIO,
   BIO_SPORT_OF_APP,
   sortedHonors,
@@ -223,10 +225,10 @@ export function SportCard({
   const foil = showImmortal;
   const flag = main?.land ? COUNTRIES[main.land]?.flag ?? "" : "";
   const sportShort = showImmortal ? "Alle Sportarten" : sport ? sportLabel(sport) : bioSport(main?.sport)?.label ?? "";
-  const ribbon = showImmortal
+  const ribbon: ReactNode = showImmortal
     ? "🐐 Unsterblich"
     : main
-      ? `${roleDef(main.role).icon} ${stationTitle(main)}`
+      ? <><BioIcon icon={stationIcon(main)} onGold /> {stationTitle(main)}</>
       : sport
         ? `${SPORT_ICONS[sport]} ${sportLabel(sport)}-Tipper`
         : "";
@@ -236,16 +238,17 @@ export function SportCard({
     [sportHonors.length ? `🏆 ${sportHonors.length}` : "", sportHonors.length === 1 ? "Erfolg" : "Erfolge"],
   ] as [string, string][]).filter(([v]) => v);
   const top = sportHonors[0];
-  const alsoLine = showImmortal
+  const alsoParts: ReactNode[] = showImmortal
     ? main
-      ? `${roleDef(main.role).icon} ${stationTitle(main)}`
-      : ""
+      ? [<><BioIcon icon={stationIcon(main)} /> {stationTitle(main)}</>]
+      : []
     : [
-    second ? `+ ${roleDef(second.role).icon} ${stationTitle(second)}` : "",
-    top ? `${honorIcon(top.t)} ${top.t}` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
+        second ? <>+ <BioIcon icon={stationIcon(second)} /> {stationTitle(second)}</> : null,
+        top ? `${honorIcon(top.t)} ${top.t}` : null,
+      ].filter(Boolean);
+  const alsoLine: ReactNode = alsoParts.length
+    ? alsoParts.map((x, i) => <span key={i}>{i > 0 && " · "}{x}</span>)
+    : null;
   const vars = { "--c1": c1, "--c2": c2 } as CSSProperties;
   const flip = () => setFlipped((f) => !f);
 
@@ -511,7 +514,9 @@ export function SportCard({
                       <span className="min-w-0 text-[12.5px] font-semibold leading-tight text-ink">
                         {h.t}
                         {h.league ? ` · ${h.league}` : ""}
-                        {h.club && <span className="block truncate text-[11px] font-normal text-muted">{h.club}</span>}
+                        {(h.club || h.team) && (
+                          <span className="block truncate text-[11px] font-normal text-muted">{[h.club, h.team].filter(Boolean).join(" · ")}</span>
+                        )}
                       </span>
                     </li>
                   ))}
@@ -525,9 +530,10 @@ export function SportCard({
                     <li key={i} className="relative text-xs text-ink">
                       <span aria-hidden className="absolute -left-[17px] top-1 h-2 w-2 rounded-full bg-gold ring-[3px] ring-surface" />
                       <b className="font-semibold">
-                        {roleDef(st.role).icon} {stationTitle(st)}
+                        <BioIcon icon={stationIcon(st)} /> {stationTitle(st)}
                       </b>
                       {st.club && <span className="text-muted"> · {st.club}</span>}
+                      {st.team && <span className="text-muted"> · {st.team}</span>}
                     </li>
                   ))}
                 </ul>
@@ -669,7 +675,7 @@ export function SportBioTag({ bio }: { bio: SportBio | null }) {
   if (!role) return null;
   return (
     <span className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full border border-gold/60 bg-gold/15 px-3 py-1 font-display text-xs font-bold text-gold">
-      <span aria-hidden>{role[0]}</span>
+      <span aria-hidden><BioIcon icon={role[0]} /></span>
       {role[1]}
       {bio?.verified && <span className="text-action">✓</span>}
     </span>
