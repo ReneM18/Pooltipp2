@@ -198,7 +198,8 @@ export const POSITIONS: Record<string, string[]> = {
 };
 
 // Nur wenige Stufen (Rene, 20.10.2026: "die Landesligen weg, nur ganz wenig für Profis").
-const LEVELS = ["Profi", "Halbprofi", "Amateur", "Hobby"];
+// "Nachwuchs" für Jugend/Akademie dazu (Rene, 04.11.2026).
+const LEVELS = ["Profi", "Halbprofi", "Amateur", "Nachwuchs", "Hobby"];
 export function leaguesFor(_sport?: string, _land?: string): string[] {
   return LEVELS;
 }
@@ -264,8 +265,10 @@ export function stationTitle(st: Station): string {
   const sport = bioSport(st.sport);
   let base = r.label;
   if (st.role === "spieler") {
-    const level = st.league === "Hobby" ? "hobby" : PRO_LEAGUES.includes(st.league ?? "") ? "profi" : "verein";
-    if (st.sport === "fb") base = level === "profi" ? "Profifußballer" : level === "hobby" ? "Hobbykicker" : "Vereinsfußballer";
+    const level =
+      st.league === "Hobby" ? "hobby" : st.league === "Nachwuchs" ? "nachwuchs" : PRO_LEAGUES.includes(st.league ?? "") ? "profi" : "verein";
+    if (level === "nachwuchs") base = st.sport === "fb" ? "Nachwuchsfußballer" : st.sport === "ih" ? "Nachwuchs-Eishockeyspieler" : "Nachwuchsspieler";
+    else if (st.sport === "fb") base = level === "profi" ? "Profifußballer" : level === "hobby" ? "Hobbykicker" : "Vereinsfußballer";
     else if (st.sport === "ih") base = level === "hobby" ? "Hobby-Eishockeyspieler" : level === "profi" ? "Eishockeyprofi" : "Eishockeyspieler";
     else base = level === "profi" ? "Profi" : level === "hobby" ? "Hobbyspieler" : "Vereinsspieler";
   }
