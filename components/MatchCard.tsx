@@ -28,6 +28,7 @@ import { SeasonCardWatermark } from "./SeasonDeco";
 import ShareTipButton from "./ShareTipCard";
 import type { ShareCardData } from "@/lib/shareCard";
 import Emoji from "@/components/Emoji";
+import { syncFitGroup } from "@/components/FitText";
 import { SPORT_BADGE, SPORT_BADGE_COLOR } from "@/lib/cardStyle";
 import { useLiveScore } from "@/lib/useLiveScores";
 import { isGoalEvent, shortPlayerName, eventMinuteText } from "@/lib/liveScores";
@@ -941,7 +942,7 @@ export default function MatchCard({
               stage={stage}
             />
           ) : (
-            <div className={`flex flex-col gap-2 ${justSaved ? "animate-tip-saved rounded-lg" : ""}`}>
+            <div data-fit-group className={`flex flex-col gap-2 ${justSaved ? "animate-tip-saved rounded-lg" : ""}`}>
               {compactTeamRow(leftTeam, leftSide)}
               {compactShowsDraw && compactDrawRow()}
               {compactTeamRow(rightTeam, rightSide)}
@@ -1992,6 +1993,7 @@ function TeamLabel({
     const fit = () => {
       el.style.fontSize = "";
       let size = parseFloat(getComputedStyle(el).fontSize);
+      el.dataset.basePx = String(size);
       // Nie mitten im Wort trennen, höchstens 2 Zeilen: passt ein Wort nicht
       // oder wären es mehr Zeilen, wird verkleinert, mehrzeilig bis 12 px
       // (Rene, 15.10.2026, vorher Trennung mit Bindestrich als Notlösung).
@@ -2001,6 +2003,8 @@ function TeamLabel({
         size -= 0.5;
         el.style.fontSize = `${size}px`;
       }
+      // Beide Vereine der Karte gleich groß (Rene, 05.11.2026).
+      syncFitGroup(el, size);
     };
     fit();
     // Nach dem Laden der Schrift neu messen (sie ist breiter als die Ersatzschrift).

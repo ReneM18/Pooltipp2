@@ -190,7 +190,7 @@ export function Scoreboard({
   );
   return (
     <div className="overflow-hidden rounded-lg border border-edge bg-pitch/60">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 px-2 py-3">
+      <div data-fit-group className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 px-2 py-3">
         {side(left)}
         <div className={`flex flex-col items-center ${stage ? "pt-1.5" : "pt-1"}`}>
           <span
