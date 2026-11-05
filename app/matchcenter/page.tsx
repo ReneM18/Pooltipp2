@@ -1796,7 +1796,8 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const inlineSub = statusSub && tv && status.main.length <= 5 ? statusSub : null;
 
   // Offenes Tippspiel: schmaler Balken "Tippen" rechts hinter der Zeile.
-  // Am Handy werden die Namen dann eher etwas kleiner statt zweizeilig.
+  // Vereinsnamen haben in jeder Zeile dieselbe Größe, lange Namen brechen
+  // um statt kleiner zu werden (Rene, 05.11.2026: Größen waren verschieden).
   // Getippt: kein Balken mehr, nur der rechte Rand der Zeile bleibt gold.
   // Nicht getippt und Tippschluss vorbei: nichts (Rene, 04.11.2026).
   const tipTab = tippable && link ? link : null;
@@ -1863,15 +1864,16 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             braucht. Die Tore stehen mittig in einer festen Spalte, so liegen
             "1" und "0" sauber untereinander (Poppins hat schmale Einsen). */}
         <span
+          data-fit-group
           className={`grid min-w-0 ${endNote ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"} grid-rows-[auto_auto] items-center gap-x-2 gap-y-0.5 lg:hidden`}
         >
           <span className="col-start-1 row-start-1 flex min-w-0 items-center gap-1.5">
             <span className="flex shrink-0">{jersey(firstTeam, firstSide, 18)}</span>
-            <FitText text={firstName} maxLines={2} minPx={12} shrinkFirst={!!tipTab} className={`leading-tight ${nameTone(firstWins)}`} />
+            <FitText text={firstName} maxLines={2} minPx={12} className={`leading-tight ${nameTone(firstWins)}`} />
           </span>
           <span className="col-start-1 row-start-2 flex min-w-0 items-center gap-1.5">
             <span className="flex shrink-0">{jersey(secondTeam, secondSide, 18)}</span>
-            <FitText text={secondName} maxLines={2} minPx={12} shrinkFirst={!!tipTab} className={`leading-tight ${nameTone(secondWins)}`} />
+            <FitText text={secondName} maxLines={2} minPx={12} className={`leading-tight ${nameTone(secondWins)}`} />
           </span>
           <span
             className={`${endNote ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
@@ -1896,7 +1898,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             das Ergebnis in jeder Zeile an derselben Stelle steht. */}
         {/* Ergebnisfelder mit Mindest- statt fester Breite, damit auch
             dreistellige Spielstände (NBA, z. B. 125:124) hineinpassen. */}
-        <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_minmax(7rem,auto)_minmax(0,1fr)] items-center gap-x-4 lg:grid">
+        <span data-fit-group className="hidden min-w-0 grid-cols-[minmax(0,1fr)_minmax(7rem,auto)_minmax(0,1fr)] items-center gap-x-4 lg:grid">
           <span className="flex min-w-0 items-center justify-end gap-2">
             <FitText text={firstName} maxLines={2} minPx={12} className={`text-right text-[15px] leading-tight ${nameTone(firstWins)}`} />
             {jersey(firstTeam, firstSide, 20)}
