@@ -4,6 +4,7 @@ import EmptyState from "@/components/EmptyState";
 import { viennaDateKey } from "@/lib/seasons/schedule";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import MatchCard from "@/components/MatchCard";
+import { startTipsScrollAnchor } from "@/lib/holdCardPosition";
 import { SPORT_BADGE } from "@/lib/cardStyle";
 import AdBanner from "@/components/AdBanner";
 import WeeklyReviewCard from "@/components/WeeklyReviewCard";
@@ -39,6 +40,10 @@ export default function DashboardPage() {
 
   // Neue Spieler: einmal zum Start-Erlebnis.
   useStartExperience();
+
+  // Karten bleiben stehen, wenn sich darüber etwas ändert – auch am iPhone
+  // (lib/holdCardPosition.ts, Rene 05.11.2026).
+  useEffect(() => startTipsScrollAnchor(), []);
 
   // Vom Start-Erlebnis vorgeschlagenes Spiel (/?spiel=…): hinrollen und
   // kurz umranden.
