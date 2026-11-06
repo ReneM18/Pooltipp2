@@ -1824,6 +1824,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       onClick={() => onSelect(game.id)}
       aria-pressed={selected}
       style={glow ? { boxShadow: GLOW[glow] } : undefined}
+      // Zeilen heller grau als der Liga-Kasten (Rene, 06.11.2026, Variante B).
       // Gewählt: hellerer Hintergrund und weißlicher Rahmen statt Gold, damit
       // der rote Live-Rand klar bleibt (Rene, 27.10.2026).
       // Kein Goldrand an offenen Tippspielen, der Knopf "Tippen" reicht
@@ -1838,10 +1839,10 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
         moved ? "motion-safe:animate-lc-row-in" : ""
       } ${
         selected
-          ? "border-ink/50 bg-surface-hover"
+          ? "border-ink/50 bg-row-hover"
           : done
-              ? "border-muted/15 bg-surface/50 hover:border-muted/40"
-              : "border-muted/25 bg-surface hover:border-muted/50"
+              ? "border-muted/15 bg-row/55 hover:border-muted/40"
+              : "border-muted/25 bg-row hover:border-muted/50"
       }`}
     >
       <div className="grid grid-cols-[4.75rem_1px_minmax(0,1fr)] items-center gap-x-2.5 text-sm">
@@ -1951,7 +1952,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
     <div className="relative pr-[3.25rem] lg:pr-[3.625rem]">
       <Link
         href={tipCardHref(tipTab.match.id)}
-        className={`absolute inset-y-0 right-0 flex w-[5rem] items-center justify-center rounded-card border border-r-[2.5px] border-muted/25 bg-surface pl-7 transition-colors hover:bg-surface-hover lg:w-[5.375rem] border-r-gold`}
+        className={`absolute inset-y-0 right-0 flex w-[5rem] items-center justify-center rounded-card border border-r-[2.5px] border-muted/25 bg-row pl-7 transition-colors hover:bg-row-hover lg:w-[5.375rem] border-r-gold`}
       >
         <TipStatus deadline={tipTab.match.tipDeadline} kickoff={tipTab.match.kickoff} />
       </Link>

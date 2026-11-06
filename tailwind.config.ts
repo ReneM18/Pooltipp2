@@ -21,6 +21,8 @@ const config: Config = {
         pitch: "rgb(var(--c-pitch) / <alpha-value>)", // page background — pitch at night
         surface: "rgb(var(--c-surface) / <alpha-value>)", // card background
         "surface-hover": "rgb(var(--c-surface-hover) / <alpha-value>)",
+        row: "rgb(var(--c-row) / <alpha-value>)", // Matchcenter-Spielzeile
+        "row-hover": "rgb(var(--c-row-hover) / <alpha-value>)",
         edge: "rgb(var(--c-edge) / <alpha-value>)", // hairline borders
         gold: "rgb(var(--c-gold) / <alpha-value>)", // Sterne / currency accent
         "gold-dim": "rgb(var(--c-gold-dim) / <alpha-value>)", // gold used at low opacity (track backgrounds)
