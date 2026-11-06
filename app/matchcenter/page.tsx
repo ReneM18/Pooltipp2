@@ -119,14 +119,15 @@ export default function MatchcenterPage() {
 // zwei Reiter auf einmal trifft (Rene, 28.10.2026). Ohne Rahmen, nur Text mit
 // goldenem Strich wie am PC, damit sie sich von den eingekreisten Sportarten
 // abheben (Rene, 29.10.2026, Variante A). Ab sm etwas größer (16 px, mehr
-// Abstand).
+// Abstand). Handy-Schrift 13,5/14 px statt 12,5/13 px (Rene, 06.11.2026:
+// "nur um ganz wenig größer"), passt auch bei 320 px in eine Reihe.
 function SubTab({ label, active, onClick }: { label: React.ReactNode; active: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`relative flex h-10 min-w-0 flex-auto items-center justify-center whitespace-nowrap px-1 font-display text-[12.5px] font-semibold transition-colors min-[400px]:text-[13px] sm:h-auto sm:flex-none sm:px-0 sm:py-3 sm:text-base ${
+      className={`relative flex h-10 min-w-0 flex-auto items-center justify-center whitespace-nowrap px-1 font-display text-[13.5px] font-semibold transition-colors min-[400px]:text-[14px] sm:h-auto sm:flex-none sm:px-0 sm:py-3 sm:text-base ${
         active ? "text-ink" : "text-muted hover:text-ink"
       }`}
     >
