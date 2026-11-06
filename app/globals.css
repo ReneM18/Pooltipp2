@@ -115,6 +115,10 @@ html {
   --c-pitch: 13 13 13;
   --c-surface: 26 26 26;
   --c-surface-hover: 34 34 34;
+  /* Spielzeilen im Matchcenter heller als der Liga-Kasten rundherum
+     (Rene, 06.11.2026, Variante B), damit jede Zeile für sich steht. */
+  --c-row: 44 44 44;
+  --c-row-hover: 54 54 54;
   --c-edge: 62 62 62;
   --c-gold: 232 179 76;
   --c-gold-dim: 74 61 34;
