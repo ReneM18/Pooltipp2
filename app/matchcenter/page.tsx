@@ -126,7 +126,7 @@ function SubTab({ label, active, onClick }: { label: React.ReactNode; active: bo
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`relative flex h-10 min-w-0 flex-auto items-center justify-center whitespace-nowrap px-1 font-display text-[12.5px] font-semibold transition-colors min-[400px]:text-[13px] sm:h-auto sm:flex-none sm:px-0 sm:py-3 sm:text-base ${
+      className={`relative flex h-10 min-w-0 flex-auto items-center justify-center whitespace-nowrap px-1 font-display text-[13.5px] font-semibold transition-colors min-[400px]:text-[14px] sm:h-auto sm:flex-none sm:px-0 sm:py-3 sm:text-base ${
         active ? "text-ink" : "text-muted hover:text-ink"
       }`}
     >
