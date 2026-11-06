@@ -1,7 +1,7 @@
 "use client";
 
 import EmptyState from "@/components/EmptyState";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SWIPE_EVENT, type SwipeDetail } from "@/components/SwipeNav";
 import AdBanner from "@/components/AdBanner";
@@ -255,6 +255,16 @@ function liveLeagueFlag(sport: Sport, g: LiveGame, competitions: Parameters<type
   return country && /^[A-Z]{2}(-[A-Z]{3})?$/.test(country) ? flagEmoji(country) : null;
 }
 
+// Farbverlauf je Sportart für die Knöpfe oben (--a hell, --z dunkel).
+const SPORT_CHIP_COLORS: Record<string, CSSProperties> = {
+  "Fußball": { "--a": "#2f9e5b", "--z": "#0f3b2a" } as CSSProperties,
+  NHL: { "--a": "#3b82c4", "--z": "#172a4a" } as CSSProperties,
+  NBA: { "--a": "#e0452b", "--z": "#4b2a8f" } as CSSProperties,
+  NFL: { "--a": "#a0522d", "--z": "#1f2c4f" } as CSSProperties,
+  Handball: { "--a": "#d97706", "--z": "#3b2410" } as CSSProperties,
+  motorsport: { "--a": "#d02a2a", "--z": "#1b1b1b" } as CSSProperties,
+};
+
 // Mehrere Sportarten (Rene, 16.10.2026): Umschalter ⚽/🏒 über dem
 // Live-Bereich; je Sportart eigener Bereich (key → Auswahl beginnt neu).
 function LiveCenter() {
@@ -293,6 +303,10 @@ function LiveCenter() {
     setSport(s);
     setMotorsport(false);
   };
+  // Sportart-Knöpfe mit Farbverlauf und Tiefe (Rene, 06.11.2026,
+  // Variante A): jede Sportart hat ihre Farbe, die gewählte leuchtet und
+  // hebt sich leicht ab, die anderen sind gedämpft. Kein Rahmen, am Handy
+  // kein Name (Name steht in aria-label), am PC der Name daneben.
   const sportButton = (key: string, label: string, icon: string, active: boolean, onClick: () => void) => (
     <button
       key={key}
@@ -301,12 +315,14 @@ function LiveCenter() {
       aria-selected={active}
       aria-label={label}
       onClick={onClick}
-      className={`flex min-h-11 min-w-12 items-center justify-center gap-1.5 rounded-full border px-3 font-semibold transition-colors lg:px-4 ${
-        active ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
+      className={`group flex min-h-11 min-w-12 items-center justify-center gap-2.5 font-semibold transition-colors ${
+        active ? "text-ink" : "text-muted hover:text-ink"
       }`}
     >
-      <span className="text-xl leading-none">
-        <Emoji e={icon} />
+      <span className={`sport-chip ${active ? "sport-chip-on" : ""}`} style={SPORT_CHIP_COLORS[key]}>
+        <span className="sport-chip-icon text-[22px] leading-none">
+          <Emoji e={icon} />
+        </span>
       </span>
       <span className="hidden text-[15px] lg:inline">{label}</span>
     </button>
@@ -318,7 +334,7 @@ function LiveCenter() {
   // trifft (Rene, 28.10.2026).
   const switcher = (
     <div className="mb-3 flex items-center gap-2">
-      <div className="flex gap-2" role="tablist" aria-label="Sportart">
+      <div className="flex gap-2.5 lg:gap-5" role="tablist" aria-label="Sportart">
         {LIVE_SPORTS.map((s) => sportButton(s, sportLabel(s), SPORT_ICONS[s], !motorsport && sport === s, () => pick(s)))}
         {/* Zielflagge statt Rennauto (Rene, 30.10.2026: "nicht nur an Formel 1
             denken, deswegen heißt es Motorsport"). */}
