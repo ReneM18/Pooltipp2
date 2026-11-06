@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Navbar from "./Navbar";
 import NewsTicker from "./NewsTicker";
-import NavTabs from "./NavTabs";
+import { DuelTourButtons } from "./NavTabs";
 import BottomNav from "./BottomNav";
 import ChatWidget from "./ChatWidget";
 import Footer from "./Footer";
@@ -20,6 +20,7 @@ import FriendInviteCatcher from "./FriendInviteCatcher";
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isTeamsArea = pathname?.startsWith("/teams");
+  const isMatchcenter = pathname === "/matchcenter";
 
   if (isTeamsArea) {
     // Der Teams-Bereich hat sein eigenes Layout/Navigation (siehe app/teams/layout.tsx)
@@ -39,14 +40,15 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
           angehefteter Block – vorher war nur die Logo-Leiste sticky, dadurch
           "verschwand" die Menüleiste beim Scrollen unter ihr und wirkte
           instabil. So bleibt die ganze Kopfzeile immer an derselben Stelle.
-          [transform:translateZ(0)] zwingt den Block auf eine eigene
+          Am PC stehen die Reiter seit 06.11.2026 in der Logo-Leiste (Navbar),
+          die eigene Menüleiste darunter gibt es nicht mehr (Rene: eine Zeile
+          weniger). [transform:translateZ(0)] zwingt den Block auf eine eigene
           GPU-Ebene – ohne das neigt position:sticky in Kombination mit dem
           seitlichen Wischen der Menüleiste direkt darunter auf dem Handy
           (v. a. iOS Safari) zu sichtbarem vertikalen Ruckeln/"Schwimmen". */}
       <div className="sticky top-0 z-20 [transform:translateZ(0)]" data-pull-anchor>
         <Navbar />
         <NewsTicker />
-        <NavTabs />
       </div>
       {/* pb-36 (Handy) / pb-24 (lg:): reserviert unten Platz, damit die
           feste Leiste unten und der schwebende Chat-Button nicht über den
@@ -56,6 +58,18 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
       <div className="pb-[calc(9rem+var(--safe-bottom))] lg:pb-24" data-swipe-root>
         <SeasonDesignGate />
         <EventDayClaim />
+        {/* Duelle + Turniere am PC rechts oben über dem Inhalt. Im
+            Matchcenter stehen sie stattdessen in der Zeile mit den
+            Sportarten (Rene, 06.11.2026, Variante A). */}
+        {!isMatchcenter && (
+          // Eigene schmale Zeile statt darübergelegt, damit nichts auf der
+          // Seite (Werbung, Willkommens-Banner …) verdeckt wird. -mb-7
+          // nutzt den oberen Abstand der Seite (py-8), so rückt der Inhalt
+          // kaum nach unten.
+          <div className="mx-auto hidden max-w-6xl relative z-10 justify-end px-5 pt-3 -mb-7 lg:flex">
+            <DuelTourButtons />
+          </div>
+        )}
         {children}
         <Footer />
       </div>

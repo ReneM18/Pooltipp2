@@ -13,6 +13,7 @@ import { useStartHref } from "@/lib/useStartHref";
 import { useHeaderCache, writeHeaderCache } from "@/lib/headerCache";
 import { getAvailableRankIcons } from "@/lib/rankTiers";
 import { LOW_STARS_THRESHOLD } from "@/lib/poolScore";
+import { NavTabLinks } from "@/components/NavTabs";
 
 export default function Navbar() {
   const {
@@ -103,6 +104,10 @@ export default function Navbar() {
         >
           Pool<span className="text-gold">Tipp</span>
         </Link>
+
+        {/* Am PC die Reiter (Spiele, Tipps, …) direkt neben dem Logo (Rene,
+            06.11.2026). Am Handy ausgeblendet, dort gibt es die Leiste unten. */}
+        <NavTabLinks />
 
         {/* Drei Knöpfe mit Abstand dazwischen, damit man am Handy sicher
             trifft, und jeder führt irgendwo hin, statt nur eine Zahl zu

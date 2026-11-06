@@ -65,6 +65,7 @@ import { isMatchTippable, isNightKickoff, planDayRange, relativeDayLabel, sportD
 import Link from "next/link";
 import { signalAppReady } from "@/lib/appReady";
 import { useStartExperience } from "@/lib/useStartExperience";
+import { DuelTourButtons } from "@/components/NavTabs";
 
 // TV-Sender eines Spiels: beim Tippspiel der Sender am Spiel, sonst der im
 // Matchcenter eingetragene (Rene, 28.10.2026, lib/fixtureTv.ts).
@@ -343,6 +344,9 @@ function LiveCenter() {
           setMotorsport(true);
         })}
       </div>
+      {/* Am PC rechts in derselben Zeile: Duelle + Turniere (Rene,
+          06.11.2026, Variante A). Am Handy sind sie in der Leiste unten. */}
+      <DuelTourButtons className="ml-auto hidden lg:flex" />
     </div>
   );
   if (motorsport) return <MotorsportCenter switcher={switcher} />;

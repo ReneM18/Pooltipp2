@@ -13,7 +13,7 @@ import { isFriendsArea } from "@/components/FriendsTabs";
 // sich auf beiden Geräten gleich zurechtfindet (Rene, 27.10.2026).
 // Die vier wichtigsten Seiten haben einen eigenen Knopf, alles Weitere
 // steckt hinter "Mehr" (Fenster von unten). Ab lg: übernimmt die
-// Menüleiste oben (NavTabs) – dort ist genug Platz für alles.
+// Menü oben in der Logo-Zeile (NavTabs) – dort ist genug Platz für alles.
 
 type Item = { href: string; label: string; icon: React.ReactNode };
 
