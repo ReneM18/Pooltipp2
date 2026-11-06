@@ -270,12 +270,23 @@ export default function DashboardPage() {
   const offenList = notOnStage(tippable.filter((m) => groupOf(m) === "offen")).sort(byDeadline);
   const getipptList = notOnStage(tippable.filter((m) => groupOf(m) === "getippt")).sort(byDeadline);
   const offenNext = offenList[0] && now !== null ? deadlineText(Date.parse(offenList[0].tipDeadline), now) : null;
+  // Alles getippt (auch keine gerade getippte Karte mehr unter "Noch offen"):
+  // dann heißt die Überschrift selbst "✓ Alles getippt · nächstes Spiel …"
+  // statt einer eigenen Leiste über "✓ Schon getippt" – zwei Hinweise
+  // untereinander kosteten zu viel Platz (Rene, 06.11.2026). "Änderbar bis …"
+  // steht ohnehin auf jeder Karte. Nur der Text wechselt, die Höhe bleibt,
+  // daher springt beim letzten Tipp nichts.
+  const allTipped = tab === "tippen" && split.offen.length === 0 && offenList.length === 0 && tippable.length > 0;
   const sections: Section[] =
     tab === "tippen"
       ? [
           ...(offenList.length ? [{ key: "offen", label: "Noch offen", sub: offenNext ? `nächster Tippschluss ${offenNext}` : undefined, days: byDay(offenList) }] : []),
           ...(getipptList.length
-            ? [{ key: "getippt", label: "✓ Schon getippt", sub: "bis Tippschluss änderbar", days: byDay(getipptList) }]
+            ? [
+                allTipped
+                  ? { key: "getippt", label: "✓ Alles getippt", sub: nextKickoffText ? `nächstes Spiel ${nextKickoffText}` : undefined, days: byDay(getipptList) }
+                  : { key: "getippt", label: "✓ Schon getippt", sub: "bis Tippschluss änderbar", days: byDay(getipptList) },
+              ]
             : []),
         ]
       : tab === "live"
@@ -450,7 +461,10 @@ export default function DashboardPage() {
       {/* Erst wenn auch keine gerade getippte Karte mehr unter "Noch offen"
           steht: sonst schob die Leiste beim letzten Tipp alles darunter ein
           Stück nach unten (Rene, 03.11.2026). */}
-      {tab === "tippen" && split.offen.length === 0 && offenList.length === 0 && tippable.length > 0 && (
+      {/* Seit 06.11.2026 nur noch, wenn darunter keine "Schon getippt"-Gruppe
+          steht (z. B. alle getippten Spiele oben als Topspiel). Sonst sagt das
+          die Überschrift der Gruppe. */}
+      {allTipped && getipptList.length === 0 && (
         <div className="mb-5 flex items-center gap-2.5 rounded-card border border-edge bg-surface/60 px-3.5 py-2.5 lg:px-4 lg:py-3">
           <span aria-hidden className="text-base leading-none lg:text-lg">
             ✅
