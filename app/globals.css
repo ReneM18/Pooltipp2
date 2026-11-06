@@ -614,8 +614,8 @@ html[data-season-design] .match-card-rand.match-card-zu {
 
 /* Sportart-Knöpfe im Matchcenter (Rene, 06.11.2026, Variante A mit Tiefe):
    runder Farbverlauf je Sportart (--a/--z kommen vom Knopf), oben Glanz,
-   unten Schatten. Gewählt: volle Farbe, leicht angehoben, farbiges
-   Leuchten. Die anderen gedämpft. */
+   unten Schatten. Gewählt: volle Farbe + scharfer Goldring, die anderen
+   etwas gedämpft. */
 .sport-chip {
   position: relative;
   display: flex;
@@ -631,7 +631,7 @@ html[data-season-design] .match-card-rand.match-card-zu {
     0 2px 3px rgb(0 0 0 / 0.5),
     inset 0 1.5px 0 rgb(255 255 255 / 0.22),
     inset 0 -4px 8px rgb(0 0 0 / 0.55);
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: box-shadow 0.2s;
 }
 .sport-chip::before {
   content: "";
@@ -639,8 +639,8 @@ html[data-season-design] .match-card-rand.match-card-zu {
   inset: 0;
   border-radius: inherit;
   background: linear-gradient(135deg, var(--a, #555), var(--z, #222));
-  opacity: 0.55;
-  filter: saturate(0.7);
+  opacity: 0.7;
+  filter: saturate(0.8);
   transition: opacity 0.2s, filter 0.2s;
 }
 .sport-chip::after {
@@ -660,15 +660,18 @@ html[data-season-design] .match-card-rand.match-card-zu {
   filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.55));
 }
 button:hover > .sport-chip::before {
-  opacity: 0.75;
+  opacity: 0.85;
 }
 .sport-chip-on {
-  transform: translateY(-2px);
+  /* Kein farbiges Leuchten und kein Anheben (Rene, 06.11.2026: "leuchtet
+     so", "verwischt"): gleicher Schatten wie die anderen, dazu ein
+     scharfer goldener Ring mit kleinem Abstand. */
   box-shadow:
-    0 8px 18px -4px var(--a, #e8b34c),
-    0 2px 3px rgb(0 0 0 / 0.5),
-    inset 0 1.5px 0 rgb(255 255 255 / 0.3),
-    inset 0 -4px 8px rgb(0 0 0 / 0.45);
+    0 0 0 2px rgb(var(--c-pitch)),
+    0 0 0 4px rgb(var(--c-gold)),
+    0 6px 12px -2px rgb(0 0 0 / 0.75),
+    inset 0 1.5px 0 rgb(255 255 255 / 0.22),
+    inset 0 -4px 8px rgb(0 0 0 / 0.55);
 }
 .sport-chip-on::before,
 button:hover > .sport-chip-on::before {
