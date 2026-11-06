@@ -6,10 +6,10 @@ import { useDuels } from "@/lib/DuelsContext";
 import { TIPPRUNDEN_ENABLED } from "@/lib/types";
 import { MATCHCENTER_FIRST } from "@/lib/startPage";
 
+// Menü am PC (ab lg:). Am Handy/Tablet gibt es dafür die feste Leiste unten
+// (BottomNav).
 // Logisch gruppiert: erst die eigene Spiel-Schleife (Tippen, Spiele,
 // Fortschritt), danach alles Community-Bezogene (Rangliste, Feed, Freunde).
-// Der Prämien-Shop hat jetzt sein eigenes Icon oben in der Navbar, direkt
-// bei der Sterne-Anzeige – daher hier nicht mehr als Tab.
 const allTabs = [
   { href: "/", label: "Tipps" },
   { href: "/matchcenter", label: "Spiele" },
@@ -18,95 +18,75 @@ const allTabs = [
   { href: "/rangliste", label: "Rangliste" },
   { href: "/fortschritt", label: "Saison-Pass" },
   // Feed ist ein Reiter im Bereich Freunde (FriendsTabs, Rene, 27.10.2026).
-  // Duelle hat rechts wieder einen eigenen Knopf.
   { href: "/freunde", label: "Freunde" },
 ];
 
 // Matchcenter zuerst, Tipps als zweites (Schalter in lib/startPage.ts).
 const tabs = MATCHCENTER_FIRST ? [allTabs[1], allTabs[0], ...allTabs.slice(2)] : allTabs;
 
-export default function NavTabs() {
+// Die Reiter stehen am PC oben in der Logo-Zeile neben "PoolTipp" (Rene,
+// 06.11.2026, Variante A: eine Zeile weniger, die Spiele rücken nach oben).
+// Die Navbar ruft das hier zwischen Logo und Coins auf. Der Goldstrich der
+// gewählten Seite sitzt unten auf der Linie der Logo-Zeile.
+export function NavTabLinks() {
   const pathname = usePathname();
+  return (
+    <nav aria-label="Hauptmenü" className="-my-4 ml-6 mr-auto hidden items-stretch self-stretch lg:flex xl:ml-10">
+      {tabs.map((tab) => {
+        const isActive =
+          tab.href === "/freunde" ? pathname === "/freunde" || pathname === "/feed" : pathname === tab.href;
+        return (
+          <Link
+            key={tab.href}
+            href={tab.href}
+            aria-current={isActive ? "page" : undefined}
+            // "Spiele" nochmal antippen: Matchcenter zurück auf "Heute"
+            // (Rene, 27.10.2026), siehe app/matchcenter/page.tsx.
+            onClick={tab.href === "/matchcenter" ? () => window.dispatchEvent(new Event("pooltipp:spiele")) : undefined}
+            className={`relative flex shrink-0 items-center whitespace-nowrap px-2.5 font-display text-base font-semibold tracking-wide transition-colors xl:px-4 xl:text-lg ${
+              isActive ? "text-ink" : "text-muted hover:text-ink"
+            }`}
+          >
+            {tab.label}
+            {isActive && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-gold" />}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+const pill =
+  "relative flex shrink-0 items-center gap-1 rounded-full border border-gold/45 bg-surface px-3 py-1.5 font-display text-sm font-semibold text-ink transition-colors hover:border-gold hover:bg-gold/10";
+
+// Duelle + Turniere am PC (Rene, 06.11.2026, Variante A): im Matchcenter
+// rechts in der Zeile mit den Sportarten, auf den anderen Seiten rechts oben
+// über dem Inhalt (AppChrome). Am Handy stecken sie in der Leiste unten.
+export function DuelTourButtons({ className = "" }: { className?: string }) {
   // Offene Duell-Einladungen als Zahl am Duelle-Knopf.
   const { invitesForMe } = useDuels();
-
   return (
-    <nav className="relative hidden border-b border-edge bg-pitch lg:block">
-      {/* Seit der festen Leiste unten (BottomNav) wird diese Menüleiste nur
-          noch ab lg: angezeigt; der Handy-Teil unten bleibt als Rückfall.
-          Handy & Tablet (Standard, bis lg:): horizontal scrollbare Leiste
-          zum Wischen, Scrollbar versteckt – fühlt sich wie eine native App
-          an. touch-pan-x + overscroll-contain (statt nur -x) +
-          overflow-y-hidden verhindern zusammen, dass das seitliche Wischen
-          zusätzlich die ganze Seite vertikal "mitzieht" bzw. "schwimmt"
-          (die fest angeheftete Kopfzeile in AppChrome.tsx bekommt zusätzlich
-          einen GPU-Compositing-Hint, weil position:sticky + horizontales
-          Wischen direkt darunter auf iOS Safari sonst zum Ruckeln neigt).
-          Ab lg: (echtes Desktop/Web, ≥1024px) ist die Leiste eine eigene,
-          für breite Bildschirme gebaute Variante: kein Wischen/Scrollen
-          mehr nötig (der Seiteninhalt ist ab lg: ohnehin breiter, siehe
-          max-w-5xl unten, dadurch passt alles in eine Zeile), dafür mehr
-          Abstand zwischen den Punkten statt der mobil-engen Reiter. */}
-      <div className="mx-auto flex max-w-3xl lg:max-w-6xl items-stretch gap-0.5 overflow-x-auto overflow-y-hidden px-2 touch-pan-x overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:flex-wrap lg:overflow-x-visible lg:gap-1 lg:px-6">
-        {tabs.map((tab) => {
-          const isActive =
-            tab.href === "/freunde" ? pathname === "/freunde" || pathname === "/feed" : pathname === tab.href;
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              // "Spiele" nochmal antippen: Matchcenter zurück auf "Heute"
-              // (Rene, 27.10.2026), siehe app/matchcenter/page.tsx.
-              onClick={tab.href === "/matchcenter" ? () => window.dispatchEvent(new Event("pooltipp:spiele")) : undefined}
-              className={`relative flex shrink-0 items-center px-3 py-3.5 font-display text-lg font-semibold tracking-wide transition-colors lg:px-2.5 lg:text-base xl:px-4 xl:text-lg ${
-                isActive ? "text-ink" : "text-muted hover:text-ink"
-              }`}
-            >
-              {tab.label}
-              {isActive && (
-                <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-gold" />
-              )}
-            </Link>
-          );
-        })}
-
-        {/* Rechtsbündig in derselben Zeile (ml-auto) – am Handy/Tablet ganz
-            rechts in der Scroll-Leiste, ab lg: rechts in der einzeiligen
-            Desktop-Leiste. lg:flex-wrap oben ist nur ein Sicherheitsnetz,
-            falls ein Fenster doch mal knapper ist; normalerweise passt ab
-            lg: alles in eine Zeile. */}
-        <div className="my-2 ml-auto flex shrink-0 items-center gap-1.5 lg:gap-2">
-          {/* Duelle wieder als eigener Knopf (Rene, 27.10.2026: "die Duelle sind weg"). */}
-          <Link
-            href="/duelle"
-            className="relative flex shrink-0 items-center gap-1 rounded-full border border-gold/45 bg-surface px-2.5 py-1 font-display text-xs font-semibold text-ink transition-colors hover:border-gold hover:bg-gold/10 lg:px-3 lg:py-1.5 lg:text-sm"
+    <div className={`flex shrink-0 items-center gap-2 ${className}`}>
+      {/* Duelle als eigener Knopf (Rene, 27.10.2026: "die Duelle sind weg"). */}
+      <Link href="/duelle" className={pill}>
+        <span aria-hidden>⚔️</span> Duelle
+        {invitesForMe.length > 0 && (
+          <span
+            className="ml-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold leading-none text-white"
+            aria-label={`${invitesForMe.length} offene Duell-Einladungen`}
           >
-            <span aria-hidden>⚔️</span> Duelle
-            {invitesForMe.length > 0 && (
-              <span
-                className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white lg:h-5 lg:min-w-5 lg:text-xs"
-                aria-label={`${invitesForMe.length} offene Duell-Einladungen`}
-              >
-                {invitesForMe.length}
-              </span>
-            )}
-          </Link>
-          {TIPPRUNDEN_ENABLED && (
-            <Link
-              href="/teams"
-              className="flex shrink-0 items-center gap-1 rounded-full border border-gold/45 bg-surface px-2.5 py-1 font-display text-xs font-semibold text-ink transition-colors hover:border-gold hover:bg-gold/10 lg:px-3 lg:py-1.5 lg:text-sm"
-            >
-              <span aria-hidden>👥</span> Tipprunden
-            </Link>
-          )}
-          <Link
-            href="/turnier"
-            className="flex shrink-0 items-center gap-1 rounded-full border border-gold/45 bg-surface px-2.5 py-1 font-display text-xs font-semibold text-ink transition-colors hover:border-gold hover:bg-gold/10 lg:px-3 lg:py-1.5 lg:text-sm"
-          >
-            <span aria-hidden>🏆</span> Turniere
-          </Link>
-        </div>
-      </div>
-    </nav>
+            {invitesForMe.length}
+          </span>
+        )}
+      </Link>
+      {TIPPRUNDEN_ENABLED && (
+        <Link href="/teams" className={pill}>
+          <span aria-hidden>👥</span> Tipprunden
+        </Link>
+      )}
+      <Link href="/turnier" className={pill}>
+        <span aria-hidden>🏆</span> Turniere
+      </Link>
+    </div>
   );
 }
