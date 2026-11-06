@@ -17,10 +17,13 @@ import { GoalToastHost } from "./GoalToast";
 import InstallHint from "./InstallHint";
 import FriendInviteCatcher from "./FriendInviteCatcher";
 
+// Seiten, auf denen Duelle + Turniere am PC rechts oben stehen (siehe unten).
+const DUEL_TOUR_PAGES = ["/", "/rangliste", "/fortschritt", "/freunde", "/feed", "/duelle", "/turnier", "/shop"];
+
 export default function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isTeamsArea = pathname?.startsWith("/teams");
-  const isMatchcenter = pathname === "/matchcenter";
+  const showDuelTour = DUEL_TOUR_PAGES.includes(pathname ?? "");
 
   if (isTeamsArea) {
     // Der Teams-Bereich hat sein eigenes Layout/Navigation (siehe app/teams/layout.tsx)
@@ -58,16 +61,15 @@ export default function AppChrome({ children }: { children: React.ReactNode }) {
       <div className="pb-[calc(9rem+var(--safe-bottom))] lg:pb-24" data-swipe-root>
         <SeasonDesignGate />
         <EventDayClaim />
-        {/* Duelle + Turniere am PC rechts oben über dem Inhalt. Im
-            Matchcenter stehen sie stattdessen in der Zeile mit den
-            Sportarten (Rene, 06.11.2026, Variante A). */}
-        {!isMatchcenter && (
-          // Eigene schmale Zeile statt darübergelegt, damit nichts auf der
-          // Seite (Werbung, Willkommens-Banner …) verdeckt wird. -mb-7
-          // nutzt den oberen Abstand der Seite (py-8), so rückt der Inhalt
-          // kaum nach unten.
-          <div className="mx-auto hidden max-w-6xl relative z-10 justify-end px-5 pt-3 -mb-7 lg:flex">
-            <DuelTourButtons />
+        {/* Duelle + Turniere am PC rechts oben, auf Höhe der ersten Zeile
+            der Seite (z. B. "Hallo, Rene"), darübergelegt statt in einer
+            eigenen leeren Zeile, damit der Inhalt ganz oben anfängt (Rene,
+            06.11.2026). Im Matchcenter stehen sie in der Zeile mit den
+            Sportarten. Nur auf den Hauptseiten, deren erste Zeile rechts frei
+            ist (Profil, Admin usw. haben dort eigene Knöpfe). */}
+        {showDuelTour && (
+          <div className="relative mx-auto hidden max-w-6xl lg:block">
+            <DuelTourButtons className="absolute right-5 top-7 z-10" />
           </div>
         )}
         {children}
