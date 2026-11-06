@@ -304,8 +304,8 @@ function LiveCenter() {
     setMotorsport(false);
   };
   // Sportart-Knöpfe mit Farbverlauf und Tiefe (Rene, 06.11.2026,
-  // Variante A): jede Sportart hat ihre Farbe, die gewählte leuchtet und
-  // hebt sich leicht ab, die anderen sind gedämpft. Kein Rahmen, am Handy
+  // Variante A): jede Sportart hat ihre Farbe, die gewählte hat einen
+  // scharfen Goldring, die anderen sind etwas gedämpft. Kein Rahmen, am Handy
   // kein Name (Name steht in aria-label), am PC der Name daneben.
   const sportButton = (key: string, label: string, icon: string, active: boolean, onClick: () => void) => (
     <button
