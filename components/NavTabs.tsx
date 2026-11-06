@@ -27,11 +27,11 @@ const tabs = MATCHCENTER_FIRST ? [allTabs[1], allTabs[0], ...allTabs.slice(2)] :
 // Die Reiter stehen am PC oben in der Logo-Zeile neben "PoolTipp" (Rene,
 // 06.11.2026, Variante A: eine Zeile weniger, die Spiele rücken nach oben).
 // Die Navbar ruft das hier zwischen Logo und Coins auf. Der Goldstrich der
-// gewählten Seite sitzt unten auf der Linie der Logo-Zeile.
+// gewählten Seite sitzt knapp unter dem Wort, mit Abstand zum Logo.
 export function NavTabLinks() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Hauptmenü" className="-my-4 ml-6 mr-auto hidden items-stretch self-stretch lg:flex xl:ml-10">
+    <nav aria-label="Hauptmenü" className="-my-4 ml-9 mr-auto hidden items-stretch self-stretch lg:flex xl:ml-14">
       {tabs.map((tab) => {
         const isActive =
           tab.href === "/freunde" ? pathname === "/freunde" || pathname === "/feed" : pathname === tab.href;
@@ -48,7 +48,9 @@ export function NavTabLinks() {
             }`}
           >
             {tab.label}
-            {isActive && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-gold" />}
+            {/* Strich etwas über der Unterkante, sonst geht er im goldenen
+                News-Ticker direkt darunter unter (Rene, 06.11.2026). */}
+            {isActive && <span className="absolute inset-x-2.5 bottom-2.5 h-[3px] rounded-full bg-gold xl:inset-x-4" />}
           </Link>
         );
       })}
