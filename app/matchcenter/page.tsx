@@ -753,7 +753,25 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
             <div className="min-w-0 rounded-card border border-muted/40 bg-surface p-3 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] lg:p-4">
               {view === "spielplan" ? (
                 <>
-                  {hasBewerb && <PlanModeSwitch mode={planMode} onPick={setPlanMode} />}
+                  {/* Umschalter und Tag in einer Zeile (Rene, 07.11.2026): Datum
+                      und Pfeile rechts neben "Nach Tag | Nach Bewerb", so rutscht
+                      die Liste nach oben. Auch am Handy eine Zeile. */}
+                  {(hasBewerb || (!bewerbActive && shownPlanDay && planFirst && planLast)) && (
+                    <div className={`mb-3 flex items-center gap-2 max-[359px]:gap-1.5 sm:gap-4 ${bewerbActive ? "" : "border-b border-edge pb-3"}`}>
+                      {hasBewerb && (
+                        <PlanModeSwitch mode={planMode} onPick={setPlanMode} alone={bewerbActive || !(shownPlanDay && planFirst && planLast)} />
+                      )}
+                      {!bewerbActive && shownPlanDay && planFirst && planLast && (
+                        <DayNav
+                          date={shownPlanDay}
+                          now={now}
+                          canBack={shownPlanDay > planFirst}
+                          canAhead={shownPlanDay < planLast}
+                          onPick={(days) => setPlanDay(addDays(shownPlanDay, days))}
+                        />
+                      )}
+                    </div>
+                  )}
                   {bewerbActive ? (
                     <LcCompetition
                       leagueId={fixtureLeagueId}
@@ -773,18 +791,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
                       {...listProps}
                     />
                   ) : (
-                  <>
-                  {shownPlanDay && planFirst && planLast && (
-                    <DayNav
-                      date={shownPlanDay}
-                      now={now}
-                      canBack={shownPlanDay > planFirst}
-                      canAhead={shownPlanDay < planLast}
-                      onPick={(days) => setPlanDay(addDays(shownPlanDay, days))}
-                    />
-                  )}
                   <LcDay key={shownPlanDay} games={planDayData.games} error={planDayData.error} onRetry={retry} {...listProps} />
-                  </>
                   )}
                 </>
               ) : (
@@ -1024,14 +1031,14 @@ function LcLiveHeader({ sport, count, dataAt, source }: { sport: Sport; count: n
 }
 
 // Pfeil zum Blättern (Tag, Spieltag), 44 × 44 px, am Rand ausgegraut.
-function NavArrow({ dir, enabled, label, onClick }: { dir: -1 | 1; enabled: boolean; label: string; onClick: () => void }) {
+function NavArrow({ dir, enabled, label, onClick, compact }: { dir: -1 | 1; enabled: boolean; label: string; onClick: () => void; compact?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={!enabled}
       aria-label={label}
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-edge text-ink transition-colors [@media(hover:hover)]:hover:border-gold [@media(hover:hover)]:hover:text-gold disabled:pointer-events-none disabled:opacity-30"
+      className={`flex ${compact ? "h-10 w-10 max-[359px]:w-9 sm:h-11 sm:w-11" : "h-11 w-11"} shrink-0 items-center justify-center rounded-full border border-edge text-ink transition-colors [@media(hover:hover)]:hover:border-gold [@media(hover:hover)]:hover:text-gold disabled:pointer-events-none disabled:opacity-30`}
     >
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d={dir < 0 ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
@@ -1058,16 +1065,21 @@ function DayNav({
 }) {
   const relative = now !== null ? relativeDayLabel(date, now) : null;
   const weekday = new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC", weekday: "long" });
+  const weekdayShort = new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC", weekday: "short" });
   const short = new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC", day: "2-digit", month: "2-digit" });
   const arrow = (dir: -1 | 1, enabled: boolean) => (
-    <NavArrow dir={dir} enabled={enabled} label={dir < 0 ? "Vorheriger Tag" : "Nächster Tag"} onClick={() => onPick(dir)} />
+    <NavArrow dir={dir} enabled={enabled} label={dir < 0 ? "Vorheriger Tag" : "Nächster Tag"} onClick={() => onPick(dir)} compact />
   );
   return (
-    <div className="mb-3 flex items-center justify-between gap-3 border-b border-edge pb-3">
+    <div className="flex min-w-0 flex-1 items-center justify-between gap-1 max-[359px]:gap-0.5 sm:gap-3">
       {arrow(-1, canBack)}
       <p className="min-w-0 text-center leading-tight" aria-live="polite">
-        <span className="block font-display text-base font-bold text-ink lg:text-lg">{relative ?? weekday}</span>
-        <span className="block text-xs text-muted">
+        <span className="block truncate font-display text-[15px] font-bold text-ink max-[359px]:text-[13px] sm:text-base lg:text-lg">{relative ?? weekday}</span>
+        {/* Am Handy kurz ("Sa., 07.11."), sonst lang ("Samstag, 07.11."). */}
+        <span className="block whitespace-nowrap text-[11px] text-muted sm:hidden">
+          {relative ? `${weekdayShort}, ${short}` : short}
+        </span>
+        <span className="hidden whitespace-nowrap text-xs text-muted sm:block">
           {relative ? `${weekday}, ${short}` : short}
         </span>
       </p>
@@ -1110,24 +1122,32 @@ type PlanMode = "tag" | "bewerb";
 
 // Umschalter oben im Spielplan (Rene, 04.11.2026, Variante A): wie bisher
 // ein Tag mit Pfeilen, oder ein Bewerb mit seinen Spieltagen.
-function PlanModeSwitch({ mode, onPick }: { mode: PlanMode; onPick: (m: PlanMode) => void }) {
+// Neben dem Tag (Nach Tag) so schmal wie die Wörter, allein (Nach Bewerb)
+// am Handy über die ganze Breite wie bisher.
+function PlanModeSwitch({ mode, onPick, alone }: { mode: PlanMode; onPick: (m: PlanMode) => void; alone: boolean }) {
   const item = (m: PlanMode, label: string) => (
     <button
       type="button"
       role="tab"
       aria-selected={mode === m}
       onClick={() => onPick(m)}
-      className={`h-10 flex-1 rounded-full text-sm font-bold transition-colors ${
+      className={`h-10 whitespace-nowrap rounded-full px-3 text-[13px] font-bold transition-colors max-[359px]:px-2 sm:px-5 sm:text-sm ${alone ? "flex-1" : ""} ${
         mode === m ? "bg-gold text-pitch" : "text-muted [@media(hover:hover)]:hover:text-ink"
       }`}
     >
-      {label}
+      {/* Am Handy neben dem Tag nur "Tag" / "Bewerb", damit Datum und Pfeile
+          daneben Platz haben (eine Zeile, Rene 07.11.2026). */}
+      {alone ? `Nach ${label}` : <><span className="max-sm:hidden">Nach </span>{label}</>}
     </button>
   );
   return (
-    <div role="tablist" aria-label="Spielplan" className="mb-3 flex gap-1 rounded-full border border-edge bg-pitch p-1 lg:max-w-sm">
-      {item("tag", "Nach Tag")}
-      {item("bewerb", "Nach Bewerb")}
+    <div
+      role="tablist"
+      aria-label="Spielplan"
+      className={`flex shrink-0 gap-1 rounded-full border border-edge bg-pitch p-1 ${alone ? "flex-1 lg:max-w-sm" : ""}`}
+    >
+      {item("tag", "Tag")}
+      {item("bewerb", "Bewerb")}
     </div>
   );
 }
