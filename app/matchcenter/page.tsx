@@ -755,11 +755,25 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
                 <>
                   {/* Umschalter und Tag in einer Zeile (Rene, 07.11.2026): Datum
                       und Pfeile rechts neben "Nach Tag | Nach Bewerb", so rutscht
-                      die Liste nach oben. Auch am Handy eine Zeile. */}
+                      die Liste nach oben. Auch am Handy eine Zeile. Bei "Nach
+                      Bewerb" bleibt der Umschalter gleich groß, rechts daneben
+                      die Liga zum Auswählen, darunter der Spieltag. */}
                   {(hasBewerb || (!bewerbActive && shownPlanDay && planFirst && planLast)) && (
                     <div className={`mb-3 flex items-center gap-2 max-[359px]:gap-1.5 sm:gap-4 ${bewerbActive ? "" : "border-b border-edge pb-3"}`}>
                       {hasBewerb && (
-                        <PlanModeSwitch mode={planMode} onPick={setPlanMode} alone={bewerbActive || !(shownPlanDay && planFirst && planLast)} />
+                        <PlanModeSwitch mode={planMode} onPick={setPlanMode} alone={!bewerbActive && !(shownPlanDay && planFirst && planLast)} />
+                      )}
+                      {bewerbActive && (
+                        <LeaguePicker
+                          leagues={FIXTURE_LEAGUES}
+                          leagueId={fixtureLeagueId}
+                          onPick={(id) => {
+                            setFixtureLeagueId(id);
+                            setRoundKey(null);
+                          }}
+                          arrows={false}
+                          inRow
+                        />
                       )}
                       {!bewerbActive && shownPlanDay && planFirst && planLast && (
                         <DayNav
@@ -774,11 +788,6 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
                   )}
                   {bewerbActive ? (
                     <LcCompetition
-                      leagueId={fixtureLeagueId}
-                      onLeaguePick={(id) => {
-                        setFixtureLeagueId(id);
-                        setRoundKey(null);
-                      }}
                       rounds={rounds}
                       roundIndex={roundIndex}
                       currentRound={currentRound}
@@ -1131,7 +1140,7 @@ function PlanModeSwitch({ mode, onPick, alone }: { mode: PlanMode; onPick: (m: P
       role="tab"
       aria-selected={mode === m}
       onClick={() => onPick(m)}
-      className={`h-10 whitespace-nowrap rounded-full px-3 text-[13px] font-bold transition-colors max-[359px]:px-2 sm:px-5 sm:text-sm ${alone ? "flex-1" : ""} ${
+      className={`h-10 whitespace-nowrap rounded-full px-2.5 text-[13px] font-bold transition-colors max-[359px]:px-2 sm:px-5 sm:text-sm ${alone ? "flex-1" : ""} ${
         mode === m ? "bg-gold text-pitch" : "text-muted [@media(hover:hover)]:hover:text-ink"
       }`}
     >
@@ -1214,8 +1223,6 @@ function roundDates(first: string, last: string): string {
 // spielt"): Bewerb wählen (Handy eine Zeile wie bei der Tabelle, PC
 // Knöpfe), darunter ein Spieltag mit Pfeilen, Spiele je Tag.
 function LcCompetition({
-  leagueId,
-  onLeaguePick,
   rounds,
   roundIndex,
   currentRound,
@@ -1227,8 +1234,6 @@ function LcCompetition({
   onRetry,
   ...list
 }: ListProps & {
-  leagueId: number;
-  onLeaguePick: (id: number) => void;
   rounds: FixtureRound[];
   roundIndex: number;
   currentRound: number;
@@ -1258,8 +1263,6 @@ function LcCompetition({
   );
   return (
     <div>
-      <LeaguePicker leagues={FIXTURE_LEAGUES} leagueId={leagueId} onPick={onLeaguePick} arrows={false} />
-      <LeaguePills leagues={FIXTURE_LEAGUES} leagueId={leagueId} onPick={onLeaguePick} />
       {error !== null ? (
         <LcError error={error} onRetry={onRetry} />
       ) : loading ? (
@@ -1422,16 +1425,20 @@ interface PickLeague {
 
 // arrows=false: nur der Knopf mit der Liste, über die ganze Breite (im
 // Spielplan nach Bewerb blättern die Pfeile schon durch die Spieltage).
+// inRow: rechts neben "Tag | Bewerb" (Rene, 07.11.2026), auch am PC; dort
+// geht die Liste als Menü unter dem Knopf auf statt unten am Rand.
 function LeaguePicker({
   leagues,
   leagueId,
   onPick,
   arrows = true,
+  inRow = false,
 }: {
   leagues: readonly PickLeague[];
   leagueId: number;
   onPick: (id: number) => void;
   arrows?: boolean;
+  inRow?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const index = Math.max(0, leagues.findIndex((l) => l.id === leagueId));
@@ -1441,18 +1448,19 @@ function LeaguePicker({
     if (!open) return;
     const body = document.body.style;
     const prevOverflow = body.overflow;
-    body.overflow = "hidden";
+    // Am PC (Menü unter dem Knopf) darf die Seite weiter scrollen.
+    if (!(inRow && window.matchMedia("(min-width: 1024px)").matches)) body.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     window.addEventListener("keydown", onKey);
     return () => {
       body.overflow = prevOverflow;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, inRow]);
 
   const label = (l: PickLeague) => (
     <>
-      <span aria-hidden className="w-6 shrink-0 text-center">
+      <span aria-hidden className={`shrink-0 text-center ${inRow ? "w-5 sm:w-6" : "w-6"}`}>
         <Emoji e={l.country ? flagEmoji(l.country) : "🏆"} />
       </span>
       <span className="truncate">{l.label}</span>
@@ -1476,13 +1484,18 @@ function LeaguePicker({
   };
 
   return (
-    <div className={`flex items-center gap-3 lg:hidden ${arrows ? "mb-4" : "mb-3"}`}>
+    <div className={inRow ? "relative flex min-w-0 flex-1 items-center lg:max-w-xs" : `flex items-center gap-3 lg:hidden ${arrows ? "mb-4" : "mb-3"}`}>
       {arrows && arrow(-1)}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-edge bg-surface px-3 font-display text-base font-bold text-ink"
+        aria-expanded={open}
+        className={`flex h-11 min-w-0 flex-1 items-center justify-center rounded-full border border-edge bg-surface font-bold text-ink ${
+          inRow
+            ? "gap-0.5 px-2 text-[12.5px] transition-colors max-[359px]:px-1.5 max-[359px]:text-xs sm:gap-1.5 sm:px-3 sm:font-display sm:text-base [@media(hover:hover)]:hover:border-gold"
+            : "gap-1.5 px-3 font-display text-base"
+        }`}
       >
         {label(current)}
         <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-muted" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -1490,6 +1503,42 @@ function LeaguePicker({
         </svg>
       </button>
       {arrows && arrow(1)}
+      {open && inRow && (
+        <>
+          <div className="fixed inset-0 z-40 hidden lg:block" onClick={() => setOpen(false)} />
+          <div
+            role="listbox"
+            aria-label="Liga wählen"
+            className="absolute left-0 right-0 top-full z-50 mt-2 hidden max-h-[60vh] min-w-64 overflow-y-auto rounded-xl border border-edge bg-surface p-1.5 shadow-[0_14px_40px_-12px_rgba(0,0,0,0.9)] lg:block"
+          >
+            {leagues.map((l) => {
+              const active = l.id === leagueId;
+              return (
+                <button
+                  key={l.id}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => {
+                    onPick(l.id);
+                    setOpen(false);
+                  }}
+                  className={`flex min-h-10 w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-sm font-semibold transition-colors ${
+                    active ? "bg-gold/10 text-gold" : "text-ink hover:bg-surface-hover"
+                  }`}
+                >
+                  {label(l)}
+                  {active && (
+                    <svg viewBox="0 0 24 24" className="ml-auto h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M5 12l5 5 9-10" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
       {open &&
         createPortal(
           <div className="fixed inset-0 z-[60] flex items-end bg-pitch/70 backdrop-blur-[2px] lg:hidden" onClick={() => setOpen(false)}>
