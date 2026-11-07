@@ -759,7 +759,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
                       Bewerb" bleibt der Umschalter gleich groß, rechts daneben
                       die Liga zum Auswählen, darunter der Spieltag. */}
                   {(hasBewerb || (!bewerbActive && shownPlanDay && planFirst && planLast)) && (
-                    <div className={`mb-3 flex items-center gap-2 max-[359px]:gap-1.5 sm:gap-4 ${bewerbActive ? "" : "border-b border-edge pb-3"}`}>
+                    <div className={`mb-2 flex items-center gap-2 max-[359px]:gap-1.5 sm:gap-4 ${bewerbActive ? "" : "border-b border-edge pb-2"}`}>
                       {hasBewerb && (
                         <PlanModeSwitch mode={planMode} onPick={setPlanMode} alone={!bewerbActive && !(shownPlanDay && planFirst && planLast)} />
                       )}
@@ -1047,7 +1047,7 @@ function NavArrow({ dir, enabled, label, onClick, compact }: { dir: -1 | 1; enab
       onClick={onClick}
       disabled={!enabled}
       aria-label={label}
-      className={`flex ${compact ? "h-10 w-10 max-[359px]:w-9 sm:h-11 sm:w-11" : "h-11 w-11"} shrink-0 items-center justify-center rounded-full border border-edge text-ink transition-colors [@media(hover:hover)]:hover:border-gold [@media(hover:hover)]:hover:text-gold disabled:pointer-events-none disabled:opacity-30`}
+      className={`flex ${compact ? "relative h-9 w-9 before:absolute before:-inset-1 max-[359px]:w-8" : "h-11 w-11"} shrink-0 items-center justify-center rounded-full border border-edge text-ink transition-colors [@media(hover:hover)]:hover:border-gold [@media(hover:hover)]:hover:text-gold disabled:pointer-events-none disabled:opacity-30`}
     >
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d={dir < 0 ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
@@ -1140,7 +1140,7 @@ function PlanModeSwitch({ mode, onPick, alone }: { mode: PlanMode; onPick: (m: P
       role="tab"
       aria-selected={mode === m}
       onClick={() => onPick(m)}
-      className={`h-10 whitespace-nowrap rounded-full px-2.5 text-[13px] font-bold transition-colors max-[359px]:px-2 sm:px-5 sm:text-sm ${alone ? "flex-1" : ""} ${
+      className={`h-8 whitespace-nowrap rounded-full px-2.5 text-[13px] font-bold transition-colors max-[359px]:px-2 sm:px-5 sm:text-sm ${alone ? "flex-1" : ""} ${
         mode === m ? "bg-gold text-pitch" : "text-muted [@media(hover:hover)]:hover:text-ink"
       }`}
     >
@@ -1153,7 +1153,7 @@ function PlanModeSwitch({ mode, onPick, alone }: { mode: PlanMode; onPick: (m: P
     <div
       role="tablist"
       aria-label="Spielplan"
-      className={`flex shrink-0 gap-1 rounded-full border border-edge bg-pitch p-1 ${alone ? "flex-1 lg:max-w-sm" : ""}`}
+      className={`flex shrink-0 gap-1 rounded-full border border-edge bg-pitch p-0.5 ${alone ? "flex-1 lg:max-w-sm" : ""}`}
     >
       {item("tag", "Tag")}
       {item("bewerb", "Bewerb")}
@@ -1259,6 +1259,7 @@ function LcCompetition({
       enabled={!!rounds[roundIndex + dir]}
       label={dir < 0 ? "Vorheriger Spieltag" : "Nächster Spieltag"}
       onClick={() => onRound(roundIndex + dir)}
+      compact
     />
   );
   return (
@@ -1276,12 +1277,15 @@ function LcCompetition({
         />
       ) : (
         <>
-          <div className="mb-3 flex items-center justify-between gap-3 border-y border-edge py-3">
+          {/* Schmal, eine Zeile (Rene 07.11.2026: am Handy Platz sparen). Die
+              Phase ("Ligaphase") nur ab sm, am Handy nur Spieltag + Datum. */}
+          <div className="mb-2 flex items-center justify-between gap-2 border-y border-edge py-1">
             {arrow(-1)}
-            <p className="min-w-0 text-center leading-tight" aria-live="polite">
-              <span className="block font-display text-base font-bold text-ink lg:text-lg">{round.title}</span>
-              <span className="block text-xs text-muted">
-                {round.phase ? `${round.phase} · ` : ""}
+            <p className="min-w-0 truncate text-center leading-tight" aria-live="polite">
+              <span className="font-display text-[15px] font-bold text-ink sm:text-base">{round.title}</span>
+              <span className="text-xs text-muted">
+                {round.phase && <span className="hidden sm:inline"> · {round.phase}</span>}
+                {" · "}
                 {roundDates(round.first, round.last)}
               </span>
             </p>
@@ -1491,7 +1495,7 @@ function LeaguePicker({
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className={`flex h-11 min-w-0 flex-1 items-center justify-center rounded-full border border-edge bg-surface font-bold text-ink ${
+        className={`flex min-w-0 flex-1 items-center justify-center rounded-full border border-edge bg-surface font-bold text-ink ${inRow ? "h-9" : "h-11"} ${
           inRow
             ? "gap-0.5 px-2 text-[12.5px] transition-colors max-[359px]:px-1.5 max-[359px]:text-xs sm:gap-1.5 sm:px-3 sm:font-display sm:text-base [@media(hover:hover)]:hover:border-gold"
             : "gap-1.5 px-3 font-display text-base"
