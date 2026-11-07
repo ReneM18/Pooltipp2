@@ -388,6 +388,7 @@ function CreateDuelForm({ prefill }: { prefill: { invitees: DuelInvitee[]; match
               id="duel-stake"
               type="number"
               inputMode="numeric"
+              autoComplete="off"
               min={1}
               max={rules.maxStake}
               value={stake}

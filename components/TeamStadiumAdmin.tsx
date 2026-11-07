@@ -282,6 +282,7 @@ export function TeamStadiumRow({
           value={capacity}
           onChange={(e) => setCapacity(e.target.value.replace(/[^\d.]/g, ""))}
           inputMode="numeric"
+          autoComplete="off"
           placeholder="Plätze"
           aria-label="Plätze"
           className="w-28 rounded-lg border border-edge bg-pitch px-3 py-2.5 text-base text-ink outline-none focus:border-gold"

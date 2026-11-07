@@ -754,6 +754,7 @@ function TextInput({
       list={list}
       maxLength={maxLength}
       inputMode={numeric ? "numeric" : undefined}
+      autoComplete="off"
       placeholder={placeholder}
       onChange={(e) => setText(numeric ? e.target.value.replace(/\D/g, "") : e.target.value)}
       onBlur={() => onCommit(text.trim())}
