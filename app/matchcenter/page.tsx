@@ -753,21 +753,22 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
             <div className="min-w-0 rounded-card border border-muted/40 bg-surface p-3 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] lg:p-4">
               {view === "spielplan" ? (
                 <>
-                  {/* Umschalter und Tag in einer Zeile (Rene, 07.11.2026): Datum
-                      und Pfeile rechts neben "Nach Tag | Nach Bewerb", so rutscht
-                      die Liste nach oben. Auch am Handy eine Zeile. Bei "Nach
-                      Bewerb" bleibt der Umschalter gleich groß, rechts daneben
-                      die Liga zum Auswählen, darunter der Spieltag. */}
+                  {/* Spielplan-Kopf (Rene, 07.11.2026, Variante C): immer zwei
+                      gleiche Leisten. Oben "Alle Ligen" (nach Tag) oder ein
+                      Bewerb, darunter ‹ Tag › bzw. ‹ Spieltag ›. Am PC beide in
+                      einer Zeile. */}
                   {(hasBewerb || (!bewerbActive && shownPlanDay && planFirst && planLast)) && (
-                    <div className={`mb-2 flex items-center gap-2 max-[359px]:gap-1.5 sm:gap-4 ${bewerbActive ? "" : "border-b border-edge pb-2"}`}>
+                    <div className="mb-3 flex flex-col gap-2 border-b border-edge pb-3 lg:flex-row">
                       {hasBewerb && (
-                        <PlanModeSwitch mode={planMode} onPick={setPlanMode} alone={!bewerbActive && !(shownPlanDay && planFirst && planLast)} />
-                      )}
-                      {bewerbActive && (
                         <LeaguePicker
-                          leagues={FIXTURE_LEAGUES}
-                          leagueId={fixtureLeagueId}
+                          leagues={PLAN_LEAGUES}
+                          leagueId={bewerbActive ? fixtureLeagueId : ALL_LEAGUES_ID}
                           onPick={(id) => {
+                            if (id === ALL_LEAGUES_ID) {
+                              setPlanMode("tag");
+                              return;
+                            }
+                            setPlanMode("bewerb");
                             setFixtureLeagueId(id);
                             setRoundKey(null);
                           }}
@@ -783,6 +784,9 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
                           canAhead={shownPlanDay < planLast}
                           onPick={(days) => setPlanDay(addDays(shownPlanDay, days))}
                         />
+                      )}
+                      {bewerbActive && rounds[roundIndex] && (
+                        <RoundNav rounds={rounds} roundIndex={roundIndex} onRound={(i) => rounds[i] && setRoundKey(rounds[i].key)} />
                       )}
                     </div>
                   )}
@@ -1040,8 +1044,8 @@ function LcLiveHeader({ sport, count, dataAt, source }: { sport: Sport; count: n
 }
 
 // Pfeil zum Blättern (Tag, Spieltag, Liga, Grand Prix), am Rand ausgegraut.
-// In der Kapsel (NavCapsule) ohne eigenen Kreis, 36 px, Trefferfläche über
-// einen unsichtbaren Rand größer.
+// Ein großes Feld (48 × 48 px) am Rand der Leiste (NavCapsule), mit Strich
+// zum Text (Rene, 07.11.2026, Variante C).
 function NavArrow({ dir, enabled, label, onClick }: { dir: -1 | 1; enabled: boolean; label: string; onClick: () => void }) {
   return (
     <button
@@ -1049,7 +1053,9 @@ function NavArrow({ dir, enabled, label, onClick }: { dir: -1 | 1; enabled: bool
       onClick={onClick}
       disabled={!enabled}
       aria-label={label}
-      className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink transition-colors before:absolute before:-inset-1 max-[359px]:w-8 [@media(hover:hover)]:hover:bg-surface-hover [@media(hover:hover)]:hover:text-gold disabled:pointer-events-none disabled:opacity-30"
+      className={`flex w-12 shrink-0 items-center justify-center border-edge text-ink transition-colors [@media(hover:hover)]:hover:bg-surface-hover [@media(hover:hover)]:hover:text-gold disabled:pointer-events-none disabled:text-ink/25 ${
+        dir < 0 ? "border-r" : "border-l"
+      }`}
     >
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d={dir < 0 ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
@@ -1058,11 +1064,22 @@ function NavArrow({ dir, enabled, label, onClick }: { dir: -1 | 1; enabled: bool
   );
 }
 
-// Pfeile und Text in einer Kapsel wie der Umschalter "Tag | Bewerb" (Rene,
-// 07.11.2026, Variante B): die Pfeile stehen direkt am Text statt ganz am Rand.
+// Leiste ‹ Text › über die ganze Breite, 48 px hoch (Rene, 07.11.2026,
+// Variante C): Tag, Spieltag, Liga (Tabelle am Handy) und Grand Prix sehen
+// gleich aus wie die Liga-Auswahl darüber.
 function NavCapsule({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`flex min-w-0 max-w-full items-center gap-0.5 rounded-full border border-edge bg-pitch p-0.5 ${className}`}>{children}</div>
+    <div className={`flex h-12 w-full min-w-0 items-stretch overflow-hidden rounded-[14px] border border-edge bg-pitch ${className}`}>{children}</div>
+  );
+}
+
+// Text in der Mitte einer Leiste, zwei Zeilen.
+function NavLabel({ title, sub }: { title: ReactNode; sub?: ReactNode }) {
+  return (
+    <p className="flex min-w-0 flex-1 flex-col items-center justify-center px-2 text-center leading-tight" aria-live="polite">
+      <span className="block max-w-full truncate font-display text-base font-bold text-ink">{title}</span>
+      {sub && <span className="block max-w-full truncate text-xs text-muted">{sub}</span>}
+    </p>
   );
 }
 
@@ -1084,28 +1101,36 @@ function DayNav({
 }) {
   const relative = now !== null ? relativeDayLabel(date, now) : null;
   const weekday = new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC", weekday: "long" });
-  const weekdayShort = new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC", weekday: "short" });
   const short = new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC", day: "2-digit", month: "2-digit" });
   const arrow = (dir: -1 | 1, enabled: boolean) => (
     <NavArrow dir={dir} enabled={enabled} label={dir < 0 ? "Vorheriger Tag" : "Nächster Tag"} onClick={() => onPick(dir)} />
   );
   return (
-    <div className="flex min-w-0 flex-1 justify-center">
-      <NavCapsule>
+    <NavCapsule className="lg:flex-1">
       {arrow(-1, canBack)}
-      <p className="min-w-0 px-1 text-center leading-tight sm:px-2" aria-live="polite">
-        <span className="block truncate font-display text-[15px] font-bold text-ink max-[359px]:text-[13px] sm:text-base">{relative ?? weekday}</span>
-        {/* Am Handy kurz ("Sa., 07.11."), sonst lang ("Samstag, 07.11."). */}
-        <span className="block whitespace-nowrap text-[11px] text-muted sm:hidden">
-          {relative ? `${weekdayShort}, ${short}` : short}
-        </span>
-        <span className="hidden whitespace-nowrap text-xs text-muted sm:block">
-          {relative ? `${weekday}, ${short}` : short}
-        </span>
-      </p>
+      <NavLabel title={relative ?? weekday} sub={relative ? `${weekday}, ${short}` : short} />
       {arrow(1, canAhead)}
-      </NavCapsule>
-    </div>
+    </NavCapsule>
+  );
+}
+
+// Spieltag eines Bewerbs mit Pfeilen, gleiche Leiste wie der Tag.
+function RoundNav({ rounds, roundIndex, onRound }: { rounds: FixtureRound[]; roundIndex: number; onRound: (index: number) => void }) {
+  const round = rounds[roundIndex];
+  const arrow = (dir: -1 | 1) => (
+    <NavArrow
+      dir={dir}
+      enabled={!!rounds[roundIndex + dir]}
+      label={dir < 0 ? "Vorheriger Spieltag" : "Nächster Spieltag"}
+      onClick={() => onRound(roundIndex + dir)}
+    />
+  );
+  return (
+    <NavCapsule className="lg:flex-1">
+      {arrow(-1)}
+      <NavLabel title={round.title} sub={`${round.phase ? `${round.phase} · ` : ""}${roundDates(round.first, round.last)}`} />
+      {arrow(1)}
+    </NavCapsule>
   );
 }
 
@@ -1140,38 +1165,6 @@ function LcDay({
 }
 
 type PlanMode = "tag" | "bewerb";
-
-// Umschalter oben im Spielplan (Rene, 04.11.2026, Variante A): wie bisher
-// ein Tag mit Pfeilen, oder ein Bewerb mit seinen Spieltagen.
-// Neben dem Tag (Nach Tag) so schmal wie die Wörter, allein (Nach Bewerb)
-// am Handy über die ganze Breite wie bisher.
-function PlanModeSwitch({ mode, onPick, alone }: { mode: PlanMode; onPick: (m: PlanMode) => void; alone: boolean }) {
-  const item = (m: PlanMode, label: string) => (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={mode === m}
-      onClick={() => onPick(m)}
-      className={`h-8 whitespace-nowrap rounded-full px-2.5 text-[13px] font-bold transition-colors max-[359px]:px-2 sm:px-5 sm:text-sm ${alone ? "flex-1" : ""} ${
-        mode === m ? "bg-gold text-pitch" : "text-muted [@media(hover:hover)]:hover:text-ink"
-      }`}
-    >
-      {/* Am Handy neben dem Tag nur "Tag" / "Bewerb", damit Datum und Pfeile
-          daneben Platz haben (eine Zeile, Rene 07.11.2026). */}
-      {alone ? `Nach ${label}` : <><span className="max-sm:hidden">Nach </span>{label}</>}
-    </button>
-  );
-  return (
-    <div
-      role="tablist"
-      aria-label="Spielplan"
-      className={`flex shrink-0 gap-1 rounded-full border border-edge bg-pitch p-0.5 ${alone ? "flex-1 lg:max-w-sm" : ""}`}
-    >
-      {item("tag", "Tag")}
-      {item("bewerb", "Bewerb")}
-    </div>
-  );
-}
 
 // Spielplan eines Bewerbs über /api/fixtures, im Browser je Bewerb 30 Min.
 // gemerkt (so lange wie auf dem Server).
@@ -1265,14 +1258,6 @@ function LcCompetition({
     }
     return Array.from(map).sort(([a], [b]) => a.localeCompare(b));
   }, [games]);
-  const arrow = (dir: -1 | 1) => (
-    <NavArrow
-      dir={dir}
-      enabled={!!rounds[roundIndex + dir]}
-      label={dir < 0 ? "Vorheriger Spieltag" : "Nächster Spieltag"}
-      onClick={() => onRound(roundIndex + dir)}
-    />
-  );
   return (
     <div>
       {error !== null ? (
@@ -1288,22 +1273,6 @@ function LcCompetition({
         />
       ) : (
         <>
-          {/* Schmal, eine Zeile (Rene 07.11.2026: am Handy Platz sparen). Die
-              Phase ("Ligaphase") nur ab sm, am Handy nur Spieltag + Datum. */}
-          <div className="mb-2 flex justify-center">
-            <NavCapsule>
-            {arrow(-1)}
-            <p className="min-w-0 truncate px-1 text-center leading-tight sm:px-2" aria-live="polite">
-              <span className="font-display text-[15px] font-bold text-ink sm:text-base">{round.title}</span>
-              <span className="text-xs text-muted">
-                {round.phase && <span className="hidden sm:inline"> · {round.phase}</span>}
-                {" · "}
-                {roundDates(round.first, round.last)}
-              </span>
-            </p>
-            {arrow(1)}
-            </NavCapsule>
-          </div>
           {roundIndex !== currentRound && currentRound >= 0 && (
             <button
               type="button"
@@ -1438,7 +1407,12 @@ interface PickLeague {
   id: number;
   label: string;
   country: string | null;
+  emoji?: string;
 }
+
+// Spielplan oben (Variante C): "Alle Ligen" = nach Tag, sonst ein Bewerb.
+const ALL_LEAGUES_ID = 0;
+const PLAN_LEAGUES: readonly PickLeague[] = [{ id: ALL_LEAGUES_ID, label: "Alle Ligen", country: null, emoji: "⚽" }, ...FIXTURE_LEAGUES];
 
 // arrows=false: nur der Knopf mit der Liste, über die ganze Breite (im
 // Spielplan nach Bewerb blättern die Pfeile schon durch die Spieltage).
@@ -1477,8 +1451,8 @@ function LeaguePicker({
 
   const label = (l: PickLeague) => (
     <>
-      <span aria-hidden className={`shrink-0 text-center ${inRow ? "w-5 sm:w-6" : "w-6"}`}>
-        <Emoji e={l.country ? flagEmoji(l.country) : "🏆"} />
+      <span aria-hidden className="w-6 shrink-0 text-center">
+        <Emoji e={l.emoji ?? (l.country ? flagEmoji(l.country) : "🏆")} />
       </span>
       <span className="truncate">{l.label}</span>
     </>
@@ -1489,7 +1463,7 @@ function LeaguePicker({
   };
 
   return (
-    <div className={inRow ? "relative flex min-w-0 flex-1 items-center lg:max-w-xs" : "mb-3 flex justify-center lg:hidden"}>
+    <div className={inRow ? "relative flex min-w-0 lg:w-[300px] lg:shrink-0" : "mb-3 flex lg:hidden"}>
       {/* Mit Pfeilen (Tabelle am Handy): Pfeile und Liga in einer Kapsel. */}
       <Wrap when={arrows && !inRow}>
       {arrows && arrow(-1)}
@@ -1498,12 +1472,12 @@ function LeaguePicker({
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className={`flex min-w-0 items-center justify-center rounded-full font-bold text-ink ${inRow || arrows ? "h-9" : "h-11"} ${arrows && !inRow ? "" : "flex-1 border border-edge bg-surface"} ${
+        className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 font-display text-base font-bold text-ink transition-colors ${
           inRow
-            ? "gap-0.5 px-2 text-[12.5px] transition-colors max-[359px]:px-1.5 max-[359px]:text-xs sm:gap-1.5 sm:px-3 sm:font-display sm:text-base [@media(hover:hover)]:hover:border-gold"
+            ? "h-12 rounded-[14px] border border-edge bg-pitch px-4 [@media(hover:hover)]:hover:border-gold"
             : arrows
-              ? "gap-1.5 px-2 font-display text-base [@media(hover:hover)]:hover:text-gold"
-              : "gap-1.5 px-3 font-display text-base"
+              ? "px-2 [@media(hover:hover)]:hover:text-gold"
+              : "h-11 rounded-full border border-edge bg-surface px-3"
         }`}
       >
         {label(current)}
@@ -2765,7 +2739,7 @@ function F1WeekendView() {
     <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start xl:grid-cols-[minmax(0,1fr)_460px]">
       <div className={F1_CARD}>
         {/* Grand Prix mit Pfeilen in der Kapsel (Rene, 07.11.2026, Variante B). */}
-        <div className="mb-3 flex justify-center">
+        <div className="mb-3">
           <NavCapsule>
             <NavArrow
               dir={-1}
@@ -2776,12 +2750,7 @@ function F1WeekendView() {
                 setSessionId(null);
               }}
             />
-            <div className="min-w-0 px-1 text-center leading-tight sm:px-2">
-              <p className="truncate font-display text-[15px] font-semibold text-ink sm:text-base">{weekend.gp}</p>
-              {(weekend.circuit || weekend.place) && (
-                <p className="truncate text-[11px] text-muted sm:text-xs">{[weekend.circuit, weekend.place].filter(Boolean).join(" · ")}</p>
-              )}
-            </div>
+            <NavLabel title={weekend.gp} sub={[weekend.circuit, weekend.place].filter(Boolean).join(" · ") || undefined} />
             <NavArrow
               dir={1}
               enabled={shownIdx < weekends.length - 1}
