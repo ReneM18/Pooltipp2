@@ -1039,20 +1039,30 @@ function LcLiveHeader({ sport, count, dataAt, source }: { sport: Sport; count: n
   );
 }
 
-// Pfeil zum Blättern (Tag, Spieltag), 44 × 44 px, am Rand ausgegraut.
-function NavArrow({ dir, enabled, label, onClick, compact }: { dir: -1 | 1; enabled: boolean; label: string; onClick: () => void; compact?: boolean }) {
+// Pfeil zum Blättern (Tag, Spieltag, Liga, Grand Prix), am Rand ausgegraut.
+// In der Kapsel (NavCapsule) ohne eigenen Kreis, 36 px, Trefferfläche über
+// einen unsichtbaren Rand größer.
+function NavArrow({ dir, enabled, label, onClick }: { dir: -1 | 1; enabled: boolean; label: string; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={!enabled}
       aria-label={label}
-      className={`flex ${compact ? "relative h-9 w-9 before:absolute before:-inset-1 max-[359px]:w-8" : "h-11 w-11"} shrink-0 items-center justify-center rounded-full border border-edge text-ink transition-colors [@media(hover:hover)]:hover:border-gold [@media(hover:hover)]:hover:text-gold disabled:pointer-events-none disabled:opacity-30`}
+      className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink transition-colors before:absolute before:-inset-1 max-[359px]:w-8 [@media(hover:hover)]:hover:bg-surface-hover [@media(hover:hover)]:hover:text-gold disabled:pointer-events-none disabled:opacity-30"
     >
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d={dir < 0 ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
       </svg>
     </button>
+  );
+}
+
+// Pfeile und Text in einer Kapsel wie der Umschalter "Tag | Bewerb" (Rene,
+// 07.11.2026, Variante B): die Pfeile stehen direkt am Text statt ganz am Rand.
+function NavCapsule({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={`flex min-w-0 max-w-full items-center gap-0.5 rounded-full border border-edge bg-pitch p-0.5 ${className}`}>{children}</div>
   );
 }
 
@@ -1077,13 +1087,14 @@ function DayNav({
   const weekdayShort = new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC", weekday: "short" });
   const short = new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC", day: "2-digit", month: "2-digit" });
   const arrow = (dir: -1 | 1, enabled: boolean) => (
-    <NavArrow dir={dir} enabled={enabled} label={dir < 0 ? "Vorheriger Tag" : "Nächster Tag"} onClick={() => onPick(dir)} compact />
+    <NavArrow dir={dir} enabled={enabled} label={dir < 0 ? "Vorheriger Tag" : "Nächster Tag"} onClick={() => onPick(dir)} />
   );
   return (
-    <div className="flex min-w-0 flex-1 items-center justify-between gap-1 max-[359px]:gap-0.5 sm:gap-3">
+    <div className="flex min-w-0 flex-1 justify-center">
+      <NavCapsule>
       {arrow(-1, canBack)}
-      <p className="min-w-0 text-center leading-tight" aria-live="polite">
-        <span className="block truncate font-display text-[15px] font-bold text-ink max-[359px]:text-[13px] sm:text-base lg:text-lg">{relative ?? weekday}</span>
+      <p className="min-w-0 px-1 text-center leading-tight sm:px-2" aria-live="polite">
+        <span className="block truncate font-display text-[15px] font-bold text-ink max-[359px]:text-[13px] sm:text-base">{relative ?? weekday}</span>
         {/* Am Handy kurz ("Sa., 07.11."), sonst lang ("Samstag, 07.11."). */}
         <span className="block whitespace-nowrap text-[11px] text-muted sm:hidden">
           {relative ? `${weekdayShort}, ${short}` : short}
@@ -1093,6 +1104,7 @@ function DayNav({
         </span>
       </p>
       {arrow(1, canAhead)}
+      </NavCapsule>
     </div>
   );
 }
@@ -1259,7 +1271,6 @@ function LcCompetition({
       enabled={!!rounds[roundIndex + dir]}
       label={dir < 0 ? "Vorheriger Spieltag" : "Nächster Spieltag"}
       onClick={() => onRound(roundIndex + dir)}
-      compact
     />
   );
   return (
@@ -1279,9 +1290,10 @@ function LcCompetition({
         <>
           {/* Schmal, eine Zeile (Rene 07.11.2026: am Handy Platz sparen). Die
               Phase ("Ligaphase") nur ab sm, am Handy nur Spieltag + Datum. */}
-          <div className="mb-2 flex items-center justify-between gap-2 border-y border-edge py-1">
+          <div className="mb-2 flex justify-center">
+            <NavCapsule>
             {arrow(-1)}
-            <p className="min-w-0 truncate text-center leading-tight" aria-live="polite">
+            <p className="min-w-0 truncate px-1 text-center leading-tight sm:px-2" aria-live="polite">
               <span className="font-display text-[15px] font-bold text-ink sm:text-base">{round.title}</span>
               <span className="text-xs text-muted">
                 {round.phase && <span className="hidden sm:inline"> · {round.phase}</span>}
@@ -1290,6 +1302,7 @@ function LcCompetition({
               </span>
             </p>
             {arrow(1)}
+            </NavCapsule>
           </div>
           {roundIndex !== currentRound && currentRound >= 0 && (
             <button
@@ -1472,33 +1485,25 @@ function LeaguePicker({
   );
   const arrow = (dir: -1 | 1) => {
     const next = leagues[index + dir];
-    return (
-      <button
-        type="button"
-        onClick={() => next && onPick(next.id)}
-        disabled={!next}
-        aria-label={dir < 0 ? "Vorherige Liga" : "Nächste Liga"}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-edge text-ink transition-colors [@media(hover:hover)]:hover:border-gold [@media(hover:hover)]:hover:text-gold disabled:pointer-events-none disabled:opacity-30"
-      >
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <path d={dir < 0 ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
-        </svg>
-      </button>
-    );
+    return <NavArrow dir={dir} enabled={!!next} label={dir < 0 ? "Vorherige Liga" : "Nächste Liga"} onClick={() => next && onPick(next.id)} />;
   };
 
   return (
-    <div className={inRow ? "relative flex min-w-0 flex-1 items-center lg:max-w-xs" : `flex items-center gap-3 lg:hidden ${arrows ? "mb-4" : "mb-3"}`}>
+    <div className={inRow ? "relative flex min-w-0 flex-1 items-center lg:max-w-xs" : "mb-3 flex justify-center lg:hidden"}>
+      {/* Mit Pfeilen (Tabelle am Handy): Pfeile und Liga in einer Kapsel. */}
+      <Wrap when={arrows && !inRow}>
       {arrows && arrow(-1)}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className={`flex min-w-0 flex-1 items-center justify-center rounded-full border border-edge bg-surface font-bold text-ink ${inRow ? "h-9" : "h-11"} ${
+        className={`flex min-w-0 items-center justify-center rounded-full font-bold text-ink ${inRow || arrows ? "h-9" : "h-11"} ${arrows && !inRow ? "" : "flex-1 border border-edge bg-surface"} ${
           inRow
             ? "gap-0.5 px-2 text-[12.5px] transition-colors max-[359px]:px-1.5 max-[359px]:text-xs sm:gap-1.5 sm:px-3 sm:font-display sm:text-base [@media(hover:hover)]:hover:border-gold"
-            : "gap-1.5 px-3 font-display text-base"
+            : arrows
+              ? "gap-1.5 px-2 font-display text-base [@media(hover:hover)]:hover:text-gold"
+              : "gap-1.5 px-3 font-display text-base"
         }`}
       >
         {label(current)}
@@ -1507,6 +1512,7 @@ function LeaguePicker({
         </svg>
       </button>
       {arrows && arrow(1)}
+      </Wrap>
       {open && inRow && (
         <>
           <div className="fixed inset-0 z-40 hidden lg:block" onClick={() => setOpen(false)} />
@@ -1582,6 +1588,11 @@ function LeaguePicker({
         )}
     </div>
   );
+}
+
+// Liga mit Pfeilen in der Kapsel, sonst nur der Knopf.
+function Wrap({ when, children }: { when: boolean; children: ReactNode }) {
+  return when ? <NavCapsule>{children}</NavCapsule> : <>{children}</>;
 }
 
 // Bewerbe am PC (ab lg) als Knöpfe.
@@ -2753,37 +2764,34 @@ function F1WeekendView() {
   return (
     <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start xl:grid-cols-[minmax(0,1fr)_460px]">
       <div className={F1_CARD}>
-        <div className="mb-3 flex items-center gap-2">
-          <button
-            type="button"
-            aria-label="Voriger Grand Prix"
-            disabled={shownIdx <= 0}
-            onClick={() => {
-              setWeekendIdx(shownIdx - 1);
-              setSessionId(null);
-            }}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-edge text-lg text-muted transition-colors hover:text-ink disabled:opacity-30"
-          >
-            ‹
-          </button>
-          <div className="min-w-0 flex-1 text-center">
-            <p className="truncate font-display text-base font-semibold text-ink">{weekend.gp}</p>
-            {(weekend.circuit || weekend.place) && (
-              <p className="truncate text-xs text-muted">{[weekend.circuit, weekend.place].filter(Boolean).join(" · ")}</p>
-            )}
-          </div>
-          <button
-            type="button"
-            aria-label="Nächster Grand Prix"
-            disabled={shownIdx >= weekends.length - 1}
-            onClick={() => {
-              setWeekendIdx(shownIdx + 1);
-              setSessionId(null);
-            }}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-edge text-lg text-muted transition-colors hover:text-ink disabled:opacity-30"
-          >
-            ›
-          </button>
+        {/* Grand Prix mit Pfeilen in der Kapsel (Rene, 07.11.2026, Variante B). */}
+        <div className="mb-3 flex justify-center">
+          <NavCapsule>
+            <NavArrow
+              dir={-1}
+              enabled={shownIdx > 0}
+              label="Voriger Grand Prix"
+              onClick={() => {
+                setWeekendIdx(shownIdx - 1);
+                setSessionId(null);
+              }}
+            />
+            <div className="min-w-0 px-1 text-center leading-tight sm:px-2">
+              <p className="truncate font-display text-[15px] font-semibold text-ink sm:text-base">{weekend.gp}</p>
+              {(weekend.circuit || weekend.place) && (
+                <p className="truncate text-[11px] text-muted sm:text-xs">{[weekend.circuit, weekend.place].filter(Boolean).join(" · ")}</p>
+              )}
+            </div>
+            <NavArrow
+              dir={1}
+              enabled={shownIdx < weekends.length - 1}
+              label="Nächster Grand Prix"
+              onClick={() => {
+                setWeekendIdx(shownIdx + 1);
+                setSessionId(null);
+              }}
+            />
+          </NavCapsule>
         </div>
         <ul className="flex flex-col">
           {weekend.sessions.map((s) => {
