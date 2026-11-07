@@ -15,6 +15,10 @@ import { useEffect, useState } from "react";
 // type="text" + inputMode="numeric" statt type="number": zeigt am Handy
 // trotzdem die Zahlentastatur, aber das Markieren beim Antippen klappt auch
 // auf älteren iPhones, und der Wert lässt sich sauber kontrollieren.
+// iPhone: kurzes Zahlenfeld mit pattern="[0-9]*" sieht für iOS wie ein Feld
+// für einen Bestätigungscode aus – dann schlägt iOS über der Tastatur Codes
+// aus SMS/Mail vor (z. B. von Vercel). Darum kein pattern, ein eigener Name
+// und Autofill/Korrektur aus. Zahlentastatur bleibt über inputMode.
 export default function ScoreInput({
   value,
   onChange,
@@ -69,8 +73,13 @@ export default function ScoreInput({
     <input
       type="text"
       inputMode="numeric"
-      pattern="[0-9]*"
+      name="tipp-tore"
       autoComplete="off"
+      autoCorrect="off"
+      autoCapitalize="off"
+      spellCheck={false}
+      data-1p-ignore
+      data-lpignore="true"
       maxLength={String(max).length + 1}
       value={text}
       placeholder={onClear ? "–" : "0"}
