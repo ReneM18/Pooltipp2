@@ -61,7 +61,7 @@ function sameStadium(a: TeamStadium | undefined, b: TeamStadium): boolean {
 }
 
 function capacityText(capacity: number | undefined): string {
-  return capacity ? ` · ${capacity.toLocaleString("de-DE")} Plätze` : "";
+  return capacity ? ` · ${capacity.toLocaleString("de-DE")}` : "";
 }
 
 // Knopf über der Team-Liste: alle Vereine der Sportart von der API füllen.

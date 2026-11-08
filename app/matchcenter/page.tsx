@@ -2357,7 +2357,7 @@ function LcDetail({
         <span className="min-w-0 break-words">
           <StadiumIcon className="mr-1.5 inline-block h-[22px] w-[22px] -translate-y-px align-middle" />
           {venue.name}
-          {venue.capacity !== null && <span className="whitespace-nowrap"> · {venue.capacity.toLocaleString("de-DE")} Plätze</span>}
+          {venue.capacity !== null && <span className="whitespace-nowrap"> · {venue.capacity.toLocaleString("de-DE")}</span>}
         </span>
       )}
     </div>
