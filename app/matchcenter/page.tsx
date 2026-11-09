@@ -352,7 +352,7 @@ function LiveCenter() {
   );
   if (motorsport) return <MotorsportCenter switcher={switcher} />;
   return (
-    <LiveCenterSection key={sport} sport={sport} switcher={switcher} target={target?.sport === sport ? target : null} />
+    <LiveCenterSection key={sport} sport={sport} switcher={switcher} target={target?.sport === sport ? target : null} onPickSport={pick} />
   );
 }
 
@@ -367,7 +367,17 @@ function needsPolling(g: LiveGame, now: number): boolean {
 const byKickoff = (a: LiveGame, b: LiveGame) =>
   new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime() || a.home.localeCompare(b.home);
 
-function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher?: React.ReactNode; target: Match | null }) {
+function LiveCenterSection({
+  sport,
+  switcher,
+  target,
+  onPickSport,
+}: {
+  sport: Sport;
+  switcher?: React.ReactNode;
+  target: Match | null;
+  onPickSport?: (s: Sport) => void;
+}) {
   const [view, setView] = useState<LcView>("live");
   // Reiter "Live" (Rene, 27.10.2026): nur laufende Spiele. "Heute" zeigt
   // alle von heute (laufend, später, beendet). Beides ist die Ansicht "live".
@@ -808,7 +818,7 @@ function LiveCenterSection({ sport, switcher, target }: { sport: Sport; switcher
                   )}
                 </>
               ) : (
-                <LcLive onlyLive={onlyLive} games={todayDay.games} error={todayDay.error} dataAt={todayDay.dataAt} source={todayDay.source} loading={polling && todayDay.loading} onRetry={retry} {...listProps} />
+                <LcLive onlyLive={onlyLive} games={todayDay.games} error={todayDay.error} dataAt={todayDay.dataAt} source={todayDay.source} loading={polling && todayDay.loading} onRetry={retry} today={today} onPickSport={onPickSport} {...listProps} />
               )}
             </div>
             <div ref={detailRef} className="scroll-mt-32">
@@ -963,8 +973,12 @@ function LcLive({
   source,
   loading,
   onRetry,
+  today,
+  onPickSport,
   ...listProps
 }: ListProps & {
+  today?: string | null;
+  onPickSport?: (s: Sport) => void;
   onlyLive?: boolean;
   games: LiveGame[] | null;
   error: string | null;
@@ -978,12 +992,15 @@ function LcLive({
   const { sport } = listProps;
   if (games.length === 0) {
     return (
-      <EmptyState
-        emoji={SPORT_ICONS[sport]}
-        title="Heute keine Spiele"
-        text="Sobald wieder gespielt wird, siehst du hier alle Spiele live."
-        className="border-none bg-transparent"
-      />
+      <>
+        <EmptyState
+          emoji={SPORT_ICONS[sport]}
+          title="Heute keine Spiele"
+          text="Sobald wieder gespielt wird, siehst du hier alle Spiele live."
+          className="border-none bg-transparent"
+        />
+        {!onlyLive && today && onPickSport && <OtherSportsToday sport={sport} today={today} onPick={onPickSport} />}
+      </>
     );
   }
   // Reihenfolge (Rene, 27.10.2026): je Liga zusammen (alle ÖFB-Cup-Spiele,
@@ -1020,6 +1037,68 @@ function LcLive({
         renderRow={(g) => <GameRow key={g.id} game={g} dataAt={dataAt} {...listProps} />}
       />
       {loading && <p className="text-center text-[11px] text-muted">Aktualisiert…</p>}
+    </div>
+  );
+}
+
+// Heute in anderen Sportarten (Rene, 09.11.2026): In der Länderspielpause
+// stand am Start (Fußball) nur "Heute keine Spiele", obwohl in der Nacht
+// NBA/NHL/NFL laufen. Die stehen unter ihrer Sportart (Sporttag 06:00 bis
+// 06:00), hier als Knopf zum Hinwechseln. Lädt dieselben Tageslisten wie der
+// Reiter der Sportart (gemeinsamer Speicher, keine Extra-Abfragen danach).
+function useSportDayGames(sport: Sport, today: string): LiveGame[] | null {
+  const day = useLiveDay(sport, today);
+  const night = useLiveDay(sport, addDays(today, 1));
+  return useMemo(() => sportDayGames(day.games, night.games), [day.games, night.games]);
+}
+
+function OtherSportsToday({ sport, today, onPick }: { sport: Sport; today: string; onPick: (s: Sport) => void }) {
+  // LIVE_SPORTS ist fest, die Hooks laufen also immer gleich oft.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const perSport = LIVE_SPORTS.map((s) => ({ sport: s, games: useSportDayGames(s, today) }));
+  const others = perSport
+    .filter((x) => x.sport !== sport && x.games && x.games.length > 0)
+    .map((x) => {
+      const list = x.games!;
+      const running = list.filter((g) => isLiveRunning(g.status)).length;
+      const next = list.filter((g) => g.status === "NS").sort(byKickoff)[0] ?? null;
+      return { sport: x.sport, count: list.length, running, next };
+    });
+  if (others.length === 0) return null;
+  return (
+    <div className="mx-auto mt-1 max-w-md px-1 pb-2">
+      <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wide text-muted">Heute in anderen Sportarten</p>
+      <div className="flex flex-col gap-2">
+        {others.map((o) => (
+          <button
+            key={o.sport}
+            type="button"
+            onClick={() => {
+              onPick(o.sport);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            className="flex min-h-12 items-center gap-3 rounded-xl border border-edge bg-surface px-3 py-2 text-left transition-colors hover:border-gold/60"
+          >
+            <span className="text-[22px] leading-none" aria-hidden>
+              <Emoji e={SPORT_ICONS[o.sport]} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-display text-[15px] font-semibold text-ink">{sportLabel(o.sport)}</span>
+              <span className="block text-xs text-muted">
+                {o.count} {o.count === 1 ? "Spiel" : "Spiele"}
+                {o.running > 0
+                  ? ` · ${o.running} live`
+                  : o.next
+                    ? ` · ab ${viennaTime(o.next.kickoff)}${isNightKickoff(o.next.kickoff) ? " (Nacht)" : ""}`
+                    : ""}
+              </span>
+            </span>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-none text-muted" aria-hidden>
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
