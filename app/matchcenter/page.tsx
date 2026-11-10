@@ -217,7 +217,7 @@ function todayCarry(now: number | null): Carry {
   return isMorningAfterNight(now) ? "morning" : "running";
 }
 
-// Läuft im Kalendertag noch ein Nacht-Spiel vom Morgen (siehe keepRunning)?
+// Läuft im Kalendertag noch ein Nacht-Spiel vom Morgen (siehe sportDayGames)?
 function hasRunningCarryOver(day: LiveGame[] | null): boolean {
   return !!day && day.some((g) => isNightKickoff(g.kickoff) && isLiveRunning(g.status));
 }
