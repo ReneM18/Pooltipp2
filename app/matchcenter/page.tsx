@@ -61,7 +61,7 @@ import { GUEST_PRIMARY_COLOR, GUEST_SECONDARY_COLOR } from "@/lib/guestTeam";
 import { useUser } from "@/lib/UserContext";
 import { COUNTDOWN_FROM } from "@/components/Countdown";
 import { deadlineText } from "@/lib/dayGroups";
-import { isMatchTippable, isMorningAfterNight, isNightKickoff, nightLabel, planDayRange, shortWeekday, relativeDayLabel, sportDay, tipCardHref, viennaCalendarDay } from "@/lib/matchcenterLink";
+import { isMatchTippable, isMorningAfterNight, isNightKickoff, planDayRange, relativeDayLabel, sportDay, tipCardHref, viennaCalendarDay } from "@/lib/matchcenterLink";
 import Link from "next/link";
 import { signalAppReady } from "@/lib/appReady";
 import { useStartExperience } from "@/lib/useStartExperience";
@@ -823,7 +823,6 @@ function LiveCenterSection({
                           canBack={shownPlanDay > planFirst}
                           canAhead={shownPlanDay < planLast}
                           onPick={(days) => setPlanDay(addDays(shownPlanDay, days))}
-                          withNight={!!planDayData.games?.some((g) => isNightKickoff(g.kickoff))}
                         />
                       )}
                       {bewerbActive && rounds[roundIndex] && (
@@ -1122,7 +1121,7 @@ function OtherSportsToday({ sport, today, onPick }: { sport: Sport; today: strin
                 {o.running > 0
                   ? ` · ${o.running} live`
                   : o.next
-                    ? ` · ab ${viennaTime(o.next.kickoff)}${isNightKickoff(o.next.kickoff) ? ` (${nightLabel(o.next.kickoff)})` : ""}`
+                    ? ` · ab ${viennaTime(o.next.kickoff)}${viennaCalendarDay(o.next.kickoff) > viennaCalendarDay(Date.now()) ? " (morgen)" : ""}`
                     : ""}
               </span>
             </span>
@@ -1204,16 +1203,12 @@ function DayNav({
   canBack,
   canAhead,
   onPick,
-  withNight = false,
 }: {
   date: string;
   now: number | null;
   canBack: boolean;
   canAhead: boolean;
   onPick: (days: number) => void;
-  // Gibt es Spiele in der Nacht danach? Dann "· mit Nacht auf Mi" (Rene,
-  // 10.11.2026), damit klar ist, dass der Tag bis 06:00 früh geht.
-  withNight?: boolean;
 }) {
   const relative = now !== null ? relativeDayLabel(date, now) : null;
   const weekday = new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC", weekday: "long" });
@@ -1224,10 +1219,7 @@ function DayNav({
   return (
     <NavCapsule className="lg:flex-1">
       {arrow(-1, canBack)}
-      <NavLabel
-        title={relative ?? weekday}
-        sub={`${relative ? `${weekday}, ${short}` : short}${withNight ? ` · mit Nacht auf ${shortWeekday(addDays(date, 1))}` : ""}`}
-      />
+      <NavLabel title={relative ?? weekday} sub={relative ? `${weekday}, ${short}` : short} />
       {arrow(1, canAhead)}
     </NavCapsule>
   );
@@ -1848,15 +1840,15 @@ function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowS
   const s = game.statusShort.toUpperCase();
   const minute = game.elapsed !== null && game.elapsed > 0 ? `${game.elapsed}'` : undefined;
   if (game.status === "NS") {
-    // Nacht-Spiele (00:00 bis 05:59) gehören zum Vortag (Sporttag) und
-    // stehen mit "Nacht" da (Rene, 28.10.2026).
     // heute/morgen/gestern nach dem Kalendertag in Wien (Rene, 30.10.2026:
-    // um 03:30 stand bei den Spielen von heute "morgen").
+    // um 03:30 stand bei den Spielen von heute "morgen"). Nacht-Spiele
+    // (00:00 bis 05:59) gehören zwar zum Vortag (Sporttag), heißen aber nach
+    // ihrem echten Tag: um 01:00 in der Nacht auf Mittwoch steht unter
+    // "Heute, Dienstag" also "morgen" (Rene, 10.11.2026, Variante C; vorher
+    // "Nacht", dann "Nacht auf Mi" – beides war unklar bzw. zu viel).
     const today = viennaCalendarDay(Date.now());
-    const day = sportDay(game.kickoff);
-    const sub = isNightKickoff(game.kickoff)
-      ? nightLabel(game.kickoff)
-      : day === today ? "heute" : day < today ? "gestern" : day === addDays(today, 1) ? "morgen" : dayLabel(day).split(",")[0];
+    const day = viennaCalendarDay(game.kickoff);
+    const sub = day === today ? "heute" : day < today ? "gestern" : day === addDays(today, 1) ? "morgen" : dayLabel(day).split(",")[0];
     return { main: viennaTime(game.kickoff), sub, muted: true };
   }
   if (isLiveFinished(game.status)) {
@@ -1866,9 +1858,7 @@ function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowS
       sport === "Fußball" && game.penaltyHome !== undefined && game.penaltyAway !== undefined ? ` ${game.penaltyHome}:${game.penaltyAway}` : "";
     const sub =
       game.status === "AET" ? "n. V." : game.status === "PEN" ? (sport === "Fußball" ? `i. E.${shootout}` : sport === "NHL" ? "n. P." : game.statusText) : undefined;
-    // Beendete Nacht-Spiele mit "Nacht auf Di" (Rene, 10.11.2026), damit
-    // man morgens unter "Heute" sieht, dass sie von der letzten Nacht sind.
-    return { main: "Endstand", sub: sub ?? (isNightKickoff(game.kickoff) ? nightLabel(game.kickoff) : undefined), muted: true };
+    return { main: "Endstand", sub, muted: true };
   }
   if (sport === "NHL") {
     if (game.status === "BREAK") {

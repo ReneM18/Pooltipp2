@@ -61,18 +61,6 @@ export function isMorningAfterNight(t: number | string): boolean {
   return h >= SPORT_DAY_START_HOUR && h < NIGHT_GAMES_SHOWN_UNTIL_HOUR;
 }
 
-// "Nacht auf Mi" (Rene, 10.11.2026: unter "Heute, Dienstag" stand bei
-// 01:00 nur "Nacht", man wusste nicht, welche Nacht). Wochentag des
-// Kalendertags, an dem das Spiel wirklich beginnt.
-export function nightLabel(kickoff: number | string): string {
-  return `Nacht auf ${shortWeekday(viennaDay(kickoff))}`;
-}
-
-// "2026-11-11" -> "Mi"
-export function shortWeekday(date: string): string {
-  return new Date(`${date}T12:00:00Z`).toLocaleDateString("de-AT", { timeZone: "UTC", weekday: "short" }).replace(".", "");
-}
-
 // Sporttag (YYYY-MM-DD) eines Zeitpunkts: vor 06:00 der Vortag.
 export function sportDay(t: number | string): string {
   const day = viennaDay(t);
