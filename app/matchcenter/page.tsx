@@ -66,7 +66,7 @@ import Link from "next/link";
 import { signalAppReady } from "@/lib/appReady";
 import { useStartExperience } from "@/lib/useStartExperience";
 import { DuelTourButtons } from "@/components/NavTabs";
-import { findLiveFor, isMinorTournament, shortPlayer, tournamentRank, type TennisListResponse, type TennisLiveGame, type TennisLiveResponse, type TennisPlanGame, type TennisRankRow } from "@/lib/tennisLive";
+import { findLiveFor, isMinorTournament, shortPlayer, tournamentPointsText, tournamentRank, type TennisListResponse, type TennisLiveGame, type TennisLiveResponse, type TennisPlanGame, type TennisRankRow, type TennisStatsResponse } from "@/lib/tennisLive";
 
 // TV-Sender eines Spiels: beim Tippspiel der Sender am Spiel, sonst der im
 // Matchcenter eingetragene (Rene, 28.10.2026, lib/fixtureTv.ts).
@@ -2778,15 +2778,32 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
   // kleine Länderspiele beim Fußball.
   const liveGames = (live?.games ?? []).filter((g) => !isMinorTournament(g.tournament));
   const groups: { name: string; games: TennisLiveGame[] }[] = [];
-  for (const g of [...liveGames].sort((a, b) => tournamentRank(a.tournament) - tournamentRank(b.tournament) || a.tournament.localeCompare(b.tournament))) {
+  for (const g of [...liveGames].sort((a, b) => tournamentRank(a.tournament, a.tour) - tournamentRank(b.tournament, b.tour) || a.tournament.localeCompare(b.tournament))) {
     const last = groups[groups.length - 1];
     if (last && last.name === g.tournament) last.games.push(g);
     else groups.push({ name: g.tournament, games: [g] });
   }
+  // Spiel-Detail (Rene, 10.11.2026: "rechts sollte was kommen, wo das Spiel
+  // größer wird und mehr Statistik wie beim Fußball"): am PC rechts, am
+  // Handy als Fenster von unten. Am PC ist das erste Live-Spiel gewählt.
+  const isDesktop = useIsDesktop();
+  const [selId, setSelId] = useState<string | null>(null);
+  const [picked, setPicked] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const firstLiveId = groups[0]?.games[0]?.id ?? null;
+  useEffect(() => {
+    if (!picked && isDesktop && firstLiveId && !selId) setSelId(firstLiveId);
+  }, [picked, isDesktop, firstLiveId, selId]);
+  const selGame = selId ? liveGames.find((g) => g.id === selId) ?? null : null;
+  const selectLive = (id: string) => {
+    setPicked(true);
+    setSelId(id);
+    if (!window.matchMedia("(min-width: 1024px)").matches) setSheetOpen(true);
+  };
   const liveFor = (m: Match) => {
     const h = getTeam(m.homeTeamId)?.name;
     const a = getTeam(m.awayTeamId)?.name;
-    return h && a && live ? findLiveFor(live.games, h, a) : null;
+    return h && a && live ? findLiveFor(liveGames, h, a) : null;
   };
   return (
     <section className="mb-6">
@@ -2823,10 +2840,11 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
                 <p className="mb-2 flex items-center gap-2 font-display text-[16px] font-bold text-ink">
                   <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-row text-[14px]">🏆</span>
                   <span className="min-w-0 break-words">{grp.name}</span>
+                  <PointsTag name={grp.name} tour={grp.games[0]?.tour} />
                 </p>
                 <div className={TENNIS_GRID}>
                   {grp.games.map((g) => (
-                    <TennisLiveRow key={g.id} game={g} />
+                    <TennisLiveRow key={g.id} game={g} selected={isDesktop && selGame?.id === g.id} onSelect={() => selectLive(g.id)} />
                   ))}
                 </div>
               </div>
@@ -2860,6 +2878,7 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
                     now={now}
                     tipped={tipped.has(m.id)}
                     live={liveFor(m)}
+                    onSelect={selectLive}
                   />
                 ))}
               </div>
@@ -2870,7 +2889,15 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
       </>
       )}
       </div>
-      <aside className="hidden lg:block">
+      <aside className="hidden lg:flex lg:flex-col lg:gap-6">
+        {view === "heute" &&
+          (selGame ? (
+            <TennisDetail key={selGame.id} game={selGame} />
+          ) : (
+            <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
+              Live-Spiel antippen, um Spielstand und Statistik zu sehen.
+            </p>
+          ))}
         <TennisTopTen
           tour={view === "rang" ? (rankTour === "atp" ? "wta" : "atp") : sideTour}
           onTour={view === "rang" ? undefined : setSideTour}
@@ -2882,6 +2909,15 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
         />
       </aside>
       </div>
+      {!isDesktop && (
+        <MatchSheet
+          open={sheetOpen && !!selGame}
+          title={selGame ? `${shortPlayer(selGame.player1)} – ${shortPlayer(selGame.player2)}` : ""}
+          onClose={() => setSheetOpen(false)}
+        >
+          {selGame && <TennisDetail key={selGame.id} game={selGame} />}
+        </MatchSheet>
+      )}
     </section>
   );
 }
@@ -2932,6 +2968,17 @@ function useTennisList<T>(kind: "plan" | "rank", tour: "atp" | "wta"): TennisLis
   return data && data.key === key ? data.res : null;
 }
 
+// Um wie viele Ranglistenpunkte es geht, dezent neben dem Turniernamen.
+function PointsTag({ name, tour }: { name: string; tour?: string | null }) {
+  const text = tournamentPointsText(name, tour);
+  if (!text) return null;
+  return (
+    <span className="shrink-0 whitespace-nowrap rounded-full border border-edge px-2 py-0.5 font-sans text-[11px] font-semibold text-muted">
+      {text}
+    </span>
+  );
+}
+
 function TennisFlag({ code }: { code: string | null }) {
   return (
     <span className="inline-flex w-5 shrink-0 justify-center text-[15px] leading-none">{code ? flagEmoji(code) : "🎾"}</span>
@@ -2952,7 +2999,7 @@ function TennisPlanView({ now }: { now: number }) {
     if (!grp) d.groups.push((grp = { name: g.tournament, games: [] }));
     grp.games.push(g);
   }
-  days.forEach((d) => d.groups.sort((a, b) => tournamentRank(a.name) - tournamentRank(b.name)));
+  days.forEach((d) => d.groups.sort((a, b) => tournamentRank(a.name, tour) - tournamentRank(b.name, tour)));
   return (
     <div>
       <TourPills tour={tour} onChange={setTour} />
@@ -2979,6 +3026,7 @@ function TennisPlanView({ now }: { now: number }) {
                     <p className="mb-2 flex items-center gap-2 font-display text-[15px] font-bold text-ink">
                       <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-row text-[14px]">🏆</span>
                       <span className="min-w-0 break-words">{grp.name}</span>
+                      <PointsTag name={grp.name} tour={tour} />
                     </p>
                     <div className={TENNIS_GRID}>
                       {grp.games.map((g) => (
@@ -3038,6 +3086,156 @@ function TennisRankView({ tour, onTour: setTour }: { tour: "atp" | "wta"; onTour
               <span className="ml-2 shrink-0 tabular-nums text-[14px] text-muted">{r.points !== null ? r.points.toLocaleString("de-DE") : ""}</span>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Spiel-Detail wie beim Fußball: Karte mit Turnier, großem Spielstand und
+// den Reitern Spiel / Statistik. Fehlt etwas in den Daten, bleibt es leer.
+function useTennisStats(id: string): TennisStatsResponse | null {
+  const [data, setData] = useState<{ id: string; res: TennisStatsResponse } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      fetch(`/api/tennis/stats?id=${encodeURIComponent(id)}`)
+        .then((r) => r.json() as Promise<TennisStatsResponse>)
+        .then((res) => alive && setData({ id, res: { ...res, rows: Array.isArray(res?.rows) ? res.rows : [] } }))
+        .catch(() => alive && setData((cur) => cur ?? { id, res: { ok: false, error: "Statistik gerade nicht erreichbar.", fetchedAt: null, rows: [] } }));
+    load();
+    const t = setInterval(load, 60 * 1000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [id]);
+  return data && data.id === id ? data.res : null;
+}
+
+function TennisDetail({ game }: { game: TennisLiveGame }) {
+  const [tab, setTab] = useState<"spiel" | "statistik">("spiel");
+  const stats = useTennisStats(game.id);
+  const setNo = Math.max(1, game.sets.length);
+  const pts = game.points ? game.points.split("-").slice(0, 2) : null;
+  // Nur gespielte Sätze, keine leeren Spalten.
+  const cols = Math.max(1, game.sets.length);
+  const player = (name: string, side: 0 | 1) => (
+    <div className="flex min-h-[44px] items-center gap-2 border-b border-edge/60 last:border-b-0">
+      <span className="min-w-0 flex-1 break-words font-display text-[17px] font-semibold leading-tight text-ink">
+        {name}
+        {game.serve === side + 1 && <span aria-label="Aufschlag" className="ml-2 inline-block h-2 w-2 -translate-y-px rounded-full bg-gold align-middle" />}
+      </span>
+      {Array.from({ length: cols }, (_, i) => {
+        const set = game.sets[i];
+        const current = i === game.sets.length - 1;
+        return (
+          <span key={i} className={`w-7 text-center font-display text-[18px] tabular-nums ${!set ? "text-muted/40" : current ? "font-bold text-ink" : "text-muted"}`}>
+            {set ? set[side] : ""}
+          </span>
+        );
+      })}
+      <span className="w-9 text-center text-[15px] font-semibold tabular-nums text-gold/90">{pts ? pts[side] : ""}</span>
+      <span className="flex h-9 w-9 items-center justify-center rounded-md border border-gold font-display text-[20px] font-bold text-gold">{game.setsWon[side]}</span>
+    </div>
+  );
+  return (
+    <div className="flex flex-col gap-4 rounded-card border border-muted/40 bg-surface p-3 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] sm:p-4">
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="flex min-w-0 items-center gap-1.5 font-semibold text-ink">
+          <span aria-hidden>🏆</span>
+          <span className="min-w-0 break-words">{game.tournament || "Tennis"}</span>
+          <PointsTag name={game.tournament} tour={game.tour} />
+        </span>
+        <span className="shrink-0 whitespace-nowrap font-semibold text-red-400">
+          ● Live · {setNo}. Satz
+        </span>
+      </div>
+      <div className="rounded-lg border border-edge bg-pitch/60 px-3 py-1">
+        <div className="flex items-center gap-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+          <span className="flex-1">{game.tour === "wta" ? "WTA" : game.tour === "atp" ? "ATP" : ""}</span>
+          {Array.from({ length: cols }, (_, i) => (
+            <span key={i} className="w-7 text-center">{i + 1}</span>
+          ))}
+          <span className="w-9 text-center">Pkt</span>
+          <span className="w-9 text-center">Sätze</span>
+        </div>
+        {player(game.player1, 0)}
+        {player(game.player2, 1)}
+      </div>
+      <div className="flex gap-1 rounded-full border border-edge bg-pitch/60 p-1" role="tablist">
+        {(
+          [
+            ["spiel", "Spiel"],
+            ["statistik", "Statistik"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={`flex-1 rounded-full py-1.5 text-[13px] font-semibold transition-colors ${
+              tab === id ? "bg-gold text-pitch" : "text-muted hover:text-ink"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {tab === "spiel" ? (
+        <div className="flex flex-col divide-y divide-edge/60 text-[14px]">
+          {game.sets.map(([a, b], i) => {
+            const done = i < game.sets.length - 1;
+            return (
+              <div key={i} className="flex min-h-[40px] items-center gap-2">
+                <span className="flex-1 text-muted">{i + 1}. Satz</span>
+                <span className={`font-display text-[16px] font-bold tabular-nums ${done ? "text-ink" : "text-red-400"}`}>
+                  {a} : {b}
+                </span>
+                <span className="w-24 text-right text-[12px] text-muted">{done ? (a > b ? shortPlayer(game.player1) : shortPlayer(game.player2)) : "läuft"}</span>
+              </div>
+            );
+          })}
+          {game.sets.length === 0 && <p className="py-6 text-center text-sm text-muted">Das Spiel hat gerade begonnen.</p>}
+        </div>
+      ) : stats === null ? (
+        <p className="py-6 text-center text-sm text-muted">Lädt…</p>
+      ) : stats.rows.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted">{stats.error ?? "Für dieses Spiel gibt es noch keine Statistik."}</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <div className="flex justify-between gap-2 text-[12px] font-semibold text-muted">
+            <span className="min-w-0 break-words">{shortPlayer(game.player1)}</span>
+            <span className="min-w-0 break-words text-right">{shortPlayer(game.player2)}</span>
+          </div>
+          {stats.rows.map((r) => {
+            const max = Math.max(r.v1, r.v2);
+            const pa = max > 0 ? (r.v1 / max) * 100 : 0;
+            const pb = max > 0 ? (r.v2 / max) * 100 : 0;
+            // Bei Doppelfehlern ist weniger besser.
+            const lowGood = r.key === "doubleFaults" || r.key === "double_faults";
+            const aBetter = lowGood ? r.v1 < r.v2 : r.v1 > r.v2;
+            const bBetter = lowGood ? r.v2 < r.v1 : r.v2 > r.v1;
+            return (
+              <div key={r.key}>
+                <div className="mb-1 flex items-baseline justify-between gap-2 text-[13px]">
+                  <span className={`font-display font-bold tabular-nums ${aBetter ? "text-gold" : "text-ink"}`}>{r.text1}</span>
+                  <span className="text-center text-[12px] text-muted">{r.label}</span>
+                  <span className={`font-display font-bold tabular-nums ${bBetter ? "text-gold" : "text-ink"}`}>{r.text2}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1">
+                  <span className="flex h-1.5 justify-end overflow-hidden rounded-full bg-edge/60">
+                    <span className={`h-full rounded-full ${aBetter ? "bg-gold" : "bg-muted/60"}`} style={{ width: `${pa}%` }} />
+                  </span>
+                  <span className="flex h-1.5 overflow-hidden rounded-full bg-edge/60">
+                    <span className={`h-full rounded-full ${bBetter ? "bg-gold" : "bg-muted/60"}`} style={{ width: `${pb}%` }} />
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -3132,7 +3330,7 @@ function useTennisLive(): TennisLiveResponse | null {
 // Live-Zeile wie im Konzept (Rene, 10.11.2026): links Live + Satz, Spieler
 // untereinander mit gelbem Aufschlag-Punkt, Games je Satz, rechts im
 // Goldkasten die gewonnenen Sätze, darunter der Punktestand im Game.
-function TennisLiveRow({ game }: { game: TennisLiveGame }) {
+function TennisLiveRow({ game, selected, onSelect }: { game: TennisLiveGame; selected: boolean; onSelect: () => void }) {
   const setNo = Math.max(1, game.sets.length);
   const player = (name: string, side: 1 | 2) => (
     <div className="flex min-h-[26px] items-center gap-1.5">
@@ -3141,7 +3339,14 @@ function TennisLiveRow({ game }: { game: TennisLiveGame }) {
     </div>
   );
   return (
-    <div className="flex items-stretch rounded-xl border border-red-400/50 bg-row px-2.5 py-2 sm:px-3">
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={`flex w-full items-stretch rounded-xl border px-2.5 py-2 text-left transition-colors sm:px-3 ${
+        selected ? "border-red-300/80 bg-row-hover" : "border-red-400/50 bg-row hover:bg-row-hover"
+      }`}
+    >
       <div className="mr-2 flex w-[52px] shrink-0 sm:mr-3 sm:w-[64px] flex-col justify-center border-r border-edge pr-2 text-[13px]">
         <span className="font-semibold text-red-400">● Live</span>
         <span className="text-[11px] text-muted">{setNo}. Satz</span>
@@ -3169,7 +3374,7 @@ function TennisLiveRow({ game }: { game: TennisLiveGame }) {
           <span>{game.setsWon[1]}</span>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -3180,6 +3385,7 @@ function TennisRow({
   now,
   tipped,
   live,
+  onSelect,
 }: {
   match: Match;
   home?: Team;
@@ -3187,6 +3393,7 @@ function TennisRow({
   now: number;
   tipped: boolean;
   live: { game: TennisLiveGame; swapped: boolean } | null;
+  onSelect: (liveId: string) => void;
 }) {
   const finished = match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null;
   // Live-Stand aus der Tennis-API (Spieler nach Namen gefunden), in der
@@ -3207,8 +3414,16 @@ function TennisRow({
     </div>
   );
   const time = new Date(match.kickoff).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vienna" });
+  // Läuft das Spiel in den Live-Daten, öffnet ein Klick das Detail.
+  const open = !finished && live ? () => onSelect(live.game.id) : null;
   return (
-    <div className="flex items-stretch rounded-xl border border-muted/25 bg-row px-3 py-2">
+    <div
+      role={open ? "button" : undefined}
+      tabIndex={open ? 0 : undefined}
+      onClick={open ?? undefined}
+      onKeyDown={open ? (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), open()) : undefined}
+      className={`flex items-stretch rounded-xl border border-muted/25 bg-row px-3 py-2 ${open ? "cursor-pointer hover:bg-row-hover" : ""}`}
+    >
       <div className="mr-3 flex w-[64px] shrink-0 flex-col justify-center border-r border-edge pr-2 text-[13px] text-muted">
         {finished ? "Endstand" : started || liveSets ? <span className="font-semibold text-red-400">● Live</span> : time}
         <span className="truncate text-[11px] text-muted/80">{match.competition}</span>
@@ -3222,6 +3437,7 @@ function TennisRow({
       ) : tippable ? (
         <Link
           href={tipCardHref(match.id)}
+          onClick={(e) => e.stopPropagation()}
           className="ml-2 self-center rounded-lg border border-edge border-r-[3px] border-r-gold px-2.5 py-1.5 text-[13px] font-bold text-gold"
         >
           Tippen

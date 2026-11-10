@@ -88,8 +88,12 @@ export function parseLiveGame(raw: any): TennisLiveGame | null {
  * 500/250, Challenger, ITF zuletzt. ITF-Turniere (M15, W25 …) blendet das
  * Matchcenter aus.
  */
-export function tournamentRank(name: string): number {
+export function tournamentRank(name: string, tour?: string | null): number {
   const n = name.toLowerCase();
+  const pts = tournamentPoints(name, tour);
+  if (pts === 1000) return 2;
+  if (pts === 500) return 3;
+  if (pts === 250) return 4;
   if (/australian open|roland garros|french open|wimbledon|us open/.test(n)) return 0;
   if (/finals/.test(n)) return 1;
   if (/1000|masters/.test(n)) return 2;
@@ -256,4 +260,128 @@ export function parsePlanGame(raw: Raw): TennisPlanGame | null {
     tournament: String(raw?.tournament?.name ?? raw?.league ?? "").trim(),
     round: typeof round === "string" && round.trim() ? round.trim() : null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Spiel-Statistik (Rene, 10.11.2026: "rechts sollte was kommen, wo das Spiel
+// größer wird und mehr Statistik wie beim Fußball"). Laut docs.tennis-api.com
+// GET /tennis/v2/extend/api/event/get/statistics/{eventId}:
+// statistics.{ALL|1ST|2ND…}.{Kategorie}.{Wert}.{player1|player2}
+// { value, total?, percentage? }. Älteres Format: result.stats
+// { aces: [a, b], double_faults: [a, b], … }.
+
+export interface TennisStatRow {
+  key: string;
+  label: string;
+  // Zahl für den Balken (bei Quoten der Prozentwert).
+  v1: number;
+  v2: number;
+  text1: string;
+  text2: string;
+}
+
+export interface TennisStatsResponse {
+  ok: boolean;
+  error: string | null;
+  fetchedAt: number | null;
+  rows: TennisStatRow[];
+}
+
+type StatFmt = "n" | "pct" | "frac";
+const STAT_DEFS: [string, string, string, StatFmt][] = [
+  ["service", "aces", "Asse", "n"],
+  ["service", "doubleFaults", "Doppelfehler", "n"],
+  ["service", "firstServeAccuracy", "1. Aufschlag im Feld", "pct"],
+  ["service", "firstServePointsAccuracy", "Punkte nach 1. Aufschlag", "pct"],
+  ["service", "secondServePointsAccuracy", "Punkte nach 2. Aufschlag", "pct"],
+  ["return", "breakPointsScored", "Breakbälle genutzt", "frac"],
+  ["service", "breakPointsSaved", "Breakbälle abgewehrt", "frac"],
+  ["games", "serviceGamesWon", "Aufschlagspiele gewonnen", "n"],
+  ["points", "pointsTotal", "Punkte gesamt", "n"],
+  ["games", "maxGamesInRow", "Games in Folge (max.)", "n"],
+];
+
+function statCell(p: Raw, fmt: StatFmt): { v: number; text: string } | null {
+  const value = Number(p?.value);
+  if (!Number.isFinite(value)) return null;
+  const total = Number(p?.total);
+  const hasTotal = Number.isFinite(total) && total > 0;
+  if (fmt === "n" || !hasTotal) return { v: value, text: String(value) };
+  const pct = Number.isFinite(Number(p?.percentage)) ? Number(p.percentage) : (value / total) * 100;
+  if (fmt === "pct") return { v: pct, text: `${Math.round(pct)} %` };
+  return { v: pct, text: `${value}/${total}` };
+}
+
+function findStatistics(body: Raw): Raw {
+  for (const c of [body?.statistics, body?.result?.statistics, body?.data?.statistics, body?.results?.statistics]) {
+    if (c && typeof c === "object") return c;
+  }
+  return null;
+}
+
+export function parseTennisStats(body: Raw): TennisStatRow[] {
+  const stats = findStatistics(body);
+  if (stats) {
+    const period = stats.ALL ?? stats.all ?? stats[Object.keys(stats)[0]];
+    const rows: TennisStatRow[] = [];
+    for (const [cat, metric, label, fmt] of STAT_DEFS) {
+      const m = period?.[cat]?.[metric];
+      const a = statCell(m?.player1, fmt);
+      const b = statCell(m?.player2, fmt);
+      if (a && b) rows.push({ key: metric, label, v1: a.v, v2: b.v, text1: a.text, text2: b.text });
+    }
+    if (rows.length) return rows;
+  }
+  // Älteres Format: zwei Werte je Eintrag.
+  const legacy = body?.result?.stats ?? body?.stats;
+  const LEGACY: [string, string][] = [
+    ["aces", "Asse"],
+    ["double_faults", "Doppelfehler"],
+    ["win_1st_serve", "Punkte nach 1. Aufschlag"],
+    ["break_point_conversions", "Breakbälle genutzt"],
+  ];
+  const rows: TennisStatRow[] = [];
+  if (legacy && typeof legacy === "object") {
+    for (const [k, label] of LEGACY) {
+      const pair = legacy[k];
+      if (!Array.isArray(pair) || pair.length < 2) continue;
+      const num = (x: unknown) => parseFloat(String(x).replace("%", ""));
+      const a = num(pair[0]);
+      const b = num(pair[1]);
+      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+      rows.push({ key: k, label, v1: a, v2: b, text1: String(pair[0]), text2: String(pair[1]) });
+    }
+  }
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
+// Ranglistenpunkte für den Turniersieg (Rene, 10.11.2026: "neben dem Turnier
+// immer angeben, um wie viele Punkte es geht"). Die API liefert nur den
+// Namen, darum nach Name und Tour: Grand Slam 2000, Finals bis 1500,
+// 1000er, 500er (Liste der Orte), sonst 250. Unbekannte Tour: null.
+
+const ATP_1000 = /indian wells|miami|monte.?carlo|madrid|rome|roma|internazionali|canada|montreal|toronto|cincinnati|shanghai|paris|rolex|masters/;
+const ATP_500 = /rotterdam|dallas|rio de janeiro|rio open|acapulco|doha|qatar|dubai|barcelona|munich|münchen|halle|queen|hamburg|washington|citi open|beijing|china open|tokyo|japan open|basel|swiss indoors|vienna|wien|erste bank/;
+const WTA_1000 = /doha|qatar|dubai|indian wells|miami|madrid|rome|roma|internazionali|canada|montreal|toronto|cincinnati|beijing|china open|wuhan/;
+const WTA_500 = /brisbane|adelaide|abu dhabi|linz|charleston|stuttgart|berlin|queen|bad homburg|eastbourne|washington|citi open|monterrey|seoul|korea|tokyo|pan pacific|ningbo|zhengzhou|san diego|strasbourg/;
+
+export function tournamentPoints(name: string, tour?: string | null): number | null {
+  const n = name.toLowerCase();
+  if (!n || isMinorTournament(name)) return null;
+  if (/australian open|roland garros|french open|wimbledon|us open/.test(n)) return 2000;
+  if (/finals/.test(n)) return /next gen/.test(n) ? null : 1500;
+  const t = (tour ?? "").toLowerCase() || (/\bwta\b/.test(n) ? "wta" : /\batp\b/.test(n) ? "atp" : "");
+  const explicit = n.match(/\b(1000|500|250)\b/);
+  if (explicit) return Number(explicit[1]);
+  if (t === "atp") return ATP_1000.test(n) ? 1000 : ATP_500.test(n) ? 500 : 250;
+  if (t === "wta") return WTA_1000.test(n) ? 1000 : WTA_500.test(n) ? 500 : 250;
+  return null;
+}
+
+/** "2000 Punkte", "bis 1500 Punkte" (Finals: je nach Siegen). */
+export function tournamentPointsText(name: string, tour?: string | null): string | null {
+  const p = tournamentPoints(name, tour);
+  if (p === null) return null;
+  return `${p === 1500 ? "bis " : ""}${p.toLocaleString("de-DE")} Punkte`;
 }
