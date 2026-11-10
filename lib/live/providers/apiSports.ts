@@ -1,5 +1,5 @@
 import type { Sport } from "../../types";
-import { isLiveLeagueEnabled, isYouthTeam, sameLeague } from "../../liveConfig";
+import { findLiveLeague, isLiveLeagueEnabled, isMinorFriendly, isYouthTeam, sameLeague } from "../../liveConfig";
 import { isLiveFinished, isLiveRunning, liveIntervalSeconds, liveMaxIntervalSeconds, settleStuckGame, viennaDate } from "../../liveScores";
 import { cachedLoad, type LoadResult } from "../cache";
 import type { StandingGroup, StandingTeamRow } from "../../standings";
@@ -356,7 +356,9 @@ function leagueFilter(sport: Sport, league: string | null) {
       isLiveLeagueEnabled(sport, name, country, true) &&
       (!league || (!!name && sameLeague(league, name))) &&
       !isYouthTeam(g?.teams?.home?.name) &&
-      !isYouthTeam(g?.teams?.away?.name)
+      !isYouthTeam(g?.teams?.away?.name) &&
+      // Kleine Länderspiele (Rene, 10.11.2026: Sint Maarten – Anguilla).
+      !isMinorFriendly(findLiveLeague(sport, name, country, true), g?.teams?.home?.name, g?.teams?.away?.name)
     );
   };
 }
