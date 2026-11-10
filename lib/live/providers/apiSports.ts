@@ -68,6 +68,8 @@ const ENDPOINTS: Record<Sport, string> = {
   NBA: "https://v1.basketball.api-sports.io/games",
   NFL: "https://v1.american-football.api-sports.io/games",
   Handball: "https://v1.handball.api-sports.io/games",
+  // Tennis gibt es bei API-Sports nicht (eigene Tennis-API, kommt noch).
+  Tennis: "",
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

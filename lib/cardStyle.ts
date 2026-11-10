@@ -14,4 +14,5 @@ export const SPORT_BADGE_COLOR: Record<Sport, string> = {
   NHL: "#7cc4f0",
   NBA: "#e0803a",
   Handball: "#c9a3f0",
+  Tennis: "#c7e04a",
 };

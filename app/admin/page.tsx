@@ -1,5 +1,6 @@
 "use client";
 
+import { isValidTennisScore, setsToWin, tennisBestOf, type TennisBestOf } from "@/lib/tennis";
 import { TICKER_SPEED_MAX, TICKER_SPEED_MIN, TickerSpeed } from "@/lib/appSettings";
 import { useState, useRef, useEffect, FormEvent } from "react";
 import Link from "next/link";
@@ -1844,11 +1845,11 @@ function TeamManager() {
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="sm:col-span-1">
-            <label className="mb-1.5 block text-sm text-muted">Teamname</label>
+            <label className="mb-1.5 block text-sm text-muted">{sport === "Tennis" ? "Spielername" : "Teamname"}</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="z. B. Kansas City Chiefs"
+              placeholder={sport === "Tennis" ? "z. B. J. Sinner" : "z. B. Kansas City Chiefs"}
               aria-invalid={duplicate ? true : undefined}
               className={`w-full rounded-lg border bg-pitch px-4 py-3 text-base text-ink outline-none ${
                 duplicate ? "border-red-400 focus:border-red-400" : "border-edge focus:border-gold"
@@ -1904,6 +1905,19 @@ function TeamManager() {
           </div>
         )}
 
+        {/* Tennis (Rene, 10.11.2026): ein Spieler braucht nur Name und Land,
+            angezeigt wird die Flagge – keine Trikots, keine Nationalmannschaft. */}
+        {sport === "Tennis" && (
+          <div className="flex items-center gap-3 rounded-lg border border-edge bg-pitch px-4 py-3 text-sm text-muted">
+            <TeamBadge sport="Tennis" primaryColor={primaryColor} secondaryColor={secondaryColor} countryCode={countryCode} size={40} />
+            <span>
+              🎾 Tennis-Spieler: Name und Land reichen, im Spiel steht die Flagge des Landes.
+              {!countryCode && <span className="block text-gold">Bitte ein Land wählen.</span>}
+            </span>
+          </div>
+        )}
+
+        {sport !== "Tennis" && (
         <label className="flex w-fit items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"
@@ -1913,6 +1927,7 @@ function TeamManager() {
           />
           Nationalmannschaft (Icon zeigt automatisch die Landesflagge statt Trikot/Helm)
         </label>
+        )}
 
         {hasTeamGroups(sport) && (
           <div className="max-w-md">
@@ -1977,6 +1992,7 @@ function TeamManager() {
 
         {/* Farben + große Live-Vorschau nebeneinander: man sieht sofort, wie
             das Team-Wappen mit den gewählten Farben aussieht. */}
+        {sport !== "Tennis" && (
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex items-center gap-4 rounded-lg border border-edge bg-pitch px-5 py-4">
             <TeamBadge
@@ -2066,8 +2082,9 @@ function TeamManager() {
             </div>
           )}
         </div>
+        )}
 
-        {!isNationalTeam && sport !== "NFL" && (
+        {!isNationalTeam && sport !== "NFL" && sport !== "Tennis" && (
           <div className="rounded-lg border border-edge bg-pitch p-4">
             <p className="mb-1 text-sm font-semibold text-ink">Auswärtstrikot</p>
             <p className="mb-3 text-xs text-muted">
@@ -2421,6 +2438,8 @@ function MatchManager({ view }: { view: "spiele" | "neu" }) {
   const [booster, setBoosterInput] = useState(false);
   const [tvChannel, setTvChannelInput] = useState("");
   const [tipMode, setTipModeInput] = useState<TipMode>("score");
+  // Tennis: zwei oder drei Gewinnsätze (Rene, 10.11.2026).
+  const [bestOf, setBestOf] = useState<TennisBestOf>(3);
 
   // Spiel aus der API übernommen (Rene, 28.10.2026): API-Namen merken, damit
   // ein unten von Hand gewähltes Team beim Anlegen als Vereinsname verknüpft
@@ -2543,6 +2562,7 @@ function MatchManager({ view }: { view: "spiele" | "neu" }) {
       summaryVideoUrl: null,
       tvChannel: tvChannel.trim() || null,
       tipMode,
+      ...(sport === "Tennis" ? { bestOf } : {}),
       ...(homeJersey ? { homeJersey } : {}),
       ...(awayJersey ? { awayJersey } : {}),
       // Neue Spiele sind erst Entwurf (nur hier sichtbar) und gehen mit
@@ -2564,6 +2584,7 @@ function MatchManager({ view }: { view: "spiele" | "neu" }) {
     setBoosterInput(false);
     setTvChannelInput("");
     setTipModeInput("score");
+    setBestOf(3);
     showToast(`✓ "${matchTitle(formOrder, homeName, awayName)}" als Entwurf angelegt – noch nicht online.`, "success");
   }
 
@@ -2793,10 +2814,23 @@ function MatchManager({ view }: { view: "spiele" | "neu" }) {
                 onChange={(e) => setTipModeInput(e.target.value as TipMode)}
                 className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
               >
-                <option value="score">Ergebnis-Tipp (z. B. 2:1)</option>
-                <option value="1x2">1X2 (Wer gewinnt? Knöpfe mit Teamnamen)</option>
+                <option value="score">{sport === "Tennis" ? "Satzergebnis (z. B. 2:1)" : "Ergebnis-Tipp (z. B. 2:1)"}</option>
+                <option value="1x2">{sport === "Tennis" ? "Nur Sieger (Knöpfe mit Spielernamen)" : "1X2 (Wer gewinnt? Knöpfe mit Teamnamen)"}</option>
               </select>
             </div>
+            {sport === "Tennis" && (
+              <div>
+                <label className="mb-1.5 block text-sm text-muted">Gewinnsätze</label>
+                <select
+                  value={bestOf}
+                  onChange={(e) => setBestOf(tennisBestOf(Number(e.target.value)))}
+                  className="w-full rounded-lg border border-edge bg-pitch px-4 py-3 text-base text-ink outline-none focus:border-gold"
+                >
+                  <option value={3}>2 Gewinnsätze (2:0, 2:1 …)</option>
+                  <option value={5}>3 Gewinnsätze, Grand Slam Herren (3:0, 3:1 …)</option>
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
@@ -3650,6 +3684,13 @@ function LiveScoreEditor({
 
   function handleFinish() {
     const verb = alreadyFinished ? "korrigieren" : "festlegen";
+    // Tennis: nur echte Satzergebnisse (z. B. 2:1), nie 1:1 oder 3:0 bei
+    // zwei Gewinnsätzen – sonst würden die Tipps falsch gewertet.
+    if (match.sport === "Tennis" && !isValidTennisScore(homeScore, awayScore, tennisBestOf(match.bestOf))) {
+      const win = setsToWin(tennisBestOf(match.bestOf));
+      showToast(`Bitte die gewonnenen Sätze eintragen: der Sieger hat ${win}, z. B. ${win}:1.`, "info");
+      return;
+    }
     // Mit Teamnamen, weil US-Ergebnisse meist den Gast zuerst nennen – ein
     // vertauschter Endstand würde die ganze Wertung umdrehen.
     const scoreLine = awayFirst
@@ -3741,6 +3782,11 @@ function LiveScoreEditor({
       />
       {/* Pokal: gewertet wird der Stand nach 90 Minuten, Verlängerung und
           Elfmeterschießen zählen nicht (Rene, 27.10.2026). */}
+      {match.sport === "Tennis" && (
+        <p className="basis-full text-xs text-muted">
+          🎾 Gewonnene Sätze eintragen ({setsToWin(tennisBestOf(match.bestOf))} Gewinnsätze), z. B. {setsToWin(tennisBestOf(match.bestOf))}:1. Gibt ein Spieler auf oder tritt nicht an: Spiel absagen.
+        </p>
+      )}
       {(match.sport === "Fußball" || match.sport === "Handball") && (
         <p className="basis-full text-xs text-muted">
           ⏱️ Ergebnis {match.sport === "Handball" ? "nach der regulären Spielzeit" : "nach 90 Minuten"} eintragen, ohne Verlängerung und {match.sport === "Handball" ? "Siebenmeterwerfen" : "Elfmeterschießen"}.

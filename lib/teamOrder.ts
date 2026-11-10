@@ -74,7 +74,8 @@ export function pickNumber(order: TeamOrder, side: "home" | "away"): "1" | "2" {
 // (Verlängerung bzw. Penaltyschießen bis zur Entscheidung). Dort gibt es
 // keinen X-Knopf, und statt "1"/"2" steht "Sieg" unter dem jeweiligen Team.
 export function allowsDraw(sport: string): boolean {
-  return sport !== "NBA" && sport !== "NHL";
+  // Tennis (Rene, 10.11.2026): es gewinnt immer einer.
+  return sport !== "NBA" && sport !== "NHL" && sport !== "Tennis";
 }
 
 // "1 (Bayern München)", "X (Unentschieden)", "2 (Borussia Dortmund)";

@@ -164,8 +164,17 @@ export default function TeamBadge({
 }: TeamBadgeProps) {
   // Eindeutige IDs für die Schnittmasken (mehrere Trikots auf einer Seite).
   const uid = useId().replace(/:/g, "");
-  if (isNationalTeam && countryCode) {
+  // Tennis (Rene, 10.11.2026): Spieler zeigen die Flagge ihres Landes.
+  if ((isNationalTeam || sport === "Tennis") && countryCode) {
     return <NationalFlagBadge countryCode={countryCode} size={size} />;
+  }
+  if (sport === "Tennis") {
+    // Spieler ohne Land: neutraler Tennisball statt Trikot.
+    return (
+      <span aria-hidden className="inline-flex items-center justify-center" style={{ width: size, height: size, fontSize: size * 0.7 }}>
+        🎾
+      </span>
+    );
   }
   const colors = jerseyColors(
     primaryColor,

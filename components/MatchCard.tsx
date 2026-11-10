@@ -21,6 +21,7 @@ import PassHonorTags, { useOtherPlayersHonors } from "./PassHonors";
 import { EmotePicker, MessageBody, StickerDraft, stickerFromText, stickerText } from "./Emotes";
 import Countdown from "./Countdown";
 import ScoreInput from "./ScoreInput";
+import { tennisBestOf, tennisSetScores } from "@/lib/tennis";
 import { CoinIcon } from "./CoinIcon";
 import { competitionDisplayName, competitionFlag } from "@/lib/competitionFlag";
 import { HighlightTvIcon, PeopleIcon, ChatIcon, ThumbUpIcon, TrashIcon } from "./Icons";
@@ -49,6 +50,7 @@ const scoreLimit: Record<string, { max: number; unit: string }> = {
   NFL: { max: 99, unit: "Punkte" },
   NBA: { max: 199, unit: "Punkte" },
   Handball: { max: 60, unit: "Tore" },
+  Tennis: { max: 3, unit: "Sätze" },
 };
 
 interface MyTip {
@@ -146,6 +148,10 @@ export default function MatchCard({
   stage = false,
 }: MatchCardProps) {
   const isOneXTwo = match.tipMode === "1x2";
+  // Tennis (Rene, 10.11.2026, Variante B): statt zwei Zahlenfeldern eine
+  // Knopf-Reihe mit allen Satzergebnissen (2:0, 2:1, 1:2, 0:2 bzw. bei drei
+  // Gewinnsätzen 3:0 … 0:3). Gespeichert wird wie ein Ergebnis-Tipp.
+  const setPicking = match.sport === "Tennis" && !isOneXTwo;
   // US-Liga: Gast links, Heim rechts ("Gast @ Heim"). Nur wenn die Sportart
   // US-Sport ist UND der Wettbewerb eine US-Liga (z. B. nicht die
   // österreichische Eishockey-Liga) – siehe lib/teamOrder.ts (Rene,
@@ -647,7 +653,8 @@ export default function MatchCard({
       showResultView && !isOneXTwo && myTip && !myTip.refunded
         ? side === "home" ? myTip.predictedHomeScore : myTip.predictedAwayScore
         : null;
-    const scoreInput = !showResultView && !isOneXTwo ? (side === "home" ? homeScoreInputCompact : awayScoreInputCompact) : null;
+    const scoreInput =
+      !showResultView && !isOneXTwo && !setPicking ? (side === "home" ? homeScoreInputCompact : awayScoreInputCompact) : null;
     const content = (
       <>
         <span className={`shrink-0 ${stage ? "drop-shadow-[0_4px_8px_rgb(0_0_0/0.5)]" : ""}`}>
@@ -741,10 +748,56 @@ export default function MatchCard({
     );
   }
 
+  // Tennis: Satzergebnisse als Knöpfe in einer Reihe, links = Spieler oben
+  // gewinnt. Nochmal antippen wählt wieder ab (Rene, 10.11.2026).
+  function setScoreButtons() {
+    const options = tennisSetScores(tennisBestOf(match.bestOf));
+    const [leftName, rightName] = [leftTeam.name, rightTeam.name];
+    return (
+      <div key="saetze" className="pt-1">
+        <div className={`grid gap-2 ${options.length > 4 ? "grid-cols-6 gap-1.5" : "grid-cols-4"}`}>
+          {options.map(([l, r]) => {
+            const [h, a] = leftSide === "home" ? [l, r] : [r, l];
+            const selected = homeScore === h && awayScore === a;
+            const winner = l > r ? leftName : rightName;
+            return (
+              <button
+                key={`${l}-${r}`}
+                type="button"
+                aria-pressed={selected}
+                aria-label={`${l}:${r} Sätze, ${winner} gewinnt`}
+                onClick={() => {
+                  if (selected) {
+                    setHomeScore(null);
+                    setAwayScore(null);
+                  } else {
+                    setHomeScore(h);
+                    setAwayScore(a);
+                  }
+                }}
+                className={`${compactRowClass(selected, true)} justify-center font-display font-bold tabular-nums ${
+                  stage ? "min-h-[52px] text-[20px]" : "min-h-[48px] text-[18px]"
+                } ${options.length > 4 ? "px-0 text-[16px]" : "px-1"}`}
+              >
+                {l}:{r}
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-1 flex justify-between gap-2 text-[11px] text-muted">
+          <span className="min-w-0 truncate">← {leftName} gewinnt</span>
+          <span className="min-w-0 truncate text-right">{rightName} gewinnt →</span>
+        </div>
+      </div>
+    );
+  }
+
   // Kurzer Hinweis über den Vereins-Zeilen, solange noch getippt werden kann
   // (Rene, 15.10.2026). Seit 01.11.2026 wieder bei jeder Tippart, auch beim
   // Ergebnis-Tipp (Rene: "bei den Ergebnissen steht nichts dabei").
-  const tipHint = !isOneXTwo
+  const tipHint = setPicking
+    ? "Tippe das Satzergebnis"
+    : !isOneXTwo
     ? "Tippe das Ergebnis"
     : compactShowsDraw
       ? "Sieger oder Unentschieden antippen"
@@ -861,7 +914,7 @@ export default function MatchCard({
         {/* Kompakte Karte (Rene, 14.10.2026): Punkteverteilung als (i) oben
             rechts statt eigener Zeile über dem Knopf. */}
         {!isCancelled && !myTip?.evaluated && (
-          <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} iconOnly />
+          <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} tennis={setPicking} iconOnly />
         )}
       </div>
       )}
@@ -946,6 +999,7 @@ export default function MatchCard({
               {compactTeamRow(leftTeam, leftSide)}
               {compactShowsDraw && compactDrawRow()}
               {compactTeamRow(rightTeam, rightSide)}
+              {setPicking && !showResultView && setScoreButtons()}
             </div>
           )}
           {/* EINE Zeile "Dein Tipp: Sieg Frankfurt  +5 vorläufig" (ohne "wenn es
@@ -1089,7 +1143,7 @@ export default function MatchCard({
               {/* Schild zur Tipp-Art entfällt, der Hinweis steht seit #269
                   über den Vereinen (Rene, 15.10.2026). */}
               <div className="mb-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
-                <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} />
+                <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} tennis={setPicking} />
               </div>
   
               {/* Knopf-Zustände klar unterscheidbar: tippbereit = kräftiges
@@ -1183,7 +1237,7 @@ export default function MatchCard({
                 Jedes Paar bleibt zusammen ("Tendenz +5" nie getrennt). */}
             {stage && hasTipped && !myTip?.evaluated && !isCancelled && !showBoard && (
               <div className="flex justify-center">
-                <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} />
+                <PointsInfoButton isOneXTwo={isOneXTwo} allowsDraw={allowsDraw} isBooster={isBooster} tennis={setPicking} />
               </div>
             )}
 
@@ -1209,6 +1263,7 @@ export default function MatchCard({
                 tipText={tipName(myTip!.predictedHomeScore, myTip!.predictedAwayScore)}
                 comparison={comparison}
                 isOneXTwo={isOneXTwo}
+                tennis={setPicking}
                 shareData={shareData}
               />
             )}
@@ -1583,7 +1638,16 @@ function BoosterRankRow({ isOneXTwo, compactOnPhone = false }: { isOneXTwo: bool
 }
 
 // Zeilen im Fenster "Punkteverteilung": jede Stufe mit kurzer Erklärung.
-function tipPointRows(isOneXTwo: boolean, allowsDraw: boolean): { title: string; hint?: string; points: number }[] {
+function tipPointRows(isOneXTwo: boolean, allowsDraw: boolean, tennis = false): { title: string; hint?: string; points: number }[] {
+  // Tennis: Satzergebnis exakt oder nur der Sieger (eine "Differenz"-Stufe
+  // gibt es dort nicht, gleicher Abstand ist immer das gleiche Ergebnis).
+  if (tennis && !isOneXTwo) {
+    return [
+      { title: "Richtiges Satzergebnis", hint: "z.\u00a0B. 2:1 getippt, 2:1 gespielt", points: RANKING_POINTS.exakt },
+      { title: "Richtiger Sieger", hint: "dein Spieler gewinnt, die Sätze stimmen nicht", points: RANKING_POINTS.tendenz },
+      { title: "Daneben getippt", points: RANKING_POINTS.falsch },
+    ];
+  }
   if (isOneXTwo) {
     return [
       {
@@ -1613,11 +1677,13 @@ function PointsInfoButton({
   isOneXTwo,
   allowsDraw,
   isBooster,
+  tennis = false,
   iconOnly = false,
 }: {
   isOneXTwo: boolean;
   allowsDraw: boolean;
   isBooster: boolean;
+  tennis?: boolean;
   iconOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -1684,7 +1750,7 @@ function PointsInfoButton({
 
                 <p className="text-sm font-semibold text-ink">Zuerst zählt dein Tipp:</p>
                 <ul className="mt-2 flex flex-col gap-1.5">
-                  {tipPointRows(isOneXTwo, allowsDraw).map((row) => (
+                  {tipPointRows(isOneXTwo, allowsDraw, tennis).map((row) => (
                     <li key={row.title} className="flex items-start justify-between gap-3 rounded-md bg-pitch/60 px-3 py-2">
                       <span className="min-w-0">
                         <span className="block text-sm font-semibold leading-snug text-ink">{row.title}</span>
@@ -1761,12 +1827,14 @@ function EvaluatedBox({
   tipText,
   comparison,
   isOneXTwo,
+  tennis = false,
   shareData,
 }: {
   myTip: MyTip;
   tipText: string;
   comparison: { beaten: number; tied: number; ahead: number; total: number } | null;
   isOneXTwo: boolean;
+  tennis?: boolean;
   shareData: ShareCardData | null;
 }) {
   const tier = myTip.resultTier ?? "falsch";
@@ -1792,7 +1860,7 @@ function EvaluatedBox({
       ? Math.round((comparison.beaten / comparison.total) * 100)
       : null;
   const good = tier !== "falsch";
-  const tierName = isOneXTwo ? (good ? "Richtig" : "Daneben") : TIER_NAME[tier];
+  const tierName = isOneXTwo ? (good ? "Richtig" : "Daneben") : tennis && tier === "tendenz" ? "Sieger" : TIER_NAME[tier];
   const summary = [
     `${tierName} ${signedPoints(fixed)}`,
     breakdown && breakdown.opponents > 0 ? `Bonus ${signedPoints(breakdown.bonus)}` : null,
