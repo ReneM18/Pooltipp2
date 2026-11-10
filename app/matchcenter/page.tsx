@@ -66,7 +66,7 @@ import Link from "next/link";
 import { signalAppReady } from "@/lib/appReady";
 import { useStartExperience } from "@/lib/useStartExperience";
 import { DuelTourButtons } from "@/components/NavTabs";
-import { findLiveFor, isMinorTournament, shortPlayer, tournamentPointsText, tournamentRank, type TennisListResponse, type TennisLiveGame, type TennisLiveResponse, type TennisPlanGame, type TennisRankRow, type TennisStatsResponse } from "@/lib/tennisLive";
+import { countryLookup, findLiveFor, isMinorTournament, shortPlayer, tournamentPointsText, tournamentRank, type TennisListResponse, type TennisLiveGame, type TennisLiveResponse, type TennisPlanGame, type TennisRankRow, type TennisStatsResponse } from "@/lib/tennisLive";
 
 // TV-Sender eines Spiels: beim Tippspiel der Sender am Spiel, sonst der im
 // Matchcenter eingetragene (Rene, 28.10.2026, lib/fixtureTv.ts).
@@ -2754,7 +2754,7 @@ function defaultSession(w: F1Weekend, now: number): number | null {
 // mit Flagge, Uhrzeit bzw. Satzergebnis und rechts "Tippen"/"Getippt".
 // Live-Stände, Spielplan aller Turniere und Weltrangliste kommen mit der API.
 function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
-  const { matches, getTeam, myTips } = useAppData();
+  const { matches, getTeam, myTips, teams } = useAppData();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60 * 1000);
@@ -2779,7 +2779,32 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
   }
   // Live: Turniere nach Wichtigkeit, ITF (M15, W25 …) ausgeblendet wie
   // kleine Länderspiele beim Fußball.
-  const liveGames = (live?.games ?? []).filter((g) => !isMinorTournament(g.tournament));
+  // Flaggen (Rene, 10.11.2026): Der Live-Feed hat meist kein Land, darum aus
+  // Weltrangliste und Spielplan (beide lange zwischengespeichert) und den
+  // Tennis-Spielern der App.
+  const rankAtp = useTennisList<TennisRankRow>("rank", "atp");
+  const rankWta = useTennisList<TennisRankRow>("rank", "wta");
+  const planAtp = useTennisList<TennisPlanGame>("plan", "atp");
+  const planWta = useTennisList<TennisPlanGame>("plan", "wta");
+  const lookup = useMemo(() => {
+    const known: { name: string; country: string | null }[] = [
+      ...teams.filter((t) => t.sport === "Tennis").map((t) => ({ name: t.name, country: t.countryCode ?? null })),
+      ...(rankAtp?.rows ?? []),
+      ...(rankWta?.rows ?? []),
+      ...[...(planAtp?.rows ?? []), ...(planWta?.rows ?? [])].flatMap((g) => [
+        { name: g.player1, country: g.country1 },
+        { name: g.player2, country: g.country2 },
+      ]),
+    ];
+    return countryLookup(known);
+  }, [teams, rankAtp, rankWta, planAtp, planWta]);
+  const liveGames = useMemo(
+    () =>
+      (live?.games ?? [])
+        .filter((g) => !isMinorTournament(g.tournament))
+        .map((g) => ({ ...g, country1: g.country1 ?? lookup(g.player1), country2: g.country2 ?? lookup(g.player2) })),
+    [live, lookup],
+  );
   const groups: { name: string; games: TennisLiveGame[] }[] = [];
   for (const g of [...liveGames].sort((a, b) => tournamentRank(a.tournament, a.tour) - tournamentRank(b.tournament, b.tour) || a.tournament.localeCompare(b.tournament))) {
     const last = groups[groups.length - 1];
@@ -2982,9 +3007,12 @@ function PointsTag({ name, tour }: { name: string; tour?: string | null }) {
   );
 }
 
-function TennisFlag({ code }: { code: string | null }) {
+function TennisFlag({ code, size = 18 }: { code: string | null; size?: number }) {
   return (
-    <span className="inline-flex w-5 shrink-0 justify-center text-[15px] leading-none">{code ? flagEmoji(code) : "🎾"}</span>
+    // Gleiche Flaggen wie bei den Tippspielen (TeamBadge), ohne Land 🎾.
+    <span className="inline-flex w-5 shrink-0 justify-center leading-none">
+      <TeamBadge sport="Tennis" primaryColor="#ffffff" secondaryColor="#000000" countryCode={code ?? undefined} size={size} />
+    </span>
   );
 }
 
@@ -3125,6 +3153,9 @@ function TennisDetail({ game }: { game: TennisLiveGame }) {
   const cols = Math.max(1, game.sets.length);
   const player = (name: string, side: 0 | 1) => (
     <div className="flex min-h-[44px] items-center gap-2 border-b border-edge/60 last:border-b-0">
+      <span className="inline-flex w-6 shrink-0 justify-center">
+        <TennisFlag code={side === 0 ? game.country1 : game.country2} size={22} />
+      </span>
       <span className="min-w-0 flex-1 break-words font-display text-[17px] font-semibold leading-tight text-ink">
         {name}
         {game.serve === side + 1 && <span aria-label="Aufschlag" className="ml-2 inline-block h-2 w-2 -translate-y-px rounded-full bg-gold align-middle" />}
@@ -3337,7 +3368,8 @@ function TennisLiveRow({ game, selected, onSelect }: { game: TennisLiveGame; sel
   const setNo = Math.max(1, game.sets.length);
   const player = (name: string, side: 1 | 2) => (
     <div className="flex min-h-[26px] items-center gap-1.5">
-      <span className="min-w-0 break-words text-[15px] leading-tight text-ink">{name}</span>
+      <TennisFlag code={side === 1 ? game.country1 : game.country2} />
+      <span className="ml-0.5 min-w-0 break-words text-[15px] leading-tight text-ink">{name}</span>
       {game.serve === side && <span aria-label="Aufschlag" className="h-[7px] w-[7px] shrink-0 rounded-full bg-gold" />}
     </div>
   );
