@@ -8,6 +8,9 @@ export interface TennisLiveGame {
   id: string;
   player1: string;
   player2: string;
+  // Länder kommen im Live-Feed meist nicht mit; dann aus der Weltrangliste.
+  country1: string | null;
+  country2: string | null;
   tournament: string;
   tour: "atp" | "wta" | string;
   // Games je Satz, z. B. [[6, 3], [2, 1]]; der letzte läuft noch.
@@ -71,6 +74,8 @@ export function parseLiveGame(raw: any): TennisLiveGame | null {
     id: String(raw.id ?? raw.matchKey ?? `${p1}-${p2}`),
     player1: p1,
     player2: p2,
+    country1: countryOf(raw.player1),
+    country2: countryOf(raw.player2),
     tournament: String(raw.tournament?.name ?? raw.league ?? "").trim(),
     tour: String(raw.tourType ?? "").toLowerCase(),
     sets,
@@ -384,4 +389,15 @@ export function tournamentPointsText(name: string, tour?: string | null): string
   const p = tournamentPoints(name, tour);
   if (p === null) return null;
   return `${p === 1500 ? "bis " : ""}${p.toLocaleString("de-DE")} Punkte`;
+}
+
+/** Land eines Spielers aus bekannten Listen (Weltrangliste, Spielplan, App-Spieler). */
+export function countryLookup(known: { name: string; country: string | null }[]): (name: string) => string | null {
+  const withCountry = known.filter((k) => k.country);
+  const exact = new Map(withCountry.map((k) => [normPlayer(k.name), k.country!]));
+  return (name: string) => {
+    const hit = exact.get(normPlayer(name));
+    if (hit) return hit;
+    return withCountry.find((k) => samePlayer(k.name, name))?.country ?? null;
+  };
 }
