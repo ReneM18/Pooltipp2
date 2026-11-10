@@ -61,7 +61,7 @@ import { GUEST_PRIMARY_COLOR, GUEST_SECONDARY_COLOR } from "@/lib/guestTeam";
 import { useUser } from "@/lib/UserContext";
 import { COUNTDOWN_FROM } from "@/components/Countdown";
 import { deadlineText } from "@/lib/dayGroups";
-import { isMatchTippable, isNightKickoff, planDayRange, relativeDayLabel, sportDay, tipCardHref, viennaCalendarDay } from "@/lib/matchcenterLink";
+import { isMatchTippable, isMorningAfterNight, isNightKickoff, planDayRange, relativeDayLabel, sportDay, tipCardHref, viennaCalendarDay } from "@/lib/matchcenterLink";
 import Link from "next/link";
 import { signalAppReady } from "@/lib/appReady";
 import { useStartExperience } from "@/lib/useStartExperience";
@@ -194,16 +194,42 @@ function addDays(date: string, days: number): string {
 // Nacht): vom Kalendertag die Spiele ab 06:00, vom nächsten die Nacht-
 // Spiele bis 06:00 (lib/matchcenterLink.ts, sportDay). Zeitstand und Quelle
 // vom Teil mit laufenden Spielen, damit "verzögert" ehrlich bleibt.
-function sportDayGames(day: LiveGame[] | null, night: LiveGame[] | null): LiveGame[] | null {
+// Nacht-Spiele vom Morgen dieses Kalendertags (00:00–05:59), die zum
+// Sporttag davor gehören, bleiben unter "Heute" (Rene, 10.11.2026:
+// Islanders – Sharks lief um 06:50 noch, stand aber nur unter "Gestern"):
+// carry "running" = nur die, die noch laufen (bis Schluss), "morning" =
+// alle, also auch die beendeten mit Endstand (bis 12:00, isMorningAfterNight).
+type Carry = "none" | "running" | "morning";
+function sportDayGames(day: LiveGame[] | null, night: LiveGame[] | null, carry: Carry = "none"): LiveGame[] | null {
   if (!day || !night) return null;
-  return [...day.filter((g) => !isNightKickoff(g.kickoff)), ...night.filter((g) => isNightKickoff(g.kickoff))];
+  const keep = (g: LiveGame) => carry === "morning" || (carry === "running" && isLiveRunning(g.status));
+  return [
+    ...day.filter((g) => !isNightKickoff(g.kickoff) || keep(g)),
+    ...night.filter((g) => isNightKickoff(g.kickoff)),
+  ];
+}
+
+// Was für "Heute" mitgenommen wird (siehe sportDayGames). Nur wenn der
+// Kalendertag der Sporttag ist (ab 06:00), sonst wären es Spiele von vor
+// einem Tag.
+function todayCarry(now: number | null): Carry {
+  if (now === null || isNightKickoff(now)) return "none";
+  return isMorningAfterNight(now) ? "morning" : "running";
+}
+
+// Läuft im Kalendertag noch ein Nacht-Spiel vom Morgen (siehe keepRunning)?
+function hasRunningCarryOver(day: LiveGame[] | null): boolean {
+  return !!day && day.some((g) => isNightKickoff(g.kickoff) && isLiveRunning(g.status));
 }
 
 // games: schon zusammengesetzt (useMemo), damit die Liste nicht bei jedem
 // Rendern neu entsteht.
 function mergeSportDay(day: LiveDay, night: LiveDay, games = sportDayGames(day.games, night.games)): LiveDay {
-  const nightRunning = !!games?.some((g) => isNightKickoff(g.kickoff) && isLiveRunning(g.status));
-  const dayRunning = !!games?.some((g) => !isNightKickoff(g.kickoff) && isLiveRunning(g.status));
+  // Nach Herkunft der Liste (ein noch laufendes Nacht-Spiel vom Morgen
+  // stammt aus der Liste des Kalendertags, nicht aus der Nacht danach).
+  const fromDay = new Set(day.games ?? []);
+  const nightRunning = !!games?.some((g) => !fromDay.has(g) && isLiveRunning(g.status));
+  const dayRunning = !!games?.some((g) => fromDay.has(g) && isLiveRunning(g.status));
   const pick = nightRunning && !dayRunning ? night : day;
   return {
     games,
@@ -443,7 +469,11 @@ function LiveCenterSection({
   // Heute immer (Kalendertag + Nacht danach).
   const todayCal = useLiveDay(sport, today);
   const tomorrowCal = useLiveDay(sport, tomorrow);
-  const todayGames = useMemo(() => sportDayGames(todayCal.games, tomorrowCal.games), [todayCal.games, tomorrowCal.games]);
+  const carry = todayCarry(now);
+  const todayGames = useMemo(
+    () => sportDayGames(todayCal.games, tomorrowCal.games, carry),
+    [todayCal.games, tomorrowCal.games, carry],
+  );
   const todayDay = mergeSportDay(todayCal, tomorrowCal, todayGames);
   // Startbild am Handy ausblenden, sobald die Spiele von heute da sind
   // (lib/appReady.ts). Anderer Reiter beim Öffnen: gleich.
@@ -528,7 +558,7 @@ function LiveCenterSection({
   // Automatisch aktualisieren – nur solange ein Spiel läuft, im 180-s-Takt
   // (gemeinsam mit den Tippkarten, pausiert im Hintergrund).
   // Je Kalendertag nur, wenn in seinem Teil des Sporttags etwas läuft.
-  const pollToday = partNeedsPolling(todayCal.games, false, now);
+  const pollToday = partNeedsPolling(todayCal.games, false, now) || (carry !== "none" && hasRunningCarryOver(todayCal.games));
   const pollTomorrow = partNeedsPolling(tomorrowCal.games, true, now);
   const polling = pollToday || pollTomorrow;
   useLivePolling(sport, today, pollToday);
@@ -1049,7 +1079,9 @@ function LcLive({
 function useSportDayGames(sport: Sport, today: string): LiveGame[] | null {
   const day = useLiveDay(sport, today);
   const night = useLiveDay(sport, addDays(today, 1));
-  return useMemo(() => sportDayGames(day.games, night.games), [day.games, night.games]);
+  // Wie der Reiter "Heute" der Sportart (Nacht-Spiele vom Morgen dabei).
+  const carry = todayCarry(Date.now());
+  return useMemo(() => sportDayGames(day.games, night.games, carry), [day.games, night.games, carry]);
 }
 
 function OtherSportsToday({ sport, today, onPick }: { sport: Sport; today: string; onPick: (s: Sport) => void }) {
@@ -2417,7 +2449,10 @@ function LcDetail({
   // 29.10.2026: "ober dem ganz schwarzen ... die startzeit den sender und
   // stadion"). Lange Namen brechen um, nichts wird abgeschnitten.
   const kickoffDay = sportDay(game.kickoff);
-  const startText = `${kickoffDay === sportDay(Date.now()) ? "" : `${dayLabel(kickoffDay)} · `}${viennaTime(game.kickoff)} Uhr`;
+  // Nacht-Spiel von heute früh, das noch unter "Heute" steht (10.11.2026):
+  // ohne Datum, sonst stünde dort das Datum von gestern.
+  const isToday = kickoffDay === sportDay(Date.now()) || viennaCalendarDay(game.kickoff) === viennaCalendarDay(Date.now());
+  const startText = `${isToday ? "" : `${dayLabel(kickoffDay)} · `}${viennaTime(game.kickoff)} Uhr`;
   const infoRow = (
     <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[13px] text-muted">
       {matchday && <span>Spieltag {matchday}</span>}

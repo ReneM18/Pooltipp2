@@ -51,6 +51,16 @@ export function isNightKickoff(kickoff: number | string): boolean {
   return viennaHour(kickoff) < SPORT_DAY_START_HOUR;
 }
 
+// Morgen nach der Nacht (06:00 bis 11:59 Wiener Zeit): Da bleiben die
+// Nacht-Spiele dieses Kalendertags unter "Heute" (Rene, 10.11.2026: "wenn
+// ich um 7 in der Früh reinschaue und es ist nur bei gestern drin, ist es
+// blöd"). Ab 12:00 stehen sie nur noch beim Vortag.
+export const NIGHT_GAMES_SHOWN_UNTIL_HOUR = 12;
+export function isMorningAfterNight(t: number | string): boolean {
+  const h = viennaHour(t);
+  return h >= SPORT_DAY_START_HOUR && h < NIGHT_GAMES_SHOWN_UNTIL_HOUR;
+}
+
 // Sporttag (YYYY-MM-DD) eines Zeitpunkts: vor 06:00 der Vortag.
 export function sportDay(t: number | string): string {
   const day = viennaDay(t);
