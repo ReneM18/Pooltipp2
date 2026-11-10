@@ -1,10 +1,10 @@
 // Interne Schlüssel der Sportarten (stehen so in der Datenbank: Spiele,
 // Teams, Rangpunkte). NIE umbenennen – angezeigt wird SPORT_LABELS.
-export type Sport = "Fußball" | "NFL" | "NBA" | "NHL" | "Handball";
+export type Sport = "Fußball" | "NFL" | "NBA" | "NHL" | "Handball" | "Tennis";
 
 // Alle Sportarten, die es im Code gibt – auch ausgeblendete. Für Daten
 // (Rangpunkte, Vereine, Statistik), damit alte Einträge erhalten bleiben.
-export const ALL_SPORTS: Sport[] = ["Fußball", "NFL", "NBA", "NHL", "Handball"];
+export const ALL_SPORTS: Sport[] = ["Fußball", "NFL", "NBA", "NHL", "Tennis", "Handball"];
 
 // Ausgeblendete Sportarten: tauchen in der App nirgends mehr auf (Tippen,
 // Spiel anlegen, Rangliste, Statistik, Vereine, Rang-Icons, Legende/
@@ -45,6 +45,7 @@ export const SPORT_LABELS: Record<Sport, string> = {
   NBA: "Basketball",
   NHL: "Eishockey",
   Handball: "Handball",
+  Tennis: "Tennis",
 };
 
 export const SPORT_ICONS: Record<Sport, string> = {
@@ -53,6 +54,7 @@ export const SPORT_ICONS: Record<Sport, string> = {
   NBA: "🏀",
   NHL: "🏒",
   Handball: "🤾",
+  Tennis: "🎾",
 };
 
 /** Anzeige-Name einer Sportart (auch für News-Sportarten). */
@@ -191,6 +193,9 @@ export interface Match {
   // Heimtrikot im Stil aus den Team-Einstellungen (wie vor den Trikots).
   homeJersey?: MatchJersey;
   awayJersey?: MatchJersey;
+  // Tennis: 3 = zwei Gewinnsätze (Standard), 5 = drei (Grand Slam Herren).
+  // Heim/Gast-Stand sind dort die gewonnenen Sätze (siehe lib/tennis.ts).
+  bestOf?: 3 | 5;
 }
 
 export interface Tip {

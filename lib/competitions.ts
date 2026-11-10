@@ -53,6 +53,23 @@ const DEFAULT_NAMES: Record<Sport, string[]> = {
   NBA: ["NBA Regular Season", "NBA Playoffs", "NBA Finals"],
   NHL: ["NHL Regular Season", "NHL Playoffs", "Stanley Cup Finale"],
   Handball: [],
+  // Tennis (Rene, 10.11.2026): Grand Slams, Finals, Masters/1000er und die
+  // österreichischen Turniere.
+  Tennis: [
+    "Australian Open",
+    "French Open",
+    "Wimbledon",
+    "US Open",
+    "ATP Finals",
+    "WTA Finals",
+    "ATP Masters 1000",
+    "WTA 1000",
+    "Erste Bank Open Wien",
+    "Generali Open Kitzbühel",
+    "Upper Austria Ladies Linz",
+    "Davis Cup",
+    "Billie Jean King Cup",
+  ],
 };
 
 export function newCompetitionId(): string {

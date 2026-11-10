@@ -1322,7 +1322,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   );
 
   const tipsBySport = useMemo(() => {
-    const counts: Record<Sport, number> = { "Fußball": 0, NFL: 0, NBA: 0, NHL: 0, Handball: 0 };
+    const counts: Record<Sport, number> = { "Fußball": 0, NFL: 0, NBA: 0, NHL: 0, Handball: 0, Tennis: 0 };
     for (const tip of countingTips) {
       const match = matches.find((m) => m.id === tip.matchId);
       if (match) counts[match.sport] = (counts[match.sport] ?? 0) + 1;

@@ -504,5 +504,5 @@ export function useSportCardStats(userId: string | null | undefined): SportCardS
 }
 
 // Sportart der App (Rangliste) <-> Sportart im Steckbrief.
-export const APP_SPORT_OF_BIO: Record<string, Sport> = { fb: "Fußball", ih: "NHL", bb: "NBA", nfl: "NFL", hb: "Handball" };
-export const BIO_SPORT_OF_APP: Partial<Record<Sport, string>> = { Fußball: "fb", NHL: "ih", NBA: "bb", NFL: "nfl", Handball: "hb" };
+export const APP_SPORT_OF_BIO: Record<string, Sport> = { fb: "Fußball", ih: "NHL", bb: "NBA", nfl: "NFL", hb: "Handball", ten: "Tennis" };
+export const BIO_SPORT_OF_APP: Partial<Record<Sport, string>> = { Fußball: "fb", NHL: "ih", NBA: "bb", NFL: "nfl", Handball: "hb", Tennis: "ten" };
