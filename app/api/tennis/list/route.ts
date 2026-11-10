@@ -44,8 +44,12 @@ async function load(kind: Kind, tour: "atp" | "wta"): Promise<TennisListResponse
     throw fail("Tennis-Daten gerade nicht erreichbar.");
   }
   if (!res.ok) throw fail(res.status === 429 ? "Tageslimit der Tennis-Daten erreicht." : `Tennis-Daten gerade nicht erreichbar (${res.status}).`);
-  const list = firstArray(await res.json().catch(() => null));
+  const body = await res.json().catch(() => null);
+  if (!body || typeof body !== "object") throw fail("Tennis-Daten gerade nicht lesbar.");
+  const list = firstArray(body);
   const rows = (kind === "rank" ? list.map(parseRankRow) : list.map(parsePlanGame)).filter((r): r is Row => !!r);
+  // Leere Weltrangliste = Fehler, nicht einen Tag lang speichern.
+  if (kind === "rank" && !rows.length) throw fail("Weltrangliste gerade nicht lesbar.");
   if (kind === "rank") (rows as TennisRankRow[]).sort((a, b) => a.rank - b.rank);
   else (rows as TennisPlanGame[]).sort((a, b) => a.start - b.start);
   return { ok: true, error: null, fetchedAt, rows };
