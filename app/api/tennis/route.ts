@@ -42,9 +42,38 @@ async function fetchLive(): Promise<{ ok: boolean; error: string | null; fetched
   }
 }
 
+// Fehler werden NICHT im gemeinsamen Speicher abgelegt (sonst bliebe Live
+// 45 Minuten leer). Nach einem Fehler fragt diese Server-Instanz 2 Minuten
+// lang nicht neu, damit Ausfälle das Tageslimit nicht aufbrauchen.
+const RETRY_MS = 2 * 60 * 1000;
+let lastError: { at: number; data: TennisLiveResponse } | null = null;
+
+class LiveError extends Error {
+  constructor(public data: TennisLiveResponse) {
+    super(data.error ?? "Fehler");
+  }
+}
+
+async function fetchLiveOrThrow(): Promise<TennisLiveResponse> {
+  const data = await fetchLive();
+  if (!data.ok) throw new LiveError(data);
+  return data;
+}
+
 export async function GET() {
   const ttl = ttlSeconds();
-  const cached = unstable_cache(fetchLive, ["tennis-live-v1", String(ttl)], { revalidate: ttl });
-  const data: TennisLiveResponse = await cached();
+  let data: TennisLiveResponse;
+  if (lastError && Date.now() - lastError.at < RETRY_MS) {
+    data = lastError.data;
+  } else {
+    try {
+      data = await unstable_cache(fetchLiveOrThrow, ["tennis-live-v2", String(ttl)], { revalidate: ttl })();
+      lastError = null;
+    } catch (e) {
+      data = e instanceof LiveError ? e.data : { ok: false, error: "Tennis-Daten gerade nicht erreichbar.", fetchedAt: Date.now(), games: [] };
+      lastError = { at: Date.now(), data };
+      return NextResponse.json(data, { headers: { "Cache-Control": "no-store" } });
+    }
+  }
   return NextResponse.json(data, { headers: { "Cache-Control": `public, s-maxage=${Math.min(ttl, 60)}, stale-while-revalidate=${ttl}` } });
 }
