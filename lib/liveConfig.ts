@@ -74,6 +74,51 @@ export function isYouthTeam(name: unknown): boolean {
   return typeof name === "string" && YOUTH_TEAM.test(name);
 }
 
+// Länderspiele nur mit bekannten Fußballnationen (Rene, 10.11.2026:
+// "Sint Maarten – Anguilla braucht doch keiner"). Ein Spiel der Liga
+// "Länderspiel" bleibt nur, wenn mindestens ein Team auf dieser Liste steht:
+// Europa (ohne Kleinststaaten) und die großen Nationen der anderen
+// Kontinente. Österreich – Liechtenstein bleibt also, Gibraltar – Andorra
+// nicht. Namen wie bei API-Sports (englisch), Frauenteams mit " W".
+const KNOWN_NATIONS = new Set(
+  [
+    // Europa
+    "Albania", "Armenia", "Austria", "Azerbaijan", "Belarus", "Belgium",
+    "Bosnia & Herzegovina", "Bosnia and Herzegovina", "Bulgaria", "Croatia",
+    "Cyprus", "Czech Republic", "Czechia", "Denmark", "England", "Estonia",
+    "Finland", "France", "Georgia", "Germany", "Greece", "Hungary", "Iceland",
+    "Ireland", "Republic of Ireland", "Israel", "Italy", "Kazakhstan", "Kosovo",
+    "Latvia", "Lithuania", "Luxembourg", "Moldova", "Montenegro", "Netherlands",
+    "North Macedonia", "Northern Ireland", "Norway", "Poland", "Portugal",
+    "Romania", "Russia", "Scotland", "Serbia", "Slovakia", "Slovenia", "Spain",
+    "Sweden", "Switzerland", "Turkey", "Türkiye", "Ukraine", "Wales",
+    // Südamerika
+    "Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador",
+    "Paraguay", "Peru", "Uruguay", "Venezuela",
+    // Nord- und Mittelamerika
+    "Canada", "Costa Rica", "Jamaica", "Mexico", "Panama", "USA",
+    "United States",
+    // Afrika
+    "Algeria", "Cameroon", "Egypt", "Ghana", "Ivory Coast", "Cote D'Ivoire",
+    "Mali", "Morocco", "Nigeria", "Senegal", "South Africa", "Tunisia",
+    // Asien und Ozeanien
+    "Australia", "China", "China PR", "Iran", "Iraq", "Japan", "Korea Republic",
+    "South Korea", "Qatar", "Saudi Arabia", "United Arab Emirates", "Uzbekistan",
+    "New Zealand",
+  ].map((n) => n.toLowerCase()),
+);
+
+export function isKnownNation(name: unknown): boolean {
+  if (typeof name !== "string") return false;
+  const n = name.trim().toLowerCase().replace(/\s+w$/, "");
+  return KNOWN_NATIONS.has(n);
+}
+
+// true = Länderspiel zweier kleiner Nationen, fällt überall raus.
+export function isMinorFriendly(league: LiveLeague | null, home: unknown, away: unknown): boolean {
+  return league?.label === "Länderspiel" && !isKnownNation(home) && !isKnownNation(away);
+}
+
 // league.country der API (bzw. country.name bei Eishockey) → ISO-Land.
 // "World" = international.
 const API_COUNTRY: Record<string, string | null> = {
