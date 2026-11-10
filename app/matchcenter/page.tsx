@@ -66,7 +66,7 @@ import Link from "next/link";
 import { signalAppReady } from "@/lib/appReady";
 import { useStartExperience } from "@/lib/useStartExperience";
 import { DuelTourButtons } from "@/components/NavTabs";
-import { findLiveFor, isItf, shortPlayer, tournamentRank, type TennisLiveGame, type TennisLiveResponse } from "@/lib/tennisLive";
+import { findLiveFor, isItf, shortPlayer, tournamentRank, type TennisListResponse, type TennisLiveGame, type TennisLiveResponse, type TennisPlanGame, type TennisRankRow } from "@/lib/tennisLive";
 
 // TV-Sender eines Spiels: beim Tippspiel der Sender am Spiel, sonst der im
 // Matchcenter eingetragene (Rene, 28.10.2026, lib/fixtureTv.ts).
@@ -376,7 +376,8 @@ function LiveCenter() {
     <div className="mb-3 flex items-center gap-2">
       <div className="flex gap-2 min-[380px]:gap-2.5 lg:gap-5" role="tablist" aria-label="Sportart">
         {LIVE_SPORTS.map((s) =>
-          sportButton(s, sportLabel(s), SPORT_ICONS[s], !motorsport && !tennis && sport === s, () => pick(s))
+          // "NFL" statt "American Football" (Rene, 10.11.2026).
+          sportButton(s, s === "NFL" ? "NFL" : sportLabel(s), SPORT_ICONS[s], !motorsport && !tennis && sport === s, () => pick(s))
         )}
         {sportButton("Tennis", "Tennis", "🎾", tennis, () => {
           setTargetId(null);
@@ -2748,6 +2749,8 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
   }, []);
   const tipped = useMemo(() => new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId)), [myTips]);
   const live = useTennisLive();
+  // Reiter (Rene, 10.11.2026): Heute (Live + Tippspiele), Spielplan, Weltrangliste.
+  const [view, setView] = useState<"heute" | "plan" | "rang">("heute");
   const since = now - 2 * 24 * 3600e3;
   const list = matches
     .filter((m) => m.sport === "Tennis" && !m.draft && m.status !== "cancelled" && Date.parse(m.kickoff) >= since)
@@ -2776,6 +2779,17 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
   return (
     <section className="mb-6">
       {switcher}
+      <div className="mb-3 flex border-b border-edge sm:mb-4 sm:items-center sm:gap-6">
+        <SubTab label={<><span className="mr-1 text-red-400">●</span>Heute</>} active={view === "heute"} onClick={() => setView("heute")} />
+        <SubTab label="Spielplan" active={view === "plan"} onClick={() => setView("plan")} />
+        <SubTab label="Weltrangliste" active={view === "rang"} onClick={() => setView("rang")} />
+      </div>
+      {view === "plan" ? (
+        <TennisPlanView now={now} />
+      ) : view === "rang" ? (
+        <TennisRankView />
+      ) : (
+      <>
       {groups.length > 0 && (
         <div className="mb-5">
           <p className="mb-2 flex items-baseline gap-2 text-[13px] font-semibold uppercase tracking-wide text-muted">
@@ -2793,7 +2807,7 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
                   <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-row text-[14px]">🏆</span>
                   <span className="min-w-0 break-words">{grp.name}</span>
                 </p>
-                <div className="flex flex-col gap-2">
+                <div className={TENNIS_GRID}>
                   {grp.games.map((g) => (
                     <TennisLiveRow key={g.id} game={g} />
                   ))}
@@ -2819,7 +2833,7 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
               <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-muted">
                 {relativeDayLabel(day, now) ?? new Date(games[0].kickoff).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit", timeZone: "Europe/Vienna" })}
               </p>
-              <div className="flex flex-col gap-2">
+              <div className={TENNIS_GRID}>
                 {games.map((m) => (
                   <TennisRow
                     key={m.id}
@@ -2834,10 +2848,170 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
               </div>
             </div>
           ))}
-
         </div>
       )}
+      </>
+      )}
     </section>
+  );
+}
+
+// Am PC zwei Zeilen nebeneinander, damit die Zahlen nicht weit weg von den
+// Namen stehen (Rene, 10.11.2026: "wie lange willst du die Zeilen machen").
+const TENNIS_GRID = "grid grid-cols-1 gap-2 lg:grid-cols-2 lg:gap-3";
+
+const TOURS = [
+  ["atp", "ATP Herren"],
+  ["wta", "WTA Damen"],
+] as const;
+
+function TourPills({ tour, onChange }: { tour: "atp" | "wta"; onChange: (t: "atp" | "wta") => void }) {
+  return (
+    <div className="mb-3 flex gap-2" role="tablist" aria-label="Tour">
+      {TOURS.map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={tour === id}
+          onClick={() => onChange(id)}
+          className={`min-h-10 rounded-full border px-4 text-sm font-semibold transition-colors ${
+            tour === id ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function useTennisList<T>(kind: "plan" | "rank", tour: "atp" | "wta"): TennisListResponse<T> | null {
+  const [data, setData] = useState<{ key: string; res: TennisListResponse<T> } | null>(null);
+  const key = `${kind}-${tour}`;
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/tennis/list?kind=${kind}&tour=${tour}`)
+      .then((r) => r.json() as Promise<TennisListResponse<T>>)
+      .then((res) => alive && setData({ key, res }))
+      .catch(() => alive && setData({ key, res: { ok: false, error: "Tennis-Daten gerade nicht erreichbar.", fetchedAt: null, rows: [] } }));
+    return () => {
+      alive = false;
+    };
+  }, [kind, tour, key]);
+  return data && data.key === key ? data.res : null;
+}
+
+function TennisFlag({ code }: { code: string | null }) {
+  return (
+    <span className="inline-flex w-5 shrink-0 justify-center text-[15px] leading-none">{code ? flagEmoji(code) : "🎾"}</span>
+  );
+}
+
+// Spielplan: kommende Spiele der Tour nach Tag und Turnier (ITF ausgeblendet).
+function TennisPlanView({ now }: { now: number }) {
+  const [tour, setTour] = useState<"atp" | "wta">("atp");
+  const data = useTennisList<TennisPlanGame>("plan", tour);
+  const rows = (data?.rows ?? []).filter((g) => !isItf(g.tournament) && g.start > now - 3 * 3600e3);
+  const days: { day: string; groups: { name: string; games: TennisPlanGame[] }[] }[] = [];
+  for (const g of rows) {
+    const day = viennaCalendarDay(g.start);
+    let d = days.find((x) => x.day === day);
+    if (!d) days.push((d = { day, groups: [] }));
+    let grp = d.groups.find((x) => x.name === g.tournament);
+    if (!grp) d.groups.push((grp = { name: g.tournament, games: [] }));
+    grp.games.push(g);
+  }
+  days.forEach((d) => d.groups.sort((a, b) => tournamentRank(a.name) - tournamentRank(b.name)));
+  return (
+    <div>
+      <TourPills tour={tour} onChange={setTour} />
+      {data === null ? (
+        <p className="py-8 text-center text-sm text-muted">Spielplan wird geladen …</p>
+      ) : days.length === 0 ? (
+        <EmptyState
+          emoji="🗓️"
+          title="Keine Spiele im Spielplan"
+          text={data.error ?? "Für die nächsten Tage stehen noch keine Spiele fest."}
+          className="border-none bg-transparent"
+        />
+      ) : (
+        <div className="flex flex-col gap-5">
+          {days.map((d) => (
+            <div key={d.day}>
+              <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-muted">
+                {relativeDayLabel(d.day, now) ??
+                  new Date(d.groups[0].games[0].start).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit", timeZone: "Europe/Vienna" })}
+              </p>
+              <div className="flex flex-col gap-4">
+                {d.groups.map((grp) => (
+                  <div key={grp.name}>
+                    <p className="mb-2 flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+                      <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-row text-[14px]">🏆</span>
+                      <span className="min-w-0 break-words">{grp.name}</span>
+                    </p>
+                    <div className={TENNIS_GRID}>
+                      {grp.games.map((g) => (
+                        <div key={g.id} className="flex items-stretch rounded-xl border border-muted/25 bg-row px-3 py-2">
+                          <div className="mr-3 flex w-[58px] shrink-0 flex-col justify-center border-r border-edge pr-2 text-[13px] text-muted">
+                            {new Date(g.start).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vienna" })}
+                            {g.round && <span className="truncate text-[11px] text-muted/80">{g.round}</span>}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            {[
+                              [g.player1, g.country1],
+                              [g.player2, g.country2],
+                            ].map(([name, cc], i) => (
+                              <div key={i} className="flex min-h-[26px] items-center gap-2">
+                                <TennisFlag code={cc} />
+                                <span className="min-w-0 break-words text-[15px] leading-tight text-ink">{name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Weltrangliste Einzel, Top 100 (ATP/WTA).
+function TennisRankView() {
+  const [tour, setTour] = useState<"atp" | "wta">("atp");
+  const data = useTennisList<TennisRankRow>("rank", tour);
+  const rows = data?.rows ?? [];
+  return (
+    <div className="lg:max-w-2xl">
+      <TourPills tour={tour} onChange={setTour} />
+      {data === null ? (
+        <p className="py-8 text-center text-sm text-muted">Weltrangliste wird geladen …</p>
+      ) : rows.length === 0 ? (
+        <EmptyState emoji="🏆" title="Weltrangliste nicht verfügbar" text={data.error ?? "Gerade keine Daten."} className="border-none bg-transparent" />
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-muted/25 bg-row">
+          <div className="flex items-center border-b border-edge px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
+            <span className="w-9">#</span>
+            <span className="flex-1">Spieler{tour === "wta" ? "in" : ""}</span>
+            <span>Punkte</span>
+          </div>
+          {rows.map((r) => (
+            <div key={`${r.rank}-${r.name}`} className="flex min-h-[44px] items-center border-b border-edge/60 px-3 last:border-b-0">
+              <span className={`w-9 font-display text-[15px] font-bold ${r.rank <= 3 ? "text-gold" : "text-muted"}`}>{r.rank}</span>
+              <TennisFlag code={r.country} />
+              <span className="ml-2 min-w-0 flex-1 break-words text-[15px] leading-tight text-ink">{r.name}</span>
+              <span className="ml-2 shrink-0 tabular-nums text-[14px] text-muted">{r.points !== null ? r.points.toLocaleString("de-DE") : ""}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

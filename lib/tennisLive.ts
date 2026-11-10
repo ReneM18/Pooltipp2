@@ -148,3 +148,104 @@ export function shortPlayer(name: string): string {
   if (parts.length < 2 || /\.$/.test(parts[0])) return name.trim();
   return `${parts[0][0]}. ${parts.slice(1).join(" ")}`;
 }
+
+// ---------------------------------------------------------------------------
+// Spielplan und Weltrangliste (Rene, 10.11.2026). Formate laut
+// docs.tennis-api.com: Rangliste data[] { position, rankingPoints|point,
+// player { name, countryAcr } }, Spielplan matches[] { date, player1/2
+// { name, countryAcr }, tournament { name }, round { name } }.
+
+export interface TennisRankRow {
+  rank: number;
+  name: string;
+  country: string | null; // ISO-2 für die Flagge
+  points: number | null;
+}
+
+export interface TennisPlanGame {
+  id: string;
+  start: number; // ms
+  player1: string;
+  player2: string;
+  country1: string | null;
+  country2: string | null;
+  tournament: string;
+  round: string | null;
+}
+
+export interface TennisListResponse<T> {
+  ok: boolean;
+  error: string | null;
+  fetchedAt: number | null;
+  rows: T[];
+}
+
+// Länderkürzel im Tennis (IOC, 3 Buchstaben) -> ISO-2 für die Flagge.
+const IOC_TO_ISO2: Record<string, string> = {
+  ARG: "AR", AUS: "AU", AUT: "AT", BEL: "BE", BIH: "BA", BLR: "BY", BOL: "BO", BRA: "BR", BUL: "BG", CAN: "CA",
+  CHI: "CL", CHN: "CN", COL: "CO", CRO: "HR", CYP: "CY", CZE: "CZ", DEN: "DK", ECU: "EC", EGY: "EG", ESP: "ES",
+  EST: "EE", FIN: "FI", FRA: "FR", GBR: "GB", GEO: "GE", GER: "DE", GRE: "GR", HKG: "HK", HUN: "HU", IND: "IN",
+  INA: "ID", IRL: "IE", ISR: "IL", ITA: "IT", JPN: "JP", KAZ: "KZ", KOR: "KR", LAT: "LV", LTU: "LT", LUX: "LU",
+  MAR: "MA", MDA: "MD", MEX: "MX", MON: "MC", MNE: "ME", NED: "NL", NOR: "NO", NZL: "NZ", PAR: "PY", PER: "PE",
+  PHI: "PH", POL: "PL", POR: "PT", PUR: "PR", ROU: "RO", RSA: "ZA", RUS: "RU", SLO: "SI", SRB: "RS", SUI: "CH",
+  SVK: "SK", SWE: "SE", THA: "TH", TPE: "TW", TUN: "TN", TUR: "TR", UKR: "UA", URU: "UY", USA: "US", UZB: "UZ",
+  VEN: "VE", ALG: "DZ", ARM: "AM", AZE: "AZ", DOM: "DO", ESA: "SV", ISL: "IS", JOR: "JO", LIB: "LB", MKD: "MK",
+  MLT: "MT", QAT: "QA", KSA: "SA", UAE: "AE", VIE: "VN", ZIM: "ZW", BAR: "BB", JAM: "JM", TTO: "TT", CRC: "CR",
+  GUA: "GT", PAN: "PA",
+};
+
+export function countryToIso2(code: unknown): string | null {
+  if (typeof code !== "string") return null;
+  const c = code.trim().toUpperCase();
+  if (/^[A-Z]{2}$/.test(c)) return c;
+  return IOC_TO_ISO2[c] ?? null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Raw = any;
+
+export function firstArray(body: Raw): Raw[] {
+  if (Array.isArray(body)) return body;
+  for (const k of ["data", "matches", "results", "rankings", "response"]) {
+    if (Array.isArray(body?.[k])) return body[k];
+    if (body?.[k] && typeof body[k] === "object") {
+      const inner = firstArray(body[k]);
+      if (inner.length) return inner;
+    }
+  }
+  return [];
+}
+
+function countryOf(p: Raw): string | null {
+  return countryToIso2(p?.countryAcr ?? p?.country?.acronym ?? p?.country?.code ?? p?.countryCode ?? p?.country);
+}
+
+export function parseRankRow(raw: Raw): TennisRankRow | null {
+  const p = raw?.player ?? raw;
+  const name = String(p?.name ?? raw?.name ?? "").trim();
+  const rank = Number(raw?.position ?? raw?.rank ?? raw?.ranking);
+  if (!name || !(rank > 0)) return null;
+  const pts = Number(raw?.rankingPoints ?? raw?.point ?? raw?.points);
+  return { rank, name, country: countryOf(p), points: Number.isFinite(pts) ? pts : null };
+}
+
+export function parsePlanGame(raw: Raw): TennisPlanGame | null {
+  const p1 = raw?.player1 ?? raw?.home;
+  const p2 = raw?.player2 ?? raw?.away;
+  const n1 = String(p1?.name ?? raw?.participant1 ?? "").trim();
+  const n2 = String(p2?.name ?? raw?.participant2 ?? "").trim();
+  const iso = raw?.startTime ?? raw?.date ?? null;
+  const start = typeof iso === "string" ? Date.parse(iso) : Number(raw?.startTimestamp) > 0 ? Number(raw.startTimestamp) * 1000 : NaN;
+  if (!n1 || !n2 || !Number.isFinite(start)) return null;
+  const round = raw?.round?.name ?? null;
+  return {
+    id: String(raw?.matchId ?? raw?.id ?? `${n1}-${n2}-${start}`),
+    start,
+    player1: n1,
+    player2: n2,
+    country1: countryOf(p1),
+    country2: countryOf(p2),
+    tournament: String(raw?.tournament?.name ?? raw?.league ?? "").trim(),
+    round: typeof round === "string" && round.trim() ? round.trim() : null,
+  };
+}
