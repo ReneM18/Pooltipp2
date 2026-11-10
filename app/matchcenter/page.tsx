@@ -360,7 +360,7 @@ function LiveCenter() {
       aria-selected={active}
       aria-label={label}
       onClick={onClick}
-      className={`group flex min-h-11 min-w-12 items-center justify-center gap-2.5 font-semibold transition-colors ${
+      className={`group flex min-h-11 min-w-12 items-center justify-center gap-2.5 font-semibold lg:gap-2 transition-colors ${
         active ? "text-ink" : "text-muted hover:text-ink"
       }`}
     >
@@ -379,7 +379,10 @@ function LiveCenter() {
   // trifft (Rene, 28.10.2026).
   const switcher = (
     <div className="mb-3 flex items-center gap-2">
-      <div className="flex gap-2 min-[380px]:gap-2.5 lg:gap-5" role="tablist" aria-label="Sportart">
+      {/* Am PC deutlich mehr Abstand zwischen den Sportarten als zwischen
+          Icon und Name (Rene, 10.11.2026: sonst unklar, welcher Name zu
+          welchem Icon gehört). */}
+      <div className="flex gap-2 min-[380px]:gap-2.5 lg:gap-5 xl:gap-10" role="tablist" aria-label="Sportart">
         {LIVE_SPORTS.map((s) =>
           // "NFL" statt "American Football" (Rene, 10.11.2026).
           sportButton(s, s === "NFL" ? "NFL" : sportLabel(s), SPORT_ICONS[s], !motorsport && !tennis && sport === s, () => pick(s))
