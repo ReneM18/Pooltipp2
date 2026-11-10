@@ -98,6 +98,14 @@ export function tournamentRank(name: string): number {
   return 3;
 }
 
+/**
+ * Kleine Turniere, die das Matchcenter ausblendet: ITF und Challenger
+ * (Rene, 10.11.2026: "die interessieren keinen"), bei den Damen WTA 125.
+ */
+export function isMinorTournament(name: string): boolean {
+  return isItf(name) || /challenger|\b125\b/i.test(name);
+}
+
 export function isItf(name: string): boolean {
   return /\bitf\b/i.test(name) || /^(m|w)\s?\d{2,3}\b/i.test(name.trim());
 }

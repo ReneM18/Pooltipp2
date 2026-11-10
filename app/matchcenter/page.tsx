@@ -66,7 +66,7 @@ import Link from "next/link";
 import { signalAppReady } from "@/lib/appReady";
 import { useStartExperience } from "@/lib/useStartExperience";
 import { DuelTourButtons } from "@/components/NavTabs";
-import { findLiveFor, isItf, shortPlayer, tournamentRank, type TennisListResponse, type TennisLiveGame, type TennisLiveResponse, type TennisPlanGame, type TennisRankRow } from "@/lib/tennisLive";
+import { findLiveFor, isMinorTournament, shortPlayer, tournamentRank, type TennisListResponse, type TennisLiveGame, type TennisLiveResponse, type TennisPlanGame, type TennisRankRow } from "@/lib/tennisLive";
 
 // TV-Sender eines Spiels: beim Tippspiel der Sender am Spiel, sonst der im
 // Matchcenter eingetragene (Rene, 28.10.2026, lib/fixtureTv.ts).
@@ -339,8 +339,13 @@ function LiveCenter() {
   }, []);
   const pick = (s: Sport) => {
     setTargetId(null);
-    setSport(s);
     setMotorsport(false);
+    // Tennis hat einen eigenen Bereich (Knopf "Heute in anderen Sportarten").
+    if (s === "Tennis") {
+      setTennis(true);
+      return;
+    }
+    setSport(s);
     setTennis(false);
   };
   // Sportart-Knöpfe mit Farbverlauf und Tiefe (Rene, 06.11.2026,
@@ -1110,7 +1115,7 @@ function OtherSportsToday({ sport, today, onPick }: { sport: Sport; today: strin
   // LIVE_SPORTS ist fest, die Hooks laufen also immer gleich oft.
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const perSport = LIVE_SPORTS.map((s) => ({ sport: s, games: useSportDayGames(s, today) }));
-  const others = perSport
+  const others: { sport: Sport; count: number; running: number; next: LiveGame | null }[] = perSport
     .filter((x) => x.sport !== sport && x.games && x.games.length > 0)
     .map((x) => {
       const list = x.games!;
@@ -1118,6 +1123,11 @@ function OtherSportsToday({ sport, today, onPick }: { sport: Sport; today: strin
       const next = list.filter((g) => g.status === "NS").sort(byKickoff)[0] ?? null;
       return { sport: x.sport, count: list.length, running, next };
     });
+  // Tennis (Rene, 10.11.2026): laufende Spiele aus der Tennis-API, ohne ITF und
+  // Challenger wie im Tennis-Bereich.
+  const tennisLive = useTennisLive();
+  const tennisCount = (tennisLive?.games ?? []).filter((g) => !isMinorTournament(g.tournament)).length;
+  if (sport !== "Tennis" && tennisCount > 0) others.push({ sport: "Tennis", count: tennisCount, running: tennisCount, next: null });
   if (others.length === 0) return null;
   return (
     <div className="mx-auto mt-1 max-w-md px-1 pb-2">
@@ -2751,6 +2761,8 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
   const live = useTennisLive();
   // Reiter (Rene, 10.11.2026): Heute (Live + Tippspiele), Spielplan, Weltrangliste.
   const [view, setView] = useState<"heute" | "plan" | "rang">("heute");
+  const [rankTour, setRankTour] = useState<"atp" | "wta">("atp");
+  const [sideTour, setSideTour] = useState<"atp" | "wta">("atp");
   const since = now - 2 * 24 * 3600e3;
   const list = matches
     .filter((m) => m.sport === "Tennis" && !m.draft && m.status !== "cancelled" && Date.parse(m.kickoff) >= since)
@@ -2764,7 +2776,7 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
   }
   // Live: Turniere nach Wichtigkeit, ITF (M15, W25 …) ausgeblendet wie
   // kleine Länderspiele beim Fußball.
-  const liveGames = (live?.games ?? []).filter((g) => !isItf(g.tournament));
+  const liveGames = (live?.games ?? []).filter((g) => !isMinorTournament(g.tournament));
   const groups: { name: string; games: TennisLiveGame[] }[] = [];
   for (const g of [...liveGames].sort((a, b) => tournamentRank(a.tournament) - tournamentRank(b.tournament) || a.tournament.localeCompare(b.tournament))) {
     const last = groups[groups.length - 1];
@@ -2784,10 +2796,15 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
         <SubTab label="Spielplan" active={view === "plan"} onClick={() => setView("plan")} />
         <SubTab label="Weltrangliste" active={view === "rang"} onClick={() => setView("rang")} />
       </div>
+      {/* Am PC wie Fußball (Rene, 10.11.2026: "im Web komisch, Zeilen zu
+          lange"): links die Liste als Karte, rechts eine Karte mit der
+          Weltrangliste (Top 10). Am Handy nur die Liste. */}
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start xl:grid-cols-[minmax(0,1fr)_460px]">
+      <div className="min-w-0 lg:rounded-card lg:border lg:border-muted/40 lg:bg-surface lg:p-4 lg:shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)]">
       {view === "plan" ? (
         <TennisPlanView now={now} />
       ) : view === "rang" ? (
-        <TennisRankView />
+        <TennisRankView tour={rankTour} onTour={setRankTour} />
       ) : (
       <>
       {groups.length > 0 && (
@@ -2852,13 +2869,26 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
       )}
       </>
       )}
+      </div>
+      <aside className="hidden lg:block">
+        <TennisTopTen
+          tour={view === "rang" ? (rankTour === "atp" ? "wta" : "atp") : sideTour}
+          onTour={view === "rang" ? undefined : setSideTour}
+          onAll={(t) => {
+            setRankTour(t);
+            setView("rang");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />
+      </aside>
+      </div>
     </section>
   );
 }
 
-// Am PC zwei Zeilen nebeneinander, damit die Zahlen nicht weit weg von den
-// Namen stehen (Rene, 10.11.2026: "wie lange willst du die Zeilen machen").
-const TENNIS_GRID = "grid grid-cols-1 gap-2 lg:grid-cols-2 lg:gap-3";
+// Eine Spalte wie beim Fußball; am PC steht die Liste in der linken Karte
+// (Rene, 10.11.2026: zwei Spalten sahen zerrissen aus).
+const TENNIS_GRID = "flex flex-col gap-2";
 
 const TOURS = [
   ["atp", "ATP Herren"],
@@ -2912,7 +2942,7 @@ function TennisFlag({ code }: { code: string | null }) {
 function TennisPlanView({ now }: { now: number }) {
   const [tour, setTour] = useState<"atp" | "wta">("atp");
   const data = useTennisList<TennisPlanGame>("plan", tour);
-  const rows = (data?.rows ?? []).filter((g) => !isItf(g.tournament) && g.start > now - 3 * 3600e3);
+  const rows = (data?.rows ?? []).filter((g) => !isMinorTournament(g.tournament) && g.start > now - 3 * 3600e3);
   const days: { day: string; groups: { name: string; games: TennisPlanGame[] }[] }[] = [];
   for (const g of rows) {
     const day = viennaCalendarDay(g.start);
@@ -2983,12 +3013,11 @@ function TennisPlanView({ now }: { now: number }) {
 }
 
 // Weltrangliste Einzel, Top 100 (ATP/WTA).
-function TennisRankView() {
-  const [tour, setTour] = useState<"atp" | "wta">("atp");
+function TennisRankView({ tour, onTour: setTour }: { tour: "atp" | "wta"; onTour: (t: "atp" | "wta") => void }) {
   const data = useTennisList<TennisRankRow>("rank", tour);
   const rows = data?.rows ?? [];
   return (
-    <div className="lg:max-w-2xl">
+    <div>
       <TourPills tour={tour} onChange={setTour} />
       {data === null ? (
         <p className="py-8 text-center text-sm text-muted">Weltrangliste wird geladen …</p>
@@ -3011,6 +3040,70 @@ function TennisRankView() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Rechte Karte am PC: Top 10 der Weltrangliste, wie die TV-Karte beim Fußball.
+function TennisTopTen({
+  tour,
+  onTour,
+  onAll,
+}: {
+  tour: "atp" | "wta";
+  onTour?: (t: "atp" | "wta") => void;
+  onAll: (t: "atp" | "wta") => void;
+}) {
+  const data = useTennisList<TennisRankRow>("rank", tour);
+  const rows = (data?.rows ?? []).slice(0, 10);
+  return (
+    <div className="rounded-card border border-muted/40 bg-surface p-4 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)]">
+      <div className="mb-3 flex items-center gap-2">
+        <h3 className="flex-1 font-display text-[16px] font-bold text-ink">Weltrangliste</h3>
+        {onTour ? (
+          <div className="flex gap-1" role="tablist" aria-label="Tour">
+            {TOURS.map(([id]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={tour === id}
+                onClick={() => onTour(id)}
+                className={`min-h-8 rounded-full border px-3 text-xs font-semibold transition-colors ${
+                  tour === id ? "border-gold bg-gold/10 text-gold" : "border-edge text-muted hover:text-ink"
+                }`}
+              >
+                {id.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <span className="text-xs font-semibold text-muted">{tour === "atp" ? "ATP Herren" : "WTA Damen"}</span>
+        )}
+      </div>
+      {data === null ? (
+        <p className="py-6 text-center text-sm text-muted">Lädt …</p>
+      ) : rows.length === 0 ? (
+        <p className="py-6 text-center text-sm text-muted">{data.error ?? "Gerade keine Daten."}</p>
+      ) : (
+        <ol className="flex flex-col divide-y divide-edge/60">
+          {rows.map((r) => (
+            <li key={`${r.rank}-${r.name}`} className="flex min-h-[38px] items-center">
+              <span className={`w-7 font-display text-[14px] font-bold ${r.rank <= 3 ? "text-gold" : "text-muted"}`}>{r.rank}</span>
+              <TennisFlag code={r.country} />
+              <span className="ml-2 min-w-0 flex-1 break-words text-[14px] leading-tight text-ink">{r.name}</span>
+              <span className="ml-2 shrink-0 tabular-nums text-[13px] text-muted">{r.points !== null ? r.points.toLocaleString("de-DE") : ""}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+      <button
+        type="button"
+        onClick={() => onAll(tour)}
+        className="mt-3 flex min-h-10 w-full items-center justify-center rounded-lg border border-edge text-sm font-semibold text-gold hover:border-gold/60"
+      >
+        Ganze Weltrangliste ›
+      </button>
     </div>
   );
 }
