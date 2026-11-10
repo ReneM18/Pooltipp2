@@ -66,6 +66,7 @@ import Link from "next/link";
 import { signalAppReady } from "@/lib/appReady";
 import { useStartExperience } from "@/lib/useStartExperience";
 import { DuelTourButtons } from "@/components/NavTabs";
+import { findLiveFor, isItf, shortPlayer, tournamentRank, type TennisLiveGame, type TennisLiveResponse } from "@/lib/tennisLive";
 
 // TV-Sender eines Spiels: beim Tippspiel der Sender am Spiel, sonst der im
 // Matchcenter eingetragene (Rene, 28.10.2026, lib/fixtureTv.ts).
@@ -2746,6 +2747,7 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
     return () => clearInterval(t);
   }, []);
   const tipped = useMemo(() => new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId)), [myTips]);
+  const live = useTennisLive();
   const since = now - 2 * 24 * 3600e3;
   const list = matches
     .filter((m) => m.sport === "Tennis" && !m.draft && m.status !== "cancelled" && Date.parse(m.kickoff) >= since)
@@ -2757,16 +2759,59 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
     if (last && last.day === day) last.games.push(m);
     else days.push({ day, games: [m] });
   }
+  // Live: Turniere nach Wichtigkeit, ITF (M15, W25 …) ausgeblendet wie
+  // kleine Länderspiele beim Fußball.
+  const liveGames = (live?.games ?? []).filter((g) => !isItf(g.tournament));
+  const groups: { name: string; games: TennisLiveGame[] }[] = [];
+  for (const g of [...liveGames].sort((a, b) => tournamentRank(a.tournament) - tournamentRank(b.tournament) || a.tournament.localeCompare(b.tournament))) {
+    const last = groups[groups.length - 1];
+    if (last && last.name === g.tournament) last.games.push(g);
+    else groups.push({ name: g.tournament, games: [g] });
+  }
+  const liveFor = (m: Match) => {
+    const h = getTeam(m.homeTeamId)?.name;
+    const a = getTeam(m.awayTeamId)?.name;
+    return h && a && live ? findLiveFor(live.games, h, a) : null;
+  };
   return (
     <section className="mb-6">
       {switcher}
+      {groups.length > 0 && (
+        <div className="mb-5">
+          <p className="mb-2 flex items-baseline gap-2 text-[13px] font-semibold uppercase tracking-wide text-muted">
+            <span className="text-red-400">● Live</span>
+            {live?.fetchedAt ? (
+              <span className="text-[11px] font-normal normal-case tracking-normal text-muted/80">
+                Stand {new Date(live.fetchedAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vienna" })}
+              </span>
+            ) : null}
+          </p>
+          <div className="flex flex-col gap-4">
+            {groups.map((grp) => (
+              <div key={grp.name}>
+                <p className="mb-2 flex items-center gap-2 font-display text-[16px] font-bold text-ink">
+                  <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-row text-[14px]">🏆</span>
+                  <span className="min-w-0 break-words">{grp.name}</span>
+                </p>
+                <div className="flex flex-col gap-2">
+                  {grp.games.map((g) => (
+                    <TennisLiveRow key={g.id} game={g} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {days.length === 0 ? (
-        <EmptyState
-          emoji="🎾"
-          title="Noch keine Tennis-Spiele"
-          text="Sobald Tennis-Tippspiele angelegt sind, stehen sie hier. Live-Stände, Spielplan und Weltrangliste kommen dazu, wenn die Tennis-Daten angebunden sind."
-          className="border-none bg-transparent"
-        />
+        groups.length === 0 && (
+          <EmptyState
+            emoji="🎾"
+            title={live === null ? "Tennis wird geladen …" : "Gerade kein Tennis live"}
+            text="Hier stehen die laufenden Tennis-Spiele und deine Tennis-Tippspiele."
+            className="border-none bg-transparent"
+          />
+        )
       ) : (
         <div className="flex flex-col gap-4">
           {days.map(({ day, games }) => (
@@ -2776,20 +2821,110 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
               </p>
               <div className="flex flex-col gap-2">
                 {games.map((m) => (
-                  <TennisRow key={m.id} match={m} home={getTeam(m.homeTeamId)} away={getTeam(m.awayTeamId)} now={now} tipped={tipped.has(m.id)} />
+                  <TennisRow
+                    key={m.id}
+                    match={m}
+                    home={getTeam(m.homeTeamId)}
+                    away={getTeam(m.awayTeamId)}
+                    now={now}
+                    tipped={tipped.has(m.id)}
+                    live={liveFor(m)}
+                  />
                 ))}
               </div>
             </div>
           ))}
-          <p className="text-center text-xs text-muted">Live-Stände, Spielplan und Weltrangliste kommen mit den Tennis-Daten.</p>
+
         </div>
       )}
     </section>
   );
 }
 
-function TennisRow({ match, home, away, now, tipped }: { match: Match; home?: Team; away?: Team; now: number; tipped: boolean }) {
+// Live-Stände holen (Server speichert zwischen, siehe app/api/tennis).
+// null = lädt noch.
+function useTennisLive(): TennisLiveResponse | null {
+  const [data, setData] = useState<TennisLiveResponse | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      fetch("/api/tennis")
+        .then((r) => r.json() as Promise<TennisLiveResponse>)
+        .then((d) => alive && setData(d))
+        .catch(() => alive && setData((cur) => cur ?? { ok: false, error: "offline", fetchedAt: null, games: [] }));
+    load();
+    const t = setInterval(load, 30 * 1000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+  return data;
+}
+
+// Live-Zeile wie im Konzept (Rene, 10.11.2026): links Live + Satz, Spieler
+// untereinander mit gelbem Aufschlag-Punkt, Games je Satz, rechts im
+// Goldkasten die gewonnenen Sätze, darunter der Punktestand im Game.
+function TennisLiveRow({ game }: { game: TennisLiveGame }) {
+  const setNo = Math.max(1, game.sets.length);
+  const player = (name: string, side: 1 | 2) => (
+    <div className="flex min-h-[26px] items-center gap-1.5">
+      <span className="min-w-0 break-words text-[15px] leading-tight text-ink">{name}</span>
+      {game.serve === side && <span aria-label="Aufschlag" className="h-[7px] w-[7px] shrink-0 rounded-full bg-gold" />}
+    </div>
+  );
+  return (
+    <div className="flex items-stretch rounded-xl border border-red-400/50 bg-row px-2.5 py-2 sm:px-3">
+      <div className="mr-2 flex w-[52px] shrink-0 sm:mr-3 sm:w-[64px] flex-col justify-center border-r border-edge pr-2 text-[13px]">
+        <span className="font-semibold text-red-400">● Live</span>
+        <span className="text-[11px] text-muted">{setNo}. Satz</span>
+      </div>
+      <div className="min-w-0 flex-1">
+        {player(shortPlayer(game.player1), 1)}
+        {player(shortPlayer(game.player2), 2)}
+      </div>
+      <div className="ml-1.5 flex shrink-0 items-center gap-0.5 sm:ml-2 sm:gap-1">
+        {game.sets.map(([a, b], i) => (
+          <div key={i} className="flex w-5 flex-col text-center text-[14px] leading-[26px] text-muted">
+            <span className={i === game.sets.length - 1 ? "text-ink" : ""}>{a}</span>
+            <span className={i === game.sets.length - 1 ? "text-ink" : ""}>{b}</span>
+          </div>
+        ))}
+        {game.points && (
+          <div className="flex w-6 flex-col text-center text-[12px] leading-[26px] text-gold/90 sm:w-7">
+            {game.points.split("-").slice(0, 2).map((p, i) => (
+              <span key={i}>{p}</span>
+            ))}
+          </div>
+        )}
+        <div className="ml-1 flex h-[50px] w-7 flex-col items-center justify-around rounded-md border border-gold font-display text-[15px] font-bold text-gold">
+          <span>{game.setsWon[0]}</span>
+          <span>{game.setsWon[1]}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TennisRow({
+  match,
+  home,
+  away,
+  now,
+  tipped,
+  live,
+}: {
+  match: Match;
+  home?: Team;
+  away?: Team;
+  now: number;
+  tipped: boolean;
+  live: { game: TennisLiveGame; swapped: boolean } | null;
+}) {
   const finished = match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null;
+  // Live-Stand aus der Tennis-API (Spieler nach Namen gefunden), in der
+  // Reihenfolge des Tippspiels.
+  const liveSets = !finished && live ? (live.swapped ? [live.game.setsWon[1], live.game.setsWon[0]] : live.game.setsWon) : null;
   const tippable = isMatchTippable(match, now);
   const started = !finished && (match.status === "live" || Date.parse(match.kickoff) <= now);
   const winner = finished ? (match.liveHomeScore! > match.liveAwayScore! ? "home" : "away") : null;
@@ -2808,12 +2943,12 @@ function TennisRow({ match, home, away, now, tipped }: { match: Match; home?: Te
   return (
     <div className="flex items-stretch rounded-xl border border-muted/25 bg-row px-3 py-2">
       <div className="mr-3 flex w-[64px] shrink-0 flex-col justify-center border-r border-edge pr-2 text-[13px] text-muted">
-        {finished ? "Endstand" : started ? <span className="font-semibold text-red-400">● Live</span> : time}
+        {finished ? "Endstand" : started || liveSets ? <span className="font-semibold text-red-400">● Live</span> : time}
         <span className="truncate text-[11px] text-muted/80">{match.competition}</span>
       </div>
       <div className="min-w-0 flex-1">
-        {player(home, "home", finished ? match.liveHomeScore : null)}
-        {player(away, "away", finished ? match.liveAwayScore : null)}
+        {player(home, "home", finished ? match.liveHomeScore : liveSets ? liveSets[0] : null)}
+        {player(away, "away", finished ? match.liveAwayScore : liveSets ? liveSets[1] : null)}
       </div>
       {!finished && (tipped ? (
         <span className="ml-2 self-center text-[13px] text-muted">Getippt</span>
