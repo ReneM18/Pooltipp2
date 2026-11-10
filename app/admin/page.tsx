@@ -2459,6 +2459,7 @@ function MatchManager({ view }: { view: "spiele" | "neu" }) {
     setTipDeadline(local);
     setDeadlineTouched(false);
     setMatchday(p.matchday ? String(p.matchday) : "");
+    if (p.bestOf) setBestOf(p.bestOf);
     setApiPick(p);
     formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
