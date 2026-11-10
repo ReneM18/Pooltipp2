@@ -2803,7 +2803,7 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
   const liveFor = (m: Match) => {
     const h = getTeam(m.homeTeamId)?.name;
     const a = getTeam(m.awayTeamId)?.name;
-    return h && a && live ? findLiveFor(live.games, h, a) : null;
+    return h && a && live ? findLiveFor(liveGames, h, a) : null;
   };
   return (
     <section className="mb-6">
