@@ -290,6 +290,7 @@ const SPORT_CHIP_COLORS: Record<string, CSSProperties> = {
   NBA: { "--a": "#e0452b", "--z": "#4b2a8f" } as CSSProperties,
   NFL: { "--a": "#a0522d", "--z": "#1f2c4f" } as CSSProperties,
   Handball: { "--a": "#d97706", "--z": "#3b2410" } as CSSProperties,
+  Tennis: { "--a": "#a3c93a", "--z": "#1f4d1f" } as CSSProperties,
   motorsport: { "--a": "#d02a2a", "--z": "#1b1b1b" } as CSSProperties,
 };
 
@@ -300,6 +301,9 @@ function LiveCenter() {
   // Motorsport (Rene, 30.10.2026) steht neben den Sportarten, ist aber
   // (noch) keine Tipp-Sportart: eigener Bereich, siehe MotorsportCenter.
   const [motorsport, setMotorsport] = useState(false);
+  // Tennis (Rene, 10.11.2026): eigener Bereich mit den Tennis-Tippspielen,
+  // bis die Tennis-API angebunden ist (dann Live, Spielplan, Weltrangliste).
+  const [tennis, setTennis] = useState(false);
   // Von der Tippkarte (/matchcenter?spiel=<App-Spiel>, Rene, 27.10.2026):
   // Sportart des Spiels wählen und das Spiel öffnen.
   const { matches } = useAppData();
@@ -312,6 +316,11 @@ function LiveCenter() {
     if (target && LIVE_SPORTS.includes(target.sport)) {
       setSport(target.sport);
       setMotorsport(false);
+      setTennis(false);
+    }
+    if (target && target.sport === "Tennis") {
+      setMotorsport(false);
+      setTennis(true);
     }
   }, [target]);
   // Logo = Anfangsseite (Rene, 01.11.2026): wieder Fußball (bzw. die
@@ -322,6 +331,7 @@ function LiveCenter() {
       setTargetId(null);
       setSport(LIVE_SPORT ?? "Fußball");
       setMotorsport(false);
+      setTennis(false);
     }
     window.addEventListener("pooltipp:logo", backToStart);
     return () => window.removeEventListener("pooltipp:logo", backToStart);
@@ -330,6 +340,7 @@ function LiveCenter() {
     setTargetId(null);
     setSport(s);
     setMotorsport(false);
+    setTennis(false);
   };
   // Sportart-Knöpfe mit Farbverlauf und Tiefe (Rene, 06.11.2026,
   // Variante A): jede Sportart hat ihre Farbe, die gewählte hat einen
@@ -362,12 +373,20 @@ function LiveCenter() {
   // trifft (Rene, 28.10.2026).
   const switcher = (
     <div className="mb-3 flex items-center gap-2">
-      <div className="flex gap-2.5 lg:gap-5" role="tablist" aria-label="Sportart">
-        {LIVE_SPORTS.map((s) => sportButton(s, sportLabel(s), SPORT_ICONS[s], !motorsport && sport === s, () => pick(s)))}
+      <div className="flex gap-2 min-[380px]:gap-2.5 lg:gap-5" role="tablist" aria-label="Sportart">
+        {LIVE_SPORTS.map((s) =>
+          sportButton(s, sportLabel(s), SPORT_ICONS[s], !motorsport && !tennis && sport === s, () => pick(s))
+        )}
+        {sportButton("Tennis", "Tennis", "🎾", tennis, () => {
+          setTargetId(null);
+          setMotorsport(false);
+          setTennis(true);
+        })}
         {/* Zielflagge statt Rennauto (Rene, 30.10.2026: "nicht nur an Formel 1
             denken, deswegen heißt es Motorsport"). */}
         {sportButton("motorsport", "Motorsport", "🏁", motorsport, () => {
           setTargetId(null);
+          setTennis(false);
           setMotorsport(true);
         })}
       </div>
@@ -377,6 +396,7 @@ function LiveCenter() {
     </div>
   );
   if (motorsport) return <MotorsportCenter switcher={switcher} />;
+  if (tennis) return <TennisCenter switcher={switcher} />;
   return (
     <LiveCenterSection key={sport} sport={sport} switcher={switcher} target={target?.sport === sport ? target : null} onPickSport={pick} />
   );
@@ -2714,6 +2734,101 @@ function defaultSession(w: F1Weekend, now: number): number | null {
 
 // Reiter je Rennserie (Rene, 30.10.2026: "ein Unterreiter mit Formel 1 und
 // MotoGP"). In der Formel 1 umschaltbar zwischen Wochenende und WM-Stand.
+// Tennis im Matchcenter (Rene, 10.11.2026). Solange es noch keine
+// Tennis-API gibt, stehen hier die Tennis-Tippspiele aus dem Admin: Spieler
+// mit Flagge, Uhrzeit bzw. Satzergebnis und rechts "Tippen"/"Getippt".
+// Live-Stände, Spielplan aller Turniere und Weltrangliste kommen mit der API.
+function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
+  const { matches, getTeam, myTips } = useAppData();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  const tipped = useMemo(() => new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId)), [myTips]);
+  const since = now - 2 * 24 * 3600e3;
+  const list = matches
+    .filter((m) => m.sport === "Tennis" && !m.draft && m.status !== "cancelled" && Date.parse(m.kickoff) >= since)
+    .sort((a, b) => Date.parse(a.kickoff) - Date.parse(b.kickoff));
+  const days: { day: string; games: Match[] }[] = [];
+  for (const m of list) {
+    const day = viennaCalendarDay(m.kickoff);
+    const last = days[days.length - 1];
+    if (last && last.day === day) last.games.push(m);
+    else days.push({ day, games: [m] });
+  }
+  return (
+    <section className="mb-6">
+      {switcher}
+      {days.length === 0 ? (
+        <EmptyState
+          emoji="🎾"
+          title="Noch keine Tennis-Spiele"
+          text="Sobald Tennis-Tippspiele angelegt sind, stehen sie hier. Live-Stände, Spielplan und Weltrangliste kommen dazu, wenn die Tennis-Daten angebunden sind."
+          className="border-none bg-transparent"
+        />
+      ) : (
+        <div className="flex flex-col gap-4">
+          {days.map(({ day, games }) => (
+            <div key={day}>
+              <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-muted">
+                {relativeDayLabel(day, now) ?? new Date(games[0].kickoff).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit", timeZone: "Europe/Vienna" })}
+              </p>
+              <div className="flex flex-col gap-2">
+                {games.map((m) => (
+                  <TennisRow key={m.id} match={m} home={getTeam(m.homeTeamId)} away={getTeam(m.awayTeamId)} now={now} tipped={tipped.has(m.id)} />
+                ))}
+              </div>
+            </div>
+          ))}
+          <p className="text-center text-xs text-muted">Live-Stände, Spielplan und Weltrangliste kommen mit den Tennis-Daten.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TennisRow({ match, home, away, now, tipped }: { match: Match; home?: Team; away?: Team; now: number; tipped: boolean }) {
+  const finished = match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null;
+  const tippable = isMatchTippable(match, now);
+  const started = !finished && (match.status === "live" || Date.parse(match.kickoff) <= now);
+  const winner = finished ? (match.liveHomeScore! > match.liveAwayScore! ? "home" : "away") : null;
+  const player = (team: Team | undefined, side: "home" | "away", sets: number | null) => (
+    <div className="flex min-h-[26px] items-center gap-2">
+      <span className="shrink-0">
+        <TeamBadge sport="Tennis" primaryColor="#ffffff" secondaryColor="#000000" countryCode={team?.countryCode} size={20} />
+      </span>
+      <span className={`min-w-0 flex-1 break-words text-[15px] leading-tight ${winner === side ? "font-bold text-ink" : winner ? "text-muted" : "text-ink"}`}>
+        {team?.name ?? "?"}
+      </span>
+      {sets !== null && <span className="w-5 text-center font-display text-[16px] font-bold text-gold">{sets}</span>}
+    </div>
+  );
+  const time = new Date(match.kickoff).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vienna" });
+  return (
+    <div className="flex items-stretch rounded-xl border border-muted/25 bg-row px-3 py-2">
+      <div className="mr-3 flex w-[64px] shrink-0 flex-col justify-center border-r border-edge pr-2 text-[13px] text-muted">
+        {finished ? "Endstand" : started ? <span className="font-semibold text-red-400">● Live</span> : time}
+        <span className="truncate text-[11px] text-muted/80">{match.competition}</span>
+      </div>
+      <div className="min-w-0 flex-1">
+        {player(home, "home", finished ? match.liveHomeScore : null)}
+        {player(away, "away", finished ? match.liveAwayScore : null)}
+      </div>
+      {!finished && (tipped ? (
+        <span className="ml-2 self-center text-[13px] text-muted">Getippt</span>
+      ) : tippable ? (
+        <Link
+          href={tipCardHref(match.id)}
+          className="ml-2 self-center rounded-lg border border-edge border-r-[3px] border-r-gold px-2.5 py-1.5 text-[13px] font-bold text-gold"
+        >
+          Tippen
+        </Link>
+      ) : null)}
+    </div>
+  );
+}
+
 function MotorsportCenter({ switcher }: { switcher: React.ReactNode }) {
   const [series, setSeries] = useState<"f1" | "motogp">("f1");
   const [view, setView] = useState<"wochenende" | "wm">("wochenende");
