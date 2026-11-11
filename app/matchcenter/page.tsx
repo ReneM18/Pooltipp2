@@ -66,7 +66,7 @@ import Link from "next/link";
 import { signalAppReady } from "@/lib/appReady";
 import { useStartExperience } from "@/lib/useStartExperience";
 import { DuelTourButtons } from "@/components/NavTabs";
-import { countryLookup, findLiveFor, isMinorTournament, shortPlayer, tournamentPointsText, tournamentRank, type TennisListResponse, type TennisLiveGame, type TennisLiveResponse, type TennisPlanGame, type TennisRankRow, type TennisStatsResponse } from "@/lib/tennisLive";
+import { countryLookup, findLiveFor, isMinorTournament, samePlayer, shortPlayer, tournamentPointsText, tournamentRank, type TennisListResponse, type TennisLiveGame, type TennisLiveResponse, type TennisPlanGame, type TennisRankRow, type TennisStatsResponse } from "@/lib/tennisLive";
 
 // TV-Sender eines Spiels: beim Tippspiel der Sender am Spiel, sonst der im
 // Matchcenter eingetragene (Rene, 28.10.2026, lib/fixtureTv.ts).
@@ -2828,6 +2828,23 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
     setSelId(id);
     if (!window.matchMedia("(min-width: 1024px)").matches) setSheetOpen(true);
   };
+  // Heute noch (Rene, 11.11.2026: "wieso sind beim Tennis noch keine Spiele
+  // für heute drin"): kommende Spiele des Tages aus dem Spielplan, wie beim
+  // Fußball unter "Heute". Was schon live läuft, steht oben.
+  const todayDay = viennaCalendarDay(now);
+  const laterToday: { name: string; tour: string; games: TennisPlanGame[] }[] = [];
+  for (const [tour, data] of [["atp", planAtp], ["wta", planWta]] as const) {
+    for (const g of data?.rows ?? []) {
+      if (isMinorTournament(g.tournament) || g.start < now - 30 * 60e3 || viennaCalendarDay(g.start) !== todayDay) continue;
+      if (liveGames.some((l) => samePlayer(l.player1, g.player1) && samePlayer(l.player2, g.player2))) continue;
+      if (laterToday.some((x) => x.games.some((y) => y.start === g.start && y.player1 === g.player1 && y.player2 === g.player2))) continue;
+      let grp = laterToday.find((x) => x.name === g.tournament && x.tour === tour);
+      if (!grp) laterToday.push((grp = { name: g.tournament, tour, games: [] }));
+      grp.games.push(g);
+    }
+  }
+  laterToday.sort((a, b) => tournamentRank(a.name, a.tour) - tournamentRank(b.name, b.tour) || a.name.localeCompare(b.name));
+  laterToday.forEach((x) => x.games.sort((a, b) => a.start - b.start));
   const liveFor = (m: Match) => {
     const h = getTeam(m.homeTeamId)?.name;
     const a = getTeam(m.awayTeamId)?.name;
@@ -2880,17 +2897,45 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
           </div>
         </div>
       )}
+      {laterToday.length > 0 && (
+        <div className="mb-5">
+          <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-muted">Heute noch</p>
+          <div className="flex flex-col gap-4">
+            {laterToday.map((grp) => (
+              <div key={`${grp.tour}-${grp.name}`}>
+                <p className="mb-2 flex flex-wrap items-center gap-2 font-display text-[16px] font-bold text-ink">
+                  <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-row text-[14px]">🏆</span>
+                  <span className="min-w-0 break-words">{grp.name}</span>
+                  <PointsTag name={grp.name} tour={grp.tour} />
+                </p>
+                <div className={TENNIS_GRID}>
+                  {grp.games.map((g) => (
+                    <TennisPlanRow key={g.id} g={g} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {days.length === 0 ? (
-        groups.length === 0 && (
+        groups.length === 0 &&
+        laterToday.length === 0 && (
           <EmptyState
             emoji="🎾"
-            title={live === null ? "Tennis wird geladen …" : "Gerade kein Tennis live"}
-            text="Hier stehen die laufenden Tennis-Spiele und deine Tennis-Tippspiele."
+            title={live === null ? "Tennis wird geladen …" : "Heute kein Tennis mehr"}
+            text="Hier stehen die laufenden und heutigen Tennis-Spiele und deine Tennis-Tippspiele. Unter „Spielplan“ findest du die nächsten Tage."
             className="border-none bg-transparent"
           />
         )
       ) : (
         <div className="flex flex-col gap-4">
+          {/* Eigene Überschrift, damit klar ist: das sind die Tippspiele der
+              App, oben stehen alle Spiele von heute. */}
+          <p className="-mb-2 flex items-center gap-2 font-display text-[16px] font-bold text-ink">
+            <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-row text-[14px]">🎯</span>
+            Tippspiele
+          </p>
           {days.map(({ day, games }) => (
             <div key={day}>
               <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-muted">
@@ -3061,23 +3106,7 @@ function TennisPlanView({ now }: { now: number }) {
                     </p>
                     <div className={TENNIS_GRID}>
                       {grp.games.map((g) => (
-                        <div key={g.id} className="flex items-stretch rounded-xl border border-muted/25 bg-row px-3 py-2">
-                          <div className="mr-3 flex w-[58px] shrink-0 flex-col justify-center border-r border-edge pr-2 text-[13px] text-muted">
-                            {new Date(g.start).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vienna" })}
-                            {g.round && <span className="truncate text-[11px] text-muted/80">{g.round}</span>}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            {[
-                              [g.player1, g.country1],
-                              [g.player2, g.country2],
-                            ].map(([name, cc], i) => (
-                              <div key={i} className="flex min-h-[26px] items-center gap-2">
-                                <TennisFlag code={cc} />
-                                <span className="min-w-0 break-words text-[15px] leading-tight text-ink">{name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                        <TennisPlanRow key={g.id} g={g} />
                       ))}
                     </div>
                   </div>
@@ -3087,6 +3116,29 @@ function TennisPlanView({ now }: { now: number }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Kommendes Spiel aus dem Spielplan: Zeit + Runde, Flaggen und Namen.
+function TennisPlanRow({ g }: { g: TennisPlanGame }) {
+  return (
+    <div className="flex items-stretch rounded-xl border border-muted/25 bg-row px-3 py-2">
+      <div className="mr-3 flex w-[58px] shrink-0 flex-col justify-center border-r border-edge pr-2 text-[13px] text-muted">
+        {new Date(g.start).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vienna" })}
+        {g.round && <span className="truncate text-[11px] text-muted/80">{g.round}</span>}
+      </div>
+      <div className="min-w-0 flex-1">
+        {[
+          [g.player1, g.country1],
+          [g.player2, g.country2],
+        ].map(([name, cc], i) => (
+          <div key={i} className="flex min-h-[26px] items-center gap-2">
+            <TennisFlag code={cc} />
+            <span className="min-w-0 break-words text-[15px] leading-tight text-ink">{name}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
