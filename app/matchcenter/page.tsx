@@ -66,7 +66,7 @@ import Link from "next/link";
 import { signalAppReady } from "@/lib/appReady";
 import { useStartExperience } from "@/lib/useStartExperience";
 import { DuelTourButtons } from "@/components/NavTabs";
-import { countryLookup, findLiveFor, isMinorTournament, samePlayer, shortPlayer, tournamentPointsText, tournamentRank, type TennisListResponse, type TennisLiveGame, type TennisLiveResponse, type TennisPlanGame, type TennisRankRow, type TennisStatsResponse } from "@/lib/tennisLive";
+import { countryLookup, findLiveFor, isMinorTournament, shortPlayer, tournamentPointsText, tournamentRank, type TennisListResponse, type TennisLiveGame, type TennisLiveResponse, type TennisPlanGame, type TennisRankRow, type TennisStatsResponse } from "@/lib/tennisLive";
 
 // TV-Sender eines Spiels: beim Tippspiel der Sender am Spiel, sonst der im
 // Matchcenter eingetragene (Rene, 28.10.2026, lib/fixtureTv.ts).
