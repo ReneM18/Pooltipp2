@@ -17,6 +17,14 @@ export function isAwayFirst(sport: string, competition?: { countryCode?: string 
   return !country || country === "US";
 }
 
+// Standard-Trikot einer Seite, wenn der Admin nichts gewählt hat: In NBA und
+// NHL trägt das linke Team ("Gast @ Heim", also der Gast) automatisch sein
+// Auswärtstrikot (Rene, 11.11.2026). Sonst beide das Heimtrikot. NFL zeigt
+// immer den Helm, dort ändert sich nichts.
+export function defaultJerseyVariant(sport: string, awayFirst: boolean, side: "home" | "away"): "heim" | "auswaerts" {
+  return awayFirst && side === "away" && (sport === "NBA" || sport === "NHL") ? "auswaerts" : "heim";
+}
+
 // Anzeige-Reihenfolge eines Spiels: Sportart (für Unentschieden) und ob der
 // Gast links steht. Alle Anzeige-Hilfen unten nehmen diesen Wert, damit
 // Karte, Ergebnis-Eingabe, Endstand, 1/2-Knöpfe, Admin und Feed überall

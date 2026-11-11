@@ -2,6 +2,7 @@ import { useId } from "react";
 import { JerseyStyle, JerseyVariant, Match, MatchJersey, Sport, Team } from "@/lib/types";
 import { BASKETBALL_JERSEY_MARKUP } from "@/lib/basketballJerseyMarkup";
 import { flagEmoji } from "@/lib/flags";
+import { defaultJerseyVariant } from "@/lib/teamOrder";
 import Emoji from "@/components/Emoji";
 
 /** Alle Trikotfarben eines Teams als TeamBadge-Props: <TeamBadge {...teamColorProps(team)} ... />. */
@@ -24,19 +25,29 @@ export function teamColorProps(team: Team) {
  * Ältere Spiele mit einem anderen gespeicherten Stil zeigen so trotzdem die
  * zwei Trikots, die beim Team angelegt sind (Rene, 09.10.2026).
  */
-export function jerseyFor(team: Team, chosen?: MatchJersey): MatchJersey {
-  const variant = chosen?.variant ?? "heim";
+export function jerseyFor(team: Team, chosen?: MatchJersey, fallback: JerseyVariant = "heim"): MatchJersey {
+  const variant = chosen?.variant ?? fallback;
   const style =
     variant === "auswaerts" ? team.awayJerseyStyle ?? team.jerseyStyle ?? "solid" : team.jerseyStyle ?? "solid";
   return { variant, style };
 }
 
-/** TeamBadge-Props für ein Team in einem Spiel: <TeamBadge {...matchJerseyProps(match, team)} ... />. */
-export function matchJerseyProps(
-  match: Match,
-  team: Team
-) {
-  const j = jerseyFor(team, team.id === match.homeTeamId ? match.homeJersey : match.awayJersey);
+/** Trikot, das ein Team in einem Spiel trägt (Wahl des Admins, sonst Standard je Seite). */
+export function matchJerseyOf(match: Match, team: Team, awayFirst: boolean): MatchJersey {
+  const side = team.id === match.homeTeamId ? "home" : "away";
+  return jerseyFor(
+    team,
+    side === "home" ? match.homeJersey : match.awayJersey,
+    defaultJerseyVariant(match.sport, awayFirst, side)
+  );
+}
+
+/**
+ * TeamBadge-Props für ein Team in einem Spiel: <TeamBadge {...matchJerseyProps(match, team, order.awayFirst)} ... />.
+ * awayFirst = Spiel steht als "Gast @ Heim" (siehe lib/teamOrder.ts).
+ */
+export function matchJerseyProps(match: Match, team: Team, awayFirst: boolean) {
+  const j = matchJerseyOf(match, team, awayFirst);
   return { ...teamColorProps(team), jerseyStyle: j.style, variant: j.variant };
 }
 
