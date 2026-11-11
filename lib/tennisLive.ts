@@ -384,11 +384,10 @@ export function tournamentPoints(name: string, tour?: string | null): number | n
   return null;
 }
 
-/** "2000 Punkte", "bis 1500 Punkte" (Finals: je nach Siegen). */
+/** Nur die Zahl, z. B. "250", "2000" (Rene, 11.11.2026: ohne "Punkte"). */
 export function tournamentPointsText(name: string, tour?: string | null): string | null {
   const p = tournamentPoints(name, tour);
-  if (p === null) return null;
-  return `${p === 1500 ? "bis " : ""}${p.toLocaleString("de-DE")} Punkte`;
+  return p === null ? null : String(p);
 }
 
 /** Land eines Spielers aus bekannten Listen (Weltrangliste, Spielplan, App-Spieler). */
