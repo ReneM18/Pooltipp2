@@ -2821,20 +2821,19 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
   // Spiel-Detail (Rene, 10.11.2026: "rechts sollte was kommen, wo das Spiel
   // größer wird und mehr Statistik wie beim Fußball"): am PC rechts, am
   // Handy als Fenster von unten. Am PC ist das erste Live-Spiel gewählt.
+  // Seit 11.11.2026 (Rene: "wenn du z. B. NHL ein Spiel antippst, kommt
+  // daneben das, bei Tennis nicht") lässt sich jedes Spiel antippen, auch
+  // kommende und Tippspiele: rechts steht dann die Vorschau wie bei NHL.
   const isDesktop = useIsDesktop();
-  const [selId, setSelId] = useState<string | null>(null);
+  const [sel, setSel] = useState<TennisSel | null>(null);
   const [picked, setPicked] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const firstLiveId = groups[0]?.games[0]?.id ?? null;
-  useEffect(() => {
-    if (!picked && isDesktop && firstLiveId && !selId) setSelId(firstLiveId);
-  }, [picked, isDesktop, firstLiveId, selId]);
-  const selGame = selId ? liveGames.find((g) => g.id === selId) ?? null : null;
-  const selectLive = (id: string) => {
+  const choose = (s: TennisSel) => {
     setPicked(true);
-    setSelId(id);
+    setSel(s);
     if (!window.matchMedia("(min-width: 1024px)").matches) setSheetOpen(true);
   };
+  const selectLive = (id: string) => choose({ kind: "live", id });
   // Heute noch (Rene, 11.11.2026: "wieso sind beim Tennis noch keine Spiele
   // für heute drin"): kommende Spiele des Tages aus dem Spielplan, wie beim
   // Fußball unter "Heute". Was schon live läuft, steht oben.
@@ -2857,17 +2856,19 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
   // Spielplan mit gleichen Spielern am selben Tag = Tippspiel. Dort steht
   // rechts Tippen/Getippt wie beim Fußball, unten unter "Tippspiele" nicht
   // noch einmal.
+  // Tippspiel zu einem Spiel aus dem Spielplan (gleiche Spieler, gleicher Tag).
+  const tipFor = (g: TennisPlanGame): Match | null =>
+    list.find((x) => {
+      if (viennaCalendarDay(x.kickoff) !== viennaCalendarDay(g.start)) return false;
+      const h = getTeam(x.homeTeamId)?.name;
+      const a = getTeam(x.awayTeamId)?.name;
+      return !!h && !!a && ((samePlayer(h, g.player1) && samePlayer(a, g.player2)) || (samePlayer(h, g.player2) && samePlayer(a, g.player1)));
+    }) ?? null;
   const planTips = new Map<string, Match>();
   for (const grp of laterToday) {
     for (const g of grp.games) {
-      const m = list.find((x) => {
-        if (planTips.has(g.id) || [...planTips.values()].includes(x)) return false;
-        if (viennaCalendarDay(x.kickoff) !== viennaCalendarDay(g.start)) return false;
-        const h = getTeam(x.homeTeamId)?.name;
-        const a = getTeam(x.awayTeamId)?.name;
-        return !!h && !!a && ((samePlayer(h, g.player1) && samePlayer(a, g.player2)) || (samePlayer(h, g.player2) && samePlayer(a, g.player1)));
-      });
-      if (m) planTips.set(g.id, m);
+      const m = tipFor(g);
+      if (m && ![...planTips.values()].includes(m)) planTips.set(g.id, m);
     }
   }
   const shownTipIds = new Set([...planTips.values()].map((m) => m.id));
@@ -2877,6 +2878,72 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
     const a = getTeam(m.awayTeamId)?.name;
     return h && a && live ? findLiveFor(liveGames, h, a) : null;
   };
+  // Am PC ist wie beim Fußball gleich ein Spiel gewählt: das erste Live-Spiel,
+  // sonst das nächste von heute, sonst das erste Tippspiel.
+  const firstSel: TennisSel | null = groups[0]?.games[0]
+    ? { kind: "live", id: groups[0].games[0].id }
+    : laterToday[0]?.games[0]
+      ? { kind: "plan", g: laterToday[0].games[0], tour: laterToday[0].tour }
+      : tipDays[0]?.games[0]
+        ? { kind: "tip", id: tipDays[0].games[0].id }
+        : null;
+  const firstKey = firstSel ? selKey(firstSel) : null;
+  useEffect(() => {
+    if (!picked && isDesktop && firstSel && view === "heute") setSel(firstSel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picked, isDesktop, firstKey, view]);
+  const selected = sel ? selKey(sel) : null;
+  // Inhalt rechts (PC) bzw. im Fenster von unten (Handy).
+  let detail: React.ReactNode = null;
+  let detailTitle = "";
+  if (sel?.kind === "live") {
+    const g = liveGames.find((x) => x.id === sel.id);
+    if (g) {
+      detail = <TennisDetail key={g.id} game={g} />;
+      detailTitle = `${shortPlayer(g.player1)} – ${shortPlayer(g.player2)}`;
+    }
+  } else if (sel?.kind === "plan") {
+    const g = sel.g;
+    const m = tipFor(g);
+    detail = (
+      <TennisPreview
+        key={g.id}
+        tournament={g.tournament}
+        tour={sel.tour}
+        start={g.start}
+        round={g.round}
+        players={[
+          [g.player1, g.country1],
+          [g.player2, g.country2],
+        ]}
+        match={m}
+        now={now}
+      />
+    );
+    detailTitle = `${shortPlayer(g.player1)} – ${shortPlayer(g.player2)}`;
+  } else if (sel?.kind === "tip") {
+    const m = list.find((x) => x.id === sel.id);
+    if (m) {
+      const h = getTeam(m.homeTeamId);
+      const a = getTeam(m.awayTeamId);
+      detail = (
+        <TennisPreview
+          key={m.id}
+          tournament={m.competition}
+          tour={null}
+          start={Date.parse(m.kickoff)}
+          round={null}
+          players={[
+            [h?.name ?? "?", h?.countryCode ?? null],
+            [a?.name ?? "?", a?.countryCode ?? null],
+          ]}
+          match={m}
+          now={now}
+        />
+      );
+      detailTitle = `${shortPlayer(h?.name ?? "?")} – ${shortPlayer(a?.name ?? "?")}`;
+    }
+  }
   return (
     <section className="mb-6">
       {switcher}
@@ -2891,7 +2958,7 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start xl:grid-cols-[minmax(0,1fr)_460px]">
       <div className="min-w-0 lg:rounded-card lg:border lg:border-muted/40 lg:bg-surface lg:p-4 lg:shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)]">
       {view === "plan" ? (
-        <TennisPlanView now={now} />
+        <TennisPlanView now={now} tipFor={tipFor} tipped={tipped} selected={isDesktop ? selected : null} onSelect={(g, tour) => choose({ kind: "plan", g, tour })} />
       ) : view === "rang" ? (
         <TennisRankView tour={rankTour} onTour={setRankTour} />
       ) : (
@@ -2916,7 +2983,7 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
                 </p>
                 <div className={TENNIS_GRID}>
                   {grp.games.map((g) => (
-                    <TennisLiveRow key={g.id} game={g} selected={isDesktop && selGame?.id === g.id} onSelect={() => selectLive(g.id)} />
+                    <TennisLiveRow key={g.id} game={g} selected={isDesktop && selected === `live:${g.id}`} onSelect={() => selectLive(g.id)} />
                   ))}
                 </div>
               </div>
@@ -2937,7 +3004,15 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
                 </p>
                 <div className={TENNIS_GRID}>
                   {grp.games.map((g) => (
-                    <TennisPlanRow key={g.id} g={g} tip={planTips.get(g.id)} tipped={!!planTips.get(g.id) && tipped.has(planTips.get(g.id)!.id)} now={now} />
+                    <TennisPlanRow
+                      key={g.id}
+                      g={g}
+                      tip={planTips.get(g.id)}
+                      tipped={!!planTips.get(g.id) && tipped.has(planTips.get(g.id)!.id)}
+                      now={now}
+                      selected={isDesktop && selected === `plan:${g.id}`}
+                      onSelect={() => choose({ kind: "plan", g, tour: grp.tour })}
+                    />
                   ))}
                 </div>
               </div>
@@ -2978,7 +3053,8 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
                     now={now}
                     tipped={tipped.has(m.id)}
                     live={liveFor(m)}
-                    onSelect={selectLive}
+                    selected={isDesktop && selected === `tip:${m.id}`}
+                    onSelect={(liveId) => (liveId ? selectLive(liveId) : choose({ kind: "tip", id: m.id }))}
                   />
                 ))}
               </div>
@@ -2990,12 +3066,10 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
       )}
       </div>
       <aside className="hidden lg:flex lg:flex-col lg:gap-6">
-        {view === "heute" &&
-          (selGame ? (
-            <TennisDetail key={selGame.id} game={selGame} />
-          ) : (
+        {view !== "rang" &&
+          (detail ?? (
             <p className="rounded-card border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
-              Live-Spiel antippen, um Spielstand und Statistik zu sehen.
+              Spiel antippen, um es hier groß zu sehen.
             </p>
           ))}
         <TennisTopTen
@@ -3011,14 +3085,99 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
       </div>
       {!isDesktop && (
         <MatchSheet
-          open={sheetOpen && !!selGame}
-          title={selGame ? `${shortPlayer(selGame.player1)} – ${shortPlayer(selGame.player2)}` : ""}
+          open={sheetOpen && !!detail}
+          title={detailTitle}
           onClose={() => setSheetOpen(false)}
         >
-          {selGame && <TennisDetail key={selGame.id} game={selGame} />}
+          {detail}
         </MatchSheet>
       )}
     </section>
+  );
+}
+
+type TennisSel = { kind: "live"; id: string } | { kind: "plan"; g: TennisPlanGame; tour: string } | { kind: "tip"; id: string };
+const selKey = (s: TennisSel) => (s.kind === "plan" ? `plan:${s.g.id}` : `${s.kind}:${s.id}`);
+
+// Vorschau eines Tennis-Spiels, das noch nicht läuft (oder ein Tippspiel),
+// aufgebaut wie die Vorschau bei NHL/Fußball: Turnier, Beginn und Runde,
+// die Paarung in der schwarzen Box, darunter "Dein Tipp" oder "Jetzt tippen".
+function TennisPreview({
+  tournament,
+  tour,
+  start,
+  round,
+  players,
+  match,
+  now,
+}: {
+  tournament: string;
+  tour: string | null;
+  start: number;
+  round: string | null;
+  players: [string, string | null][];
+  match: Match | null;
+  now: number;
+}) {
+  const { myTips, getTeam } = useAppData();
+  const tip = match ? myTips.find((t) => t.matchId === match.id && !t.refunded) ?? null : null;
+  const finished = !!match && match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null;
+  const tippable = !!match && !tip && !finished && isMatchTippable(match, now);
+  const today = viennaCalendarDay(start) === viennaCalendarDay(now);
+  const when = `${today ? "" : `${new Date(start).toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", timeZone: "Europe/Vienna" })} · `}${new Date(start).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vienna" })} Uhr`;
+  const tipText =
+    tip && match
+      ? liveTipLabel(
+          tip.predictedHomeScore,
+          tip.predictedAwayScore,
+          match.tipMode === "1x2",
+          getTeam(match.homeTeamId)?.name ?? "",
+          getTeam(match.awayTeamId)?.name ?? "",
+          `${tip.predictedHomeScore}:${tip.predictedAwayScore}`,
+        )
+      : "";
+  return (
+    <div className="flex flex-col gap-4 rounded-card border border-muted/40 bg-surface p-3 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)] sm:p-4">
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="flex min-w-0 items-center gap-1.5 font-semibold text-ink">
+          <span aria-hidden>🏆</span>
+          <span className="min-w-0 break-words">{tournament || "Tennis"}</span>
+          <PointsTag name={tournament} tour={tour} />
+        </span>
+        {finished && <span className="shrink-0 whitespace-nowrap font-semibold text-muted">Endstand</span>}
+      </div>
+      <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-[13px] text-muted">
+        <span className="whitespace-nowrap">Beginn {when}</span>
+        {round && <span aria-hidden>·</span>}
+        {round && <span>{round}</span>}
+      </div>
+      <div className="flex flex-col gap-2 rounded-lg border border-edge bg-pitch/60 px-3 py-4">
+        {players.map(([name, cc], i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="inline-flex w-6 shrink-0 justify-center">
+              <TennisFlag code={cc} size={22} />
+            </span>
+            <span className="min-w-0 flex-1 break-words font-display text-[16px] font-semibold leading-tight text-ink">{name}</span>
+            {finished && (
+              <span className="font-display text-[18px] font-bold tabular-nums text-gold">{i === 0 ? match!.liveHomeScore : match!.liveAwayScore}</span>
+            )}
+          </div>
+        ))}
+      </div>
+      {tipText && (
+        <p className="break-words rounded-lg border border-edge bg-pitch px-3 py-2 text-[13px] text-muted">
+          Dein Tipp: <span className="font-semibold text-ink">{tipText}</span>
+        </p>
+      )}
+      {match && tippable && (
+        <Link
+          href={tipCardHref(match.id)}
+          className="flex items-center justify-center gap-1.5 rounded-full bg-action-hover py-2.5 text-center font-display text-sm font-semibold tracking-wide text-pitch transition-all hover:brightness-110"
+        >
+          🎯 Jetzt tippen
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -3089,7 +3248,19 @@ function TennisFlag({ code, size = 18 }: { code: string | null; size?: number })
 }
 
 // Spielplan: kommende Spiele der Tour nach Tag und Turnier (ITF ausgeblendet).
-function TennisPlanView({ now }: { now: number }) {
+function TennisPlanView({
+  now,
+  tipFor,
+  tipped,
+  selected,
+  onSelect,
+}: {
+  now: number;
+  tipFor: (g: TennisPlanGame) => Match | null;
+  tipped: Set<string>;
+  selected: string | null;
+  onSelect: (g: TennisPlanGame, tour: "atp" | "wta") => void;
+}) {
   const [tour, setTour] = useState<"atp" | "wta">("atp");
   const data = useTennisList<TennisPlanGame>("plan", tour);
   const rows = (data?.rows ?? []).filter((g) => !isMinorTournament(g.tournament) && g.start > now - 3 * 3600e3);
@@ -3133,7 +3304,15 @@ function TennisPlanView({ now }: { now: number }) {
                     </p>
                     <div className={TENNIS_GRID}>
                       {grp.games.map((g) => (
-                        <TennisPlanRow key={g.id} g={g} />
+                        <TennisPlanRow
+                          key={g.id}
+                          g={g}
+                          tip={tipFor(g) ?? undefined}
+                          tipped={tipped.has(tipFor(g)?.id ?? "")}
+                          now={now}
+                          selected={selected === `plan:${g.id}`}
+                          onSelect={() => onSelect(g, tour)}
+                        />
                       ))}
                     </div>
                   </div>
@@ -3149,9 +3328,30 @@ function TennisPlanView({ now }: { now: number }) {
 
 // Kommendes Spiel aus dem Spielplan: Zeit + Runde, Flaggen und Namen.
 // Ist es ein Tippspiel der App, steht rechts Tippen/Getippt.
-function TennisPlanRow({ g, tip, tipped = false, now = 0 }: { g: TennisPlanGame; tip?: Match; tipped?: boolean; now?: number }) {
+function TennisPlanRow({
+  g,
+  tip,
+  tipped = false,
+  now = 0,
+  selected = false,
+  onSelect,
+}: {
+  g: TennisPlanGame;
+  tip?: Match;
+  tipped?: boolean;
+  now?: number;
+  selected?: boolean;
+  onSelect: () => void;
+}) {
   const row = (
-    <div className={`relative z-[1] flex items-stretch rounded-card border border-muted/25 bg-row px-3 py-2 ${tip && tipped ? "border-r-[2.5px] border-r-gold" : ""}`}>
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={`relative z-[1] flex w-full items-stretch rounded-card border px-3 py-2 text-left transition-colors ${
+        selected ? "border-ink/50 bg-row-hover" : "border-muted/25 bg-row hover:border-muted/50"
+      } ${tip && tipped ? "border-r-[2.5px] border-r-gold" : ""}`}
+    >
       <div className="mr-3 flex w-[64px] shrink-0 flex-col justify-center border-r border-edge pr-2 text-[13px] text-muted">
         {new Date(g.start).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vienna" })}
         {g.round && <span className="break-words text-[11px] leading-tight text-muted/80">{g.round}</span>}
@@ -3167,7 +3367,7 @@ function TennisPlanRow({ g, tip, tipped = false, now = 0 }: { g: TennisPlanGame;
           </div>
         ))}
       </div>
-    </div>
+    </button>
   );
   // Wie bei den anderen Sportarten: offen = Balken "Tippen" hinter der
   // Zeile, getippt = nur der rechte Rand gold.
@@ -3503,6 +3703,7 @@ function TennisRow({
   now,
   tipped,
   live,
+  selected,
   onSelect,
 }: {
   match: Match;
@@ -3511,7 +3712,8 @@ function TennisRow({
   now: number;
   tipped: boolean;
   live: { game: TennisLiveGame; swapped: boolean } | null;
-  onSelect: (liveId: string) => void;
+  selected: boolean;
+  onSelect: (liveId: string | null) => void;
 }) {
   const finished = match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null;
   // Live-Stand aus der Tennis-API (Spieler nach Namen gefunden), in der
@@ -3531,15 +3733,16 @@ function TennisRow({
     </div>
   );
   const time = new Date(match.kickoff).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vienna" });
-  // Läuft das Spiel in den Live-Daten, öffnet ein Klick das Detail.
-  const open = !finished && live ? () => onSelect(live.game.id) : null;
+  // Ein Klick öffnet das Detail: läuft das Spiel in den Live-Daten, den
+  // Live-Stand, sonst die Vorschau (wie bei den anderen Sportarten).
   const row = (
-    <div
-      role={open ? "button" : undefined}
-      tabIndex={open ? 0 : undefined}
-      onClick={open ?? undefined}
-      onKeyDown={open ? (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), open()) : undefined}
-      className={`relative z-[1] flex items-stretch rounded-card border border-muted/25 bg-row px-3 py-2 ${!finished && tipped ? "border-r-[2.5px] border-r-gold" : ""} ${open ? "cursor-pointer hover:bg-row-hover" : ""}`}
+    <button
+      type="button"
+      onClick={() => onSelect(!finished && live ? live.game.id : null)}
+      aria-pressed={selected}
+      className={`relative z-[1] flex w-full items-stretch rounded-card border px-3 py-2 text-left transition-colors ${
+        selected ? "border-ink/50 bg-row-hover" : "border-muted/25 bg-row hover:border-muted/50"
+      } ${!finished && tipped ? "border-r-[2.5px] border-r-gold" : ""}`}
     >
       <div className="mr-3 flex w-[64px] shrink-0 flex-col justify-center border-r border-edge pr-2 text-[13px] text-muted">
         {finished ? "Endstand" : started || liveSets ? <span className="font-semibold text-red-400">● Live</span> : time}
@@ -3549,7 +3752,7 @@ function TennisRow({
         {player(home, "home", finished ? match.liveHomeScore : liveSets ? liveSets[0] : null)}
         {player(away, "away", finished ? match.liveAwayScore : liveSets ? liveSets[1] : null)}
       </div>
-    </div>
+    </button>
   );
   // Tippen wie bei allen Sportarten: Balken hinter der Zeile.
   return !finished && !tipped && isMatchTippable(match, now) ? <TipTabWrap match={match}>{row}</TipTabWrap> : row;
