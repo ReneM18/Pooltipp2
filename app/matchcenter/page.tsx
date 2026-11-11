@@ -1975,9 +1975,9 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const jersey = (team: Team | undefined, apiSide: "home" | "away", size: number) => {
     if (!team) return <TeamBadge sport={sport} primaryColor={GUEST_PRIMARY_COLOR} secondaryColor={GUEST_SECONDARY_COLOR} size={size} />;
     const props = link
-      ? matchJerseyProps(link.match, team)
+      ? matchJerseyProps(link.match, team, awayFirst)
       : (() => {
-          const j = jerseyFor(team, { variant: fixtureJerseyFor(fixtureTv, sport, game.id, apiSide), style: "solid" });
+          const j = jerseyFor(team, { variant: fixtureJerseyFor(fixtureTv, sport, game.id, apiSide, awayFirst), style: "solid" });
           return { ...teamColorProps(team), jerseyStyle: j.style, variant: j.variant };
         })();
     return <TeamBadge sport={sport} {...props} isNationalTeam={team.isNationalTeam} countryCode={team.countryCode} size={size} />;
@@ -2280,7 +2280,7 @@ function FixtureJerseyEditor({
         {sides.map((side) => {
           const apiName = side === "home" ? game.home : game.away;
           const team = apiTeam(apiName);
-          const variant = fixtureJerseyFor(fixtureTv, sport, game.id, side);
+          const variant = fixtureJerseyFor(fixtureTv, sport, game.id, side, sides[0] === "away");
           // Nationalteams zeigen die Flagge, Football den Helm: nichts zu wählen.
           const canPick = !!team && !team.isNationalTeam && sport !== "NFL";
           const href = team
@@ -2416,7 +2416,7 @@ function LcDetail({
   // Ohne Tippspiel: Heim-/Auswärtstrikot, wie der Admin es im Matchcenter wählt.
   const { fixtureTv } = useAppData();
   const fixtureJerseyProps = (team: Team, s: "home" | "away") => {
-    const j = jerseyFor(team, { variant: fixtureJerseyFor(fixtureTv, sport, game.id, s), style: "solid" });
+    const j = jerseyFor(team, { variant: fixtureJerseyFor(fixtureTv, sport, game.id, s, awayFirst), style: "solid" });
     return { ...teamColorProps(team), jerseyStyle: j.style, variant: j.variant };
   };
   // Vereine in der Reihenfolge der API (fürs Stadion).
@@ -2435,7 +2435,7 @@ function LcDetail({
     const badge = !anyJersey ? undefined : team ? (
       <TeamBadge
         sport={sport}
-        {...(match ? matchJerseyProps(match, team) : fixtureJerseyProps(team, s))}
+        {...(match ? matchJerseyProps(match, team, awayFirst) : fixtureJerseyProps(team, s))}
         isNationalTeam={team.isNationalTeam}
         countryCode={team.countryCode}
         size={34}

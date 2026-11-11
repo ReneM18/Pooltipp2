@@ -14,7 +14,7 @@ import { ExpertResult, JOKER_ICON, TIP_JOKER_EFFECT, TIP_JOKER_LABEL, TipJoker, 
 import { useTaschen } from "@/lib/TaschenContext";
 import type { SeasonEmote } from "@/lib/seasons";
 import { allowsDraw as sportAllowsDraw, displayOrder, oneXTwoText, scoreText, type TeamOrder } from "@/lib/teamOrder";
-import TeamBadge, { jerseyFor, matchJerseyProps } from "./TeamBadge";
+import TeamBadge, { matchJerseyOf, matchJerseyProps } from "./TeamBadge";
 import PlayerAvatar from "./PlayerAvatar";
 import CountdownTiles from "./CountdownTiles";
 import PassHonorTags, { useOtherPlayersHonors } from "./PassHonors";
@@ -476,8 +476,8 @@ export default function MatchCard({
   const showTiles = stage && !showResultView && !closingSoon;
   // Leichter Schimmer in den Trikotfarben links und rechts, auf der Bühne als
   // kräftiges Licht von oben.
-  const homeGlow = wornColor(match, homeTeam);
-  const awayGlow = wornColor(match, awayTeam);
+  const homeGlow = wornColor(match, homeTeam, order.awayFirst);
+  const awayGlow = wornColor(match, awayTeam, order.awayFirst);
   const [leftGlow, rightGlow] = displayOrder(order, homeGlow, awayGlow);
   const cardBackground = stage
     ? `radial-gradient(110% 70% at 0% 0%, ${hexAlpha(leftGlow, 0.33)} 0%, transparent 60%), radial-gradient(110% 70% at 100% 0%, ${hexAlpha(rightGlow, 0.33)} 0%, transparent 60%), radial-gradient(80% 50% at 50% 115%, rgb(var(--c-action) / 0.22) 0%, transparent 70%)`
@@ -509,7 +509,7 @@ export default function MatchCard({
       badge: (
         <TeamBadge
           sport={match.sport}
-          {...matchJerseyProps(match, team)}
+          {...matchJerseyProps(match, team, order.awayFirst)}
           isNationalTeam={team.isNationalTeam}
           countryCode={team.countryCode}
           size={stage ? 40 : 34}
@@ -660,7 +660,7 @@ export default function MatchCard({
         <span className={`shrink-0 ${stage ? "drop-shadow-[0_4px_8px_rgb(0_0_0/0.5)]" : ""}`}>
           <TeamBadge
             sport={match.sport}
-            {...matchJerseyProps(match, team)}
+            {...matchJerseyProps(match, team, order.awayFirst)}
             isNationalTeam={team.isNationalTeam}
             countryCode={team.countryCode}
             size={stage ? 36 : 28}
@@ -2441,8 +2441,8 @@ export function CommunityTrend({
 }
 
 // Hauptfarbe des Trikots, das das Team in diesem Spiel trägt.
-function wornColor(match: Match, team: Team): string {
-  const j = jerseyFor(team, team.id === match.homeTeamId ? match.homeJersey : match.awayJersey);
+function wornColor(match: Match, team: Team, awayFirst: boolean): string {
+  const j = matchJerseyOf(match, team, awayFirst);
   return j.variant === "auswaerts" ? team.awayPrimaryColor ?? team.secondaryColor : team.primaryColor;
 }
 

@@ -1,4 +1,5 @@
 import type { JerseyVariant, Sport } from "./types";
+import { defaultJerseyVariant } from "./teamOrder";
 
 // TV-Sender für Matchcenter-Spiele, die keine Tippspiele sind (Rene,
 // 28.10.2026: "ich kann kein TV Sender einfügen bei den Spielen, die nicht
@@ -21,7 +22,9 @@ export interface FixtureTv {
   kickoff: string;
   // "" = kein Sender (nur Trikotwahl).
   channel: string;
-  // Trikot je Seite der API; ohne Angabe das Heimtrikot.
+  // Trikot je Seite der API; ohne Angabe der Standard (Heimtrikot, in
+  // NBA/NHL trägt der Gast links sein Auswärtstrikot, siehe
+  // defaultJerseyVariant).
   homeJersey?: JerseyVariant;
   awayJersey?: JerseyVariant;
 }
@@ -44,17 +47,24 @@ export function fixtureTvFor(list: FixtureTv[], sport: Sport, fixtureId: string)
   return findEntry(list, sport, fixtureId)?.channel || null;
 }
 
-export function fixtureJerseyFor(list: FixtureTv[], sport: Sport, fixtureId: string, side: "home" | "away"): JerseyVariant {
+export function fixtureJerseyFor(
+  list: FixtureTv[],
+  sport: Sport,
+  fixtureId: string,
+  side: "home" | "away",
+  awayFirst: boolean
+): JerseyVariant {
   const e = findEntry(list, sport, fixtureId);
-  return (side === "home" ? e?.homeJersey : e?.awayJersey) ?? "heim";
+  return (side === "home" ? e?.homeJersey : e?.awayJersey) ?? defaultJerseyVariant(sport, awayFirst, side);
 }
 
 // Eintrag eines Spiels ändern; alte und leere Einträge fliegen raus.
 function withEntry(list: FixtureTv[], ref: FixtureRef, change: (e: FixtureTv) => FixtureTv, now: number): FixtureTv[] {
   const current = findEntry(list, ref.sport, ref.fixtureId) ?? { ...ref, channel: "" };
   const next = change({ ...current, kickoff: ref.kickoff });
+  // Heim ist für die Heimseite immer der Standard. Beim Gast bleibt auch
+  // "heim" stehen: in NBA/NHL ist dort das Auswärtstrikot der Standard.
   if (next.homeJersey === "heim") delete next.homeJersey;
-  if (next.awayJersey === "heim") delete next.awayJersey;
   const rest = list.filter(
     (e) => !(e.sport === ref.sport && e.fixtureId === ref.fixtureId) && !(Date.parse(e.kickoff) < now - KEEP_MS)
   );
