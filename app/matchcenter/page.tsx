@@ -2836,7 +2836,7 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
   for (const [tour, data] of [["atp", planAtp], ["wta", planWta]] as const) {
     for (const g of data?.rows ?? []) {
       if (isMinorTournament(g.tournament) || g.start < now - 30 * 60e3 || viennaCalendarDay(g.start) !== todayDay) continue;
-      if (liveGames.some((l) => samePlayer(l.player1, g.player1) && samePlayer(l.player2, g.player2))) continue;
+      if (findLiveFor(liveGames, g.player1, g.player2)) continue;
       if (laterToday.some((x) => x.games.some((y) => y.start === g.start && y.player1 === g.player1 && y.player2 === g.player2))) continue;
       let grp = laterToday.find((x) => x.name === g.tournament && x.tour === tour);
       if (!grp) laterToday.push((grp = { name: g.tournament, tour, games: [] }));
