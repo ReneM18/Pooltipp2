@@ -2157,15 +2157,22 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   // in den Balken (Rene, 04.11.2026: "der balken hatte eine coole form",
   // "nur der rechte rand gold", "nicht so breit"). Mitte und links bleiben
   // frei für alle, die nur Ergebnisse anschauen. Führt direkt zur Tippkarte.
+  return <TipTabWrap match={tipTab.match}>{row}</TipTabWrap>;
+}
+
+// Der Balken "Tippen" hinter einer Zeile, für alle Sportarten gleich
+// (Tennis seit 11.11.2026, Rene: "bitte was machst du", Tennis hatte einen
+// eigenen Kasten). Die Zeile darin braucht "relative z-[1] rounded-card".
+function TipTabWrap({ match, children }: { match: { id: string; tipDeadline: string; kickoff: string }; children: React.ReactNode }) {
   return (
     <div className="relative pr-[3.25rem] lg:pr-[3.625rem]">
       <Link
-        href={tipCardHref(tipTab.match.id)}
+        href={tipCardHref(match.id)}
         className={`absolute inset-y-0 right-0 flex w-[5rem] items-center justify-center rounded-card border border-r-[2.5px] border-muted/25 bg-row pl-7 transition-colors hover:bg-row-hover lg:w-[5.375rem] border-r-gold`}
       >
-        <TipStatus deadline={tipTab.match.tipDeadline} kickoff={tipTab.match.kickoff} />
+        <TipStatus deadline={match.tipDeadline} kickoff={match.kickoff} />
       </Link>
-      {row}
+      {children}
     </div>
   );
 }
@@ -3143,8 +3150,8 @@ function TennisPlanView({ now }: { now: number }) {
 // Kommendes Spiel aus dem Spielplan: Zeit + Runde, Flaggen und Namen.
 // Ist es ein Tippspiel der App, steht rechts Tippen/Getippt.
 function TennisPlanRow({ g, tip, tipped = false, now = 0 }: { g: TennisPlanGame; tip?: Match; tipped?: boolean; now?: number }) {
-  return (
-    <div className="flex items-stretch rounded-xl border border-muted/25 bg-row px-3 py-2">
+  const row = (
+    <div className={`relative z-[1] flex items-stretch rounded-card border border-muted/25 bg-row px-3 py-2 ${tip && tipped ? "border-r-[2.5px] border-r-gold" : ""}`}>
       <div className="mr-3 flex w-[64px] shrink-0 flex-col justify-center border-r border-edge pr-2 text-[13px] text-muted">
         {new Date(g.start).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vienna" })}
         {g.round && <span className="break-words text-[11px] leading-tight text-muted/80">{g.round}</span>}
@@ -3160,25 +3167,11 @@ function TennisPlanRow({ g, tip, tipped = false, now = 0 }: { g: TennisPlanGame;
           </div>
         ))}
       </div>
-      {tip && <TennisTipChip match={tip} tipped={tipped} now={now} />}
     </div>
   );
-}
-
-// Rechts in Tennis-Zeilen mit Tippspiel: "Getippt" oder "Tippen" mit dem
-// Countdown wie beim Fußball (TipStatus), führt zur Tippkarte.
-function TennisTipChip({ match, tipped, now }: { match: Match; tipped: boolean; now: number }) {
-  if (tipped) return <span className="ml-2 self-center text-[13px] text-muted">Getippt</span>;
-  if (!isMatchTippable(match, now)) return null;
-  return (
-    <Link
-      href={tipCardHref(match.id)}
-      onClick={(e) => e.stopPropagation()}
-      className="ml-2 flex items-center self-stretch rounded-lg border border-edge border-r-[3px] border-r-gold px-2.5 py-1.5 hover:bg-row-hover"
-    >
-      <TipStatus deadline={match.tipDeadline} kickoff={match.kickoff} />
-    </Link>
-  );
+  // Wie bei den anderen Sportarten: offen = Balken "Tippen" hinter der
+  // Zeile, getippt = nur der rechte Rand gold.
+  return tip && !tipped && isMatchTippable(tip, now) ? <TipTabWrap match={tip}>{row}</TipTabWrap> : row;
 }
 
 // Weltrangliste Einzel, Top 100 (ATP/WTA).
@@ -3468,7 +3461,7 @@ function TennisLiveRow({ game, selected, onSelect }: { game: TennisLiveGame; sel
       type="button"
       onClick={onSelect}
       aria-pressed={selected}
-      className={`flex w-full items-stretch rounded-xl border px-2.5 py-2 text-left transition-colors sm:px-3 ${
+      className={`flex w-full items-stretch rounded-card border px-2.5 py-2 text-left transition-colors sm:px-3 ${
         selected ? "border-red-300/80 bg-row-hover" : "border-red-400/50 bg-row hover:bg-row-hover"
       }`}
     >
@@ -3540,25 +3533,26 @@ function TennisRow({
   const time = new Date(match.kickoff).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vienna" });
   // Läuft das Spiel in den Live-Daten, öffnet ein Klick das Detail.
   const open = !finished && live ? () => onSelect(live.game.id) : null;
-  return (
+  const row = (
     <div
       role={open ? "button" : undefined}
       tabIndex={open ? 0 : undefined}
       onClick={open ?? undefined}
       onKeyDown={open ? (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), open()) : undefined}
-      className={`flex items-stretch rounded-xl border border-muted/25 bg-row px-3 py-2 ${open ? "cursor-pointer hover:bg-row-hover" : ""}`}
+      className={`relative z-[1] flex items-stretch rounded-card border border-muted/25 bg-row px-3 py-2 ${!finished && tipped ? "border-r-[2.5px] border-r-gold" : ""} ${open ? "cursor-pointer hover:bg-row-hover" : ""}`}
     >
       <div className="mr-3 flex w-[64px] shrink-0 flex-col justify-center border-r border-edge pr-2 text-[13px] text-muted">
         {finished ? "Endstand" : started || liveSets ? <span className="font-semibold text-red-400">● Live</span> : time}
-        <span className="truncate text-[11px] text-muted/80">{match.competition}</span>
+        <span className="break-words text-[11px] leading-tight text-muted/80">{match.competition}</span>
       </div>
       <div className="min-w-0 flex-1">
         {player(home, "home", finished ? match.liveHomeScore : liveSets ? liveSets[0] : null)}
         {player(away, "away", finished ? match.liveAwayScore : liveSets ? liveSets[1] : null)}
       </div>
-      {!finished && <TennisTipChip match={match} tipped={tipped} now={now} />}
     </div>
   );
+  // Tippen wie bei allen Sportarten: Balken hinter der Zeile.
+  return !finished && !tipped && isMatchTippable(match, now) ? <TipTabWrap match={match}>{row}</TipTabWrap> : row;
 }
 
 function MotorsportCenter({ switcher }: { switcher: React.ReactNode }) {
