@@ -66,7 +66,7 @@ import Link from "next/link";
 import { signalAppReady } from "@/lib/appReady";
 import { useStartExperience } from "@/lib/useStartExperience";
 import { DuelTourButtons } from "@/components/NavTabs";
-import { countryLookup, findLiveFor, isMinorTournament, shortPlayer, tournamentPointsText, tournamentRank, type TennisListResponse, type TennisLiveGame, type TennisLiveResponse, type TennisPlanGame, type TennisRankRow, type TennisStatsResponse } from "@/lib/tennisLive";
+import { countryLookup, findLiveFor, isMinorTournament, samePlayer, shortPlayer, tournamentPointsText, tournamentRank, type TennisListResponse, type TennisLiveGame, type TennisLiveResponse, type TennisPlanGame, type TennisRankRow, type TennisStatsResponse } from "@/lib/tennisLive";
 
 // TV-Sender eines Spiels: beim Tippspiel der Sender am Spiel, sonst der im
 // Matchcenter eingetragene (Rene, 28.10.2026, lib/fixtureTv.ts).
@@ -2845,6 +2845,26 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
   }
   laterToday.sort((a, b) => tournamentRank(a.name, a.tour) - tournamentRank(b.name, b.tour) || a.name.localeCompare(b.name));
   laterToday.forEach((x) => x.games.sort((a, b) => a.start - b.start));
+  // Tippspiele in "Heute noch" (Rene, 11.11.2026: "es zeigt rechts das
+  // Tippen-Symbol nicht an, wohl ich 2 Tipps erstellt habe"): Spiel aus dem
+  // Spielplan mit gleichen Spielern am selben Tag = Tippspiel. Dort steht
+  // rechts Tippen/Getippt wie beim Fußball, unten unter "Tippspiele" nicht
+  // noch einmal.
+  const planTips = new Map<string, Match>();
+  for (const grp of laterToday) {
+    for (const g of grp.games) {
+      const m = list.find((x) => {
+        if (planTips.has(g.id) || [...planTips.values()].includes(x)) return false;
+        if (viennaCalendarDay(x.kickoff) !== viennaCalendarDay(g.start)) return false;
+        const h = getTeam(x.homeTeamId)?.name;
+        const a = getTeam(x.awayTeamId)?.name;
+        return !!h && !!a && ((samePlayer(h, g.player1) && samePlayer(a, g.player2)) || (samePlayer(h, g.player2) && samePlayer(a, g.player1)));
+      });
+      if (m) planTips.set(g.id, m);
+    }
+  }
+  const shownTipIds = new Set([...planTips.values()].map((m) => m.id));
+  const tipDays = days.map((d) => ({ ...d, games: d.games.filter((m) => !shownTipIds.has(m.id)) })).filter((d) => d.games.length > 0);
   const liveFor = (m: Match) => {
     const h = getTeam(m.homeTeamId)?.name;
     const a = getTeam(m.awayTeamId)?.name;
@@ -2910,7 +2930,7 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
                 </p>
                 <div className={TENNIS_GRID}>
                   {grp.games.map((g) => (
-                    <TennisPlanRow key={g.id} g={g} />
+                    <TennisPlanRow key={g.id} g={g} tip={planTips.get(g.id)} tipped={!!planTips.get(g.id) && tipped.has(planTips.get(g.id)!.id)} now={now} />
                   ))}
                 </div>
               </div>
@@ -2918,7 +2938,7 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
           </div>
         </div>
       )}
-      {days.length === 0 ? (
+      {tipDays.length === 0 ? (
         groups.length === 0 &&
         laterToday.length === 0 && (
           <EmptyState
@@ -2936,7 +2956,7 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
             <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-row text-[14px]">🎯</span>
             Tippspiele
           </p>
-          {days.map(({ day, games }) => (
+          {tipDays.map(({ day, games }) => (
             <div key={day}>
               <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-muted">
                 {relativeDayLabel(day, now) ?? new Date(games[0].kickoff).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit", timeZone: "Europe/Vienna" })}
@@ -3121,12 +3141,13 @@ function TennisPlanView({ now }: { now: number }) {
 }
 
 // Kommendes Spiel aus dem Spielplan: Zeit + Runde, Flaggen und Namen.
-function TennisPlanRow({ g }: { g: TennisPlanGame }) {
+// Ist es ein Tippspiel der App, steht rechts Tippen/Getippt.
+function TennisPlanRow({ g, tip, tipped = false, now = 0 }: { g: TennisPlanGame; tip?: Match; tipped?: boolean; now?: number }) {
   return (
     <div className="flex items-stretch rounded-xl border border-muted/25 bg-row px-3 py-2">
-      <div className="mr-3 flex w-[58px] shrink-0 flex-col justify-center border-r border-edge pr-2 text-[13px] text-muted">
+      <div className="mr-3 flex w-[64px] shrink-0 flex-col justify-center border-r border-edge pr-2 text-[13px] text-muted">
         {new Date(g.start).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Vienna" })}
-        {g.round && <span className="truncate text-[11px] text-muted/80">{g.round}</span>}
+        {g.round && <span className="break-words text-[11px] leading-tight text-muted/80">{g.round}</span>}
       </div>
       <div className="min-w-0 flex-1">
         {[
@@ -3139,7 +3160,24 @@ function TennisPlanRow({ g }: { g: TennisPlanGame }) {
           </div>
         ))}
       </div>
+      {tip && <TennisTipChip match={tip} tipped={tipped} now={now} />}
     </div>
+  );
+}
+
+// Rechts in Tennis-Zeilen mit Tippspiel: "Getippt" oder "Tippen" mit dem
+// Countdown wie beim Fußball (TipStatus), führt zur Tippkarte.
+function TennisTipChip({ match, tipped, now }: { match: Match; tipped: boolean; now: number }) {
+  if (tipped) return <span className="ml-2 self-center text-[13px] text-muted">Getippt</span>;
+  if (!isMatchTippable(match, now)) return null;
+  return (
+    <Link
+      href={tipCardHref(match.id)}
+      onClick={(e) => e.stopPropagation()}
+      className="ml-2 flex items-center self-stretch rounded-lg border border-edge border-r-[3px] border-r-gold px-2.5 py-1.5 hover:bg-row-hover"
+    >
+      <TipStatus deadline={match.tipDeadline} kickoff={match.kickoff} />
+    </Link>
   );
 }
 
@@ -3486,7 +3524,6 @@ function TennisRow({
   // Live-Stand aus der Tennis-API (Spieler nach Namen gefunden), in der
   // Reihenfolge des Tippspiels.
   const liveSets = !finished && live ? (live.swapped ? [live.game.setsWon[1], live.game.setsWon[0]] : live.game.setsWon) : null;
-  const tippable = isMatchTippable(match, now);
   const started = !finished && (match.status === "live" || Date.parse(match.kickoff) <= now);
   const winner = finished ? (match.liveHomeScore! > match.liveAwayScore! ? "home" : "away") : null;
   const player = (team: Team | undefined, side: "home" | "away", sets: number | null) => (
@@ -3519,17 +3556,7 @@ function TennisRow({
         {player(home, "home", finished ? match.liveHomeScore : liveSets ? liveSets[0] : null)}
         {player(away, "away", finished ? match.liveAwayScore : liveSets ? liveSets[1] : null)}
       </div>
-      {!finished && (tipped ? (
-        <span className="ml-2 self-center text-[13px] text-muted">Getippt</span>
-      ) : tippable ? (
-        <Link
-          href={tipCardHref(match.id)}
-          onClick={(e) => e.stopPropagation()}
-          className="ml-2 self-center rounded-lg border border-edge border-r-[3px] border-r-gold px-2.5 py-1.5 text-[13px] font-bold text-gold"
-        >
-          Tippen
-        </Link>
-      ) : null)}
+      {!finished && <TennisTipChip match={match} tipped={tipped} now={now} />}
     </div>
   );
 }
