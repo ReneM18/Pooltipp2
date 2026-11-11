@@ -263,8 +263,33 @@ export function parsePlanGame(raw: Raw): TennisPlanGame | null {
     country1: countryOf(p1),
     country2: countryOf(p2),
     tournament: String(raw?.tournament?.name ?? raw?.league ?? "").trim(),
-    round: typeof round === "string" && round.trim() ? round.trim() : null,
+    round: typeof round === "string" && round.trim() ? roundDe(round.trim()) : null,
   };
+}
+
+/**
+ * Runde auf Deutsch (Rene, 11.11.2026: "was heißt Robin?"). Die API liefert
+ * englische Kurznamen wie "Robin" (Round Robin), "Second", "Quarterfinal".
+ * Unbekanntes bleibt wie geliefert.
+ */
+export function roundDe(name: string): string {
+  const s = name.toLowerCase().replace(/[-_]/g, " ").replace(/\s+/g, " ").trim();
+  const q = /^(qualif\w*|q)\s*(\d)?/.exec(s);
+  if (q && /^q(ualif\w*)?$|^q\d|^qualif/.test(s)) return q[2] ? `Quali ${q[2]}. Runde` : "Qualifikation";
+  if (/robin|group|gruppe/.test(s)) return "Gruppe";
+  if (/bronze|3rd place|third place/.test(s)) return "Spiel um Platz 3";
+  if (/semi/.test(s)) return "Halb\u00ADfinale";
+  if (/quarter/.test(s)) return "Viertel\u00ADfinale";
+  if (/^(final|finals|the final)$/.test(s)) return "Finale";
+  if (/1\/8|round of 16|last 16/.test(s)) return "Achtel\u00ADfinale";
+  const nums: Record<string, number> = { first: 1, "1st": 1, second: 2, "2nd": 2, third: 3, "3rd": 3, fourth: 4, "4th": 4 };
+  const w = /^(first|second|third|fourth|1st|2nd|3rd|4th)( round)?$/.exec(s);
+  if (w) return `${nums[w[1]]}. Runde`;
+  const r = /^(?:round|r)\s*(\d)$/.exec(s) ?? /^(\d) round$/.exec(s);
+  if (r) return `${r[1]}. Runde`;
+  const of = /round of (\d+)/.exec(s);
+  if (of) return `Runde der letzten ${of[1]}`;
+  return name;
 }
 
 // ---------------------------------------------------------------------------
