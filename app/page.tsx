@@ -8,6 +8,7 @@ import { startTipsScrollAnchor } from "@/lib/holdCardPosition";
 import { SPORT_BADGE } from "@/lib/cardStyle";
 import AdBanner from "@/components/AdBanner";
 import WeeklyReviewCard from "@/components/WeeklyReviewCard";
+import DraftMatchesHint from "@/components/DraftMatchesHint";
 import HomeGreeting from "@/components/HomeGreeting";
 import LiveStrip from "@/components/LiveStrip";
 import HomeTipBar from "@/components/HomeTipBar";
@@ -398,6 +399,9 @@ export default function DashboardPage() {
       {ready && sessionChecked && !authUserId && (
         <HomeTipBar guest toTip={toTip} next={next} tab={tab} onGo={goToTab} />
       )}
+
+      {/* Nur Admin: Spiele, die noch Entwurf sind (nicht online). */}
+      <DraftMatchesHint className="mb-4" />
 
       <WeeklyReviewCard />
 

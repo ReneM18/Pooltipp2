@@ -221,6 +221,27 @@ export function apiNationCode(apiName: string): string | undefined {
   return API_NATION_CODES[key] ?? englishNationCode(key);
 }
 
+// Deutsche Ländernamen ("Belgien", "Türkei") → Code, für die App-Teams.
+let germanNations: Map<string, string> | null = null;
+
+/**
+ * Land eines Teamnamens, englisch wie bei der API ("Türkiye", "Belgium") oder
+ * deutsch wie in der App ("Türkei", "Belgien"). Nur der genaue Ländername
+ * zählt, Vereine wie "Austria Wien" nicht. Frauen-Teams mit " W" wie ohne.
+ */
+export function nationCodeOfName(name: string): string | undefined {
+  const api = apiNationCode(name);
+  if (api) return api;
+  if (!germanNations) {
+    germanNations = new Map();
+    for (const c of COUNTRIES) {
+      germanNations.set(nationKey(c.name), c.code);
+      germanNations.set(nationKey(teamCountryName(c.code)), c.code);
+    }
+  }
+  return germanNations.get(nationKey((name ?? "").trim().replace(/\s+w$/i, "")));
+}
+
 /** Startfarben fürs Admin-Formular eines neuen Nationalteams. */
 export function nationalKitColors(code: string): { home: Kit; away: Kit } | undefined {
   return KITS[(code ?? "").toUpperCase()];
