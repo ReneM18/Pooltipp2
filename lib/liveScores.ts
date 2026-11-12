@@ -1,6 +1,7 @@
 import type { Sport } from "./types";
 import { normalizeTeamName } from "./teamName";
 import { isTeamAlias } from "./live/aliases";
+import { nationCodeOfName } from "./nationalKits";
 
 // Live-Spielstände (Rene, 15.10.2026). Gemeinsame Hilfen für die
 // Server-Route (app/api/live/route.ts), den Anbieter und die Karten
@@ -165,7 +166,16 @@ export function teamNameScore(a: string, b: string): number {
 // Namenslogik. Alias zählt mehr als jeder tolerante Treffer.
 export function teamMatchScore(appName: string, apiName: string): number {
   if (isTeamAlias(appName, apiName)) return 4;
+  // Länderspiele (Rene, 12.11.2026: Türkei–Belgien ohne "Tippen" im
+  // Matchcenter): "Türkei" = "Türkiye", "Belgien" = "Belgium" über das Land,
+  // auch ohne Verknüpfung unter "Vereinsnamen". Frauen (" W") nur mit Frauen.
+  const appNation = nationCodeOfName(appName);
+  if (appNation && appNation === nationCodeOfName(apiName) && isWomen(appName) === isWomen(apiName)) return 3;
   return teamNameScore(appName, apiName);
+}
+
+function isWomen(name: string): boolean {
+  return /\s+w$/i.test(name.trim());
 }
 
 export interface LiveMatchResult {

@@ -152,3 +152,35 @@ console.log("Spielplan nach Bewerb: alle Tests bestanden");
   assert.deepEqual(list.map((m) => m.id), ["b", "a"]);
 }
 console.log("Entwurf-Hinweis: alle Tests bestanden");
+
+// Länderspiele ohne Verknüpfung (12.11.2026: Türkei–Belgien ohne "Tippen"):
+// deutscher App-Name findet den englischen API-Namen über das Land.
+{
+  // lib/liveScores.ts importiert ohne Endung ("./teamName") – für Node ".ts" ergänzen.
+  const { register } = await import("node:module");
+  const hook = `export async function resolve(spec, ctx, next) {
+    try { return await next(spec, ctx); } catch (e) {
+      if (spec.startsWith(".") && !spec.endsWith(".ts")) return next(spec + ".ts", ctx);
+      throw e;
+    }
+  }`;
+  register("data:text/javascript," + encodeURIComponent(hook));
+  const { findLiveGame, teamMatchScore } = await import("../lib/liveScores.ts");
+  const game = (id, home, away, kickoff) => ({ id, home, away, kickoff, homeScore: null, awayScore: null, status: "NS" });
+  const ko = "2026-11-12T17:00:00Z";
+  const games = [game(1, "Türkiye", "Belgium", ko), game(2, "Armenia", "Cyprus", ko)];
+  const hit = findLiveGame(games, ko, "Türkei", "Belgien");
+  assert.equal(hit?.game.id, 1);
+  assert.equal(hit?.swapped, false);
+  assert.equal(findLiveGame(games, ko, "Belgien", "Türkei")?.swapped, true);
+  assert.equal(findLiveGame(games, ko, "Armenien", "Zypern")?.game.id, 2);
+  assert.ok(teamMatchScore("Turkei", "Turkey") >= 3);
+  // Frauen nur mit Frauen, Vereine mit Ländernamen nicht.
+  assert.equal(teamMatchScore("Belgien W", "Belgium"), 0);
+  assert.equal(teamMatchScore("Belgien W", "Belgium W"), 3);
+  const { nationCodeOfName } = await import("../lib/nationalKits.ts");
+  assert.equal(nationCodeOfName("Austria Wien"), undefined);
+  assert.equal(nationCodeOfName("Türkei"), "TR");
+  assert.equal(nationCodeOfName("Türkiye"), "TR");
+  console.log("Länderspiel-Zuordnung: alle Tests bestanden");
+}
