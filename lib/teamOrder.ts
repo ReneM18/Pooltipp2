@@ -1,5 +1,7 @@
 import type { Competition } from "./competitions";
 import { normalizeTeamName } from "./teamName";
+import { withNationalKit } from "./nationalKits";
+import type { Team } from "./types";
 
 // US-Ligen (NFL, NBA, NHL) schreiben Spiele als "Gast @ Heim": das
 // Heimteam steht rechts. Nur die Anzeige tauscht die Seiten – gespeichert
@@ -19,10 +21,25 @@ export function isAwayFirst(sport: string, competition?: { countryCode?: string 
 
 // Standard-Trikot einer Seite, wenn der Admin nichts gewählt hat: In NBA und
 // NHL trägt das linke Team ("Gast @ Heim", also der Gast) automatisch sein
-// Auswärtstrikot (Rene, 11.11.2026). Sonst beide das Heimtrikot. NFL zeigt
-// immer den Helm, dort ändert sich nichts.
-export function defaultJerseyVariant(sport: string, awayFirst: boolean, side: "home" | "away"): "heim" | "auswaerts" {
-  return awayFirst && side === "away" && (sport === "NBA" || sport === "NHL") ? "auswaerts" : "heim";
+// Auswärtstrikot (Rene, 11.11.2026). Im Fußball trägt die Auswärtsmannschaft
+// ihr Auswärtstrikot (Rene, 12.11.2026), aber nur, wenn beim Team eigene
+// Auswärtsfarben hinterlegt sind (sonst Heimtrikot statt vertauschter
+// Heimfarben). Sonst beide das Heimtrikot. NFL zeigt immer den Helm.
+export function defaultJerseyVariant(
+  sport: string,
+  awayFirst: boolean,
+  side: "home" | "away",
+  team?: Team
+): "heim" | "auswaerts" {
+  if (side !== "away") return "heim";
+  if (sport === "Fußball") return team && hasOwnAwayKit(team) ? "auswaerts" : "heim";
+  return awayFirst && (sport === "NBA" || sport === "NHL") ? "auswaerts" : "heim";
+}
+
+// Team hat eigene Auswärtsfarben (Admin → Teams, bei Nationalteams auch aus
+// lib/nationalKits.ts).
+export function hasOwnAwayKit(team: Team): boolean {
+  return !!withNationalKit(team).awayPrimaryColor;
 }
 
 // Anzeige-Reihenfolge eines Spiels: Sportart (für Unentschieden) und ob der
