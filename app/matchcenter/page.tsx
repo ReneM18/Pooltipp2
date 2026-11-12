@@ -200,21 +200,26 @@ function addDays(date: string, days: number): string {
 // Islanders – Sharks lief um 06:50 noch, stand aber nur unter "Gestern"):
 // carry "running" = nur die, die noch laufen (bis Schluss), "morning" =
 // alle, also auch die beendeten mit Endstand (bis 12:00, isMorningAfterNight).
-type Carry = "none" | "running" | "morning";
+// carry "dawn" = in der Nacht (00:00–05:59): vom neuen Kalendertag auch die
+// Spiele ab 06:00 (Rene, 12.11.2026, um 05:45: "wieso habe ich beim Fußball
+// unter heute keine Spiele und beim Tennis schon" – der Sporttag war noch
+// Mittwoch, die Spiele vom Donnerstag kamen erst um 06:00).
+type Carry = "none" | "running" | "morning" | "dawn";
 function sportDayGames(day: LiveGame[] | null, night: LiveGame[] | null, carry: Carry = "none"): LiveGame[] | null {
   if (!day || !night) return null;
   const keep = (g: LiveGame) => carry === "morning" || (carry === "running" && isLiveRunning(g.status));
   return [
     ...day.filter((g) => !isNightKickoff(g.kickoff) || keep(g)),
-    ...night.filter((g) => isNightKickoff(g.kickoff)),
+    ...night.filter((g) => carry === "dawn" || isNightKickoff(g.kickoff)),
   ];
 }
 
 // Was für "Heute" mitgenommen wird (siehe sportDayGames). Nur wenn der
 // Kalendertag der Sporttag ist (ab 06:00), sonst wären es Spiele von vor
-// einem Tag.
+// einem Tag. In der Nacht stattdessen schon die Spiele des neuen Tages.
 function todayCarry(now: number | null): Carry {
-  if (now === null || isNightKickoff(now)) return "none";
+  if (now === null) return "none";
+  if (isNightKickoff(now)) return "dawn";
   return isMorningAfterNight(now) ? "morning" : "running";
 }
 
@@ -588,8 +593,8 @@ function LiveCenterSection({
   // Automatisch aktualisieren – nur solange ein Spiel läuft, im 180-s-Takt
   // (gemeinsam mit den Tippkarten, pausiert im Hintergrund).
   // Je Kalendertag nur, wenn in seinem Teil des Sporttags etwas läuft.
-  const pollToday = partNeedsPolling(todayCal.games, false, now) || (carry !== "none" && hasRunningCarryOver(todayCal.games));
-  const pollTomorrow = partNeedsPolling(tomorrowCal.games, true, now);
+  const pollToday = partNeedsPolling(todayCal.games, false, now) || ((carry === "running" || carry === "morning") && hasRunningCarryOver(todayCal.games));
+  const pollTomorrow = partNeedsPolling(tomorrowCal.games, true, now) || (carry === "dawn" && partNeedsPolling(tomorrowCal.games, false, now));
   const polling = pollToday || pollTomorrow;
   useLivePolling(sport, today, pollToday);
   useLivePolling(sport, tomorrow, pollTomorrow);
@@ -621,7 +626,9 @@ function LiveCenterSection({
     for (const m of matches) {
       if (m.sport !== sport || m.draft || m.status === "cancelled") continue;
       const day = sportDay(m.kickoff);
-      if (day !== today && !(view === "spielplan" && day === shownPlanDay) && !roundDays.has(day)) continue;
+      // In der Nacht stehen die Spiele des neuen Tages schon unter "Heute".
+      const inToday = day === today || (carry === "dawn" && day === tomorrow);
+      if (!inToday && !(view === "spielplan" && day === shownPlanDay) && !roundDays.has(day)) continue;
       const home = getTeam(m.homeTeamId);
       const away = getTeam(m.awayTeamId);
       if (!home || !away) continue;
@@ -631,7 +638,7 @@ function LiveCenterSection({
     return map;
     // apiNameLinks: verknüpfte Vereinsnamen zählen bei findLiveGame mit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allGames, matches, getTeam, sport, today, view, shownPlanDay, roundDays, apiNameLinks]);
+  }, [allGames, matches, getTeam, sport, today, tomorrow, carry, view, shownPlanDay, roundDays, apiNameLinks]);
   const tippedMatchIds = useMemo(
     () => new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId)),
     [myTips],
@@ -650,7 +657,7 @@ function LiveCenterSection({
   // Von der Tippkarte: ein Spiel von heute steht unter "Heute", eines von
   // einem anderen Tag im Spielplan an seinem Tag (Rene, 30.10.2026).
   const targetDay = target ? sportDay(target.kickoff) : null;
-  const targetInPlan = targetDay !== today && inPlanRange(targetDay);
+  const targetInPlan = targetDay !== today && !(carry === "dawn" && targetDay === tomorrow) && inPlanRange(targetDay);
   useEffect(() => {
     if (!targetDay || !targetInPlan) return;
     setView("spielplan");
