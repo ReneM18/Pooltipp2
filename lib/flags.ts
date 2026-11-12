@@ -281,6 +281,11 @@ export const COUNTRIES: { code: string; name: string }[] = [
 
 export const DEFAULT_COUNTRY_CODE = "DE";
 
+/** Kurzer Ländername für Teams: ohne Zusatz in Klammern ("Belarus (Weißrussland)" → "Belarus"). */
+export function teamCountryName(code: string): string {
+  return countryName(code).replace(/\s*\(.*\)\s*$/, "");
+}
+
 export function countryName(code: string): string {
   return COUNTRIES.find((c) => c.code === code)?.name ?? code;
 }

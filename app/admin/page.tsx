@@ -11,7 +11,7 @@ import { useTournaments } from "@/lib/TournamentContext";
 import { Tournament } from "@/lib/tournamentTypes";
 import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
 import { ALL_SPORTS, Sport, SPORTS, sportOptions, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchJersey, MatchStatus, TipMode, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
-import { COUNTRIES, DEFAULT_COUNTRY_CODE, countryName, flagEmoji } from "@/lib/flags";
+import { COUNTRIES, DEFAULT_COUNTRY_CODE, countryName, flagEmoji, teamCountryName } from "@/lib/flags";
 import { apiNationCode, nationalKitColors, withNationalKit } from "@/lib/nationalKits";
 import CountryPicker from "@/components/CountryPicker";
 import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
@@ -1723,7 +1723,7 @@ function TeamManager() {
       const nation = urlSport === "Fußball" ? apiNationCode(apiName) : undefined;
       const kit = nation ? nationalKitColors(nation) : undefined;
       if (nation && kit) {
-        setName(/\s+w$/i.test(apiName.trim()) ? `${countryName(nation)} W` : countryName(nation));
+        setName(/\s+w$/i.test(apiName.trim()) ? `${teamCountryName(nation)} W` : teamCountryName(nation));
         setCountryCode(nation);
         setIsNationalTeam(true);
         setPrimaryColor(kit.home[0]);

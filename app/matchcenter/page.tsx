@@ -2151,7 +2151,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
         <span data-fit-group className="hidden min-w-0 grid-cols-[minmax(0,1fr)_minmax(7rem,auto)_minmax(0,1fr)] items-center gap-x-4 lg:grid">
           <span className="flex min-w-0 items-center justify-end gap-2">
             <FitText text={firstName} maxLines={2} minPx={12} className={`text-right text-[15px] leading-tight ${nameTone(firstWins)}`} />
-            {jersey(firstTeam, firstSide, 20)}
+            <span className="flex shrink-0">{jersey(firstTeam, firstSide, 20)}</span>
           </span>
           {/* Ergebnisfeld bleibt in jeder Zeile gleich, Tippen/Getippt steht
               links unter der Uhrzeit (Rene, 04.11.2026). */}
@@ -2168,7 +2168,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             {endNote && <span className="whitespace-nowrap text-[12px] font-semibold leading-none text-muted">{endNote}</span>}
           </span>
           <span className="flex min-w-0 items-center gap-2">
-            {jersey(secondTeam, secondSide, 20)}
+            <span className="flex shrink-0">{jersey(secondTeam, secondSide, 20)}</span>
             <FitText text={secondName} maxLines={2} minPx={12} className={`text-[15px] leading-tight ${nameTone(secondWins)}`} />
           </span>
         </span>
