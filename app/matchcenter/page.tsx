@@ -36,7 +36,8 @@ import { useLiveClock, useMinuteTick } from "@/lib/useLiveMinute";
 import { useAppData } from "@/lib/AppDataContext";
 import { competitionFlag } from "@/lib/competitionFlag";
 import { displayOrder, isAwayFirst, scoreText, type TeamOrder } from "@/lib/teamOrder";
-import { SPORT_ICONS, sportLabel, type Match, type Sport, type Team } from "@/lib/types";
+import { SPORT_ICONS, sportLabel, type JerseyVariant, type Match, type Sport, type Team } from "@/lib/types";
+import { nationalKitTeam, sameKitColor } from "@/lib/nationalKits";
 import TeamBadge, { jerseyFor, matchJerseyProps, teamColorProps } from "@/components/TeamBadge";
 import { LineupView, PreviewView, StatsView, useMatchInfo, useMatchPreview } from "@/components/MatchInfo";
 import Emoji from "@/components/Emoji";
@@ -56,7 +57,7 @@ import {
 } from "@/components/LiveMatch";
 import { liveTipLabel } from "@/lib/liveTipText";
 import { appTeamForApiName, appTeamName } from "@/lib/teamApiNames";
-import { fixtureJerseyFor, fixtureTvFor } from "@/lib/fixtureTv";
+import { fixtureJerseyFor, fixtureTvFor, type FixtureTv } from "@/lib/fixtureTv";
 import { GUEST_PRIMARY_COLOR, GUEST_SECONDARY_COLOR } from "@/lib/guestTeam";
 import { useUser } from "@/lib/UserContext";
 import { COUNTDOWN_FROM } from "@/components/Countdown";
@@ -86,6 +87,37 @@ function useApiTeamName(sport: Sport | undefined): (apiName: string) => string {
     () => (apiName: string) => (sport ? appTeamName(teams, apiNameLinks, sport, apiName) : apiName),
     [teams, apiNameLinks, sport],
   );
+}
+
+// Team fürs Trikot eines Spiels ohne Tippspiel: das eigene Team, sonst bei
+// Länderspielen die Landesfarben (Rene, 12.11.2026, lib/nationalKits.ts).
+function useJerseyTeam(sport: Sport | undefined): (apiName: string) => Team | undefined {
+  const apiTeam = useApiTeam(sport);
+  return useMemo(
+    () => (apiName: string) => apiTeam(apiName) ?? (sport ? nationalKitTeam(sport, apiName) : undefined),
+    [apiTeam, sport],
+  );
+}
+
+// Heim-/Auswärtstrikot ohne Tippspiel: Wahl des Admins, sonst Standard. Ein
+// Nationalteam ohne App-Team (kann der Admin nicht wählen) spielt auswärts im
+// Auswärtstrikot, wenn sein Heimtrikot fast so aussieht wie das des Gegners
+// (z. B. Türkei rot gegen Belgien rot).
+function fixtureJerseyVariant(
+  fixtureTv: FixtureTv[],
+  sport: Sport,
+  gameId: string,
+  side: "home" | "away",
+  awayFirst: boolean,
+  team: Team,
+  homeTeam: Team | undefined,
+): JerseyVariant {
+  const chosen = fixtureJerseyFor(fixtureTv, sport, gameId, side, awayFirst);
+  if (side !== "away" || !team.id.startsWith("nation:") || !homeTeam || chosen !== "heim") return chosen;
+  const homeVariant = fixtureJerseyFor(fixtureTv, sport, gameId, "home", awayFirst);
+  const home = teamColorProps(homeTeam);
+  const homeColor = homeVariant === "auswaerts" ? home.awayPrimaryColor ?? home.secondaryColor : home.primaryColor;
+  return sameKitColor(homeColor, teamColorProps(team).primaryColor) ? "auswaerts" : "heim";
 }
 
 // Eigenes Team zu einem API-Namen (Vereinsnamen oder gleicher Name), damit
@@ -1966,7 +1998,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   const selected = selectedId === game.id;
   const link = links.get(game.id);
   const teamName = useApiTeamName(sport);
-  const apiTeam = useApiTeam(sport);
+  const jerseyTeam = useJerseyTeam(sport);
   const { orderFor, fixtureTv } = useAppData();
   // Mit App-Spiel: Namen wie in der App (gleiche Schreibweise wie auf der
   // Tippkarte), sonst der eigene Vereinsname zum API-Namen.
@@ -1977,17 +2009,18 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   // Kleine Trikots neben den Namen (Rene, 03.11.2026, Variante A: "mehr
   // Leben"): Trikot wie auf der Tippkarte bzw. im Detail, ohne eigenes Team
   // das graue Gast-Trikot, damit die Namen in jeder Zeile gleich stehen.
-  const homeTeam = link ? (link.result.swapped ? link.away : link.home) : apiTeam(game.home);
-  const awayTeam = link ? (link.result.swapped ? link.home : link.away) : apiTeam(game.away);
+  const homeTeam = link ? (link.result.swapped ? link.away : link.home) : jerseyTeam(game.home);
+  const awayTeam = link ? (link.result.swapped ? link.home : link.away) : jerseyTeam(game.away);
   const jersey = (team: Team | undefined, apiSide: "home" | "away", size: number) => {
     if (!team) return <TeamBadge sport={sport} primaryColor={GUEST_PRIMARY_COLOR} secondaryColor={GUEST_SECONDARY_COLOR} size={size} />;
     const props = link
       ? matchJerseyProps(link.match, team, awayFirst)
       : (() => {
-          const j = jerseyFor(team, { variant: fixtureJerseyFor(fixtureTv, sport, game.id, apiSide, awayFirst), style: "solid" });
+          const variant = fixtureJerseyVariant(fixtureTv, sport, game.id, apiSide, awayFirst, team, homeTeam);
+          const j = jerseyFor(team, { variant, style: "solid" });
           return { ...teamColorProps(team), jerseyStyle: j.style, variant: j.variant };
         })();
-    return <TeamBadge sport={sport} {...props} isNationalTeam={team.isNationalTeam} countryCode={team.countryCode} size={size} />;
+    return <TeamBadge sport={sport} {...props} countryCode={team.countryCode} size={size} />;
   };
 
   const status = rowStatus(sport, game, clock?.text ?? null);
@@ -2295,8 +2328,9 @@ function FixtureJerseyEditor({
           const apiName = side === "home" ? game.home : game.away;
           const team = apiTeam(apiName);
           const variant = fixtureJerseyFor(fixtureTv, sport, game.id, side, sides[0] === "away");
-          // Nationalteams zeigen die Flagge, Football den Helm: nichts zu wählen.
-          const canPick = !!team && !team.isNationalTeam && sport !== "NFL";
+          // Football zeigt den Helm: nichts zu wählen. Nationalteams tragen
+          // seit 12.11.2026 Trikots wie Vereine.
+          const canPick = !!team && sport !== "NFL";
           const href = team
             ? `/admin?tab=teams&team=${encodeURIComponent(team.id)}`
             : `/admin?tab=teams&neu=${encodeURIComponent(apiName)}&sport=${encodeURIComponent(sport)}${
@@ -2426,11 +2460,16 @@ function LcDetail({
   const apiTeam = useApiTeam(sport);
   const teamOf = (s: "home" | "away") =>
     link ? (s === "home" ? link.home : link.away) : apiTeam(s === "home" ? game.home : game.away);
-  const anyJersey = !!teamOf("home") || !!teamOf("away");
+  // Trikot: eigenes Team, bei Länderspielen sonst die Landesfarben.
+  const jerseyTeam = useJerseyTeam(sport);
+  const jerseyTeamOf = (s: "home" | "away") =>
+    link ? teamOf(s) : jerseyTeam(s === "home" ? game.home : game.away);
+  const anyJersey = !!jerseyTeamOf("home") || !!jerseyTeamOf("away");
   // Ohne Tippspiel: Heim-/Auswärtstrikot, wie der Admin es im Matchcenter wählt.
   const { fixtureTv } = useAppData();
   const fixtureJerseyProps = (team: Team, s: "home" | "away") => {
-    const j = jerseyFor(team, { variant: fixtureJerseyFor(fixtureTv, sport, game.id, s, awayFirst), style: "solid" });
+    const variant = fixtureJerseyVariant(fixtureTv, sport, game.id, s, awayFirst, team, jerseyTeamOf("home"));
+    const j = jerseyFor(team, { variant, style: "solid" });
     return { ...teamColorProps(team), jerseyStyle: j.style, variant: j.variant };
   };
   // Vereine in der Reihenfolge der API (fürs Stadion).
@@ -2445,12 +2484,11 @@ function LcDetail({
   // Spieltag vom Tippspiel (wanderte von der Tippkarte hierher, 29.10.2026).
   const matchday = link?.match.matchday ?? null;
   const side = (s: "home" | "away"): BoardSide => {
-    const team = teamOf(s);
+    const team = jerseyTeamOf(s);
     const badge = !anyJersey ? undefined : team ? (
       <TeamBadge
         sport={sport}
         {...(match ? matchJerseyProps(match, team, awayFirst) : fixtureJerseyProps(team, s))}
-        isNationalTeam={team.isNationalTeam}
         countryCode={team.countryCode}
         size={34}
       />

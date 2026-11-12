@@ -2,11 +2,14 @@ import { useId } from "react";
 import { JerseyStyle, JerseyVariant, Match, MatchJersey, Sport, Team } from "@/lib/types";
 import { BASKETBALL_JERSEY_MARKUP } from "@/lib/basketballJerseyMarkup";
 import { flagEmoji } from "@/lib/flags";
+import { withNationalKit } from "@/lib/nationalKits";
 import { defaultJerseyVariant } from "@/lib/teamOrder";
 import Emoji from "@/components/Emoji";
 
 /** Alle Trikotfarben eines Teams als TeamBadge-Props: <TeamBadge {...teamColorProps(team)} ... />. */
-export function teamColorProps(team: Team) {
+export function teamColorProps(input: Team) {
+  // Nationalteams ohne eigene Farben: Trikotfarben des Landes (lib/nationalKits.ts).
+  const team = withNationalKit(input);
   return {
     primaryColor: team.primaryColor,
     secondaryColor: team.secondaryColor,
@@ -70,9 +73,7 @@ interface TeamBadgeProps {
   size?: number;
   /** Spiegelt den NFL-Helm horizontal – z. B. damit der rechte Helm nach links schaut. */
   flip?: boolean;
-  /** Nationalmannschaft -> zeigt die Landesflagge statt Trikot/Helm. */
-  isNationalTeam?: boolean;
-  /** Nur nötig, wenn isNationalTeam gesetzt ist. */
+  /** Nur für Tennis: Land des Spielers (zeigt die Flagge statt Trikot). */
   countryCode?: string;
 }
 
@@ -170,13 +171,14 @@ export default function TeamBadge({
   awayArmColor,
   size = 36,
   flip = false,
-  isNationalTeam = false,
   countryCode,
 }: TeamBadgeProps) {
   // Eindeutige IDs für die Schnittmasken (mehrere Trikots auf einer Seite).
   const uid = useId().replace(/:/g, "");
   // Tennis (Rene, 10.11.2026): Spieler zeigen die Flagge ihres Landes.
-  if ((isNationalTeam || sport === "Tennis") && countryCode) {
+  // Nationalteams der Mannschaftssportarten tragen dagegen Trikots wie
+  // Vereine (Rene, 12.11.2026), Farben siehe teamColorProps.
+  if (sport === "Tennis" && countryCode) {
     return <NationalFlagBadge countryCode={countryCode} size={size} />;
   }
   if (sport === "Tennis") {
