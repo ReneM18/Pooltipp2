@@ -1,5 +1,6 @@
 "use client";
 
+import DraftMatchesHint from "@/components/DraftMatchesHint";
 import EmptyState from "@/components/EmptyState";
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -122,6 +123,9 @@ export default function MatchcenterPage() {
     // stehen, darum ohne sichtbare Überschrift und mit wenig Abstand.
     <main className="mx-auto max-w-3xl lg:max-w-6xl px-4 pt-3 pb-8 sm:px-5 sm:pt-4">
       <h1 className="sr-only">Matchcenter</h1>
+
+      {/* Nur Admin: Entwürfe haben im Matchcenter noch kein "Tippen". */}
+      <DraftMatchesHint className="mb-3" />
 
       {/* Live-Bereich mit Detail (Rene, 15.10.2026: Spieltag-Umbau), nur die
           in lib/liveConfig.ts eingeschalteten Ligen (zum Testen Europa League). */}

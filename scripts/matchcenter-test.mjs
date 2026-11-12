@@ -1,6 +1,7 @@
 // Test für die Verknüpfung Tippspiele ↔ Matchcenter (lib/matchcenterLink.ts).
 // Ausführen: npm run test:matchcenter
 import assert from "node:assert/strict";
+import { upcomingDrafts } from "../lib/draftMatches.ts";
 import { inMatchcenterDays, isMatchTippable, isNightKickoff, matchcenterHref, sportDay, tipCardHref } from "../lib/matchcenterLink.ts";
 
 // 27.10.2026, 08:00 in Wien (07:00 UTC, Winterzeit).
@@ -121,7 +122,7 @@ console.log("Matchcenter-Verknüpfung: alle Tests bestanden");
   ]);
   assert.equal(late[0].last, "2026-08-02T17:00:00Z");
   assert.equal(late[currentRoundIndex(late, Date.parse("2026-11-04T12:00:00Z"))].key, "Regular Season - 12");
-  console.log("Spielplan nach Bewerb: alle Tests bestanden");
+console.log("Spielplan nach Bewerb: alle Tests bestanden");
 }
 
 // Neue Teams aus Länderspielen sind Nationalteams (12.11.2026: "India").
@@ -134,3 +135,20 @@ console.log("Matchcenter-Verknüpfung: alle Tests bestanden");
   assert.equal(isNationalTeamLeague("Fußball", "Champions League · World"), false);
   assert.equal(isNationalTeamLeague("NHL", "Friendlies · World"), false);
 }
+
+// Entwurf-Hinweis für den Admin (12.11.2026): nur Entwürfe, die noch tippbar
+// wären, nach Anstoß sortiert.
+{
+  const list = upcomingDrafts(
+    [
+      { id: "a", draft: true, status: "upcoming", kickoff: h(10), tipDeadline: h(10) },
+      { id: "b", draft: true, status: "upcoming", kickoff: h(3), tipDeadline: h(3) },
+      { id: "c", draft: false, status: "upcoming", kickoff: h(3), tipDeadline: h(3) },
+      { id: "d", draft: true, status: "upcoming", kickoff: h(-1), tipDeadline: h(-1) },
+      { id: "e", draft: true, status: "cancelled", kickoff: h(5), tipDeadline: h(5) },
+    ],
+    now,
+  );
+  assert.deepEqual(list.map((m) => m.id), ["b", "a"]);
+}
+console.log("Entwurf-Hinweis: alle Tests bestanden");
