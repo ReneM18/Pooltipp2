@@ -5,6 +5,7 @@ import { viennaDateKey } from "@/lib/seasons/schedule";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import MatchCard from "@/components/MatchCard";
 import { startTipsScrollAnchor } from "@/lib/holdCardPosition";
+import { resetTipGroups, tipGroupOf } from "@/lib/frozenTipGroups";
 import { SPORT_BADGE } from "@/lib/cardStyle";
 import AdBanner from "@/components/AdBanner";
 import WeeklyReviewCard from "@/components/WeeklyReviewCard";
@@ -67,8 +68,8 @@ export default function DashboardPage() {
   const tabsRef = useRef<HTMLDivElement>(null);
   // Klick aufs Logo: Reiter wieder nach der Regel wählen und nach oben.
   useEffect(() => {
+    // Die Karten bleiben dabei in ihren Gruppen (lib/frozenTipGroups.ts).
     function onLogo() {
-      setPinned({});
       setTab(null);
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -91,11 +92,8 @@ export default function DashboardPage() {
   async function handleSubmitTip(match: Match, homeScore: number, awayScore: number, booster = false) {
     // Den Einsatz (nur mit eingeschaltetem Booster, fest 20) zieht die Datenbank ab.
     const withBooster = !!match.booster && booster;
-    // Schon VOR dem Speichern anheften: der Tipp steht sofort in myTips, die
-    // Antwort der Datenbank kommt erst später. Sonst rutschte die Karte so
-    // lange nach unten zu "Schon getippt" und kam danach zurück – die Seite
-    // sprang dabei jedes Mal woandershin (Rene, 03.11.2026).
-    setPinned((p) => ({ [match.id]: "offen", ...p }));
+    // Die Karte bleibt in ihrer Gruppe stehen (lib/frozenTipGroups.ts), auch
+    // während die Datenbank noch antwortet (Rene, 03.11. und 12.11.2026).
     const saved = await placeTip(match.id, homeScore, awayScore, withBooster);
     if (!saved) {
       showToast(
@@ -113,9 +111,7 @@ export default function DashboardPage() {
   // "Ändern": der Tipp wird in der Datenbank zurückgenommen, die Karte ist
   // danach auf jedem Gerät leer. Einsatz und Joker kommen zurück.
   async function handleWithdrawTip(matchId: string) {
-    // Wie beim Tippen schon vorher anheften, damit die Karte nicht zwischen
-    // den Gruppen hin- und herspringt.
-    setPinned((p) => ({ [matchId]: "getippt", ...p }));
+    // Auch hier bleibt die Karte in ihrer Gruppe (lib/frozenTipGroups.ts).
     const result = await withdrawTip(matchId);
     if (!result) {
       showToast("Tippschluss – der Tipp kann nicht mehr geändert werden.", "info");
@@ -195,12 +191,23 @@ export default function DashboardPage() {
     window.scrollBy({ top: card.getBoundingClientRect().top - top, behavior: "smooth" });
   }, [highlightId, ready, tab, matches]);
 
-  // Gerade getippt oder zurückgenommen: die Karte bleibt in ihrer Gruppe
-  // ("Noch offen" bzw. "Schon getippt"), statt beim Tippen wegzuspringen.
-  // Beim nächsten Reiterwechsel wird neu einsortiert. Die Zahlen stimmen sofort.
-  const [pinned, setPinned] = useState<Record<string, "offen" | "getippt">>({});
+  // Getippt oder zurückgenommen: die Karte bleibt in ihrer Gruppe ("Noch
+  // offen" bzw. "Schon getippt") und damit an ihrer Stelle – auch nach einem
+  // Reiterwechsel oder einem Abstecher ins Matchcenter. Neu einsortiert wird
+  // erst beim nächsten Laden bzw. Runterwischen (lib/frozenTipGroups.ts,
+  // Rene 12.11.2026). Die Zahlen im Reiter stimmen sofort.
+  const [, setGroupsVersion] = useState(0);
+  useEffect(() => {
+    function onReload() {
+      resetTipGroups();
+      setGroupsVersion((v) => v + 1);
+    }
+    window.addEventListener("pooltipp:neu-laden", onReload);
+    return () => window.removeEventListener("pooltipp:neu-laden", onReload);
+  }, []);
+  // Erst festlegen, wenn die eigenen Tipps wirklich geladen sind.
+  const groupsReady = ready && (!authUserId || myTipsLoaded);
   function selectTab(next: HomeTab | null) {
-    setPinned({});
     setTab(next);
   }
 
@@ -266,11 +273,15 @@ export default function DashboardPage() {
   type Section = { key: string; label: string; sub?: string; dot?: boolean; days: DayGroup<Match>[] };
   const byDay = (list: Match[]) => groupMatchesByDay(list, now, "offen");
   const flat = (list: Match[]) => (list.length ? [{ key: "alle", label: "", sub: "", matches: list }] : []);
-  const groupOf = (m: Match) => pinned[m.id] ?? (findTipForMatch(m.id) ? "getippt" : "offen");
+  const groupOf = (m: Match) =>
+    tipGroupOf(authUserId ?? null, m.id, findTipForMatch(m.id) ? "getippt" : "offen", groupsReady);
   const byDeadline = (a: Match, b: Match) => Date.parse(a.tipDeadline) - Date.parse(b.tipDeadline);
   const offenList = notOnStage(tippable.filter((m) => groupOf(m) === "offen")).sort(byDeadline);
   const getipptList = notOnStage(tippable.filter((m) => groupOf(m) === "getippt")).sort(byDeadline);
-  const offenNext = offenList[0] && now !== null ? deadlineText(Date.parse(offenList[0].tipDeadline), now) : null;
+  // Nächster Tippschluss eines wirklich noch offenen Spiels (unter "Noch
+  // offen" können auch schon getippte Karten stehen, siehe oben).
+  const offenFirst = offenList.find((m) => !findTipForMatch(m.id));
+  const offenNext = offenFirst && now !== null ? deadlineText(Date.parse(offenFirst.tipDeadline), now) : null;
   // Alles getippt (auch keine gerade getippte Karte mehr unter "Noch offen"):
   // dann heißt die Überschrift selbst "✓ Alles getippt · nächstes Spiel …"
   // statt einer eigenen Leiste über "✓ Schon getippt" – zwei Hinweise
@@ -281,7 +292,16 @@ export default function DashboardPage() {
   const sections: Section[] =
     tab === "tippen"
       ? [
-          ...(offenList.length ? [{ key: "offen", label: "Noch offen", sub: offenNext ? `nächster Tippschluss ${offenNext}` : undefined, days: byDay(offenList) }] : []),
+          ...(offenList.length
+            ? [
+                offenFirst
+                  ? { key: "offen", label: "Noch offen", sub: offenNext ? `nächster Tippschluss ${offenNext}` : undefined, days: byDay(offenList) }
+                  : // Alle Karten hier inzwischen getippt (sie bleiben bis zum
+                    // nächsten Laden hier stehen): nur die Überschrift ändert
+                    // sich, gleiche Höhe, nichts verschiebt sich.
+                    { key: "offen", label: "✓ Alles getippt", sub: nextKickoffText ? `nächstes Spiel ${nextKickoffText}` : undefined, days: byDay(offenList) },
+              ]
+            : []),
           ...(getipptList.length
             ? [
                 allTipped
