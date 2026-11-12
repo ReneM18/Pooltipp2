@@ -372,7 +372,9 @@ function LiveCenter() {
   // Sportart-Knöpfe mit Farbverlauf und Tiefe (Rene, 06.11.2026,
   // Variante A): jede Sportart hat ihre Farbe, die gewählte hat einen
   // scharfen Goldring, die anderen sind etwas gedämpft. Kein Rahmen, am Handy
-  // kein Name (Name steht in aria-label), am PC der Name daneben.
+  // kein Name (Name steht in aria-label), am breiten PC (xl:) der Name
+  // daneben; dazwischen (lg:) nur die Icons, sonst passt die Reihe mit
+  // Duelle/Turniere nicht in die Breite.
   const sportButton = (key: string, label: string, icon: string, active: boolean, onClick: () => void) => (
     <button
       key={key}
@@ -380,9 +382,10 @@ function LiveCenter() {
       role="tab"
       aria-selected={active}
       aria-label={label}
+      title={label}
       onClick={onClick}
-      className={`group flex min-h-11 min-w-12 items-center justify-center gap-2.5 font-semibold lg:gap-2 transition-colors ${
-        active ? "text-ink" : "text-muted hover:text-ink"
+      className={`group flex min-h-11 min-w-12 items-center justify-center gap-2.5 font-semibold transition-colors lg:rounded-full lg:p-1 xl:gap-2 xl:pr-4 ${
+        active ? "text-ink lg:bg-white/[0.06]" : "text-muted hover:text-ink lg:hover:bg-white/[0.04]"
       }`}
     >
       <span className={`sport-chip ${active ? "sport-chip-on" : ""}`} style={SPORT_CHIP_COLORS[key]}>
@@ -390,7 +393,7 @@ function LiveCenter() {
           <Emoji e={icon} />
         </span>
       </span>
-      <span className="hidden text-[15px] lg:inline">{label}</span>
+      <span className="hidden whitespace-nowrap text-[15px] xl:inline">{label}</span>
     </button>
   );
   // Oben eine Reihe (Rene, 27.10.2026, Variante C): die Sportarten einzeln
@@ -399,11 +402,12 @@ function LiveCenter() {
   // Am Handy mind. 48 × 44 px pro Knopf, damit man gut mit dem Finger
   // trifft (Rene, 28.10.2026).
   const switcher = (
-    <div className="mb-3 flex items-center gap-2">
-      {/* Am PC deutlich mehr Abstand zwischen den Sportarten als zwischen
-          Icon und Name (Rene, 10.11.2026: sonst unklar, welcher Name zu
-          welchem Icon gehört). */}
-      <div className="flex gap-2 min-[380px]:gap-2.5 lg:gap-5 xl:gap-10" role="tablist" aria-label="Sportart">
+    <div className="mb-3 flex items-center gap-2 lg:mb-4">
+      {/* Am PC alle Sportarten eng in einer runden Leiste, jede als eigene
+          Fläche (Icon + Name), die gewählte leicht hinterlegt (Rene,
+          12.11.2026, Variante A: "alles zusammengewürfelt"). So ist klar,
+          welcher Name zu welchem Icon gehört, ohne große Lücken. */}
+      <div className="flex gap-2 min-[380px]:gap-2.5 lg:gap-1 lg:rounded-full lg:border lg:border-edge lg:bg-surface/60 lg:p-1" role="tablist" aria-label="Sportart">
         {LIVE_SPORTS.map((s) =>
           // "NFL" statt "American Football" (Rene, 10.11.2026).
           sportButton(s, s === "NFL" ? "NFL" : sportLabel(s), SPORT_ICONS[s], !motorsport && !tennis && sport === s, () => pick(s))
@@ -421,9 +425,11 @@ function LiveCenter() {
           setMotorsport(true);
         })}
       </div>
-      {/* Am PC rechts in derselben Zeile: Duelle + Turniere (Rene,
-          06.11.2026, Variante A). Am Handy sind sie in der Leiste unten. */}
-      <DuelTourButtons className="ml-auto hidden lg:flex" />
+      {/* Am PC rechts in derselben Zeile, durch einen feinen Strich
+          abgesetzt: Duelle + Turniere (Rene, 06.11.2026, Variante A; Strich
+          12.11.2026). Am Handy sind sie in der Leiste unten. */}
+      <span aria-hidden className="ml-auto mr-1 hidden h-8 w-px bg-edge lg:block" />
+      <DuelTourButtons className="hidden lg:flex" />
     </div>
   );
   if (motorsport) return <MotorsportCenter switcher={switcher} />;
