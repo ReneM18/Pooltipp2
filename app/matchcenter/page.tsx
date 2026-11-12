@@ -2055,7 +2055,10 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   // Mit Sender steht der Zusatz in derselben Zeile. Neben langen Texten
   // ("2. Drittel", "3. Viertel") ist dafür kein Platz, dann fällt die Minute
   // weg statt abgeschnitten zu werden (Rene, 04.11.2026: "Pause Ha…").
-  const inlineSub = statusSub && tv && status.main.length <= 5 ? statusSub : null;
+  // Nur bei laufenden Spielen (kurze Minute wie "67'"): "morgen"/"gestern"
+  // neben der Uhrzeit passt am Handy nicht ("02:15 morg…", Rene,
+  // 12.11.2026), es steht immer ganz in einer eigenen Zeile unter der Zeit.
+  const inlineSub = statusSub && tv && status.dot && status.main.length <= 5 ? statusSub : null;
 
   // Offenes Tippspiel: schmaler Balken "Tippen" rechts hinter der Zeile.
   // Vereinsnamen haben in jeder Zeile dieselbe Größe, lange Namen brechen
@@ -2106,7 +2109,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             {inlineSub && <span className="min-w-0 truncate text-[10px] font-normal text-muted">{inlineSub}</span>}
           </span>
           {/* "heute" steht schon im Reiter, nur "morgen"/"gestern" zeigen (Rene, 27.10.2026: flachere Zeilen). */}
-          {statusSub && !tv && <span className="truncate text-[10px] leading-tight text-muted">{statusSub}</span>}
+          {statusSub && !inlineSub && (!tv || !status.dot) && <span className="whitespace-nowrap text-[10px] leading-tight text-muted">{statusSub}</span>}
           {/* Sender unter der Uhrzeit (Rene, 28.10.2026). */}
           {tv && (
             <span className="flex min-w-0 items-start gap-1 text-[10px] font-medium leading-tight text-muted" title={tv}>
