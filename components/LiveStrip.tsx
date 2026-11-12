@@ -58,11 +58,11 @@ export default function LiveStrip({ items, onSelect }: { items: LiveItem[]; onSe
             <span className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
               <span className="flex min-w-0 items-center justify-end gap-1.5">
                 <FitText text={left.name} className="text-right font-display text-sm font-semibold leading-tight text-ink" />
-                <TeamBadge sport={match.sport} {...matchJerseyProps(match, left, orderFor(match).awayFirst)} isNationalTeam={left.isNationalTeam} countryCode={left.countryCode} size={24} />
+                <TeamBadge sport={match.sport} {...matchJerseyProps(match, left, orderFor(match).awayFirst)} countryCode={left.countryCode} size={24} />
               </span>
               <span className="whitespace-nowrap font-display text-xl font-bold tabular-nums text-ink">{score}</span>
               <span className="flex min-w-0 items-center gap-1.5">
-                <TeamBadge sport={match.sport} {...matchJerseyProps(match, right, orderFor(match).awayFirst)} isNationalTeam={right.isNationalTeam} countryCode={right.countryCode} flip size={24} />
+                <TeamBadge sport={match.sport} {...matchJerseyProps(match, right, orderFor(match).awayFirst)} countryCode={right.countryCode} flip size={24} />
                 <FitText text={right.name} className="font-display text-sm font-semibold leading-tight text-ink" />
               </span>
             </span>

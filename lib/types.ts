@@ -121,7 +121,7 @@ export interface Team {
   // sie, sehen die Ärmel aus wie bisher.
   armColor?: string;
   awayArmColor?: string;
-  isNationalTeam?: boolean; // Nationalmannschaft -> Icon zeigt die Landesflagge statt Trikot/Helm
+  isNationalTeam?: boolean; // Nationalmannschaft (Trikot wie Vereine, Standardfarben siehe lib/nationalKits.ts)
   // Eigene Untergruppe in der Team-Auswahl (z. B. "Champions League"). Fehlt
   // sie, ergibt sich die Gruppe automatisch (siehe lib/teamGroups.ts).
   group?: string;

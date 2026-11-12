@@ -14,7 +14,7 @@ import { ExpertResult, JOKER_ICON, TIP_JOKER_EFFECT, TIP_JOKER_LABEL, TipJoker, 
 import { useTaschen } from "@/lib/TaschenContext";
 import type { SeasonEmote } from "@/lib/seasons";
 import { allowsDraw as sportAllowsDraw, displayOrder, oneXTwoText, scoreText, type TeamOrder } from "@/lib/teamOrder";
-import TeamBadge, { matchJerseyOf, matchJerseyProps } from "./TeamBadge";
+import TeamBadge, { matchJerseyOf, matchJerseyProps, teamColorProps } from "./TeamBadge";
 import PlayerAvatar from "./PlayerAvatar";
 import CountdownTiles from "./CountdownTiles";
 import PassHonorTags, { useOtherPlayersHonors } from "./PassHonors";
@@ -510,7 +510,6 @@ export default function MatchCard({
         <TeamBadge
           sport={match.sport}
           {...matchJerseyProps(match, team, order.awayFirst)}
-          isNationalTeam={team.isNationalTeam}
           countryCode={team.countryCode}
           size={stage ? 40 : 34}
         />
@@ -661,7 +660,6 @@ export default function MatchCard({
           <TeamBadge
             sport={match.sport}
             {...matchJerseyProps(match, team, order.awayFirst)}
-            isNationalTeam={team.isNationalTeam}
             countryCode={team.countryCode}
             size={stage ? 36 : 28}
           />
@@ -2443,7 +2441,8 @@ export function CommunityTrend({
 // Hauptfarbe des Trikots, das das Team in diesem Spiel trägt.
 function wornColor(match: Match, team: Team, awayFirst: boolean): string {
   const j = matchJerseyOf(match, team, awayFirst);
-  return j.variant === "auswaerts" ? team.awayPrimaryColor ?? team.secondaryColor : team.primaryColor;
+  const c = teamColorProps(team);
+  return j.variant === "auswaerts" ? c.awayPrimaryColor ?? c.secondaryColor : c.primaryColor;
 }
 
 // "#DC052D" / "#fff" -> "rgba(220, 5, 45, 0.3)". Unbekanntes Format: durchsichtig.

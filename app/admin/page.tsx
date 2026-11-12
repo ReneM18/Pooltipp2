@@ -12,6 +12,7 @@ import { Tournament } from "@/lib/tournamentTypes";
 import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
 import { ALL_SPORTS, Sport, SPORTS, sportOptions, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchJersey, MatchStatus, TipMode, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { COUNTRIES, DEFAULT_COUNTRY_CODE, countryName, flagEmoji } from "@/lib/flags";
+import { withNationalKit } from "@/lib/nationalKits";
 import CountryPicker from "@/components/CountryPicker";
 import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
 import TeamPicker from "@/components/TeamPicker";
@@ -1653,7 +1654,9 @@ function TeamManager() {
     setGroupInputOpen(false);
   }
 
-  function startEdit(team: Team) {
+  function startEdit(saved: Team) {
+    // Nationalteam ohne eigene Farben: mit den Landesfarben starten (lib/nationalKits.ts).
+    const team = withNationalKit(saved);
     setTeamSave({ state: "idle" });
     setEditingId(team.id);
     setName(team.name);
@@ -1925,7 +1928,7 @@ function TeamManager() {
             onChange={(e) => setIsNationalTeam(e.target.checked)}
             className="h-4 w-4 accent-action"
           />
-          Nationalmannschaft (Icon zeigt automatisch die Landesflagge statt Trikot/Helm)
+          Nationalmannschaft (Trikot wie bei Vereinen, ohne eigene Farben automatisch in den Landesfarben)
         </label>
         )}
 
@@ -2002,70 +2005,67 @@ function TeamManager() {
               tertiaryColor={tertiaryOn ? tertiaryColor : undefined}
               armColor={armOn && hasArmColor(sport) ? armColor : undefined}
               jerseyStyle={jerseyStyle}
-              isNationalTeam={isNationalTeam}
               countryCode={countryCode}
               size={56}
             />
             <div>
               <p className="text-sm font-semibold text-ink">{name.trim() || "Vorschau"}</p>
               <p className="text-xs text-muted">
-                {sport === "NFL" || isNationalTeam ? "So sieht das Wappen im Spiel aus" : "Heimtrikot"}
+                {sport === "NFL" ? "So sieht das Wappen im Spiel aus" : "Heimtrikot"}
               </p>
             </div>
           </div>
 
-          {!isNationalTeam && (
-            <div className="flex flex-wrap items-end gap-4">
-              <div>
-                <label className="mb-1.5 block text-sm text-muted">
-                  {sport === "NFL" ? "Helmfarbe" : "Trikotfarbe"}
-                </label>
-                <input
-                  type="color"
-                  value={primaryColor}
-                  onChange={(e) => setPrimaryColor(e.target.value)}
-                  className="h-11 w-20 cursor-pointer rounded-lg border border-edge bg-pitch p-1"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm text-muted">
-                  {sport === "NFL" ? "Streifen-/Gitterfarbe" : "Kragen-/Streifenfarbe"}
-                </label>
-                <input
-                  type="color"
-                  value={secondaryColor}
-                  onChange={(e) => setSecondaryColor(e.target.value)}
-                  className="h-11 w-20 cursor-pointer rounded-lg border border-edge bg-pitch p-1"
-                />
-              </div>
-              <ThirdColorField
-                sport={sport}
-                on={tertiaryOn}
-                color={tertiaryColor}
+          <div className="flex flex-wrap items-end gap-4">
+            <div>
+              <label className="mb-1.5 block text-sm text-muted">
+                {sport === "NFL" ? "Helmfarbe" : "Trikotfarbe"}
+              </label>
+              <input
+                type="color"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="h-11 w-20 cursor-pointer rounded-lg border border-edge bg-pitch p-1"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm text-muted">
+                {sport === "NFL" ? "Streifen-/Gitterfarbe" : "Kragen-/Streifenfarbe"}
+              </label>
+              <input
+                type="color"
+                value={secondaryColor}
+                onChange={(e) => setSecondaryColor(e.target.value)}
+                className="h-11 w-20 cursor-pointer rounded-lg border border-edge bg-pitch p-1"
+              />
+            </div>
+            <ThirdColorField
+              sport={sport}
+              on={tertiaryOn}
+              color={tertiaryColor}
+              onToggle={(on) => {
+                // Startfarbe so, dass sich beim Einschalten noch nichts ändert
+                if (on && !tertiaryOn) setTertiaryColor(thirdColorStart(sport, primaryColor, secondaryColor));
+                setTertiaryOn(on);
+              }}
+              onColor={setTertiaryColor}
+              inputBg="bg-pitch"
+            />
+            {hasArmColor(sport) && (
+              <ArmColorField
+                on={armOn}
+                color={armColor}
                 onToggle={(on) => {
-                  // Startfarbe so, dass sich beim Einschalten noch nichts ändert
-                  if (on && !tertiaryOn) setTertiaryColor(thirdColorStart(sport, primaryColor, secondaryColor));
-                  setTertiaryOn(on);
+                  if (on && !armOn) setArmColor(armColorStart(jerseyStyle, primaryColor, secondaryColor));
+                  setArmOn(on);
                 }}
-                onColor={setTertiaryColor}
+                onColor={setArmColor}
                 inputBg="bg-pitch"
               />
-              {hasArmColor(sport) && (
-                <ArmColorField
-                  on={armOn}
-                  color={armColor}
-                  onToggle={(on) => {
-                    if (on && !armOn) setArmColor(armColorStart(jerseyStyle, primaryColor, secondaryColor));
-                    setArmOn(on);
-                  }}
-                  onColor={setArmColor}
-                  inputBg="bg-pitch"
-                />
-              )}
-            </div>
-          )}
+            )}
+          </div>
 
-          {!isNationalTeam && sport !== "NFL" && (
+          {sport !== "NFL" && (
             <div>
               <label className="mb-1.5 block text-sm text-muted">Trikot-Stil (Heim)</label>
               <select
@@ -2084,7 +2084,7 @@ function TeamManager() {
         </div>
         )}
 
-        {!isNationalTeam && sport !== "NFL" && sport !== "Tennis" && (
+        {sport !== "NFL" && sport !== "Tennis" && (
           <div className="rounded-lg border border-edge bg-pitch p-4">
             <p className="mb-1 text-sm font-semibold text-ink">Auswärtstrikot</p>
             <p className="mb-3 text-xs text-muted">
@@ -2308,13 +2308,12 @@ function TeamManager() {
                         sport={team.sport}
                         {...teamColorProps(team)}
                         jerseyStyle={team.jerseyStyle}
-                        isNationalTeam={team.isNationalTeam}
                         countryCode={team.countryCode}
                         size={40}
                       />
                       <span className="min-w-0">
                         <span className="block text-sm font-semibold leading-tight text-ink">
-                          {!team.isNationalTeam && <Emoji e={flagEmoji(team.countryCode)} />} {team.name}
+                          <Emoji e={flagEmoji(team.countryCode)} /> {team.name}
                         </span>
                         <span className="text-xs text-muted">
                           {sportLabel(team.sport)}
@@ -2714,7 +2713,6 @@ function MatchManager({ view }: { view: "spiele" | "neu" }) {
                     {...teamColorProps(previewHome)}
                     jerseyStyle={jerseyFor(previewHome, homeJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "home")).style}
                     variant={jerseyFor(previewHome, homeJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "home")).variant}
-                    isNationalTeam={previewHome.isNationalTeam}
                     countryCode={previewHome.countryCode}
                     size={48}
                   />
@@ -2735,7 +2733,6 @@ function MatchManager({ view }: { view: "spiele" | "neu" }) {
                     {...teamColorProps(previewAway)}
                     jerseyStyle={jerseyFor(previewAway, awayJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "away")).style}
                     variant={jerseyFor(previewAway, awayJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "away")).variant}
-                    isNationalTeam={previewAway.isNationalTeam}
                     countryCode={previewAway.countryCode}
                     flip
                     size={48}
@@ -3011,7 +3008,6 @@ function MatchManager({ view }: { view: "spiele" | "neu" }) {
                     <TeamBadge
                       sport={left.sport}
                       {...matchJerseyProps(match, left, orderFor(match).awayFirst)}
-                      isNationalTeam={left.isNationalTeam}
                       countryCode={left.countryCode}
                       size={40}
                     />
@@ -3034,7 +3030,6 @@ function MatchManager({ view }: { view: "spiele" | "neu" }) {
                     <TeamBadge
                       sport={right.sport}
                       {...matchJerseyProps(match, right, orderFor(match).awayFirst)}
-                      isNationalTeam={right.isNationalTeam}
                       countryCode={right.countryCode}
                       flip
                       size={40}

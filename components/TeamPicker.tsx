@@ -161,7 +161,6 @@ export default function TeamPicker({
               sport={t.sport}
               {...teamColorProps(t)}
               jerseyStyle={t.jerseyStyle}
-              isNationalTeam={t.isNationalTeam}
               countryCode={t.countryCode}
               size={28}
             />
@@ -203,7 +202,6 @@ export default function TeamPicker({
                 sport={selected.sport}
                 {...teamColorProps(selected)}
                 jerseyStyle={selected.jerseyStyle}
-                isNationalTeam={selected.isNationalTeam}
                 countryCode={selected.countryCode}
                 size={badgeSize}
               />
