@@ -123,3 +123,14 @@ console.log("Matchcenter-Verknüpfung: alle Tests bestanden");
   assert.equal(late[currentRoundIndex(late, Date.parse("2026-11-04T12:00:00Z"))].key, "Regular Season - 12");
   console.log("Spielplan nach Bewerb: alle Tests bestanden");
 }
+
+// Neue Teams aus Länderspielen sind Nationalteams (12.11.2026: "India").
+{
+  const { isNationalTeamLeague } = await import("../lib/liveConfig.ts");
+  assert.equal(isNationalTeamLeague("Fußball", "Friendlies · World"), true);
+  assert.equal(isNationalTeamLeague("Fußball", "UEFA Nations League · World"), true);
+  assert.equal(isNationalTeamLeague("Fußball", "World Cup - Qualification Europe · World"), true);
+  assert.equal(isNationalTeamLeague("Fußball", "Bundesliga · Austria"), false);
+  assert.equal(isNationalTeamLeague("Fußball", "Champions League · World"), false);
+  assert.equal(isNationalTeamLeague("NHL", "Friendlies · World"), false);
+}

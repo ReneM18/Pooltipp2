@@ -1719,13 +1719,18 @@ function TeamManager() {
       if (land && COUNTRIES.some((c) => c.code === land)) setCountryCode(land);
       // Länderspiel (Rene, 12.11.2026): gleich als Nationalteam mit deutschem
       // Namen, Land und Landesfarben vorausfüllen. Die Verknüpfung mit dem
-      // API-Namen ("Belgium") wird beim Speichern angelegt.
+      // API-Namen ("Belgium") wird beim Speichern angelegt. Kommt das Team
+      // aus einem Länderspiel (national=1), ist es immer ein Nationalteam,
+      // auch wenn es für das Land noch keine Landesfarben gibt ("India").
+      const fromNationalGame = query.get("national") === "1";
       const nation = urlSport === "Fußball" ? apiNationCode(apiName) : undefined;
       const kit = nation ? nationalKitColors(nation) : undefined;
-      if (nation && kit) {
+      if (nation && (kit || fromNationalGame)) {
         setName(/\s+w$/i.test(apiName.trim()) ? `${teamCountryName(nation)} W` : teamCountryName(nation));
         setCountryCode(nation);
-        setIsNationalTeam(true);
+      }
+      if ((nation && kit) || (urlSport === "Fußball" && fromNationalGame)) setIsNationalTeam(true);
+      if (kit) {
         setPrimaryColor(kit.home[0]);
         setSecondaryColor(kit.home[1]);
         setAwayCustom(true);

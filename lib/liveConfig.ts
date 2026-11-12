@@ -213,6 +213,24 @@ export function leagueRank(sport: Sport, league: string): number {
   return found ? list.indexOf(found) : list.length;
 }
 
+// Wettbewerbe nur mit Nationalteams (Länderspiel, Nations League, WM, EM
+// und Qualifikation). Ein neues Team aus so einem Spiel ist immer ein
+// Nationalteam (Rene, 12.11.2026: "India" landete bei den Vereinen).
+const NATIONAL_TEAM_LEAGUES = new Set([
+  "Weltmeisterschaft",
+  "Europameisterschaft",
+  "Nations League",
+  "WM-Qualifikation",
+  "EM-Qualifikation",
+  "Länderspiel",
+]);
+
+export function isNationalTeamLeague(sport: Sport, league: string): boolean {
+  if (sport !== "Fußball") return false;
+  const found = liveGameLeague(sport, league);
+  return !!found && NATIONAL_TEAM_LEAGUES.has(found.label);
+}
+
 // Liga eines Live-Spiels (league "Name · Land").
 export function liveGameLeague(sport: Sport, league: string): LiveLeague | null {
   const [name, country] = league.split(" · ");
