@@ -1,5 +1,5 @@
-import type { Team } from "@/lib/types";
-import { countryName } from "@/lib/flags";
+import type { Team } from "./types";
+import { teamCountryName } from "./flags";
 
 // Trikotfarben der Nationalteams (Rene, 12.11.2026: "bei den Nationalteams
 // kommen nur die Flaggen, nicht die Trikots"). Nationalteams zeigen jetzt wie
@@ -198,7 +198,7 @@ export function nationalKitTeam(sport: string, apiName: string): Team | undefine
   return {
     id: `nation:${code}`,
     // Deutscher Name wie bei den Nationalteams im Admin ("Belgien"), Frauen mit " W".
-    name: /\s+w$/i.test(apiName.trim()) ? `${countryName(code)} W` : countryName(code),
+    name: /\s+w$/i.test(apiName.trim()) ? `${teamCountryName(code)} W` : teamCountryName(code),
     sport: "Fußball",
     countryCode: code,
     isNationalTeam: true,

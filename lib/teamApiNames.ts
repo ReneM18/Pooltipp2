@@ -4,7 +4,7 @@ import { teamMatchScore } from "./liveScores";
 import { setManualAliases } from "./live/aliases";
 import { leagueNicknameMatch } from "./teamGroups";
 import { apiNationCode } from "./nationalKits";
-import { countryName } from "./flags";
+import { COUNTRIES, countryName, teamCountryName } from "./flags";
 
 // Eigene Vereinsnamen statt der Namen von der API (Rene, 27.10.2026: "Rapid
 // Vienna" soll "Rapid Wien" heißen, wie im Admin händisch angelegt).
@@ -77,8 +77,17 @@ export function appTeamForApiName(
   // Länderspiel mit Verknüpfung auf ein Team aus einem anderen Land (Rene,
   // 12.11.2026: "Belgium" zeigte "Albanien"): Verknüpfung nicht verwenden.
   const linked = found && !sameNation(found, sport, apiName) ? undefined : found;
-  return linked ?? autoTeamForApiName(teams, sport, apiName) ?? nationalTeamForApiName(teams, sport, apiName);
+  const auto = autoTeamForApiName(teams, sport, apiName);
+  return linked ?? (auto && sameNation(auto, sport, apiName) ? auto : undefined) ?? nationalTeamForApiName(teams, sport, apiName);
 }
+
+// Deutsche Ländernamen → Code ("albanien" → "AL"), für Teams ohne richtiges Land.
+const NATION_BY_GERMAN_NAME = new Map<string, string>(
+  COUNTRIES.flatMap((c) => [
+    [normalizeTeamName(c.name), c.code],
+    [normalizeTeamName(teamCountryName(c.code)), c.code],
+  ]),
+);
 
 // false nur, wenn der API-Name ein Land ist und das Team ein Nationalteam
 // (oder Team mit Ländernamen) eines ANDEREN Landes.
@@ -86,10 +95,13 @@ export function sameNation(team: Team, sport: Sport, apiName: string): boolean {
   if (sport !== "Fußball") return true;
   const code = apiNationCode(apiName);
   if (!code) return true;
+  // Heißt das Team wie ein Land ("Albanien"), zählt der Name, auch wenn beim
+  // Team ein falsches Land eingetragen ist.
+  const plain = normalizeTeamName(team.name.replace(/\s+w$/i, ""));
+  const nameCode = apiNationCode(team.name) ?? NATION_BY_GERMAN_NAME.get(plain);
+  if (nameCode) return nameCode === code;
   const teamCode = (team.countryCode ?? "").toUpperCase();
-  const looksNational =
-    team.isNationalTeam || normalizeTeamName(team.name.replace(/\s+w$/i, "")) === normalizeTeamName(countryName(teamCode));
-  return !looksNational || teamCode === code;
+  return !team.isNationalTeam || teamCode === code;
 }
 
 // Länderspiele (Rene, 12.11.2026): Die API schreibt englisch ("Belgium"),
@@ -101,14 +113,25 @@ function nationalTeamForApiName(teams: Team[], sport: Sport, apiName: string): T
   const code = apiNationCode(apiName);
   if (!code) return undefined;
   const women = /\s+w$/i.test(apiName.trim());
-  const sameCountry = teams.filter(
-    (t) => t.sport === sport && (t.countryCode ?? "").toUpperCase() === code && /\s+w$/i.test(t.name.trim()) === women,
+  const nameCodeOf = (t: Team) => {
+    const plain = normalizeTeamName(t.name.replace(/\s+w$/i, ""));
+    return apiNationCode(t.name) ?? NATION_BY_GERMAN_NAME.get(plain);
+  };
+  // Kandidaten: heißt wie das Land ("Belgien") oder Nationalteam mit diesem
+  // Land. Ein Team, das wie ein anderes Land heißt, zählt nie.
+  const candidates = teams.filter(
+    (t) =>
+      t.sport === sport &&
+      /\s+w$/i.test(t.name.trim()) === women &&
+      sameNation(t, sport, apiName) &&
+      (nameCodeOf(t) === code || (t.isNationalTeam && (t.countryCode ?? "").toUpperCase() === code)),
   );
-  const national = sameCountry.filter((t) => t.isNationalTeam);
-  if (national.length === 1) return national[0];
-  if (national.length > 1) return undefined;
-  const named = sameCountry.filter((t) => normalizeTeamName(t.name) === normalizeTeamName(countryName(code)));
-  return named.length === 1 ? named[0] : undefined;
+  const pick = (list: Team[]) => (list.length === 1 ? list[0] : undefined);
+  return (
+    pick(candidates.filter((t) => t.isNationalTeam && nameCodeOf(t) === code)) ??
+    pick(candidates.filter((t) => t.isNationalTeam)) ??
+    pick(candidates)
+  );
 }
 
 // Anzeigename: Name des eigenen Teams, sonst der API-Name.
@@ -122,7 +145,9 @@ export function applyApiNameAliases(teams: Team[], links: ApiNameLink[]) {
   const pairs: [string, string][] = [];
   for (const l of links) {
     const team = l.teamId ? teams.find((t) => t.id === l.teamId) : undefined;
-    if (team) pairs.push([l.apiName, team.name]);
+    // Falsche Länder-Verknüpfung ("Belgium" → "Albanien") auch nicht als Alias,
+    // sonst findet die automatische Suche das falsche Team trotzdem.
+    if (team && sameNation(team, l.sport, l.apiName)) pairs.push([l.apiName, team.name]);
   }
   setManualAliases(pairs);
 }
