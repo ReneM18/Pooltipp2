@@ -406,8 +406,11 @@ function LiveCenter() {
       {/* Am PC alle Sportarten eng in einer runden Leiste, jede als eigene
           Fläche (Icon + Name), die gewählte leicht hinterlegt (Rene,
           12.11.2026, Variante A: "alles zusammengewürfelt"). So ist klar,
-          welcher Name zu welchem Icon gehört, ohne große Lücken. */}
-      <div className="flex gap-2 min-[380px]:gap-2.5 lg:gap-1 lg:rounded-full lg:border lg:border-edge lg:bg-surface/60 lg:p-1" role="tablist" aria-label="Sportart">
+          welcher Name zu welchem Icon gehört, ohne große Lücken.
+          -ml-[9px] (Rand 1 + Innenabstand 4 + Knopf 4): Der Fußball-Kreis
+          beginnt bündig mit "Heute" und den Karten darunter, die Leiste
+          ragt dafür etwas nach links (Rene, 12.11.2026). */}
+      <div className="flex gap-2 min-[380px]:gap-2.5 lg:-ml-[9px] lg:gap-1 lg:rounded-full lg:border lg:border-edge lg:bg-surface/60 lg:p-1" role="tablist" aria-label="Sportart">
         {LIVE_SPORTS.map((s) =>
           // "NFL" statt "American Football" (Rene, 10.11.2026).
           sportButton(s, s === "NFL" ? "NFL" : sportLabel(s), SPORT_ICONS[s], !motorsport && !tennis && sport === s, () => pick(s))
