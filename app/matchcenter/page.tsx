@@ -22,7 +22,7 @@ import {
 } from "@/lib/liveScores";
 import { reloadLiveDay, useLiveDay, useLivePolling, useStadium, type LiveDay } from "@/lib/useLiveScores";
 import { CUP_ZONES, cupZone, TABLE_LEAGUES, type CupZone, type StandingGroup, type StandingsResponse } from "@/lib/standings";
-import { LIVE_SPORTS, leagueRank, liveGameCountry, liveGameLeague } from "@/lib/liveConfig";
+import { LIVE_SPORTS, isNationalTeamLeague, leagueRank, liveGameCountry, liveGameLeague } from "@/lib/liveConfig";
 import { flagEmoji } from "@/lib/flags";
 import {
   currentRoundIndex,
@@ -2312,6 +2312,8 @@ function FixtureJerseyEditor({
   const apiTeam = useApiTeam(sport);
   // Land für ein neues Team aus der Liga ("Premier League · England").
   const country = liveGameCountry(game.league);
+  // Länderspiel & Co.: neues Team gleich als Nationalteam anlegen.
+  const national = isNationalTeamLeague(sport, game.league);
   if (!isAdmin) return null;
   return (
     <div className="flex flex-col gap-1.5 rounded-lg border border-dashed border-edge px-3 py-2 text-[13px]">
@@ -2328,7 +2330,7 @@ function FixtureJerseyEditor({
             ? `/admin?tab=teams&team=${encodeURIComponent(team.id)}`
             : `/admin?tab=teams&neu=${encodeURIComponent(apiName)}&sport=${encodeURIComponent(sport)}${
                 country ? `&land=${encodeURIComponent(country)}` : ""
-              }`;
+              }${national ? "&national=1" : ""}`;
           return (
             <div key={side} className="flex min-w-0 flex-col gap-1.5">
               <Link

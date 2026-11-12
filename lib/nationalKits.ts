@@ -1,5 +1,5 @@
 import type { Team } from "./types";
-import { teamCountryName } from "./flags";
+import { COUNTRIES, teamCountryName } from "./flags";
 
 // Trikotfarben der Nationalteams (Rene, 12.11.2026: "bei den Nationalteams
 // kommen nur die Flaggen, nicht die Trikots"). Nationalteams zeigen jetzt wie
@@ -111,6 +111,7 @@ const KITS: Record<string, { home: Kit; away: Kit }> = {
   JO: { home: ["#FFFFFF", "#CE1126"], away: ["#CE1126", "#FFFFFF"] },
   UZ: { home: ["#FFFFFF", "#0099B5"], away: ["#0099B5", "#FFFFFF"] },
   CN: { home: ["#DE2910", "#FFDE00"], away: ["#FFFFFF", "#DE2910"] },
+  IN: { home: ["#1F4E9C", "#FF9933"], away: ["#FFFFFF", "#1F4E9C"] },
 };
 
 // Farben, mit denen ein neues Team im Admin startet (app/admin/page.tsx).
@@ -172,12 +173,52 @@ const API_NATION_CODES: Record<string, string> = {
   "new zealand": "NZ", "saudi arabia": "SA", iran: "IR", qatar: "QA",
   "united arab emirates": "AE", iraq: "IQ", jordan: "JO", uzbekistan: "UZ",
   china: "CN", "china pr": "CN",
+  // API-Schreibweisen, die vom englischen Ländernamen abweichen.
+  "hong kong": "HK", "chinese taipei": "TW", macao: "MO", "korea dpr": "KP",
+  "north korea": "KP", "congo dr": "CD", "dr congo": "CD", "cape verde islands": "CV",
+  "cape verde": "CV", "kyrgyz republic": "KG", "st. kitts and nevis": "KN",
+  "saint kitts and nevis": "KN", "st. lucia": "LC", "saint lucia": "LC",
+  "st. vincent / grenadines": "VC", "saint vincent and the grenadines": "VC",
+  palestine: "PS", "eswatini": "SZ", swaziland: "SZ",
 };
 
-/** Ländercode zu einem englischen API-Namen ("Belgium" → "BE"), sonst undefined. */
+// Alle übrigen Länder über ihren englischen Namen (Rene, 12.11.2026: "India"
+// wurde als Verein angelegt, weil es in der Liste oben fehlte). Die Namen
+// kommen aus dem Browser (Intl), Akzente und Apostrophe zählen nicht.
+function nationKey(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[’']/g, "'")
+    .replace(/\band\b/g, "&")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+let englishNations: Map<string, string> | null = null;
+function englishNationCode(key: string): string | undefined {
+  if (!englishNations) {
+    englishNations = new Map();
+    try {
+      const names = new Intl.DisplayNames(["en"], { type: "region" });
+      for (const c of COUNTRIES) {
+        if (!/^[A-Z]{2}$/.test(c.code)) continue;
+        const en = names.of(c.code);
+        if (en && en !== c.code) englishNations.set(nationKey(en), c.code);
+      }
+    } catch {
+      // Ohne Intl.DisplayNames bleibt es bei der Liste oben.
+    }
+  }
+  return englishNations.get(nationKey(key));
+}
+
+/** Ländercode zu einem englischen API-Namen ("Belgium" → "BE", "India" → "IN"), sonst undefined. */
 export function apiNationCode(apiName: string): string | undefined {
   const key = (apiName ?? "").trim().toLowerCase().replace(/\s+w$/, "");
-  return API_NATION_CODES[key];
+  if (!key) return undefined;
+  return API_NATION_CODES[key] ?? englishNationCode(key);
 }
 
 /** Startfarben fürs Admin-Formular eines neuen Nationalteams. */
