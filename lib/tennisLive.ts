@@ -425,3 +425,76 @@ export function countryLookup(known: { name: string; country: string | null }[])
     return withCountry.find((k) => samePlayer(k.name, name))?.country ?? null;
   };
 }
+
+// ---------------------------------------------------------------------------
+// Ergebnisse beendeter Spiele (Rene, 12.11.2026: "wieso trägst du beim Tennis
+// die Ergebnisse nicht ein"). GET /tennis/v2/{atp|wta}/results/{von}/{bis}
+// liefert je Spiel player1/player2 { id, name }, result "6-3 6-4",
+// result_type (completed | retired | walkover | default), match_winner (id)
+// und date (UTC). Laut Doku ist player1 der Sieger; match_winner geht vor.
+
+export interface TennisResultRow {
+  id: string;
+  start: number;
+  winner: string;
+  loser: string;
+  /** Gewonnene Sätze von Sieger und Verlierer, null wenn nicht lesbar. */
+  sets: [number, number] | null;
+  /** completed = normal zu Ende gespielt; sonst Aufgabe/kampflos. */
+  completed: boolean;
+  score: string;
+  tournament: string;
+}
+
+/**
+ * Sätze aus "6-3 6-4", "7-6(5) 3-6 6-2", "6:3, 6:4" zählen (Spieler 1 : Spieler 2).
+ * Ein Satz zählt nur, wenn er fertig ist (6 und 2 Spiele Vorsprung, 7:5, 7:6).
+ */
+export function countSets(result: string): [number, number] | null {
+  // Tiebreak-Punkte in Klammern weg: "7-6(5)", "6-7 (3-7)".
+  const clean = result.replace(/\([^)]*\)/g, " ");
+  const sets = [...clean.matchAll(/(\d+)\s*[-:]\s*(\d+)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+  if (!sets.length) return null;
+  let a = 0;
+  let b = 0;
+  for (const [x, y] of sets) {
+    const hi = Math.max(x, y);
+    const lo = Math.min(x, y);
+    const done = (hi >= 6 && hi - lo >= 2) || (hi === 7 && lo >= 5);
+    if (!done) continue;
+    if (x > y) a++;
+    else b++;
+  }
+  return a + b > 0 ? [a, b] : null;
+}
+
+export function parseTennisResult(raw: Raw): TennisResultRow | null {
+  const p1 = raw?.player1 ?? raw?.home;
+  const p2 = raw?.player2 ?? raw?.away;
+  const n1 = String(p1?.name ?? "").trim();
+  const n2 = String(p2?.name ?? "").trim();
+  const iso = raw?.date ?? raw?.startTime ?? null;
+  const start = typeof iso === "string" ? Date.parse(iso) : NaN;
+  if (!n1 || !n2 || !Number.isFinite(start)) return null;
+  const score = String(raw?.result ?? raw?.score ?? "").trim();
+  const counted = score ? countSets(score) : null;
+  // Sieger: match_winner (Spieler-ID), sonst player1 (laut Doku der Sieger).
+  const winId = raw?.match_winner ?? raw?.matchWinner ?? raw?.winnerId;
+  const id1 = p1?.id ?? raw?.player1Id;
+  const id2 = p2?.id ?? raw?.player2Id;
+  const p2Won = winId != null && id2 != null && String(winId) === String(id2) && String(winId) !== String(id1);
+  const type = String(raw?.result_type ?? raw?.resultType ?? "completed").toLowerCase();
+  let sets: [number, number] | null = counted ? (p2Won ? [counted[1], counted[0]] : counted) : null;
+  // Zählt der Sieger nicht mehr Sätze, ist das Ergebnis nicht verlässlich.
+  if (sets && sets[0] <= sets[1]) sets = null;
+  return {
+    id: String(raw?.id ?? raw?.matchId ?? `${n1}-${n2}-${start}`),
+    start,
+    winner: p2Won ? n2 : n1,
+    loser: p2Won ? n1 : n2,
+    sets,
+    completed: type === "completed",
+    score,
+    tournament: String(raw?.tournament?.name ?? "").trim(),
+  };
+}

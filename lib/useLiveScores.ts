@@ -19,6 +19,7 @@ import {
 import type { ApiAdminScore } from "./liveScores";
 import type { LiveEvent, LiveGame, LiveQuota, LiveResponse, LiveSource, LiveStatus } from "./live/types";
 import { isLiveLeagueEnabled } from "./liveConfig";
+import { samePlayer, type TennisListResponse, type TennisResultRow } from "./tennisLive";
 
 // Live-Spielstände für die Tippkarten (Rene, 15.10.2026). Eine gemeinsame
 // Abfrage pro Sportart und Tag für alle Karten (über /api/live, dort für
@@ -539,6 +540,85 @@ export interface AdminApiScore {
 }
 
 export function useApiAdminScore(match: Match, homeName: string, awayName: string): AdminApiScore {
+  const tennis = useTennisAdminScore(match, homeName, awayName);
+  const other = useOtherAdminScore(match, homeName, awayName);
+  return match.sport === "Tennis" ? tennis : other;
+}
+
+// Tennis (Rene, 12.11.2026: "wieso trägst du beim Tennis die Ergebnisse
+// nicht ein"): gewonnene Sätze aus /api/tennis/results, ab 30 Min. nach
+// Beginn bis 7 Tage danach. Aufgabe/kampflos: kein Vorschlag (Spiel absagen).
+const tennisResults = new Map<string, Promise<TennisListResponse<TennisResultRow>>>();
+function loadTennisResults(tour: string, from: string, fresh = false) {
+  const key = `${tour}-${from}`;
+  if (fresh) tennisResults.delete(key);
+  let p = tennisResults.get(key);
+  if (!p) {
+    p = fetch(`/api/tennis/results?tour=${tour}&from=${from}`)
+      .then((r) => r.json())
+      .catch(() => ({ ok: false, error: "Tennis-Daten gerade nicht erreichbar.", fetchedAt: null, rows: [] }));
+    tennisResults.set(key, p);
+    // Fehler nicht für immer merken.
+    p.then((d) => {
+      if (!d.ok) setTimeout(() => tennisResults.get(key) === p && tennisResults.delete(key), 2 * 60 * 1000);
+    });
+  }
+  return p;
+}
+
+function useTennisAdminScore(match: Match, homeName: string, awayName: string): AdminApiScore {
+  const hasFinal = match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null;
+  const kickoff = Date.parse(match.kickoff);
+  const [now] = useState(() => Date.now());
+  const relevant =
+    match.sport === "Tennis" && !hasFinal && match.status !== "cancelled" && now - kickoff >= 30 * 60 * 1000 && now - kickoff < ADMIN_SCORE_MS;
+  const from = new Date(kickoff).toISOString().slice(0, 10);
+  // Turnier mit "WTA"/"ATP" im Namen: nur diese Tour fragen, sonst beide.
+  const tours = /\bwta\b/i.test(match.competition) ? ["wta"] : /\batp\b/i.test(match.competition) ? ["atp"] : ["atp", "wta"];
+  const [rows, setRows] = useState<TennisResultRow[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [tick, setTick] = useState(0);
+  const toursKey = tours.join(",");
+  useEffect(() => {
+    if (!relevant) return;
+    let alive = true;
+    setLoading(true);
+    Promise.all(toursKey.split(",").map((t) => loadTennisResults(t, from, tick > 0))).then((all) => {
+      if (!alive) return;
+      setRows(all.flatMap((d) => d.rows ?? []));
+      setLoading(false);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [relevant, from, toursKey, tick]);
+  const hit = relevant && rows ? findTennisResult(rows, kickoff, homeName, awayName) : null;
+  let score: ApiAdminScore | null = null;
+  if (hit && hit.row.completed && hit.row.sets) {
+    const [w, l] = hit.row.sets;
+    score = { state: "final", homeScore: hit.homeWon ? w : l, awayScore: hit.homeWon ? l : w, stuck: false, status: "FT" };
+  }
+  return {
+    score,
+    // Erst nach 4 Std. melden, vorher läuft das Spiel vielleicht noch.
+    notFound: relevant && !!rows && !loading && !score && now - kickoff > 4 * 3600 * 1000,
+    loading: relevant && loading,
+    reload: () => setTick((t) => t + 1),
+  };
+}
+
+function findTennisResult(rows: TennisResultRow[], kickoff: number, home: string, away: string) {
+  for (const r of rows) {
+    // Gleiche Paarung kann im Turnier nur einmal vorkommen; 2 Tage Spielraum
+    // für Regen und Verschiebungen.
+    if (Math.abs(r.start - kickoff) > 2 * 24 * 3600 * 1000) continue;
+    if (samePlayer(r.winner, home) && samePlayer(r.loser, away)) return { row: r, homeWon: true };
+    if (samePlayer(r.winner, away) && samePlayer(r.loser, home)) return { row: r, homeWon: false };
+  }
+  return null;
+}
+
+function useOtherAdminScore(match: Match, homeName: string, awayName: string): AdminApiScore {
   const [now, setNow] = useState<number | null>(null);
   const hasFinal = match.status === "finished" && match.liveHomeScore !== null && match.liveAwayScore !== null;
   const enabled = !hasFinal && match.status !== "cancelled" && isLiveLeagueEnabled(match.sport, match.competition);
