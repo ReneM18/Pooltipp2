@@ -3,6 +3,8 @@ import { normalizeTeamName } from "./teamName";
 import { teamMatchScore } from "./liveScores";
 import { setManualAliases } from "./live/aliases";
 import { leagueNicknameMatch } from "./teamGroups";
+import { apiNationCode } from "./nationalKits";
+import { countryName } from "./flags";
 
 // Eigene Vereinsnamen statt der Namen von der API (Rene, 27.10.2026: "Rapid
 // Vienna" soll "Rapid Wien" heißen, wie im Admin händisch angelegt).
@@ -71,8 +73,42 @@ export function appTeamForApiName(
   const link = findApiNameLink(links, sport, apiName);
   if (link && !link.teamId) return undefined;
   // Verknüpftes Team gelöscht: wie ohne Verknüpfung.
-  const linked = link ? teams.find((t) => t.id === link.teamId) : undefined;
-  return linked ?? autoTeamForApiName(teams, sport, apiName);
+  const found = link ? teams.find((t) => t.id === link.teamId) : undefined;
+  // Länderspiel mit Verknüpfung auf ein Team aus einem anderen Land (Rene,
+  // 12.11.2026: "Belgium" zeigte "Albanien"): Verknüpfung nicht verwenden.
+  const linked = found && !sameNation(found, sport, apiName) ? undefined : found;
+  return linked ?? autoTeamForApiName(teams, sport, apiName) ?? nationalTeamForApiName(teams, sport, apiName);
+}
+
+// false nur, wenn der API-Name ein Land ist und das Team ein Nationalteam
+// (oder Team mit Ländernamen) eines ANDEREN Landes.
+export function sameNation(team: Team, sport: Sport, apiName: string): boolean {
+  if (sport !== "Fußball") return true;
+  const code = apiNationCode(apiName);
+  if (!code) return true;
+  const teamCode = (team.countryCode ?? "").toUpperCase();
+  const looksNational =
+    team.isNationalTeam || normalizeTeamName(team.name.replace(/\s+w$/i, "")) === normalizeTeamName(countryName(teamCode));
+  return !looksNational || teamCode === code;
+}
+
+// Länderspiele (Rene, 12.11.2026): Die API schreibt englisch ("Belgium"),
+// in der App heißt das Team meist deutsch ("Belgien"). Treffer über das Land:
+// ein Nationalteam dieser Sportart mit dem Ländercode, sonst ein Team, das
+// genau wie das Land heißt. Vereine aus Belgien zählen nicht.
+function nationalTeamForApiName(teams: Team[], sport: Sport, apiName: string): Team | undefined {
+  if (sport !== "Fußball") return undefined;
+  const code = apiNationCode(apiName);
+  if (!code) return undefined;
+  const women = /\s+w$/i.test(apiName.trim());
+  const sameCountry = teams.filter(
+    (t) => t.sport === sport && (t.countryCode ?? "").toUpperCase() === code && /\s+w$/i.test(t.name.trim()) === women,
+  );
+  const national = sameCountry.filter((t) => t.isNationalTeam);
+  if (national.length === 1) return national[0];
+  if (national.length > 1) return undefined;
+  const named = sameCountry.filter((t) => normalizeTeamName(t.name) === normalizeTeamName(countryName(code)));
+  return named.length === 1 ? named[0] : undefined;
 }
 
 // Anzeigename: Name des eigenen Teams, sonst der API-Name.

@@ -1,4 +1,5 @@
 import type { Team } from "@/lib/types";
+import { countryName } from "@/lib/flags";
 
 // Trikotfarben der Nationalteams (Rene, 12.11.2026: "bei den Nationalteams
 // kommen nur die Flaggen, nicht die Trikots"). Nationalteams zeigen jetzt wie
@@ -173,6 +174,17 @@ const API_NATION_CODES: Record<string, string> = {
   china: "CN", "china pr": "CN",
 };
 
+/** Ländercode zu einem englischen API-Namen ("Belgium" → "BE"), sonst undefined. */
+export function apiNationCode(apiName: string): string | undefined {
+  const key = (apiName ?? "").trim().toLowerCase().replace(/\s+w$/, "");
+  return API_NATION_CODES[key];
+}
+
+/** Startfarben fürs Admin-Formular eines neuen Nationalteams. */
+export function nationalKitColors(code: string): { home: Kit; away: Kit } | undefined {
+  return KITS[(code ?? "").toUpperCase()];
+}
+
 /**
  * Länderspiel ohne eigenes App-Team: ein Trikot in den Landesfarben (nur
  * Fußball). Unbekannte Namen (Vereine, kleine Nationen) → undefined, dann
@@ -180,13 +192,13 @@ const API_NATION_CODES: Record<string, string> = {
  */
 export function nationalKitTeam(sport: string, apiName: string): Team | undefined {
   if (sport !== "Fußball") return undefined;
-  const key = (apiName ?? "").trim().toLowerCase().replace(/\s+w$/, "");
-  const code = API_NATION_CODES[key];
+  const code = apiNationCode(apiName);
   const kit = code ? KITS[code] : undefined;
   if (!code || !kit) return undefined;
   return {
     id: `nation:${code}`,
-    name: apiName,
+    // Deutscher Name wie bei den Nationalteams im Admin ("Belgien"), Frauen mit " W".
+    name: /\s+w$/i.test(apiName.trim()) ? `${countryName(code)} W` : countryName(code),
     sport: "Fußball",
     countryCode: code,
     isNationalTeam: true,
@@ -196,19 +208,4 @@ export function nationalKitTeam(sport: string, apiName: string): Team | undefine
     awaySecondaryColor: kit.away[1],
     jerseyStyle: "solid",
   };
-}
-
-function rgb(hex: string): [number, number, number] | null {
-  const h = (hex ?? "").replace("#", "");
-  if (h.length !== 6) return null;
-  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
-}
-
-/** Sehen zwei Trikotfarben fast gleich aus (z. B. Türkei rot gegen Belgien rot)? */
-export function sameKitColor(a: string, b: string): boolean {
-  const x = rgb(a);
-  const y = rgb(b);
-  if (!x || !y) return false;
-  const d = Math.sqrt((x[0] - y[0]) ** 2 + (x[1] - y[1]) ** 2 + (x[2] - y[2]) ** 2);
-  return d < 110;
 }
