@@ -55,6 +55,8 @@ function trigger(reason: RefreshReason) {
  */
 export async function refreshNow() {
   lastRun = Date.now();
+  // Tipps-Seite: Karten jetzt neu einsortieren (lib/frozenTipGroups.ts).
+  window.dispatchEvent(new Event("pooltipp:neu-laden"));
   await Promise.allSettled(Array.from(listeners, (listener) => Promise.resolve().then(() => listener.run("resume"))));
 }
 
