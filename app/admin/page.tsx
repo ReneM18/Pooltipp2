@@ -12,7 +12,7 @@ import { Tournament } from "@/lib/tournamentTypes";
 import { getTournamentStatus } from "@/lib/tournamentLeaderboard";
 import { ALL_SPORTS, Sport, SPORTS, sportOptions, NewsSport, JerseyStyle, JERSEY_STYLES, Match, MatchJersey, MatchStatus, TipMode, Team, SPORT_ICONS, sportLabel } from "@/lib/types";
 import { COUNTRIES, DEFAULT_COUNTRY_CODE, countryName, flagEmoji } from "@/lib/flags";
-import { withNationalKit } from "@/lib/nationalKits";
+import { apiNationCode, nationalKitColors, withNationalKit } from "@/lib/nationalKits";
 import CountryPicker from "@/components/CountryPicker";
 import NewsSportIcon, { NewsSportPicker } from "@/components/NewsSportIcon";
 import TeamPicker from "@/components/TeamPicker";
@@ -40,7 +40,7 @@ import { ApiTeamNamesAdmin } from "@/components/ApiTeamNamesAdmin";
 import { ApiFixturePicker, type ApiFixturePick } from "@/components/ApiFixturePicker";
 import { GuestTeamButton } from "@/components/GuestTeamButton";
 import { StadiumFillAll, TeamStadiumRow } from "@/components/TeamStadiumAdmin";
-import { appTeamForApiName, findApiNameLink } from "@/lib/teamApiNames";
+import { appTeamForApiName, findApiNameLink, sameNation } from "@/lib/teamApiNames";
 import Emoji from "@/components/Emoji";
 import {
   peekLiveDays,
@@ -1717,6 +1717,21 @@ function TeamManager() {
       setTeamListTab(urlSport);
       const land = query.get("land");
       if (land && COUNTRIES.some((c) => c.code === land)) setCountryCode(land);
+      // Länderspiel (Rene, 12.11.2026): gleich als Nationalteam mit deutschem
+      // Namen, Land und Landesfarben vorausfüllen. Die Verknüpfung mit dem
+      // API-Namen ("Belgium") wird beim Speichern angelegt.
+      const nation = urlSport === "Fußball" ? apiNationCode(apiName) : undefined;
+      const kit = nation ? nationalKitColors(nation) : undefined;
+      if (nation && kit) {
+        setName(/\s+w$/i.test(apiName.trim()) ? `${countryName(nation)} W` : countryName(nation));
+        setCountryCode(nation);
+        setIsNationalTeam(true);
+        setPrimaryColor(kit.home[0]);
+        setSecondaryColor(kit.home[1]);
+        setAwayCustom(true);
+        setAwayPrimaryColor(kit.away[0]);
+        setAwaySecondaryColor(kit.away[1]);
+      }
       setFromMatchcenter({ sport: urlSport, apiName });
       setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
     }
@@ -1815,11 +1830,16 @@ function TeamManager() {
     }
     // Neues Team aus dem Matchcenter: mit dem API-Namen verknüpfen (falls
     // noch nicht), damit das Trikot dort auch bei anderem Namen erscheint.
+    // Nur einmal und nur zum passenden Land: wer danach noch ein Team anlegt
+    // (z. B. Albanien), verknüpft es nicht mehr mit „Belgium“ (Rene, 12.11.2026).
     const api = fromMatchcenter?.apiName;
-    const oldLink = api && sport === fromMatchcenter.sport ? findApiNameLink(apiNameLinks, sport, api) : undefined;
-    if (api && sport === fromMatchcenter.sport && !oldLink?.teamId) {
+    const newTeam = { ...data, id: newId } as Team;
+    const fits = !!api && sport === fromMatchcenter.sport && sameNation(newTeam, sport, api);
+    const oldLink = fits ? findApiNameLink(apiNameLinks, sport, api) : undefined;
+    if (fits && api && !oldLink?.teamId) {
       saveApiNameLinks([...apiNameLinks.filter((l) => l !== oldLink), { sport, apiName: api, teamId: newId }]);
     }
+    if (api) setFromMatchcenter((current) => (current ? { ...current, apiName: null } : current));
     setName("");
     setTeamSave({ state: "saved", text: `✓ Gespeichert – „${data.name}“ angelegt.` });
     showToast(`✓ Team "${data.name}" angelegt.`, "success");
@@ -1925,7 +1945,18 @@ function TeamManager() {
           <input
             type="checkbox"
             checked={isNationalTeam}
-            onChange={(e) => setIsNationalTeam(e.target.checked)}
+            onChange={(e) => {
+              setIsNationalTeam(e.target.checked);
+              // Noch die Standardfarben? Dann gleich die Landesfarben nehmen.
+              const kit = e.target.checked ? nationalKitColors(countryCode) : undefined;
+              if (kit && primaryColor.toUpperCase() === "#3FA66B" && secondaryColor.toUpperCase() === "#FFFFFF") {
+                setPrimaryColor(kit.home[0]);
+                setSecondaryColor(kit.home[1]);
+                setAwayCustom(true);
+                setAwayPrimaryColor(kit.away[0]);
+                setAwaySecondaryColor(kit.away[1]);
+              }
+            }}
             className="h-4 w-4 accent-action"
           />
           Nationalmannschaft (Trikot wie bei Vereinen, ohne eigene Farben automatisch in den Landesfarben)
