@@ -2683,7 +2683,7 @@ function MatchManager({ view }: { view: "spiele" | "neu" }) {
                 otherLabel="schon als Auswärtsteam gewählt"
               />
               {previewHome && (
-                <JerseyPicker team={previewHome} value={jerseyFor(previewHome, homeJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "home"))} onChange={setHomeJersey} />
+                <JerseyPicker team={previewHome} value={jerseyFor(previewHome, homeJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "home", previewHome))} onChange={setHomeJersey} />
               )}
               {!homeTeamId && (
                 <GuestTeamButton
@@ -2712,7 +2712,7 @@ function MatchManager({ view }: { view: "spiele" | "neu" }) {
                 otherLabel="schon als Heimteam gewählt"
               />
               {previewAway && (
-                <JerseyPicker team={previewAway} value={jerseyFor(previewAway, awayJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "away"))} onChange={setAwayJersey} />
+                <JerseyPicker team={previewAway} value={jerseyFor(previewAway, awayJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "away", previewAway))} onChange={setAwayJersey} />
               )}
               {!awayTeamId && (
                 <GuestTeamButton
@@ -2742,8 +2742,8 @@ function MatchManager({ view }: { view: "spiele" | "neu" }) {
                   <TeamBadge
                     sport={previewHome.sport}
                     {...teamColorProps(previewHome)}
-                    jerseyStyle={jerseyFor(previewHome, homeJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "home")).style}
-                    variant={jerseyFor(previewHome, homeJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "home")).variant}
+                    jerseyStyle={jerseyFor(previewHome, homeJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "home", previewHome)).style}
+                    variant={jerseyFor(previewHome, homeJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "home", previewHome)).variant}
                     countryCode={previewHome.countryCode}
                     size={48}
                   />
@@ -2762,8 +2762,8 @@ function MatchManager({ view }: { view: "spiele" | "neu" }) {
                   <TeamBadge
                     sport={previewAway.sport}
                     {...teamColorProps(previewAway)}
-                    jerseyStyle={jerseyFor(previewAway, awayJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "away")).style}
-                    variant={jerseyFor(previewAway, awayJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "away")).variant}
+                    jerseyStyle={jerseyFor(previewAway, awayJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "away", previewAway)).style}
+                    variant={jerseyFor(previewAway, awayJersey, defaultJerseyVariant(sport, formOrder.awayFirst, "away", previewAway)).variant}
                     countryCode={previewAway.countryCode}
                     flip
                     size={48}
@@ -3395,7 +3395,7 @@ function MatchDetailsEditor({
                 otherLabel="schon als Auswärtsteam gewählt" compact
               />
               {homeTeam && (
-                <JerseyPicker team={homeTeam} value={jerseyFor(homeTeam, homeJersey, defaultJerseyVariant(match.sport, editOrder.awayFirst, "home"))} onChange={setHomeJersey} />
+                <JerseyPicker team={homeTeam} value={jerseyFor(homeTeam, homeJersey, defaultJerseyVariant(match.sport, editOrder.awayFirst, "home", homeTeam))} onChange={setHomeJersey} />
               )}
             </div>
             <div>
@@ -3413,7 +3413,7 @@ function MatchDetailsEditor({
                 otherLabel="schon als Heimteam gewählt" compact
               />
               {awayTeam && (
-                <JerseyPicker team={awayTeam} value={jerseyFor(awayTeam, awayJersey, defaultJerseyVariant(match.sport, editOrder.awayFirst, "away"))} onChange={setAwayJersey} />
+                <JerseyPicker team={awayTeam} value={jerseyFor(awayTeam, awayJersey, defaultJerseyVariant(match.sport, editOrder.awayFirst, "away", awayTeam))} onChange={setAwayJersey} />
               )}
             </div>
           </div>

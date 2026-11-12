@@ -2000,7 +2000,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
     const props = link
       ? matchJerseyProps(link.match, team, awayFirst)
       : (() => {
-          const variant = fixtureJerseyFor(fixtureTv, sport, game.id, apiSide, awayFirst);
+          const variant = fixtureJerseyFor(fixtureTv, sport, game.id, apiSide, awayFirst, team);
           const j = jerseyFor(team, { variant, style: "solid" });
           return { ...teamColorProps(team), jerseyStyle: j.style, variant: j.variant };
         })();
@@ -2311,7 +2311,7 @@ function FixtureJerseyEditor({
         {sides.map((side) => {
           const apiName = side === "home" ? game.home : game.away;
           const team = apiTeam(apiName);
-          const variant = fixtureJerseyFor(fixtureTv, sport, game.id, side, sides[0] === "away");
+          const variant = fixtureJerseyFor(fixtureTv, sport, game.id, side, sides[0] === "away", team);
           // Football zeigt den Helm: nichts zu wählen. Nationalteams tragen
           // seit 12.11.2026 Trikots wie Vereine.
           const canPick = !!team && sport !== "NFL";
@@ -2452,7 +2452,7 @@ function LcDetail({
   // Ohne Tippspiel: Heim-/Auswärtstrikot, wie der Admin es im Matchcenter wählt.
   const { fixtureTv } = useAppData();
   const fixtureJerseyProps = (team: Team, s: "home" | "away") => {
-    const variant = fixtureJerseyFor(fixtureTv, sport, game.id, s, awayFirst);
+    const variant = fixtureJerseyFor(fixtureTv, sport, game.id, s, awayFirst, team);
     const j = jerseyFor(team, { variant, style: "solid" });
     return { ...teamColorProps(team), jerseyStyle: j.style, variant: j.variant };
   };

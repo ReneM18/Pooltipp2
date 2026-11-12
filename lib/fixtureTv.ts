@@ -1,4 +1,4 @@
-import type { JerseyVariant, Sport } from "./types";
+import type { JerseyVariant, Sport, Team } from "./types";
 import { defaultJerseyVariant } from "./teamOrder";
 
 // TV-Sender für Matchcenter-Spiele, die keine Tippspiele sind (Rene,
@@ -23,8 +23,8 @@ export interface FixtureTv {
   // "" = kein Sender (nur Trikotwahl).
   channel: string;
   // Trikot je Seite der API; ohne Angabe der Standard (Heimtrikot, in
-  // NBA/NHL trägt der Gast links sein Auswärtstrikot, siehe
-  // defaultJerseyVariant).
+  // NBA/NHL trägt der Gast links und im Fußball die Auswärtsmannschaft ihr
+  // Auswärtstrikot, siehe defaultJerseyVariant).
   homeJersey?: JerseyVariant;
   awayJersey?: JerseyVariant;
 }
@@ -52,10 +52,11 @@ export function fixtureJerseyFor(
   sport: Sport,
   fixtureId: string,
   side: "home" | "away",
-  awayFirst: boolean
+  awayFirst: boolean,
+  team?: Team
 ): JerseyVariant {
   const e = findEntry(list, sport, fixtureId);
-  return (side === "home" ? e?.homeJersey : e?.awayJersey) ?? defaultJerseyVariant(sport, awayFirst, side);
+  return (side === "home" ? e?.homeJersey : e?.awayJersey) ?? defaultJerseyVariant(sport, awayFirst, side, team);
 }
 
 // Eintrag eines Spiels ändern; alte und leere Einträge fliegen raus.
@@ -63,7 +64,7 @@ function withEntry(list: FixtureTv[], ref: FixtureRef, change: (e: FixtureTv) =>
   const current = findEntry(list, ref.sport, ref.fixtureId) ?? { ...ref, channel: "" };
   const next = change({ ...current, kickoff: ref.kickoff });
   // Heim ist für die Heimseite immer der Standard. Beim Gast bleibt auch
-  // "heim" stehen: in NBA/NHL ist dort das Auswärtstrikot der Standard.
+  // "heim" stehen: in NBA/NHL und Fußball ist dort das Auswärtstrikot der Standard.
   if (next.homeJersey === "heim") delete next.homeJersey;
   const rest = list.filter(
     (e) => !(e.sport === ref.sport && e.fixtureId === ref.fixtureId) && !(Date.parse(e.kickoff) < now - KEEP_MS)

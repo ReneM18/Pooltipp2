@@ -41,7 +41,7 @@ export function matchJerseyOf(match: Match, team: Team, awayFirst: boolean): Mat
   return jerseyFor(
     team,
     side === "home" ? match.homeJersey : match.awayJersey,
-    defaultJerseyVariant(match.sport, awayFirst, side)
+    defaultJerseyVariant(match.sport, awayFirst, side, team)
   );
 }
 
