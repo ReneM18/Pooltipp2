@@ -11,11 +11,11 @@ import { useEffect, useRef } from "react";
 // Name für sich verkleinert, dann stand z. B. "Baltimore Ravens" kleiner da
 // als "Jacksonville Jaguars" (Rene, 05.11.2026: "die Schriftgrößen der Teams
 // sind verschieden am Handy"). Gruppe = nächstes Element mit data-fit-group.
-export function syncFitGroup(el: HTMLElement, fittedPx: number) {
-  el.dataset.fitPx = String(fittedPx);
-  const group = el.closest("[data-fit-group]");
-  if (!group) return;
-  const peers = Array.from(group.querySelectorAll<HTMLElement>("[data-fit-px]"));
+// Mit "name" bilden alle FitText mit demselben Namen auf der Seite eine
+// Gruppe, z. B. alle Vereinsnamen der Matchcenter-Liste am PC (Rene,
+// 13.11.2026: "mach es einheitlich", vorher hatte nur die eine Zeile mit
+// "Nordmazedonien" kleinere Schrift).
+function applyFitGroup(peers: HTMLElement[]) {
   const sizes = peers.map((p) => parseFloat(p.dataset.fitPx ?? "")).filter((n) => n > 0);
   if (!sizes.length) return;
   const min = Math.min(...sizes);
@@ -25,13 +25,34 @@ export function syncFitGroup(el: HTMLElement, fittedPx: number) {
   }
 }
 
+function namedPeers(name: string): HTMLElement[] {
+  return Array.from(document.querySelectorAll<HTMLElement>("[data-fit-name]")).filter(
+    (p) => p.dataset.fitName === name && p.offsetParent !== null,
+  );
+}
+
+export function syncFitGroup(el: HTMLElement, fittedPx: number) {
+  el.dataset.fitPx = String(fittedPx);
+  if (el.dataset.fitName) {
+    applyFitGroup(namedPeers(el.dataset.fitName));
+    return;
+  }
+  const group = el.closest("[data-fit-group]");
+  if (!group) return;
+  const peers = Array.from(group.querySelectorAll<HTMLElement>("[data-fit-px]"));
+  applyFitGroup(peers);
+}
+
 export default function FitText({
   text,
   className = "",
   minPx = 10,
   maxLines,
+  name,
 }: {
   text: string;
+  /** Seitenweite Gruppe: alle FitText mit diesem Namen bekommen dieselbe Größe. */
+  name?: string;
   className?: string;
   minPx?: number;
   // Höchstens so viele Zeilen (Rene, 15.10.2026): wären es mehr, wird
@@ -59,12 +80,20 @@ export default function FitText({
     document.fonts?.ready.then(fit);
     const observer = new ResizeObserver(fit);
     observer.observe(el.parentElement ?? el);
-    return () => observer.disconnect();
-  }, [text, minPx, maxLines]);
+    return () => {
+      observer.disconnect();
+      // Fällt ein langer Name weg, dürfen die anderen wieder größer werden.
+      if (name) {
+        delete el.dataset.fitPx;
+        applyFitGroup(namedPeers(name).filter((p) => p !== el));
+      }
+    };
+  }, [text, minPx, maxLines, name]);
 
   return (
     <span
       ref={ref}
+      data-fit-name={name}
       className={`${maxLines ? "line-clamp-2" : "block"} min-w-0 [hyphens:none] [overflow-wrap:normal] [word-break:normal] ${className}`}
     >
       {text}

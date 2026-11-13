@@ -39,7 +39,7 @@ import { competitionFlag } from "@/lib/competitionFlag";
 import { displayOrder, isAwayFirst, scoreText, type TeamOrder } from "@/lib/teamOrder";
 import { SPORT_ICONS, sportLabel, type Match, type Sport, type Team } from "@/lib/types";
 import { nationalKitTeam } from "@/lib/nationalKits";
-import TeamBadge, { jerseyFor, matchJerseyProps, teamColorProps } from "@/components/TeamBadge";
+import TeamBadge, { jerseyFor, matchJerseyProps, nationalFlagOf, teamColorProps } from "@/components/TeamBadge";
 import { LineupView, PreviewView, StatsView, useMatchInfo, useMatchPreview } from "@/components/MatchInfo";
 import Emoji from "@/components/Emoji";
 import type { F1Session } from "@/lib/live/providers/apiSports";
@@ -2201,9 +2201,14 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             das Ergebnis in jeder Zeile an derselben Stelle steht. */}
         {/* Ergebnisfelder mit Mindest- statt fester Breite, damit auch
             dreistellige Spielstände (NBA, z. B. 125:124) hineinpassen. */}
-        <span data-fit-group className="hidden min-w-0 grid-cols-[minmax(0,1fr)_minmax(7rem,auto)_minmax(0,1fr)] items-center gap-x-4 lg:grid">
+        {/* Ergebnisspalte nur so breit wie das Feld (vorher fest 7rem) und etwas
+            weniger Abstand: so passen auch lange Ländernamen wie
+            "Nordmazedonien" in voller Größe. Wird es doch zu eng (schmaler PC),
+            werden alle Namen der Liste gleich klein, nicht nur die eine Zeile
+            (Rene, 13.11.2026: "mach es einheitlich"). */}
+        <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3 lg:grid">
           <span className="flex min-w-0 items-center justify-end gap-2">
-            <FitText text={firstName} maxLines={2} minPx={12} className={`text-right text-[15px] leading-tight ${nameTone(firstWins)}`} />
+            <FitText text={firstName} maxLines={2} minPx={12} name="mc-pc-namen" className={`text-right text-[15px] leading-tight ${nameTone(firstWins)}`} />
             <span className="flex shrink-0">{jersey(firstTeam, firstSide, 20)}</span>
           </span>
           {/* Ergebnisfeld bleibt in jeder Zeile gleich, Tippen/Getippt steht
@@ -2222,7 +2227,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           </span>
           <span className="flex min-w-0 items-center gap-2">
             <span className="flex shrink-0">{jersey(secondTeam, secondSide, 20)}</span>
-            <FitText text={secondName} maxLines={2} minPx={12} className={`text-[15px] leading-tight ${nameTone(secondWins)}`} />
+            <FitText text={secondName} maxLines={2} minPx={12} name="mc-pc-namen" className={`text-[15px] leading-tight ${nameTone(secondWins)}`} />
           </span>
         </span>
       </div>
@@ -2361,7 +2366,7 @@ function FixtureJerseyEditor({
   // Länderspiel: beide Nationalteams zeigen nur die Flagge (Rene,
   // 13.11.2026), es gibt kein Trikot einzustellen.
   const isNation = (apiName: string) =>
-    !!(apiTeam(apiName)?.isNationalTeam || nationalKitTeam(sport, apiName));
+    !!nationalFlagOf(apiTeam(apiName) ?? nationalKitTeam(sport, apiName) ?? { name: "", countryCode: "" });
   if (!isAdmin) return null;
   if (isNation(game.home) && isNation(game.away)) return null;
   return (
@@ -2373,7 +2378,7 @@ function FixtureJerseyEditor({
           const team = apiTeam(apiName);
           const variant = fixtureJerseyFor(fixtureTv, sport, game.id, side, sides[0] === "away", team);
           // Football zeigt den Helm, Nationalteams die Flagge: nichts zu wählen.
-          const canPick = !!team && !team.isNationalTeam && sport !== "NFL";
+          const canPick = !!team && !nationalFlagOf(team) && sport !== "NFL";
           const href = team
             ? `/admin?tab=teams&team=${encodeURIComponent(team.id)}`
             : `/admin?tab=teams&neu=${encodeURIComponent(apiName)}&sport=${encodeURIComponent(sport)}${
