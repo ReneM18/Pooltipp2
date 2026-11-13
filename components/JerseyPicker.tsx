@@ -25,8 +25,8 @@ export default function JerseyPicker({
   value: MatchJersey;
   onChange: (jersey: MatchJersey) => void;
 }) {
-  // Football immer den Helm, Tennis die Flagge: nichts zu wählen.
-  if (team.sport === "NFL" || team.sport === "Tennis") return null;
+  // Football immer den Helm, Tennis und Nationalteams die Flagge: nichts zu wählen.
+  if (team.isNationalTeam || team.sport === "NFL" || team.sport === "Tennis") return null;
   return (
     <div className="mt-2 rounded-lg border border-edge bg-pitch p-2.5">
       <p className="mb-2 text-xs text-muted">Trikot in diesem Spiel</p>
