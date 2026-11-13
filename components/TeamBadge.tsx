@@ -2,9 +2,22 @@ import { useId } from "react";
 import { JerseyStyle, JerseyVariant, Match, MatchJersey, Sport, Team } from "@/lib/types";
 import { BASKETBALL_JERSEY_MARKUP } from "@/lib/basketballJerseyMarkup";
 import { flagEmoji } from "@/lib/flags";
-import { withNationalKit } from "@/lib/nationalKits";
+import { nationCodeOfName, withNationalKit } from "@/lib/nationalKits";
 import { defaultJerseyVariant } from "@/lib/teamOrder";
 import Emoji from "@/components/Emoji";
+
+/**
+ * Land, dessen Flagge das Team statt Trikot zeigt (Rene, 13.11.2026: "bei
+ * nationalteams nur flaggen statt trikots", "mach es einheitlich"):
+ * Nationalteams mit Land und jedes Team, das genau wie ein Land heißt
+ * ("Slowakei" war im Admin noch als Verein angelegt). Vereine wie
+ * "Austria Wien" zählen nicht. Sonst undefined.
+ */
+export function nationalFlagOf(team: Pick<Team, "name" | "isNationalTeam" | "countryCode">): string | undefined {
+  const byName = nationCodeOfName(team.name ?? "");
+  if (byName) return byName;
+  return team.isNationalTeam && team.countryCode ? team.countryCode : undefined;
+}
 
 /** Alle Trikotfarben eines Teams als TeamBadge-Props: <TeamBadge {...teamColorProps(team)} ... />. */
 export function teamColorProps(input: Team) {
@@ -19,8 +32,7 @@ export function teamColorProps(input: Team) {
     awayTertiaryColor: team.awayTertiaryColor,
     armColor: team.armColor,
     awayArmColor: team.awayArmColor,
-    // Nationalteams zeigen nur die Flagge (Rene, 13.11.2026).
-    nationalFlag: team.isNationalTeam && team.countryCode ? team.countryCode : undefined,
+    nationalFlag: nationalFlagOf(team),
   };
 }
 
