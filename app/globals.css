@@ -106,6 +106,15 @@ html {
   --safe-bottom: max(4px, min(8px, env(safe-area-inset-bottom)));
 }
 
+/* Trikots, Helme und Flaggen (components/TeamBadge.tsx) im Matchcenter am
+   PC eine Spur größer, am Handy und bei den Tipps wie bisher (Rene,
+   13.11.2026). Die Klasse sitzt am <main> von app/matchcenter/page.tsx. */
+@media (min-width: 1024px) {
+  .trikots-gross {
+    --badge-scale: 1.15;
+  }
+}
+
 /* App-Farben als "R G B" (siehe tailwind.config.ts). Das Saison-Design
    (lib/seasonDesign.ts) überschreibt sie mit den Farben der laufenden Saison.
    Hintergrund, Karten, Ränder und grauer Text sind neutral schwarz/grau ohne

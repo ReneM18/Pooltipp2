@@ -77,12 +77,22 @@ interface TeamBadgeProps {
   countryCode?: string;
 }
 
+/**
+ * Größe eines Trikots/Helms/einer Flagge. Im Matchcenter am PC (ab 1024 px)
+ * eine Spur größer über --badge-scale (.trikots-gross in app/globals.css,
+ * Rene, 13.11.2026), sonst genau wie bisher.
+ */
+function badgeBox(size: number) {
+  const px = `calc(${size}px * var(--badge-scale, 1))`;
+  return { width: px, height: px };
+}
+
 function NationalFlagBadge({ countryCode, size }: { countryCode: string; size: number }) {
   return (
     <span
       role="img"
       aria-label={`Flagge ${countryCode}`}
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.8) }}
+      style={{ ...badgeBox(size), fontSize: `calc(${Math.round(size * 0.8)}px * var(--badge-scale, 1))` }}
       className="flex shrink-0 items-center justify-center leading-none"
     >
       <Emoji e={flagEmoji(countryCode)} />
@@ -184,7 +194,7 @@ export default function TeamBadge({
   if (sport === "Tennis") {
     // Spieler ohne Land: neutraler Tennisball statt Trikot.
     return (
-      <span aria-hidden className="inline-flex items-center justify-center" style={{ width: size, height: size, fontSize: size * 0.7 }}>
+      <span aria-hidden className="inline-flex items-center justify-center" style={{ ...badgeBox(size), fontSize: `calc(${size * 0.7}px * var(--badge-scale, 1))` }}>
         🎾
       </span>
     );
@@ -244,7 +254,7 @@ function SoccerJerseyIcon({ c, style, size, uid }: IconProps) {
   const clip = `soc-${uid}`;
 
   return (
-    <svg width={size} height={size} viewBox="0 0 512 512" aria-hidden="true">
+    <svg width={size} height={size} style={badgeBox(size)} viewBox="0 0 512 512" aria-hidden="true">
       <defs>
         <clipPath id={clip}>
           <path d={SOCCER_BODY} />
@@ -297,7 +307,7 @@ function HockeyJerseyIcon({ c, style, size, uid }: IconProps) {
   const accent = c.accent ?? CREAM;
 
   return (
-    <svg width={size} height={size} viewBox="0 0 300 300" aria-hidden="true">
+    <svg width={size} height={size} style={badgeBox(size)} viewBox="0 0 300 300" aria-hidden="true">
       <defs>
         <clipPath id={clip}>
           <path d={HOCKEY_BODY} />
@@ -374,7 +384,7 @@ function BasketballJerseyIcon({ c, style, size, uid }: IconProps) {
   if (c.accent) markup = markup.replace(/#fceded/g, c.accent);
 
   return (
-    <svg width={size} height={size} viewBox="130 103 100 154" aria-hidden="true">
+    <svg width={size} height={size} style={badgeBox(size)} viewBox="130 103 100 154" aria-hidden="true">
       <g dangerouslySetInnerHTML={{ __html: markup }} />
     </svg>
   );
@@ -402,7 +412,7 @@ function HelmetIcon({
       height={size}
       viewBox="0 0 256 256"
       aria-hidden="true"
-      style={flip ? { transform: "scaleX(-1)" } : undefined}
+      style={{ ...badgeBox(size), ...(flip ? { transform: "scaleX(-1)" } : null) }}
     >
       {/* Helmschale */}
       <path
