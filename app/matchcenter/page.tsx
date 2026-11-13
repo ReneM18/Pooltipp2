@@ -216,18 +216,20 @@ function addDays(date: string, days: number): string {
 // Spiele bis 06:00 (lib/matchcenterLink.ts, sportDay). Zeitstand und Quelle
 // vom Teil mit laufenden Spielen, damit "verzögert" ehrlich bleibt.
 // Nacht-Spiele vom Morgen dieses Kalendertags (00:00–05:59), die zum
-// Sporttag davor gehören, bleiben unter "Heute" (Rene, 10.11.2026:
-// Islanders – Sharks lief um 06:50 noch, stand aber nur unter "Gestern"):
-// carry "running" = nur die, die noch laufen (bis Schluss), "morning" =
-// alle, also auch die beendeten mit Endstand (bis 12:00, isMorningAfterNight).
+// Sporttag davor gehören, bleiben unter "Heute", solange sie laufen (Rene,
+// 10.11.2026: Islanders – Sharks lief um 06:50 noch, stand aber nur unter
+// "Gestern"): carry "running". Die beendeten stehen bis 12:00 unten im
+// Block "Gestern" mit allen Endständen des Vortags (Rene, 13.11.2026: beim
+// Fußball fehlten die Abendspiele, bei NHL/NBA/NFL standen die Nachtspiele
+// noch da – jetzt für alle Sportarten gleich, siehe YesterdayResults).
 // carry "dawn" = in der Nacht (00:00–05:59): vom neuen Kalendertag auch die
 // Spiele ab 06:00 (Rene, 12.11.2026, um 05:45: "wieso habe ich beim Fußball
 // unter heute keine Spiele und beim Tennis schon" – der Sporttag war noch
 // Mittwoch, die Spiele vom Donnerstag kamen erst um 06:00).
-type Carry = "none" | "running" | "morning" | "dawn";
+type Carry = "none" | "running" | "dawn";
 function sportDayGames(day: LiveGame[] | null, night: LiveGame[] | null, carry: Carry = "none"): LiveGame[] | null {
   if (!day || !night) return null;
-  const keep = (g: LiveGame) => carry === "morning" || (carry === "running" && isLiveRunning(g.status));
+  const keep = (g: LiveGame) => carry === "running" && isLiveRunning(g.status);
   return [
     ...day.filter((g) => !isNightKickoff(g.kickoff) || keep(g)),
     ...night.filter((g) => carry === "dawn" || isNightKickoff(g.kickoff)),
@@ -239,8 +241,7 @@ function sportDayGames(day: LiveGame[] | null, night: LiveGame[] | null, carry: 
 // einem Tag. In der Nacht stattdessen schon die Spiele des neuen Tages.
 function todayCarry(now: number | null): Carry {
   if (now === null) return "none";
-  if (isNightKickoff(now)) return "dawn";
-  return isMorningAfterNight(now) ? "morning" : "running";
+  return isNightKickoff(now) ? "dawn" : "running";
 }
 
 // Läuft im Kalendertag noch ein Nacht-Spiel vom Morgen (siehe sportDayGames)?
@@ -539,6 +540,18 @@ function LiveCenterSection({
     [todayCal.games, tomorrowCal.games, carry],
   );
   const todayDay = mergeSportDay(todayCal, tomorrowCal, todayGames);
+  // Ergebnisse von gestern (Rene, 13.11.2026, Variante A): bis 12:00 unter
+  // "Heute" unten alle beendeten Spiele des Vortags (Sporttag), bei jeder
+  // Sportart gleich. Vom Vortag ab 06:00 plus die Nacht (heute bis 05:59,
+  // schon in todayCal geladen). Noch laufende stehen oben unter "Heute".
+  const morning = now !== null && isMorningAfterNight(now);
+  const yesterday = today ? addDays(today, -1) : null;
+  const yesterdayCal = useLiveDay(sport, morning ? yesterday : null);
+  const yesterdayGames = useMemo(() => {
+    if (!morning) return null;
+    const games = sportDayGames(yesterdayCal.games, todayCal.games);
+    return games ? games.filter((g) => g.status !== "NS" && !isLiveRunning(g.status)) : null;
+  }, [morning, yesterdayCal.games, todayCal.games]);
   // Startbild am Handy ausblenden, sobald die Spiele von heute da sind
   // (lib/appReady.ts). Anderer Reiter beim Öffnen: gleich.
   const todayShown = todayDay.games !== null || !!todayDay.error || view !== "live";
@@ -622,7 +635,7 @@ function LiveCenterSection({
   // Automatisch aktualisieren – nur solange ein Spiel läuft, im 180-s-Takt
   // (gemeinsam mit den Tippkarten, pausiert im Hintergrund).
   // Je Kalendertag nur, wenn in seinem Teil des Sporttags etwas läuft.
-  const pollToday = partNeedsPolling(todayCal.games, false, now) || ((carry === "running" || carry === "morning") && hasRunningCarryOver(todayCal.games));
+  const pollToday = partNeedsPolling(todayCal.games, false, now) || (carry === "running" && hasRunningCarryOver(todayCal.games));
   const pollTomorrow = partNeedsPolling(tomorrowCal.games, true, now) || (carry === "dawn" && partNeedsPolling(tomorrowCal.games, false, now));
   const polling = pollToday || pollTomorrow;
   useLivePolling(sport, today, pollToday);
@@ -642,13 +655,13 @@ function LiveCenterSection({
   const allGames = useMemo(() => {
     const seen = new Set((todayDay.games ?? []).map((g) => g.id));
     const list = [...(todayDay.games ?? [])];
-    for (const g of [...(planDayData.games ?? []), ...(roundGames ?? [])]) {
+    for (const g of [...(yesterdayGames ?? []), ...(planDayData.games ?? []), ...(roundGames ?? [])]) {
       if (seen.has(g.id)) continue;
       seen.add(g.id);
       list.push(g);
     }
     return list;
-  }, [todayDay.games, planDayData.games, roundGames]);
+  }, [todayDay.games, yesterdayGames, planDayData.games, roundGames]);
   const links = useMemo(() => {
     const map = new Map<string, AppLink>();
     if (allGames.length === 0) return map;
@@ -656,7 +669,7 @@ function LiveCenterSection({
       if (m.sport !== sport || m.draft || m.status === "cancelled") continue;
       const day = sportDay(m.kickoff);
       // In der Nacht stehen die Spiele des neuen Tages schon unter "Heute".
-      const inToday = day === today || (carry === "dawn" && day === tomorrow);
+      const inToday = day === today || (carry === "dawn" && day === tomorrow) || (morning && day === yesterday);
       if (!inToday && !(view === "spielplan" && day === shownPlanDay) && !roundDays.has(day)) continue;
       const home = getTeam(m.homeTeamId);
       const away = getTeam(m.awayTeamId);
@@ -667,7 +680,7 @@ function LiveCenterSection({
     return map;
     // apiNameLinks: verknüpfte Vereinsnamen zählen bei findLiveGame mit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allGames, matches, getTeam, sport, today, tomorrow, carry, view, shownPlanDay, roundDays, apiNameLinks]);
+  }, [allGames, matches, getTeam, sport, today, tomorrow, yesterday, morning, carry, view, shownPlanDay, roundDays, apiNameLinks]);
   const tippedMatchIds = useMemo(
     () => new Set(myTips.filter((t) => !t.refunded).map((t) => t.matchId)),
     [myTips],
@@ -914,7 +927,7 @@ function LiveCenterSection({
                   )}
                 </>
               ) : (
-                <LcLive onlyLive={onlyLive} games={todayDay.games} error={todayDay.error} dataAt={todayDay.dataAt} source={todayDay.source} loading={polling && todayDay.loading} onRetry={retry} today={today} onPickSport={onPickSport} {...listProps} />
+                <LcLive onlyLive={onlyLive} games={todayDay.games} yesterday={yesterdayGames} error={todayDay.error} dataAt={todayDay.dataAt} source={todayDay.source} loading={polling && todayDay.loading} onRetry={retry} today={today} onPickSport={onPickSport} {...listProps} />
               )}
             </div>
             <div ref={detailRef} className="scroll-mt-32">
@@ -1071,9 +1084,11 @@ function LcLive({
   onRetry,
   today,
   onPickSport,
+  yesterday = null,
   ...listProps
 }: ListProps & {
   today?: string | null;
+  yesterday?: LiveGame[] | null;
   onPickSport?: (s: Sport) => void;
   onlyLive?: boolean;
   games: LiveGame[] | null;
@@ -1096,6 +1111,7 @@ function LcLive({
           className="border-none bg-transparent"
         />
         {!onlyLive && today && onPickSport && <OtherSportsToday sport={sport} today={today} onPick={onPickSport} />}
+        {!onlyLive && <YesterdayResults games={yesterday} {...listProps} />}
       </>
     );
   }
@@ -1133,7 +1149,28 @@ function LcLive({
         renderRow={(g) => <GameRow key={g.id} game={g} dataAt={dataAt} {...listProps} />}
       />
       {loading && <p className="text-center text-[11px] text-muted">Aktualisiert…</p>}
+      {!onlyLive && <YesterdayResults games={yesterday} {...listProps} />}
     </div>
+  );
+}
+
+// Block "Gestern" unter "Heute" (Rene, 13.11.2026, Variante A): bis 12:00
+// alle Endstände des Vortags, bei jeder Sportart gleich (vorher nur die
+// Nachtspiele von NHL/NBA/NFL, die Fußball-Abendspiele nicht).
+function YesterdayResults({ games, ...listProps }: ListProps & { games: LiveGame[] | null }) {
+  if (!games || games.length === 0) return null;
+  return (
+    <section className="mt-2 border-t border-edge pt-4">
+      <p className="mb-3 text-xs text-muted">
+        <span className="font-semibold text-ink">Gestern</span> · Endstände (bis 12:00)
+      </p>
+      <LeagueGroups
+        sport={listProps.sport}
+        onLeague={listProps.onLeague}
+        games={[...games].sort(byKickoff)}
+        renderRow={(g) => <GameRow key={g.id} game={g} {...listProps} />}
+      />
+    </section>
   );
 }
 
@@ -1145,7 +1182,7 @@ function LcLive({
 function useSportDayGames(sport: Sport, today: string): LiveGame[] | null {
   const day = useLiveDay(sport, today);
   const night = useLiveDay(sport, addDays(today, 1));
-  // Wie der Reiter "Heute" der Sportart (Nacht-Spiele vom Morgen dabei).
+  // Wie der Reiter "Heute" der Sportart (laufende Nacht-Spiele vom Morgen dabei).
   const carry = todayCarry(Date.now());
   return useMemo(() => sportDayGames(day.games, night.games, carry), [day.games, night.games, carry]);
 }
