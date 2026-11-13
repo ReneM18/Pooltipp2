@@ -121,7 +121,7 @@ export default function MatchcenterPage() {
   return (
     // Kompakt (Rene, 27.10.2026, Variante C): Spiele sollen gleich oben
     // stehen, darum ohne sichtbare Überschrift und mit wenig Abstand.
-    <main className="mx-auto max-w-3xl lg:max-w-6xl px-4 pt-3 pb-8 sm:px-5 sm:pt-4">
+    <main className="trikots-gross mx-auto max-w-3xl lg:max-w-6xl px-4 pt-3 pb-8 sm:px-5 sm:pt-4">
       <h1 className="sr-only">Matchcenter</h1>
 
       {/* Nur Admin: Entwürfe haben im Matchcenter noch kein "Tippen". */}
