@@ -19,6 +19,8 @@ export function teamColorProps(input: Team) {
     awayTertiaryColor: team.awayTertiaryColor,
     armColor: team.armColor,
     awayArmColor: team.awayArmColor,
+    // Nationalteams zeigen nur die Flagge (Rene, 13.11.2026).
+    nationalFlag: team.isNationalTeam && team.countryCode ? team.countryCode : undefined,
   };
 }
 
@@ -75,6 +77,8 @@ interface TeamBadgeProps {
   flip?: boolean;
   /** Nur für Tennis: Land des Spielers (zeigt die Flagge statt Trikot). */
   countryCode?: string;
+  /** Land eines Nationalteams: zeigt nur die Flagge statt Trikot/Helm (kommt über teamColorProps). */
+  nationalFlag?: string;
 }
 
 /**
@@ -182,12 +186,16 @@ export default function TeamBadge({
   size = 36,
   flip = false,
   countryCode,
+  nationalFlag,
 }: TeamBadgeProps) {
   // Eindeutige IDs für die Schnittmasken (mehrere Trikots auf einer Seite).
   const uid = useId().replace(/:/g, "");
   // Tennis (Rene, 10.11.2026): Spieler zeigen die Flagge ihres Landes.
-  // Nationalteams der Mannschaftssportarten tragen dagegen Trikots wie
-  // Vereine (Rene, 12.11.2026), Farben siehe teamColorProps.
+  // Nationalteams zeigen nur die Flagge statt Trikot (Rene, 13.11.2026:
+  // "bei nationalteams nur flaggen statt trikots").
+  if (sport !== "Tennis" && nationalFlag) {
+    return <NationalFlagBadge countryCode={nationalFlag} size={size} />;
+  }
   if (sport === "Tennis" && countryCode) {
     return <NationalFlagBadge countryCode={countryCode} size={size} />;
   }

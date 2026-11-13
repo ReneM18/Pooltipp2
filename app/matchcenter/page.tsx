@@ -2358,7 +2358,12 @@ function FixtureJerseyEditor({
   const country = liveGameCountry(game.league);
   // Länderspiel & Co.: neues Team gleich als Nationalteam anlegen.
   const national = isNationalTeamLeague(sport, game.league);
+  // Länderspiel: beide Nationalteams zeigen nur die Flagge (Rene,
+  // 13.11.2026), es gibt kein Trikot einzustellen.
+  const isNation = (apiName: string) =>
+    !!(apiTeam(apiName)?.isNationalTeam || nationalKitTeam(sport, apiName));
   if (!isAdmin) return null;
+  if (isNation(game.home) && isNation(game.away)) return null;
   return (
     <div className="flex flex-col gap-1.5 rounded-lg border border-dashed border-edge px-3 py-2 text-[13px]">
       <span className="text-muted">Trikots (nur Admin)</span>
@@ -2367,9 +2372,8 @@ function FixtureJerseyEditor({
           const apiName = side === "home" ? game.home : game.away;
           const team = apiTeam(apiName);
           const variant = fixtureJerseyFor(fixtureTv, sport, game.id, side, sides[0] === "away", team);
-          // Football zeigt den Helm: nichts zu wählen. Nationalteams tragen
-          // seit 12.11.2026 Trikots wie Vereine.
-          const canPick = !!team && sport !== "NFL";
+          // Football zeigt den Helm, Nationalteams die Flagge: nichts zu wählen.
+          const canPick = !!team && !team.isNationalTeam && sport !== "NFL";
           const href = team
             ? `/admin?tab=teams&team=${encodeURIComponent(team.id)}`
             : `/admin?tab=teams&neu=${encodeURIComponent(apiName)}&sport=${encodeURIComponent(sport)}${

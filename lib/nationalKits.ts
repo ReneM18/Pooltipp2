@@ -253,21 +253,23 @@ export function nationalKitColors(code: string): { home: Kit; away: Kit } | unde
  * bleibt es beim grauen Gast-Trikot.
  */
 export function nationalKitTeam(sport: string, apiName: string): Team | undefined {
-  if (sport !== "Fußball") return undefined;
+  // Seit 13.11.2026 zeigen Nationalteams nur die Flagge (Rene). Darum jedes
+  // bekannte Land, nicht nur die mit Trikotfarben, und auch Eishockey & Co.
+  if (sport === "Tennis" || sport === "NFL") return undefined;
   const code = apiNationCode(apiName);
-  const kit = code ? KITS[code] : undefined;
-  if (!code || !kit) return undefined;
+  if (!code) return undefined;
+  const kit = KITS[code];
   return {
     id: `nation:${code}`,
     // Deutscher Name wie bei den Nationalteams im Admin ("Belgien"), Frauen mit " W".
     name: /\s+w$/i.test(apiName.trim()) ? `${teamCountryName(code)} W` : teamCountryName(code),
-    sport: "Fußball",
+    sport: sport as Team["sport"],
     countryCode: code,
     isNationalTeam: true,
-    primaryColor: kit.home[0],
-    secondaryColor: kit.home[1],
-    awayPrimaryColor: kit.away[0],
-    awaySecondaryColor: kit.away[1],
+    primaryColor: kit?.home[0] ?? "#9CA3AF",
+    secondaryColor: kit?.home[1] ?? "#FFFFFF",
+    awayPrimaryColor: kit?.away[0],
+    awaySecondaryColor: kit?.away[1],
     jerseyStyle: "solid",
   };
 }
