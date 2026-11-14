@@ -182,5 +182,16 @@ console.log("Entwurf-Hinweis: alle Tests bestanden");
   assert.equal(nationCodeOfName("Austria Wien"), undefined);
   assert.equal(nationCodeOfName("Türkei"), "TR");
   assert.equal(nationCodeOfName("Türkiye"), "TR");
+  // Teams ohne Staat (Rene, 14.11.2026): Flagge statt graues Trikot, Name deutsch.
+  const { nationalKitTeam } = await import("../lib/nationalKits.ts");
+  const { flagEmoji } = await import("../lib/flags.ts");
+  assert.equal(nationCodeOfName("Basque Country"), "ES-PV");
+  assert.equal(nationCodeOfName("Baskenland"), "ES-PV");
+  assert.equal(nationCodeOfName("Catalonia"), "ES-CT");
+  assert.equal(nationalKitTeam("Fußball", "Basque Country")?.name, "Baskenland");
+  assert.equal(nationalKitTeam("Fußball", "Basque Country")?.countryCode, "ES-PV");
+  assert.equal(nationalKitTeam("Fußball", "Athletic Club"), undefined);
+  assert.equal(flagEmoji("ES-PV"), "\u{1F3F4}\u{E0065}\u{E0073}\u{E0070}\u{E0076}\u{E007F}");
+  assert.equal(flagEmoji("GB-NIR"), flagEmoji("GB"));
   console.log("Länderspiel-Zuordnung: alle Tests bestanden");
 }

@@ -180,6 +180,10 @@ const API_NATION_CODES: Record<string, string> = {
   "saint kitts and nevis": "KN", "st. lucia": "LC", "saint lucia": "LC",
   "st. vincent / grenadines": "VC", "saint vincent and the grenadines": "VC",
   palestine: "PS", "eswatini": "SZ", swaziland: "SZ",
+  // Teams ohne eigenen Staat (Rene, 14.11.2026: "Basque Country" zeigte ein
+  // graues Trikot statt der Ikurriña).
+  "basque country": "ES-PV", euskadi: "ES-PV", "pais vasco": "ES-PV",
+  catalonia: "ES-CT", catalunya: "ES-CT", galicia: "ES-GA",
 };
 
 // Alle übrigen Länder über ihren englischen Namen (Rene, 12.11.2026: "India"
