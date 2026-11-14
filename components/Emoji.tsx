@@ -41,15 +41,25 @@ function flagCode(e: string): string | null {
   return null;
 }
 
+/** Wehende Variante einer Flagge für Apple-Geräte (es-pv.svg → es-pv-apple.svg). */
+const appleFlagSrc = (src: string) => src.replace(/\.svg$/, "-apple.svg");
+
 /** Ein einzelnes Emoji. Ohne passendes Bild bleibt es einfach Text. */
 export default function Emoji({ e, label }: { e: string | null | undefined; label?: string }) {
   if (!e) return null;
   const img = emojiImage(e);
   if (!img) return <>{e}</>;
   return (
-    <span className={img.always ? "emoji-swap emoji-bild" : "emoji-swap"} role={label ? "img" : undefined} aria-label={label}>
+    <span className="emoji-swap" role={label ? "img" : undefined} aria-label={label}>
       <span className="emoji-native" aria-hidden={label ? true : undefined}>
-        {e}
+        {img.always ? (
+          // Apple kennt die Flagge nicht: wehendes Bild in Größe und Stil der
+          // Apple-Flaggen (Rene, 14.11.2026: flache Flagge war viel zu groß).
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="emoji-apfel" src={appleFlagSrc(img.src)} alt="" aria-hidden loading="lazy" decoding="async" draggable={false} />
+        ) : (
+          e
+        )}
       </span>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -78,9 +88,23 @@ export function SvgEmoji({ e, x, y, size }: { e: string; x: number; y: number; s
   );
   if (!img) return text;
   const box = size * 1.05;
+  // Flagge ohne Apple-Emoji: auf Apple das wehende Bild statt Text (wie <Emoji>).
+  const native = img.always ? (
+    <image
+      className="emoji-native"
+      href={appleFlagSrc(img.src)}
+      x={x - size * 0.555}
+      y={y - size * 0.82}
+      width={size * 1.11}
+      height={size * 0.81}
+      preserveAspectRatio="none"
+    />
+  ) : (
+    text
+  );
   return (
-    <g className={img.always ? "emoji-swap-svg emoji-bild" : "emoji-swap-svg"}>
-      {text}
+    <g className="emoji-swap-svg">
+      {native}
       <image className="emoji-img" href={img.src} x={x - box / 2} y={y - box * 0.86} width={box} height={box} />
     </g>
   );
