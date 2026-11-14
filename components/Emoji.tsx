@@ -1,5 +1,5 @@
 import { Fragment, ReactNode } from "react";
-import { EMOJI_FILES, FLAG_CODES } from "@/lib/emojiFiles";
+import { EMOJI_FILES, FLAG_CODES, FLAG_ONLY_IMAGE } from "@/lib/emojiFiles";
 
 // Emojis (Rene, 12.10.2026): Auf Apple-Geräten bleibt das echte Apple-Emoji.
 // Alle anderen Geräte (v. a. Windows, dort sehen Emojis "wie vom
@@ -13,10 +13,14 @@ import { EMOJI_FILES, FLAG_CODES } from "@/lib/emojiFiles";
 const strip = (s: string) => s.replace(/\uFE0F/g, "");
 
 /** Bild-Datei zu einem Emoji (oder null, wenn es keins gibt). */
-export function emojiImage(emoji: string): { src: string; flag: boolean } | null {
+export function emojiImage(emoji: string): { src: string; flag: boolean; always?: boolean } | null {
   const e = strip(emoji);
   const flag = flagCode(e);
-  if (flag) return FLAG_CODES.has(flag) ? { src: `/emoji/flaggen/${flag}.svg`, flag: true } : null;
+  if (flag) {
+    if (!FLAG_CODES.has(flag)) return null;
+    // Baskenland & Co. haben kein echtes Emoji: auch auf Apple das Bild.
+    return { src: `/emoji/flaggen/${flag}.svg`, flag: true, always: FLAG_ONLY_IMAGE.has(flag) || undefined };
+  }
   const file = EMOJI_FILES[e];
   return file ? { src: `/emoji/${file}`, flag: false } : null;
 }
@@ -43,7 +47,7 @@ export default function Emoji({ e, label }: { e: string | null | undefined; labe
   const img = emojiImage(e);
   if (!img) return <>{e}</>;
   return (
-    <span className="emoji-swap" role={label ? "img" : undefined} aria-label={label}>
+    <span className={img.always ? "emoji-swap emoji-bild" : "emoji-swap"} role={label ? "img" : undefined} aria-label={label}>
       <span className="emoji-native" aria-hidden={label ? true : undefined}>
         {e}
       </span>
@@ -75,7 +79,7 @@ export function SvgEmoji({ e, x, y, size }: { e: string; x: number; y: number; s
   if (!img) return text;
   const box = size * 1.05;
   return (
-    <g className="emoji-swap-svg">
+    <g className={img.always ? "emoji-swap-svg emoji-bild" : "emoji-swap-svg"}>
       {text}
       <image className="emoji-img" href={img.src} x={x - box / 2} y={y - box * 0.86} width={box} height={box} />
     </g>

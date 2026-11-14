@@ -1,6 +1,7 @@
 // Wandelt einen Ländercode in ein Flaggen-Emoji um.
 // - ISO-3166-1-alpha-2, z. B. "DE" -> 🇩🇪 (funktioniert automatisch für jeden Code)
 // - Britische Landesteile mit eigener Nationalmannschaft, z. B. "GB-ENG" -> 🏴󠁧󠁢󠁥󠁮󠁧󠁿
+// - Regionen mit eigenem Fußballteam ohne Staat, z. B. "ES-PV" (Baskenland)
 //   (England, Schottland, Wales haben eigene Emoji-Flaggen; Nordirland hat keine
 //   offizielle und zeigt deshalb die britische Flagge).
 export function flagEmoji(countryCode: string): string {
@@ -16,10 +17,24 @@ export function flagEmoji(countryCode: string): string {
     }
     return flagEmoji("GB");
   }
+  // Regionen mit eigener Auswahl, aber ohne Emoji (Baskenland "ES-PV",
+  // Katalonien "ES-CT", Galicien "ES-GA", Rene 14.11.2026): als Unicode-
+  // Flagge mit Tag-Zeichen. Angezeigt wird sie über components/Emoji.tsx
+  // immer als Bild (public/emoji/flaggen/es-pv.svg).
+  if (/^[A-Z]{2}-[A-Z0-9]{1,3}$/.test(code)) {
+    const tags = code
+      .replace("-", "")
+      .toLowerCase()
+      .split("")
+      .map((char) => String.fromCodePoint(0xe0000 + char.charCodeAt(0)))
+      .join("");
+    return "\u{1F3F4}" + tags + "\u{E007F}";
+  }
   return code.replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt(0)));
 }
 
-// Alle Länder (ISO 3166-1, dazu Kosovo und die britischen Landesteile)
+// Alle Länder (ISO 3166-1, dazu Kosovo, die britischen Landesteile und
+// Baskenland, Katalonien, Galicien mit eigenem Fußballteam)
 // auf Deutsch, alphabetisch sortiert. Die Codes bereits angelegter Teams
 // bleiben gültig ("GB" zeigt weiter die britische Flagge).
 export const COUNTRIES: { code: string; name: string }[] = [
@@ -47,6 +62,7 @@ export const COUNTRIES: { code: string; name: string }[] = [
   { code: "BH", name: "Bahrain" },
   { code: "BD", name: "Bangladesch" },
   { code: "BB", name: "Barbados" },
+  { code: "ES-PV", name: "Baskenland" },
   { code: "BY", name: "Belarus (Weißrussland)" },
   { code: "BE", name: "Belgien" },
   { code: "BZ", name: "Belize" },
@@ -91,6 +107,7 @@ export const COUNTRIES: { code: string; name: string }[] = [
   { code: "PF", name: "Französisch-Polynesien" },
   { code: "TF", name: "Französische Süd- und Antarktisgebiete" },
   { code: "GA", name: "Gabun" },
+  { code: "ES-GA", name: "Galicien" },
   { code: "GM", name: "Gambia" },
   { code: "GE", name: "Georgien" },
   { code: "GH", name: "Ghana" },
@@ -130,6 +147,7 @@ export const COUNTRIES: { code: string; name: string }[] = [
   { code: "CA", name: "Kanada" },
   { code: "CV", name: "Kap Verde" },
   { code: "KZ", name: "Kasachstan" },
+  { code: "ES-CT", name: "Katalonien" },
   { code: "QA", name: "Katar" },
   { code: "KE", name: "Kenia" },
   { code: "KG", name: "Kirgisistan" },

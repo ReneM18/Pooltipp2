@@ -13,30 +13,36 @@ html[data-emoji="noto"] {
 }
 
 /* Emojis als Bild (components/Emoji.tsx): Apple-Geräte sehen das echte
-   Emoji, alle anderen (data-emoji="noto") das gleiche Symbol als Bild. */
+   Emoji, alle anderen (data-emoji="noto") das gleiche Symbol als Bild.
+   .emoji-bild: Flaggen ohne echtes Emoji (Baskenland), überall als Bild. */
 .emoji-swap {
   display: inline;
 }
 .emoji-img {
   display: none;
 }
-html[data-emoji="noto"] .emoji-swap > .emoji-native {
+html[data-emoji="noto"] .emoji-swap > .emoji-native,
+.emoji-swap.emoji-bild > .emoji-native {
   display: none;
 }
-html[data-emoji="noto"] .emoji-swap > .emoji-img {
+html[data-emoji="noto"] .emoji-swap > .emoji-img,
+.emoji-swap.emoji-bild > .emoji-img {
   display: inline-block;
   width: 1.2em;
   height: 1.2em;
   vertical-align: -0.22em;
   object-fit: contain;
 }
-html[data-emoji="noto"] .emoji-swap-svg > .emoji-native {
+html[data-emoji="noto"] .emoji-swap-svg > .emoji-native,
+.emoji-swap-svg.emoji-bild > .emoji-native {
   display: none;
 }
-html[data-emoji="noto"] .emoji-swap-svg > .emoji-img {
+html[data-emoji="noto"] .emoji-swap-svg > .emoji-img,
+.emoji-swap-svg.emoji-bild > .emoji-img {
   display: inline;
 }
-html[data-emoji="noto"] .emoji-swap > .emoji-flag {
+html[data-emoji="noto"] .emoji-swap > .emoji-flag,
+.emoji-swap.emoji-bild > .emoji-flag {
   width: 1.3em;
   height: 0.98em;
   vertical-align: -0.12em;
