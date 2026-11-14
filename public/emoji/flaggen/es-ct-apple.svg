@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 370 250">
+  <!-- Wehende Flagge im Stil der Apple-Emoji-Flaggen (Basis: es-ct.svg aus flag-icons, MIT). -->
+  <defs>
+    <clipPath id="welle"><path d="M12,14 C60,8 110,30 185,24 S300,0 358,0 Q370,0 370,12 L370,232 Q370,240 358,240 C300,240 260,252 185,248 S60,236 12,250 Q0,250 0,238 L0,26 Q0,14 12,14 Z"/></clipPath>
+    <linearGradient id="licht" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#000" stop-opacity=".18"/>
+      <stop offset=".55" stop-color="#000" stop-opacity="0"/>
+      <stop offset=".88" stop-color="#000" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".08"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#welle)">
+    <svg width="370" height="250" viewBox="0 0 640 480" preserveAspectRatio="none">
+<path fill="#fcdd09" d="M0 0h640v480H0z"/>
+  <path stroke="#da121a" stroke-width="60" d="M0 90h810m0 120H0m0 120h810m0 120H0" transform="scale(.79012 .88889)"/>
+
+    </svg>
+    <rect width="370" height="250" fill="url(#licht)"/>
+  </g>
+</svg>
