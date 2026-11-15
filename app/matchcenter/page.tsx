@@ -1973,7 +1973,10 @@ function TeamNameStack({
   if (!parts) return <>{fallback}</>;
   return (
     <span className={`flex min-w-0 flex-1 flex-col ${align === "right" ? "items-end text-right" : ""}`}>
-      <span className={`max-w-full truncate text-[10px] leading-tight text-muted ${big ? "lg:text-[11px]" : ""}`}>{parts[0]}</span>
+      {/* Eigene Gruppe: die Stadt wird für sich kleiner, nicht der Teamname. */}
+      <span data-fit-group className="block w-full min-w-0">
+        <FitText text={parts[0]} minPx={8} className={`w-full whitespace-nowrap text-[10px] leading-[12.5px] text-muted ${big ? "lg:text-[11px] lg:leading-[14px]" : ""}`} />
+      </span>
       <FitText text={parts[1]} minPx={9} className={`w-full whitespace-nowrap ${big ? "text-[15px] leading-[19px]" : "leading-[17.5px]"} ${tone}`} />
     </span>
   );
