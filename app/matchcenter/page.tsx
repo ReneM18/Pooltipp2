@@ -1036,6 +1036,12 @@ function LeagueHeading({ sport, game, onLeague }: { sport: Sport; game: LiveGame
 
 // Ligen untereinander, getrennt durch eine feine Linie über die ganze Breite
 // (Rene, 30.10.2026: "klare Abgrenzung zu einer neuen Liga").
+// Feiner Trennstrich zwischen Ligen/Turnieren (Rene, 15.11.2026: "sonst
+// glaubt man fast, das alles zusammengehört"), bei jeder Sportart gleich wie
+// beim Fußball: durchgehende Linie, darüber und darunter Luft.
+const TOURNAMENT_LIST = "flex flex-col divide-y divide-edge";
+const TOURNAMENT_ITEM = "py-4 first:pt-0 last:pb-0";
+
 function LeagueGroups({
   sport,
   games,
@@ -1048,9 +1054,9 @@ function LeagueGroups({
   onLeague?: (id: number) => void;
 }) {
   return (
-    <div className="flex flex-col divide-y divide-edge">
+    <div className={TOURNAMENT_LIST}>
       {groupByLeague(sport, games).map((group) => (
-        <div key={group.league} className="py-4 first:pt-0 last:pb-0">
+        <div key={group.league} className={TOURNAMENT_ITEM}>
           <LeagueHeading sport={sport} game={group.games[0]} onLeague={onLeague} />
           <div className="flex flex-col gap-2">{group.games.map(renderRow)}</div>
         </div>
@@ -3066,9 +3072,9 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
               </span>
             ) : null}
           </p>
-          <div className="flex flex-col gap-4">
+          <div className={TOURNAMENT_LIST}>
             {groups.map((grp) => (
-              <div key={grp.name}>
+              <div key={grp.name} className={TOURNAMENT_ITEM}>
                 <p className="mb-2 flex items-center gap-2 font-display text-[16px] font-bold text-ink">
                   <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-row text-[14px]">🏆</span>
                   <span className="min-w-0 break-words">{grp.name}</span>
@@ -3087,9 +3093,9 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
       {laterToday.length > 0 && (
         <div className="mb-5">
           <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-muted">Heute noch</p>
-          <div className="flex flex-col gap-4">
+          <div className={TOURNAMENT_LIST}>
             {laterToday.map((grp) => (
-              <div key={`${grp.tour}-${grp.name}`}>
+              <div key={`${grp.tour}-${grp.name}`} className={TOURNAMENT_ITEM}>
                 <p className="mb-2 flex flex-wrap items-center gap-2 font-display text-[16px] font-bold text-ink">
                   <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-row text-[14px]">🏆</span>
                   <span className="min-w-0 break-words">{grp.name}</span>
@@ -3387,9 +3393,9 @@ function TennisPlanView({
                 {relativeDayLabel(d.day, now) ??
                   new Date(d.groups[0].games[0].start).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit", timeZone: "Europe/Vienna" })}
               </p>
-              <div className="flex flex-col gap-4">
+              <div className={TOURNAMENT_LIST}>
                 {d.groups.map((grp) => (
-                  <div key={grp.name}>
+                  <div key={grp.name} className={TOURNAMENT_ITEM}>
                     <p className="mb-2 flex items-center gap-2 font-display text-[15px] font-bold text-ink">
                       <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-row text-[14px]">🏆</span>
                       <span className="min-w-0 break-words">{grp.name}</span>
