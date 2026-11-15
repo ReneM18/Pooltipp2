@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import { SWIPE_EVENT, type SwipeDetail } from "@/components/SwipeNav";
 import AdBanner from "@/components/AdBanner";
 import FitText from "@/components/FitText";
-import { cardTeamName } from "@/lib/teamGroups";
+import { splitNflName } from "@/lib/teamGroups";
 import { StadiumIcon, TvIcon } from "@/components/Icons";
 import {
   appSideEvents,
@@ -1951,6 +1951,37 @@ interface RowStatus {
   muted?: boolean;
 }
 
+// NFL (Variante B, Rene 15.11.2026): voller Name in zwei Zeilen, die Stadt
+// klein darüber, der Teamname darunter ("Kansas City" / "Chiefs"). Jeder Name
+// passt so ohne Verkleinern, und alle NFL-Kästchen sind gleich hoch.
+function TeamNameStack({
+  sport,
+  name,
+  tone,
+  align = "left",
+  big = false,
+  fallback,
+}: {
+  sport: Sport;
+  name: string;
+  tone: string;
+  align?: "left" | "right";
+  big?: boolean;
+  fallback: ReactNode;
+}) {
+  const parts = splitNflName(sport, name);
+  if (!parts) return <>{fallback}</>;
+  return (
+    <span className={`flex min-w-0 flex-1 flex-col ${align === "right" ? "items-end text-right" : ""}`}>
+      <span className={`max-w-full truncate text-[10px] leading-tight text-muted ${big ? "lg:text-[11px]" : ""}`}>{parts[0]}</span>
+      <FitText text={parts[1]} minPx={9} className={`w-full whitespace-nowrap ${big ? "text-[15px] leading-[19px]" : "leading-[17.5px]"} ${tone}`} />
+    </span>
+  );
+}
+
+// Kleinste Schrift für NFL-Namen in einer Zeile (siehe GameRow).
+const NFL_NAME_MIN_PX = 9;
+
 function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowStatus {
   const s = game.statusShort.toUpperCase();
   const minute = game.elapsed !== null && game.elapsed > 0 ? `${game.elapsed}'` : undefined;
@@ -2080,13 +2111,16 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   // US-Ligen "Gast @ Heim": Gast zuerst (oben bzw. links), Heim danach, wie
   // auf der Tippkarte (Rene, 28.10.2026).
   const awayFirst = link ? orderFor(link.match).awayFirst : liveAwayFirst(sport, game);
-  // NFL nur mit Spitznamen, damit jeder Name in eine Zeile passt (Rene, 15.11.2026).
-  const [firstName, secondName] = (awayFirst ? [awayName, homeName] : [homeName, awayName]).map((n) => cardTeamName(sport, n));
-  // NFL-Spitznamen sind ein Wort: immer eine Zeile, wird es eng (schmales
-  // Handy mit "Tippen"), wird die Schrift kleiner statt abgeschnitten.
-  // Auf ganz schmalen Handys (unter 360 px) fallen dafür die kleinen Helme
-  // bzw. Trikots in der Zeile weg, sonst bleiben neben "Tippen" nur ~40 px.
-  const nameLines = sport === "NFL" ? undefined : 2;
+  const [firstName, secondName] = awayFirst ? [awayName, homeName] : [homeName, awayName];
+  // NFL: voller Name immer in einer Zeile (Rene, 15.11.2026: "damit sich
+  // das in einer Zeile ausgeht", aber nicht kürzen). Ist es zu eng, wird die
+  // Schrift kleiner statt umzubrechen, so bleiben alle Kästchen gleich hoch.
+  // Auf ganz schmalen Handys (unter 360 px) fallen die kleinen Helme in der
+  // Zeile weg, sonst bliebe neben "Tippen" kaum Platz für den Namen.
+  const oneLine = sport === "NFL";
+  const nameLines = oneLine ? undefined : 2;
+  const nameMinPx = oneLine ? NFL_NAME_MIN_PX : 12;
+  const nameNoWrap = oneLine ? "flex-1 whitespace-nowrap" : "";
   const [firstWins, secondWins] = awayFirst ? [awayWins, homeWins] : [homeWins, awayWins];
   const [firstScore, secondScore] = awayFirst ? [game.awayScore, game.homeScore] : [game.homeScore, game.awayScore];
   const [firstTeam, secondTeam] = awayFirst ? [awayTeam, homeTeam] : [homeTeam, awayTeam];
@@ -2194,11 +2228,11 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
         >
           <span className="col-start-1 row-start-1 flex min-w-0 items-center gap-1.5">
             <span className="flex shrink-0 max-[359px]:hidden">{jersey(firstTeam, firstSide, 18)}</span>
-            <FitText text={firstName} maxLines={nameLines} minPx={12} className={`leading-tight ${nameTone(firstWins)}`} />
+            <TeamNameStack sport={sport} name={firstName} tone={nameTone(firstWins)} fallback={<FitText text={firstName} maxLines={nameLines} minPx={nameMinPx} className={`${nameNoWrap} leading-tight ${nameTone(firstWins)}`} />} />
           </span>
           <span className="col-start-1 row-start-2 flex min-w-0 items-center gap-1.5">
             <span className="flex shrink-0 max-[359px]:hidden">{jersey(secondTeam, secondSide, 18)}</span>
-            <FitText text={secondName} maxLines={nameLines} minPx={12} className={`leading-tight ${nameTone(secondWins)}`} />
+            <TeamNameStack sport={sport} name={secondName} tone={nameTone(secondWins)} fallback={<FitText text={secondName} maxLines={nameLines} minPx={nameMinPx} className={`${nameNoWrap} leading-tight ${nameTone(secondWins)}`} />} />
           </span>
           <span
             className={`${endNote ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
@@ -2230,7 +2264,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             (Rene, 13.11.2026: "mach es einheitlich"). */}
         <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3 lg:grid">
           <span className="flex min-w-0 items-center justify-end gap-2">
-            <FitText text={firstName} maxLines={nameLines} minPx={12} name="mc-pc-namen" className={`text-right text-[15px] leading-tight ${nameTone(firstWins)}`} />
+            <TeamNameStack sport={sport} name={firstName} tone={nameTone(firstWins)} align="right" big fallback={<FitText text={firstName} maxLines={nameLines} minPx={nameMinPx} name={oneLine ? undefined : "mc-pc-namen"} className={`${nameNoWrap} text-right text-[15px] leading-tight ${nameTone(firstWins)}`} />} />
             <span className="flex shrink-0">{jersey(firstTeam, firstSide, 20)}</span>
           </span>
           {/* Ergebnisfeld bleibt in jeder Zeile gleich, Tippen/Getippt steht
@@ -2249,7 +2283,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           </span>
           <span className="flex min-w-0 items-center gap-2">
             <span className="flex shrink-0">{jersey(secondTeam, secondSide, 20)}</span>
-            <FitText text={secondName} maxLines={nameLines} minPx={12} name="mc-pc-namen" className={`text-[15px] leading-tight ${nameTone(secondWins)}`} />
+            <TeamNameStack sport={sport} name={secondName} tone={nameTone(secondWins)} align="left" big fallback={<FitText text={secondName} maxLines={nameLines} minPx={nameMinPx} name={oneLine ? undefined : "mc-pc-namen"} className={`${nameNoWrap} text-[15px] leading-tight ${nameTone(secondWins)}`} />} />
           </span>
         </span>
       </div>

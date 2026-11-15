@@ -251,16 +251,9 @@ export function withSelectedGroup(groups: TeamGroupWithTeams[], key: string): Te
   return extra ? [...groups, { ...extra, teams: [] }] : groups;
 }
 
-// Kurzname für Spielkarten (Rene, 15.11.2026: "beim Football ... damit sich
-// das in einer Zeile ausgeht", die Kästchen müssen gleich groß sein). NFL-
-// Teams stehen auf Matchcenter-Zeilen und Tippkarten nur mit dem Spitznamen
-// ("Chiefs" statt "Kansas City Chiefs"), wie bei ESPN oder der NFL-App: der
-// ist in der NFL eindeutig und immer ein Wort, so passt jeder Name am Handy
-// (auch 320 px) und am PC in eine Zeile, in voller Schriftgröße. Nur die 32
-// bekannten vollen Namen werden gekürzt, alles andere bleibt, wie es ist.
-// Im Spiel-Detail, in Tabellen und im Admin bleibt der volle Name.
-export function cardTeamName(sport: Sport, name: string): string {
-  if (sport !== "NFL" || !leagueFullKeys.NFL?.has(normalizeTeamName(name))) return name;
+/** NFL: "Kansas City Chiefs" → ["Kansas City", "Chiefs"], sonst null. */
+export function splitNflName(sport: Sport, name: string): [string, string] | null {
+  if (sport !== "NFL" || !leagueFullKeys.NFL?.has(normalizeTeamName(name))) return null;
   const words = name.trim().split(/\s+/);
-  return words[words.length - 1] || name;
+  return words.length > 1 ? [words.slice(0, -1).join(" "), words[words.length - 1]] : null;
 }

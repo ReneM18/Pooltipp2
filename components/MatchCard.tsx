@@ -29,7 +29,6 @@ import { SeasonCardWatermark } from "./SeasonDeco";
 import ShareTipButton from "./ShareTipCard";
 import type { ShareCardData } from "@/lib/shareCard";
 import Emoji from "@/components/Emoji";
-import { cardTeamName } from "@/lib/teamGroups";
 import { syncFitGroup } from "@/components/FitText";
 import { SPORT_BADGE, SPORT_BADGE_COLOR } from "@/lib/cardStyle";
 import { useLiveScore } from "@/lib/useLiveScores";
@@ -506,7 +505,7 @@ export default function MatchCard({
   // Spielverlauf, Rene, 15.10.2026).
   function boardSide(team: Team) {
     return {
-      name: cardTeamName(match.sport, team.name),
+      name: team.name,
       badge: (
         <TeamBadge
           sport={match.sport}
@@ -665,7 +664,7 @@ export default function MatchCard({
             size={stage ? 36 : 28}
           />
         </span>
-        <TeamLabel name={cardTeamName(match.sport, team.name)} inline="left" single big={stage} selected={selected} />
+        <TeamLabel name={team.name} inline="left" single big={stage} selected={selected} />
         {/* Getippt: "Dein Tipp" am gewählten Verein (Rene, 15.10.2026:
             Spieltag-Umbau). "Heim"/"Gast" entfällt, die Reihenfolge zeigt es
             (Rene, 29.10.2026: Tippkarte entschlacken). */}
@@ -1010,8 +1009,8 @@ export default function MatchCard({
                 pendingTip.predictedHomeScore,
                 pendingTip.predictedAwayScore,
                 isOneXTwo,
-                cardTeamName(match.sport, homeTeam.name),
-                cardTeamName(match.sport, awayTeam.name),
+                homeTeam.name,
+                awayTeam.name,
                 scoreText(order, pendingTip.predictedHomeScore, pendingTip.predictedAwayScore)
               )}
               points={pendingPoints}
@@ -1068,7 +1067,7 @@ export default function MatchCard({
             {/* Joker als eine Leiste kleiner Chips (Rene, 29.10.2026). */}
             {!tippingClosed && !isCancelled && (
               <div className="mb-3 flex flex-wrap justify-center gap-2 empty:hidden">
-                <TrendRow matchId={match.id} homeName={cardTeamName(match.sport, homeTeam.name)} awayName={cardTeamName(match.sport, awayTeam.name)} awayFirst={isUsSport} />
+                <TrendRow matchId={match.id} homeName={homeTeam.name} awayName={awayTeam.name} awayFirst={isUsSport} />
               </div>
             )}
 
@@ -1251,7 +1250,7 @@ export default function MatchCard({
                   isOneXTwo={isOneXTwo}
                 />
                 {!tippingClosed && (
-                  <TrendRow matchId={match.id} homeName={cardTeamName(match.sport, homeTeam.name)} awayName={cardTeamName(match.sport, awayTeam.name)} awayFirst={isUsSport} />
+                  <TrendRow matchId={match.id} homeName={homeTeam.name} awayName={awayTeam.name} awayFirst={isUsSport} />
                 )}
               </div>
             )}
@@ -1272,8 +1271,8 @@ export default function MatchCard({
                 tendency={tendency}
                 sport={match.sport}
                 order={order}
-                homeName={cardTeamName(match.sport, homeTeam.name)}
-                awayName={cardTeamName(match.sport, awayTeam.name)}
+                homeName={homeTeam.name}
+                awayName={awayTeam.name}
                 finalScore={finalScore}
                 myTip={myTip && !myTip.refunded ? { home: myTip.predictedHomeScore, away: myTip.predictedAwayScore } : null}
               />

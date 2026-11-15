@@ -5,7 +5,6 @@ import { displayOrder } from "@/lib/teamOrder";
 import { useAppData } from "@/lib/AppDataContext";
 import TeamBadge, { matchJerseyProps } from "./TeamBadge";
 import FitText from "./FitText";
-import { cardTeamName } from "@/lib/teamGroups";
 
 // Schmaler Streifen oben auf der Tipps-Seite für jedes Spiel, das gerade
 // läuft: Spielstand (live aus der Datenbank) und der eigene Tipp. Ein Klick
@@ -58,13 +57,13 @@ export default function LiveStrip({ items, onSelect }: { items: LiveItem[]; onSe
             </span>
             <span className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
               <span className="flex min-w-0 items-center justify-end gap-1.5">
-                <FitText text={cardTeamName(match.sport, left.name)} className="text-right font-display text-sm font-semibold leading-tight text-ink" />
+                <FitText text={left.name} className="text-right font-display text-sm font-semibold leading-tight text-ink" />
                 <TeamBadge sport={match.sport} {...matchJerseyProps(match, left, orderFor(match).awayFirst)} countryCode={left.countryCode} size={24} />
               </span>
               <span className="whitespace-nowrap font-display text-xl font-bold tabular-nums text-ink">{score}</span>
               <span className="flex min-w-0 items-center gap-1.5">
                 <TeamBadge sport={match.sport} {...matchJerseyProps(match, right, orderFor(match).awayFirst)} countryCode={right.countryCode} flip size={24} />
-                <FitText text={cardTeamName(match.sport, right.name)} className="font-display text-sm font-semibold leading-tight text-ink" />
+                <FitText text={right.name} className="font-display text-sm font-semibold leading-tight text-ink" />
               </span>
             </span>
           </button>
