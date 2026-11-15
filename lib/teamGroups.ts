@@ -250,3 +250,10 @@ export function withSelectedGroup(groups: TeamGroupWithTeams[], key: string): Te
   const extra = countryGroupByKey(key);
   return extra ? [...groups, { ...extra, teams: [] }] : groups;
 }
+
+/** NFL: "Kansas City Chiefs" → ["Kansas City", "Chiefs"], sonst null. */
+export function splitNflName(sport: Sport, name: string): [string, string] | null {
+  if (sport !== "NFL" || !leagueFullKeys.NFL?.has(normalizeTeamName(name))) return null;
+  const words = name.trim().split(/\s+/);
+  return words.length > 1 ? [words.slice(0, -1).join(" "), words[words.length - 1]] : null;
+}

@@ -39,7 +39,11 @@ export function syncFitGroup(el: HTMLElement, fittedPx: number) {
   }
   const group = el.closest("[data-fit-group]");
   if (!group) return;
-  const peers = Array.from(group.querySelectorAll<HTMLElement>("[data-fit-px]"));
+  // Nur direkte Mitglieder: Texte in einer inneren Gruppe (z. B. die kleine
+  // Stadt über dem NFL-Teamnamen) zählen nicht mit.
+  const peers = Array.from(group.querySelectorAll<HTMLElement>("[data-fit-px]")).filter(
+    (p) => p.parentElement?.closest("[data-fit-group]") === group,
+  );
   applyFitGroup(peers);
 }
 

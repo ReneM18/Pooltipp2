@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { SWIPE_EVENT, type SwipeDetail } from "@/components/SwipeNav";
 import AdBanner from "@/components/AdBanner";
 import FitText from "@/components/FitText";
+import { splitNflName } from "@/lib/teamGroups";
 import { StadiumIcon, TvIcon } from "@/components/Icons";
 import {
   appSideEvents,
@@ -1950,6 +1951,40 @@ interface RowStatus {
   muted?: boolean;
 }
 
+// NFL (Variante B, Rene 15.11.2026): voller Name in zwei Zeilen, die Stadt
+// klein darüber, der Teamname darunter ("Kansas City" / "Chiefs"). Jeder Name
+// passt so ohne Verkleinern, und alle NFL-Kästchen sind gleich hoch.
+function TeamNameStack({
+  sport,
+  name,
+  tone,
+  align = "left",
+  big = false,
+  fallback,
+}: {
+  sport: Sport;
+  name: string;
+  tone: string;
+  align?: "left" | "right";
+  big?: boolean;
+  fallback: ReactNode;
+}) {
+  const parts = splitNflName(sport, name);
+  if (!parts) return <>{fallback}</>;
+  return (
+    <span className={`flex min-w-0 flex-1 flex-col ${align === "right" ? "items-end text-right" : ""}`}>
+      {/* Eigene Gruppe: die Stadt wird für sich kleiner, nicht der Teamname. */}
+      <span data-fit-group className="block w-full min-w-0">
+        <FitText text={parts[0]} minPx={8} className={`w-full whitespace-nowrap text-[10px] leading-[12.5px] text-muted ${big ? "lg:text-[11px] lg:leading-[14px]" : ""}`} />
+      </span>
+      <FitText text={parts[1]} minPx={9} className={`w-full whitespace-nowrap ${big ? "text-[15px] leading-[19px]" : "leading-[17.5px]"} ${tone}`} />
+    </span>
+  );
+}
+
+// Kleinste Schrift für NFL-Namen in einer Zeile (siehe GameRow).
+const NFL_NAME_MIN_PX = 9;
+
 function rowStatus(sport: Sport, game: LiveGame, clockText: string | null): RowStatus {
   const s = game.statusShort.toUpperCase();
   const minute = game.elapsed !== null && game.elapsed > 0 ? `${game.elapsed}'` : undefined;
@@ -2080,6 +2115,15 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   // auf der Tippkarte (Rene, 28.10.2026).
   const awayFirst = link ? orderFor(link.match).awayFirst : liveAwayFirst(sport, game);
   const [firstName, secondName] = awayFirst ? [awayName, homeName] : [homeName, awayName];
+  // NFL: voller Name immer in einer Zeile (Rene, 15.11.2026: "damit sich
+  // das in einer Zeile ausgeht", aber nicht kürzen). Ist es zu eng, wird die
+  // Schrift kleiner statt umzubrechen, so bleiben alle Kästchen gleich hoch.
+  // Auf ganz schmalen Handys (unter 360 px) fallen die kleinen Helme in der
+  // Zeile weg, sonst bliebe neben "Tippen" kaum Platz für den Namen.
+  const oneLine = sport === "NFL";
+  const nameLines = oneLine ? undefined : 2;
+  const nameMinPx = oneLine ? NFL_NAME_MIN_PX : 12;
+  const nameNoWrap = oneLine ? "flex-1 whitespace-nowrap" : "";
   const [firstWins, secondWins] = awayFirst ? [awayWins, homeWins] : [homeWins, awayWins];
   const [firstScore, secondScore] = awayFirst ? [game.awayScore, game.homeScore] : [game.homeScore, game.awayScore];
   const [firstTeam, secondTeam] = awayFirst ? [awayTeam, homeTeam] : [homeTeam, awayTeam];
@@ -2101,7 +2145,11 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
   // Nur bei laufenden Spielen (kurze Minute wie "67'"): "morgen"/"gestern"
   // neben der Uhrzeit passt am Handy nicht ("02:15 morg…", Rene,
   // 12.11.2026), es steht immer ganz in einer eigenen Zeile unter der Zeit.
-  const inlineSub = statusSub && tv && status.dot && status.main.length <= 5 ? statusSub : null;
+  // Mit Sender rückt "morgen"/"gestern" zur Uhrzeit hinauf ("02:15 morgen"),
+  // damit der Sender zwei Zeilen hat und die Zeile trotzdem nicht höher wird
+  // (Rene, 15.11.2026: "wenn sich die TV-Sender nicht ausgehen, mit der
+  // Zeit raufrücken", die Kästchen müssen gleich groß sein).
+  const inlineSub = statusSub && tv && (!status.dot || status.main.length <= 5) ? statusSub : null;
 
   // Offenes Tippspiel: schmaler Balken "Tippen" rechts hinter der Zeile.
   // Vereinsnamen haben in jeder Zeile dieselbe Größe, lange Namen brechen
@@ -2125,7 +2173,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
       // (Rene, 03.11.2026: Abstände wirkten unruhig).
       // Am PC haben Zeilen ohne Balken rechts so viel Innenabstand, wie der
       // Balken breit ist: so steht das Ergebnis in jeder Zeile genau gleich.
-      className={`relative z-[1] flex min-h-[3.875rem] w-full flex-col justify-center overflow-hidden rounded-card border px-3 py-2 text-left lg:min-h-[3.6875rem] transition-[color,background-color,border-color,box-shadow] sm:pl-4 ${
+      className={`relative z-[1] flex min-h-[3.875rem] w-full flex-col justify-center overflow-hidden rounded-card border px-3 py-2 text-left max-[359px]:px-2 transition-[color,background-color,border-color,box-shadow] sm:pl-4 ${
         tipTab ? "" : "lg:pr-[4.375rem]"
       } ${tippedEdge ? "border-r-[2.5px] border-r-gold" : ""} ${
         moved ? "motion-safe:animate-lc-row-in" : ""
@@ -2137,13 +2185,15 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
               : "border-muted/25 bg-row hover:border-muted/50"
       }`}
     >
-      <div className="grid grid-cols-[4.75rem_1px_minmax(0,1fr)] items-center gap-x-2.5 text-sm">
+      {/* Zeit-Spalte 4px breiter, Abstände 2px schmaler: so passt "02:15
+          morgen" in eine Zeile, die Namen behalten ihren Platz (15.11.2026). */}
+      <div className="grid grid-cols-[5rem_1px_minmax(0,1fr)] items-center gap-x-2 text-sm max-[359px]:gap-x-1.5">
         {/* Feste Breite, nichts läuft in die Namen (Rene, 16.10.2026):
             Zeile 1 groß/fett, Zeile 2 klein muted. */}
         {/* Zwei Zeilen (Zeit, Sender) mit knappem Abstand, damit
             die Zeile nicht höher wird als die anderen. */}
-        <span className={`flex w-[4.75rem] min-w-0 flex-col gap-0.5 overflow-hidden tabular-nums`}>
-          <span className={`flex min-w-0 items-center gap-1 text-[13px] font-semibold leading-tight ${status.muted ? "text-muted" : "text-ink"}`}>
+        <span className={`flex w-[5rem] min-w-0 flex-col gap-0.5 overflow-hidden tabular-nums`}>
+          <span className={`flex min-w-0 items-center gap-[3px] text-[13px] font-semibold leading-tight ${status.muted ? "text-muted" : "text-ink"}`}>
             {status.dot && <StateDot state={status.dot} />}
             <span className={`min-w-0 ${inlineSub ? "shrink-0" : "truncate"}`}>{status.main}</span>
             {/* Mit Sender darunter steht der Zusatz in derselben Zeile
@@ -2155,13 +2205,16 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           {statusSub && !inlineSub && (!tv || !status.dot) && <span className="whitespace-nowrap text-[10px] leading-tight text-muted">{statusSub}</span>}
           {/* Sender unter der Uhrzeit (Rene, 28.10.2026). */}
           {tv && (
-            <span className="flex min-w-0 items-start gap-1 text-[10px] font-medium leading-tight text-muted" title={tv}>
-              <TvIcon className="h-3 w-3 shrink-0" />
+            // Das Symbol steht im Text, die zweite Zeile beginnt ganz links:
+            // so reichen zwei Zeilen auch für "ProSieben MAXX, DAZN" und die
+            // Zeile bleibt so hoch wie die anderen (Rene, 15.11.2026).
+            <span className="block min-w-0 text-[10px] font-medium leading-tight text-muted" title={tv}>
+              <TvIcon className="mr-1 inline-block h-3 w-3 align-[-2px]" />
               {/* Sender nie abschneiden, sondern in die nächste Zeile
                   umbrechen ("RTL, / DAZN" statt "RTL, DAZ...", Rene,
                   29.10.2026), am Handy und am PC. Breiter machen ging nicht:
                   dann werden lange Vereinsnamen abgeschnitten. */}
-              <span className="min-w-0 break-words">{tv}</span>
+              <span className="break-words">{tv}</span>
             </span>
           )}
         </span>
@@ -2177,12 +2230,12 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           className={`grid min-w-0 ${endNote ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]"} grid-rows-[auto_auto] items-center gap-x-2 gap-y-0.5 lg:hidden`}
         >
           <span className="col-start-1 row-start-1 flex min-w-0 items-center gap-1.5">
-            <span className="flex shrink-0">{jersey(firstTeam, firstSide, 18)}</span>
-            <FitText text={firstName} maxLines={2} minPx={12} className={`leading-tight ${nameTone(firstWins)}`} />
+            <span className="flex shrink-0 max-[359px]:hidden">{jersey(firstTeam, firstSide, 18)}</span>
+            <TeamNameStack sport={sport} name={firstName} tone={nameTone(firstWins)} fallback={<FitText text={firstName} maxLines={nameLines} minPx={nameMinPx} className={`${nameNoWrap} leading-tight ${nameTone(firstWins)}`} />} />
           </span>
           <span className="col-start-1 row-start-2 flex min-w-0 items-center gap-1.5">
-            <span className="flex shrink-0">{jersey(secondTeam, secondSide, 18)}</span>
-            <FitText text={secondName} maxLines={2} minPx={12} className={`leading-tight ${nameTone(secondWins)}`} />
+            <span className="flex shrink-0 max-[359px]:hidden">{jersey(secondTeam, secondSide, 18)}</span>
+            <TeamNameStack sport={sport} name={secondName} tone={nameTone(secondWins)} fallback={<FitText text={secondName} maxLines={nameLines} minPx={nameMinPx} className={`${nameNoWrap} leading-tight ${nameTone(secondWins)}`} />} />
           </span>
           <span
             className={`${endNote ? "col-start-3" : "col-start-2"} row-span-2 row-start-1 grid grid-rows-subgrid rounded-md font-display text-[15px] font-bold leading-tight tabular-nums transition-colors duration-700 ${
@@ -2214,7 +2267,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
             (Rene, 13.11.2026: "mach es einheitlich"). */}
         <span className="hidden min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-3 lg:grid">
           <span className="flex min-w-0 items-center justify-end gap-2">
-            <FitText text={firstName} maxLines={2} minPx={12} name="mc-pc-namen" className={`text-right text-[15px] leading-tight ${nameTone(firstWins)}`} />
+            <TeamNameStack sport={sport} name={firstName} tone={nameTone(firstWins)} align="right" big fallback={<FitText text={firstName} maxLines={nameLines} minPx={nameMinPx} name={oneLine ? undefined : "mc-pc-namen"} className={`${nameNoWrap} text-right text-[15px] leading-tight ${nameTone(firstWins)}`} />} />
             <span className="flex shrink-0">{jersey(firstTeam, firstSide, 20)}</span>
           </span>
           {/* Ergebnisfeld bleibt in jeder Zeile gleich, Tippen/Getippt steht
@@ -2233,7 +2286,7 @@ function GameRow({ sport, game, dataAt = 0, links, isTipped, canTip, selectedId,
           </span>
           <span className="flex min-w-0 items-center gap-2">
             <span className="flex shrink-0">{jersey(secondTeam, secondSide, 20)}</span>
-            <FitText text={secondName} maxLines={2} minPx={12} name="mc-pc-namen" className={`text-[15px] leading-tight ${nameTone(secondWins)}`} />
+            <TeamNameStack sport={sport} name={secondName} tone={nameTone(secondWins)} align="left" big fallback={<FitText text={secondName} maxLines={nameLines} minPx={nameMinPx} name={oneLine ? undefined : "mc-pc-namen"} className={`${nameNoWrap} text-[15px] leading-tight ${nameTone(secondWins)}`} />} />
           </span>
         </span>
       </div>
