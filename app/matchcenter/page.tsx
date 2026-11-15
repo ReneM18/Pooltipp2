@@ -3289,9 +3289,9 @@ const TOURS = [
   ["wta", "WTA Damen"],
 ] as const;
 
-function TourPills({ tour, onChange }: { tour: "atp" | "wta"; onChange: (t: "atp" | "wta") => void }) {
+function TourPills({ tour, onChange, className = "mb-3" }: { tour: "atp" | "wta"; onChange: (t: "atp" | "wta") => void; className?: string }) {
   return (
-    <div className="mb-3 flex gap-2" role="tablist" aria-label="Tour">
+    <div className={`flex gap-2 ${className}`} role="tablist" aria-label="Tour">
       {TOURS.map(([id, label]) => (
         <button
           key={id}
@@ -3363,58 +3363,68 @@ function TennisPlanView({
   const [tour, setTour] = useState<"atp" | "wta">("atp");
   const data = useTennisList<TennisPlanGame>("plan", tour);
   const rows = (data?.rows ?? []).filter((g) => !isMinorTournament(g.tournament) && g.start > now - 3 * 3600e3);
-  const days: { day: string; groups: { name: string; games: TennisPlanGame[] }[] }[] = [];
+  // Spielplan nach Tagen wie bei den anderen Sportarten (Rene, 15.11.2026:
+  // "du hast überall Heute, Morgen usw. und bei Tennis gibt's das gar
+  // nicht"): oben ‹ Tag › mit Pfeilen, darunter die Turniere dieses Tages,
+  // getrennt durch den feinen Strich. Geblättert wird von heute bis zum
+  // letzten Tag mit Spielen.
+  const today = viennaCalendarDay(now);
+  const playDays = Array.from(new Set(rows.map((g) => viennaCalendarDay(g.start)))).sort();
+  const first = playDays[0] && playDays[0] < today ? playDays[0] : today;
+  const last = playDays[playDays.length - 1] && playDays[playDays.length - 1] > today ? playDays[playDays.length - 1] : today;
+  const [pickedDay, setPickedDay] = useState<string | null>(null);
+  const day = pickedDay && pickedDay >= first && pickedDay <= last ? pickedDay : today;
+  const groups: { name: string; games: TennisPlanGame[] }[] = [];
   for (const g of rows) {
-    const day = viennaCalendarDay(g.start);
-    let d = days.find((x) => x.day === day);
-    if (!d) days.push((d = { day, groups: [] }));
-    let grp = d.groups.find((x) => x.name === g.tournament);
-    if (!grp) d.groups.push((grp = { name: g.tournament, games: [] }));
+    if (viennaCalendarDay(g.start) !== day) continue;
+    let grp = groups.find((x) => x.name === g.tournament);
+    if (!grp) groups.push((grp = { name: g.tournament, games: [] }));
     grp.games.push(g);
   }
-  days.forEach((d) => d.groups.sort((a, b) => tournamentRank(a.name, tour) - tournamentRank(b.name, tour)));
+  groups.sort((a, b) => tournamentRank(a.name, tour) - tournamentRank(b.name, tour));
+  groups.forEach((x) => x.games.sort((a, b) => a.start - b.start));
   return (
     <div>
-      <TourPills tour={tour} onChange={setTour} />
+      {/* Kopf wie beim Fußball: Tour und Tag in einer Leiste, am PC nebeneinander. */}
+      <div className="mb-3 flex flex-col gap-2 border-b border-edge pb-3 lg:flex-row lg:items-center">
+        <TourPills tour={tour} onChange={setTour} className="" />
+        <DayNav date={day} now={now} canBack={day > first} canAhead={day < last} onPick={(n) => setPickedDay(addDays(day, n))} />
+      </div>
       {data === null ? (
         <p className="py-8 text-center text-sm text-muted">Spielplan wird geladen …</p>
-      ) : days.length === 0 ? (
+      ) : groups.length === 0 ? (
         <EmptyState
           emoji="🗓️"
-          title="Keine Spiele im Spielplan"
-          text={data.error ?? "Für die nächsten Tage stehen noch keine Spiele fest."}
+          title={rows.length === 0 ? "Keine Spiele im Spielplan" : "Keine Spiele an diesem Tag"}
+          text={
+            rows.length === 0
+              ? data.error ?? "Für die nächsten Tage stehen noch keine Spiele fest."
+              : day < last
+                ? "An diesem Tag ist bei den großen Turnieren nichts los. Mit den Pfeilen zum nächsten Tag."
+                : "Weitere Spiele stehen noch nicht fest."
+          }
           className="border-none bg-transparent"
         />
       ) : (
-        <div className="flex flex-col gap-5">
-          {days.map((d) => (
-            <div key={d.day}>
-              <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-muted">
-                {relativeDayLabel(d.day, now) ??
-                  new Date(d.groups[0].games[0].start).toLocaleDateString("de-DE", { weekday: "long", day: "2-digit", month: "2-digit", timeZone: "Europe/Vienna" })}
+        <div className={TOURNAMENT_LIST}>
+          {groups.map((grp) => (
+            <div key={grp.name} className={TOURNAMENT_ITEM}>
+              <p className="mb-2 flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+                <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-row text-[14px]">🏆</span>
+                <span className="min-w-0 break-words">{grp.name}</span>
+                <PointsTag name={grp.name} tour={tour} />
               </p>
-              <div className={TOURNAMENT_LIST}>
-                {d.groups.map((grp) => (
-                  <div key={grp.name} className={TOURNAMENT_ITEM}>
-                    <p className="mb-2 flex items-center gap-2 font-display text-[15px] font-bold text-ink">
-                      <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-row text-[14px]">🏆</span>
-                      <span className="min-w-0 break-words">{grp.name}</span>
-                      <PointsTag name={grp.name} tour={tour} />
-                    </p>
-                    <div className={TENNIS_GRID}>
-                      {grp.games.map((g) => (
-                        <TennisPlanRow
-                          key={g.id}
-                          g={g}
-                          tip={tipFor(g) ?? undefined}
-                          tipped={tipped.has(tipFor(g)?.id ?? "")}
-                          now={now}
-                          selected={selected === `plan:${g.id}`}
-                          onSelect={() => onSelect(g, tour)}
-                        />
-                      ))}
-                    </div>
-                  </div>
+              <div className={TENNIS_GRID}>
+                {grp.games.map((g) => (
+                  <TennisPlanRow
+                    key={g.id}
+                    g={g}
+                    tip={tipFor(g) ?? undefined}
+                    tipped={tipped.has(tipFor(g)?.id ?? "")}
+                    now={now}
+                    selected={selected === `plan:${g.id}`}
+                    onSelect={() => onSelect(g, tour)}
+                  />
                 ))}
               </div>
             </div>
