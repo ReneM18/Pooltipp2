@@ -3057,7 +3057,19 @@ function TennisCenter({ switcher }: { switcher: React.ReactNode }) {
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start xl:grid-cols-[minmax(0,1fr)_460px]">
       <div className="min-w-0 lg:rounded-card lg:border lg:border-muted/40 lg:bg-surface lg:p-4 lg:shadow-[0_10px_30px_-14px_rgba(0,0,0,0.9)]">
       {view === "plan" ? (
-        <TennisPlanView now={now} tipFor={tipFor} tipped={tipped} selected={isDesktop ? selected : null} onSelect={(g, tour) => choose({ kind: "plan", g, tour })} />
+        <TennisPlanView
+          now={now}
+          plans={[
+            ["atp", planAtp],
+            ["wta", planWta],
+          ]}
+          liveGames={liveGames}
+          tipFor={tipFor}
+          tipped={tipped}
+          selected={isDesktop ? selected : null}
+          onSelect={(g, tour) => choose({ kind: "plan", g, tour })}
+          onSelectLive={selectLive}
+        />
       ) : view === "rang" ? (
         <TennisRankView tour={rankTour} onTour={setRankTour} />
       ) : (
@@ -3289,9 +3301,9 @@ const TOURS = [
   ["wta", "WTA Damen"],
 ] as const;
 
-function TourPills({ tour, onChange, className = "mb-3" }: { tour: "atp" | "wta"; onChange: (t: "atp" | "wta") => void; className?: string }) {
+function TourPills({ tour, onChange }: { tour: "atp" | "wta"; onChange: (t: "atp" | "wta") => void }) {
   return (
-    <div className={`flex gap-2 ${className}`} role="tablist" aria-label="Tour">
+    <div className="mb-3 flex gap-2" role="tablist" aria-label="Tour">
       {TOURS.map(([id, label]) => (
         <button
           key={id}
@@ -3349,56 +3361,77 @@ function TennisFlag({ code, size = 18 }: { code: string | null; size?: number })
 // Spielplan: kommende Spiele der Tour nach Tag und Turnier (ITF ausgeblendet).
 function TennisPlanView({
   now,
+  plans,
+  liveGames,
   tipFor,
   tipped,
   selected,
   onSelect,
+  onSelectLive,
 }: {
   now: number;
+  plans: readonly (readonly ["atp" | "wta", TennisListResponse<TennisPlanGame> | null])[];
+  liveGames: TennisLiveGame[];
   tipFor: (g: TennisPlanGame) => Match | null;
   tipped: Set<string>;
   selected: string | null;
   onSelect: (g: TennisPlanGame, tour: "atp" | "wta") => void;
+  onSelectLive: (id: string) => void;
 }) {
-  const [tour, setTour] = useState<"atp" | "wta">("atp");
-  const data = useTennisList<TennisPlanGame>("plan", tour);
-  const rows = (data?.rows ?? []).filter((g) => !isMinorTournament(g.tournament) && g.start > now - 3 * 3600e3);
   // Spielplan nach Tagen wie bei den anderen Sportarten (Rene, 15.11.2026:
   // "du hast überall Heute, Morgen usw. und bei Tennis gibt's das gar
   // nicht"): oben ‹ Tag › mit Pfeilen, darunter die Turniere dieses Tages,
   // getrennt durch den feinen Strich. Geblättert wird von heute bis zum
   // letzten Tag mit Spielen.
+  // Herren und Damen zusammen, und "Heute" zeigt genau dieselben Spiele wie
+  // der Reiter "Heute" (Rene, 15.11.2026: "warum sind im Spielplan weniger
+  // Spiele als bei Heute"): laufende Spiele aus dem Live-Feed, dazu die
+  // kommenden aus dem Spielplan. Vorher stand nur eine Tour (ATP oder WTA)
+  // und laufende Spiele fehlten, weil der Spielplan sie nicht mehr liefert.
   const today = viennaCalendarDay(now);
-  const playDays = Array.from(new Set(rows.map((g) => viennaCalendarDay(g.start)))).sort();
-  const first = playDays[0] && playDays[0] < today ? playDays[0] : today;
+  const loading = plans.some(([, d]) => d === null);
+  const rows: { tour: "atp" | "wta"; g: TennisPlanGame }[] = [];
+  for (const [tour, data] of plans) {
+    for (const g of data?.rows ?? []) {
+      if (isMinorTournament(g.tournament)) continue;
+      // Wie unter "Heute": was vor mehr als 30 Min. begonnen hat und nicht
+      // live läuft, ist vorbei; was live läuft, steht als Live-Zeile da.
+      if (g.start < now - 30 * 60e3 || findLiveFor(liveGames, g.player1, g.player2)) continue;
+      if (rows.some((x) => x.g.start === g.start && x.g.player1 === g.player1 && x.g.player2 === g.player2)) continue;
+      rows.push({ tour, g });
+    }
+  }
+  const playDays = Array.from(new Set(rows.map((x) => viennaCalendarDay(x.g.start)))).sort();
   const last = playDays[playDays.length - 1] && playDays[playDays.length - 1] > today ? playDays[playDays.length - 1] : today;
   const [pickedDay, setPickedDay] = useState<string | null>(null);
-  const day = pickedDay && pickedDay >= first && pickedDay <= last ? pickedDay : today;
-  const groups: { name: string; games: TennisPlanGame[] }[] = [];
-  for (const g of rows) {
-    if (viennaCalendarDay(g.start) !== day) continue;
-    let grp = groups.find((x) => x.name === g.tournament);
-    if (!grp) groups.push((grp = { name: g.tournament, games: [] }));
-    grp.games.push(g);
-  }
-  groups.sort((a, b) => tournamentRank(a.name, tour) - tournamentRank(b.name, tour));
+  const day = pickedDay && pickedDay >= today && pickedDay <= last ? pickedDay : today;
+  type Group = { name: string; tour: string; live: TennisLiveGame[]; games: TennisPlanGame[] };
+  const groups: Group[] = [];
+  const groupFor = (name: string, tour: string): Group => {
+    let grp = groups.find((x) => x.name === name && x.tour === tour);
+    if (!grp) groups.push((grp = { name, tour, live: [], games: [] }));
+    return grp;
+  };
+  if (day === today) for (const g of liveGames) groupFor(g.tournament, g.tour).live.push(g);
+  for (const { tour, g } of rows) if (viennaCalendarDay(g.start) === day) groupFor(g.tournament, tour).games.push(g);
+  groups.sort((a, b) => tournamentRank(a.name, a.tour) - tournamentRank(b.name, b.tour) || a.name.localeCompare(b.name));
   groups.forEach((x) => x.games.sort((a, b) => a.start - b.start));
+  const failed = plans.every(([, d]) => d && !d.ok);
   return (
     <div>
-      {/* Kopf wie beim Fußball: Tour und Tag in einer Leiste, am PC nebeneinander. */}
-      <div className="mb-3 flex flex-col gap-2 border-b border-edge pb-3 lg:flex-row lg:items-center">
-        <TourPills tour={tour} onChange={setTour} className="" />
-        <DayNav date={day} now={now} canBack={day > first} canAhead={day < last} onPick={(n) => setPickedDay(addDays(day, n))} />
+      {/* Kopf wie beim Fußball: ‹ Tag › mit Pfeilen, darunter ein Strich. */}
+      <div className="mb-3 flex flex-col gap-2 border-b border-edge pb-3 lg:flex-row">
+        <DayNav date={day} now={now} canBack={day > today} canAhead={day < last} onPick={(n) => setPickedDay(addDays(day, n))} />
       </div>
-      {data === null ? (
+      {loading && groups.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted">Spielplan wird geladen …</p>
       ) : groups.length === 0 ? (
         <EmptyState
           emoji="🗓️"
-          title={rows.length === 0 ? "Keine Spiele im Spielplan" : "Keine Spiele an diesem Tag"}
+          title={rows.length === 0 && liveGames.length === 0 ? "Keine Spiele im Spielplan" : "Keine Spiele an diesem Tag"}
           text={
-            rows.length === 0
-              ? data.error ?? "Für die nächsten Tage stehen noch keine Spiele fest."
+            failed
+              ? plans.find(([, d]) => d?.error)?.[1]?.error ?? "Tennis-Daten gerade nicht erreichbar."
               : day < last
                 ? "An diesem Tag ist bei den großen Turnieren nichts los. Mit den Pfeilen zum nächsten Tag."
                 : "Weitere Spiele stehen noch nicht fest."
@@ -3408,13 +3441,16 @@ function TennisPlanView({
       ) : (
         <div className={TOURNAMENT_LIST}>
           {groups.map((grp) => (
-            <div key={grp.name} className={TOURNAMENT_ITEM}>
-              <p className="mb-2 flex items-center gap-2 font-display text-[15px] font-bold text-ink">
+            <div key={`${grp.tour}-${grp.name}`} className={TOURNAMENT_ITEM}>
+              <p className="mb-2 flex flex-wrap items-center gap-2 font-display text-[16px] font-bold text-ink">
                 <span aria-hidden className="flex h-7 w-7 items-center justify-center rounded-full bg-row text-[14px]">🏆</span>
                 <span className="min-w-0 break-words">{grp.name}</span>
-                <PointsTag name={grp.name} tour={tour} />
+                <PointsTag name={grp.name} tour={grp.tour} />
               </p>
               <div className={TENNIS_GRID}>
+                {grp.live.map((g) => (
+                  <TennisLiveRow key={g.id} game={g} selected={selected === `live:${g.id}`} onSelect={() => onSelectLive(g.id)} />
+                ))}
                 {grp.games.map((g) => (
                   <TennisPlanRow
                     key={g.id}
@@ -3423,7 +3459,7 @@ function TennisPlanView({
                     tipped={tipped.has(tipFor(g)?.id ?? "")}
                     now={now}
                     selected={selected === `plan:${g.id}`}
-                    onSelect={() => onSelect(g, tour)}
+                    onSelect={() => onSelect(g, grp.tour === "wta" ? "wta" : "atp")}
                   />
                 ))}
               </div>
