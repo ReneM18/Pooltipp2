@@ -2,8 +2,8 @@
 // - ISO-3166-1-alpha-2, z. B. "DE" -> 🇩🇪 (funktioniert automatisch für jeden Code)
 // - Britische Landesteile mit eigener Nationalmannschaft, z. B. "GB-ENG" -> 🏴󠁧󠁢󠁥󠁮󠁧󠁿
 // - Regionen mit eigenem Fußballteam ohne Staat, z. B. "ES-PV" (Baskenland)
-//   (England, Schottland, Wales haben eigene Emoji-Flaggen; Nordirland hat keine
-//   offizielle und zeigt deshalb die britische Flagge).
+//   (England, Schottland, Wales haben eigene Emoji-Flaggen; Nordirland hat kein
+//   Emoji und zeigt die Ulster-Flagge als Bild, Rene 18.11.2026).
 export function flagEmoji(countryCode: string): string {
   const code = (countryCode ?? "").toUpperCase();
   if (code.startsWith("GB-")) {
@@ -15,7 +15,10 @@ export function flagEmoji(countryCode: string): string {
         .join("");
       return "\u{1F3F4}" + tags + "\u{E007F}";
     }
-    return flagEmoji("GB");
+    // Nordirland (Rene, 18.11.2026): nicht mehr die britische Flagge, sondern
+    // die Ulster-Flagge (rotes Kreuz, Stern mit roter Hand, Krone). Kein
+    // Emoji, darum wie Baskenland unten als Tag-Flagge und immer als Bild.
+    if (region !== "NIR") return flagEmoji("GB");
   }
   // Regionen mit eigener Auswahl, aber ohne Emoji (Baskenland "ES-PV",
   // Katalonien "ES-CT", Galicien "ES-GA", Rene 14.11.2026): als Unicode-
