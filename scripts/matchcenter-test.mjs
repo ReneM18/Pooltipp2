@@ -192,6 +192,9 @@ console.log("Entwurf-Hinweis: alle Tests bestanden");
   assert.equal(nationalKitTeam("Fußball", "Basque Country")?.countryCode, "ES-PV");
   assert.equal(nationalKitTeam("Fußball", "Athletic Club"), undefined);
   assert.equal(flagEmoji("ES-PV"), "\u{1F3F4}\u{E0065}\u{E0073}\u{E0070}\u{E0076}\u{E007F}");
-  assert.equal(flagEmoji("GB-NIR"), flagEmoji("GB"));
+  // Nordirland: Ulster-Flagge (Bild gb-nir.svg), nicht die britische.
+  assert.equal(flagEmoji("GB-NIR"), "\u{1F3F4}\u{E0067}\u{E0062}\u{E006E}\u{E0069}\u{E0072}\u{E007F}");
+  assert.notEqual(flagEmoji("GB-NIR"), flagEmoji("GB"));
+  assert.equal(nationalKitTeam("Fußball", "Northern Ireland")?.countryCode, "GB-NIR");
   console.log("Länderspiel-Zuordnung: alle Tests bestanden");
 }

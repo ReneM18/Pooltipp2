@@ -610,7 +610,7 @@ function LiveMatchCheck({
                 <span className="text-muted">
                   {" "}
                   · {league!.label}
-                  {league!.country ? ` ${flagEmoji(league!.country)}` : ""}
+                  {league!.country ? <> <Emoji e={flagEmoji(league!.country)} /></> : ""}
                 </span>
                 <span className="block">{body}</span>
               </li>
